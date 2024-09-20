@@ -1,0 +1,12 @@
+[package]
+name = "libdwata_rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { version = "0.4.38", features = ["serde"] }
+env_logger = "0.11.5"
+log = "0.4.22"
+petgraph = "0.6.5"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
