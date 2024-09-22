@@ -5,16 +5,8 @@
 //
 // https://www.pixlie.com/ai/license
 
-use serde::Deserialize;
+pub struct Organization {
+    pub id: Option<u32>,
 
-pub mod engine;
-pub mod entity;
-pub mod error;
-pub mod graph;
-pub mod llm;
-
-#[derive(Debug, Deserialize)]
-pub struct GraphEntity {
-    pub entity_type: String,
-    pub matching_text: String,
+    pub name: String,
 }

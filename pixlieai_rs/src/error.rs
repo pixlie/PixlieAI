@@ -1,66 +1,23 @@
+// Copyright 2024 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the Business Source License 1.1 (the "License");
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.pixlie.com/ai/license
+
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub enum LibDwataError {
-    // RocksDB for Dwata
-    CouldNotCreateDwataDB,
-    CouldNotConnectToDwataDB,
-    CouldNotInsertToDwataDB,
-    CouldNotUpdateDwataDB,
-    CouldNotFetchDataFromDwataDB,
-    CouldNotMigrateDwataDB,
+pub enum PixlieAIError {}
 
-    // AI providers/models/features
-    InvalidAIModel,
-    CouldNotConnectToAIProvider,
-    CouldNotGenerateEmbedding,
-    FeatureNotAvailableWithAIProvider,
-    InvalidProcessStatus,
-
-    // Chat and its processing related
-    ChatHasNoMessage,
-    NoRequestedAIModel,
-    BeingProcessedByAI,
-    AlreadyProcessedByAI,
-    ChatHasNoRootId,
-    ToolUseNotSupported,
-
-    // Integrated vector DB
-    CouldNotConnectToVectorDB,
-
-    // Chat context related
-    CouldNotFindNode,
-
-    // Directory related
-    CouldNotOpenDirectory,
-
-    // Task and app state related
-    InvalidTaskStatus,
-    TaskHasRunRecently,
-    AppStateNotFound,
-
-    // API requests related
-    CouldNotConnectToAPI,
-
-    // Enum related
-    CouldNotParseEnum,
-
-    // Search related
-    CouldNotCreateSearchIndex,
-    SearchIndexDoesNotExist,
-    CouldNotOpenSearchIndex,
-    CouldNotParseSearchQuery,
-    CouldNotSearchTheIndex,
-}
-
-impl Error for LibDwataError {
+impl Error for PixlieAIError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         None
     }
 }
 
-impl std::fmt::Display for LibDwataError {
+impl std::fmt::Display for PixlieAIError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
