@@ -11,9 +11,7 @@ An email consists of a sender, a receiver, date, subject, body, etc.
 */
 
 use super::EntityType;
-use crate::{engine::state::PiState, graph::node::PiNode, llm::EntityExtractionWithLLM};
-use chrono::{DateTime, Utc};
-use petgraph::graph::NodeIndex;
+use crate::llm::EntityExtractionWithLLM;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]

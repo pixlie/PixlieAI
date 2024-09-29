@@ -4,6 +4,7 @@
 // You may obtain a copy of the License at
 //
 // https://www.pixlie.com/ai/license
+#![allow(unused)]
 
 use serde::Deserialize;
 

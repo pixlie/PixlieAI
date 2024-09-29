@@ -79,7 +79,7 @@ where
 
     let prompt: String = format!(
         r#"
-Analyze the following {} and extract relevant entities.
+You are a data analyst who is helping me extract named entities from my data.
 Present the extracted information in CSV format with the following structure:
 
 Entity_Type,Matched_Text
@@ -87,16 +87,24 @@ Entity_Type,Matched_Text
 Use these Entity_Types:
 {}
 
-Only list rows that have clear Entity_Type. Double quote the Matched_Text.
 Do not add prelude to the output.
 
-Here is an example {}:
+-------------------------------------------------
+
+Example {}:
 {}
+
+-------------------------------------------------
 
 Here are the extracted entities:
 {}
+
+Analyze the following email and extract relevant entities.
+
+-------------------------------------------------
+
+{}
 "#,
-        payload_content_type,
         entity_types
             .iter()
             .map(|x| x.to_string())
@@ -109,6 +117,7 @@ Here are the extracted entities:
             .map(|x| format!("{},{}", x.0.to_string(), x.1.to_string()))
             .collect::<Vec<String>>()
             .join("\n"),
+        payload.get_payload()
     );
 
     // info!("Prompt: {}", prompt);
