@@ -2,13 +2,23 @@
 graph + ai in your products; reduce costs and get correct answers from your data
 
 ## What is Pixlie AI?
-Pixlie AI is a framework to create applications that use a graph + LLM (Large Language Model) approach
+Pixlie AI is a framework to create applications that use a graph + S/LLM (Small/Large Language Model) approach
 to semantic search, knowledge base, question/answering, and more.
-Pixlie AI is batteries included and ready to use out of the box.
 
-Create a knowledge graph from your data and use large language models to extract entities and relationships.
-The extracted entities and relationships are then inserted into the graph, enriching the data already in there.
-This allows for a very well connected view of your data, which dramatically improves the correctness of answers.
+These are some high level bullet points that highlight our approach to the problems and kind of solutions we want to bring about:
+- We are building a system that would "**understand your data**" very well
+- Our approach, with Pixlie AI, is to create a **knowledge graph on your data**
+- Pixlie AI is **source available**, *converts to open source* 2 years after each release - **no vendor lock in**
+- We are **not** trying to be a **generic AI solution** which can deliver answers to every question out there
+- Pixlie AI aims to give **accurate answers** where **semantics** matter (meaning and relation of things)
+- **Fast, reliable and low cost** - use Rust, deterministic cache, small language models, NLP tools, efficient storage, memory and compute management
+- Large (and Small) Language Models help **extract entities** (people, places, events, time, tasks,...) from data
+- Pixlie AI graph can manage **millions of entities**, 100s of millions of relations to hold semantics of data
+- **Input question** translated to graph operations (using S/L LMs) and answered
+- **Internal router** to guess model performance for given task - small models can further lower time and financial costs
+- Output **answer has entity labels** (person, place, time,...) which can help in better UX and further workflow
+
+Pixlie AI is being build as batteries-included and ready to use out of the box for majority of use-cases. Like Redis, or PostgreSQL.
 
 ## What does this solve?
 Ever had a conversation with an LLM and saw that the answers are not always correct?
