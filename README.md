@@ -38,5 +38,5 @@ Pixlie AI takes care of:
 
 ## Can I use Pixlie AI to power my product?
 Yes! you can use Pixlie AI to power your SaaS or desktop applications.
-There is no restriction except unless you are compete with our paid service(s).
+There is no restriction except unless you are competing with our paid service(s).
 Please see the [LICENSE](LICENSE) file for details.
