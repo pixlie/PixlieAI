@@ -8,11 +8,12 @@
 
 use serde::Deserialize;
 
+pub mod config;
 pub mod engine;
 pub mod entity;
 pub mod error;
 pub mod graph;
-pub mod llm;
+pub mod provider;
 
 #[derive(Debug, Deserialize)]
 pub struct GraphEntity {

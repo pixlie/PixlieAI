@@ -20,6 +20,7 @@ pub mod content;
 pub mod email;
 pub mod organization;
 pub mod people;
+pub mod startup;
 
 #[derive(Clone, EnumString, Display, Hash, PartialEq, Eq)]
 pub enum EntityType {
@@ -42,6 +43,17 @@ pub enum EntityType {
     Mailbox,
     Email,
     Link,
+
+    // Related to startups, funding, PR news, etc.
+    Funding,
+    PreviousFunding,
+    TotalFunding,
+    Valuation,
+    FundingStage,
+    Investor,
+    Product,
+    Industry,
+    Founder,
 }
 
 pub struct ExtractedEntity {

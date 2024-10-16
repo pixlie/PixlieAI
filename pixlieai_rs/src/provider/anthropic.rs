@@ -5,9 +5,10 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{EntityExtractionWithLLM, LLMProvider, LargeLanguageModel};
+use super::{EntityExtraction, LLMProvider, LargeLanguageModel};
 use crate::{
     entity::{EntityType, ExtractedEntity},
+    provider::extract_entites_from_lines,
     GraphEntity,
 };
 use log::{error, info};
@@ -67,60 +68,38 @@ pub struct ClaudeChatMessage {
     pub content: String,
 }
 
-pub async fn extract_entities_from_email_with_llm<T>(payload: &T) -> Vec<ExtractedEntity>
+pub async fn extract_entities<T>(payload: &T, api_key: &str) -> Vec<ExtractedEntity>
 where
-    T: EntityExtractionWithLLM,
+    T: EntityExtraction,
 {
-    let payload_content_type = payload.get_payload_content_type();
-    let entity_types = payload.get_extractable_entity_types();
-    let example_text = payload.get_example_text();
-    let example_extractions = payload.get_example_extractions();
-    let mut entities: Vec<ExtractedEntity> = vec![];
+    let mut extracted: Vec<ExtractedEntity> = vec![];
 
     let prompt: String = format!(
         r#"
 You are a data analyst who is helping me extract named entities from my data.
-Present the extracted information in CSV format with the following structure:
+Reply in CSV format only with these headings:
 
-Entity_Type,Matched_Text
+EntityType,MatchedText
 
-Use these Entity_Types:
+Use these as possible EntityType:
 {}
 
-Do not add prelude to the output.
-
--------------------------------------------------
-
-Example {}:
-{}
-
--------------------------------------------------
-
-Here are the extracted entities:
-{}
-
-Analyze the following email and extract relevant entities.
+Exctract EntityType and MatchingText from the following:
 
 -------------------------------------------------
 
 {}
 "#,
-        entity_types
+        payload
+            .get_labels()
             .iter()
             .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n"),
-        payload_content_type,
-        example_text,
-        example_extractions
-            .iter()
-            .map(|x| format!("{},{}", x.0.to_string(), x.1.to_string()))
             .collect::<Vec<String>>()
             .join("\n"),
         payload.get_payload()
     );
 
-    // info!("Prompt: {}", prompt);
+    info!("Prompt: {}", prompt);
     let payload = ClaudeChatModel {
         model: "claude-3-haiku-20240307".to_string(),
         max_tokens: 1024,
@@ -133,7 +112,7 @@ Analyze the following email and extract relevant entities.
     let client = reqwest::Client::new();
     let response = client
         .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", "")
+        .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("content-type", "application/json")
         .body(serde_json::to_string(&payload).unwrap())
@@ -143,36 +122,12 @@ Analyze the following email and extract relevant entities.
 
     match response.json::<ClaudeResponse>().await {
         Ok(response) => {
-            let text = response.content[0].text.as_str();
-            let mut reader = csv::Reader::from_reader(text.as_bytes());
-            for line in reader.records() {
-                match line {
-                    Ok(line) => {
-                        entities.push(ExtractedEntity {
-                            entity_type: EntityType::try_from(
-                                line.get(0).unwrap().to_string().as_str(),
-                            )
-                            .unwrap(),
-                            matching_text: line.get(1).unwrap().to_string(),
-                        });
-                    }
-                    Err(_) => {}
-                }
-            }
+            extracted = extract_entites_from_lines(response.content[0].text.as_str());
         }
         Err(err) => {
             error!("Error parsing response from Claude: {}", err);
         }
     }
 
-    // Log the entities
-    info!(
-        "Extracted entities:\n{}",
-        entities
-            .iter()
-            .map(|x| format!("{},{}", x.entity_type.to_string(), x.matching_text.as_str()))
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
-    entities
+    extracted
 }
