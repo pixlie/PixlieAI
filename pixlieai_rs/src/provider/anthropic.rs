@@ -5,37 +5,15 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{EntityExtraction, LLMProvider, LargeLanguageModel};
+use super::{EntityExtraction, EntityExtractionProvider};
 use crate::{
     entity::{EntityType, ExtractedEntity},
+    error::PiResult,
     provider::extract_entites_from_lines,
     GraphEntity,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-
-impl LargeLanguageModel {
-    pub fn get_models_for_anthropic() -> Vec<LargeLanguageModel> {
-        vec![
-            LargeLanguageModel {
-                label: "Claude 3 Haiku".to_string(),
-                ai_provider: LLMProvider::Anthropic,
-                api_name: "claude-3-haiku-20240307".to_string(),
-                context_window: Some(200_000),
-                price_per_million_input_tokens: Some(25),
-                price_per_million_output_tokens: Some(125),
-            },
-            LargeLanguageModel {
-                label: "Claude 3.5 Sonnet".to_string(),
-                ai_provider: LLMProvider::Anthropic,
-                api_name: "claude-3-5-sonnet-20240620".to_string(),
-                context_window: Some(200_000),
-                price_per_million_input_tokens: Some(300),
-                price_per_million_output_tokens: Some(1500),
-            },
-        ]
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct ClaudeResponse {
@@ -57,24 +35,24 @@ pub struct ClaudeContentText {
 
 #[derive(Serialize)]
 pub struct ClaudeChatModel {
-    pub model: String,
+    pub model: &'static str,
     pub max_tokens: u32,
     pub messages: Vec<ClaudeChatMessage>,
 }
 
 #[derive(Serialize)]
 pub struct ClaudeChatMessage {
-    pub role: String,
+    pub role: &'static str,
     pub content: String,
 }
 
-pub async fn extract_entities<T>(payload: &T, api_key: &str) -> Vec<ExtractedEntity>
+pub async fn extract_entities<T>(payload: &T, api_key: &str) -> PiResult<Vec<ExtractedEntity>>
 where
     T: EntityExtraction,
 {
     let mut extracted: Vec<ExtractedEntity> = vec![];
 
-    let prompt: String = format!(
+    let prompt = format!(
         r#"
 You are a data analyst who is helping me extract named entities from my data.
 Reply in CSV format only with these headings:
@@ -90,21 +68,16 @@ Exctract EntityType and MatchingText from the following:
 
 {}
 "#,
-        payload
-            .get_labels()
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n"),
+        payload.get_labels().join("\n"),
         payload.get_payload()
     );
 
-    info!("Prompt: {}", prompt);
+    info!("Prompt: {}", &prompt);
     let payload = ClaudeChatModel {
-        model: "claude-3-haiku-20240307".to_string(),
+        model: "claude-3-haiku-20240307",
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
-            role: "user".to_string(),
+            role: "user",
             content: prompt,
         }],
     };
@@ -120,14 +93,8 @@ Exctract EntityType and MatchingText from the following:
         .await
         .unwrap();
 
-    match response.json::<ClaudeResponse>().await {
-        Ok(response) => {
-            extracted = extract_entites_from_lines(response.content[0].text.as_str());
-        }
-        Err(err) => {
-            error!("Error parsing response from Claude: {}", err);
-        }
-    }
-
-    extracted
+    let response = response.json::<ClaudeResponse>().await?;
+    Ok(extract_entites_from_lines(
+        response.content[0].text.as_str(),
+    ))
 }

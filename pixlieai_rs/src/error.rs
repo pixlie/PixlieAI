@@ -15,6 +15,9 @@ pub enum PiError {
 
     #[error("Error from Python code: {0}")]
     PythonError(#[from] pyo3::PyErr),
+
+    #[error("Error from reqwest: {0}")]
+    ReqwestError(#[from] reqwest::Error),
 }
 
 pub type PiResult<T> = Result<T, PiError>;

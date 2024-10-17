@@ -48,7 +48,7 @@ impl EntityExtraction for Email {
     //     "email".to_string()
     // }
 
-    fn get_labels(&self) -> Vec<EntityType> {
+    fn get_labels(&self) -> Vec<String> {
         vec![
             EntityType::Person,
             EntityType::Event,
@@ -65,6 +65,9 @@ impl EntityExtraction for Email {
             EntityType::Request,
             EntityType::Link,
         ]
+        .iter()
+        .map(|x| x.to_string())
+        .collect()
     }
 
     // fn get_example_text(&self) -> String {

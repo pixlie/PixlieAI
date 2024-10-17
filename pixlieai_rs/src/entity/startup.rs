@@ -35,7 +35,7 @@ pub struct StartupNews {
 }
 
 impl EntityExtraction for StartupNews {
-    fn get_labels(&self) -> Vec<EntityType> {
+    fn get_labels(&self) -> Vec<String> {
         vec![
             EntityType::Funding,
             EntityType::PreviousFunding,
@@ -47,6 +47,9 @@ impl EntityExtraction for StartupNews {
             EntityType::Industry,
             EntityType::Founder,
         ]
+        .iter()
+        .map(|x| x.to_string())
+        .collect()
     }
 
     fn get_payload(&self) -> String {

@@ -14,27 +14,15 @@ pub mod anthropic;
 pub mod gliner;
 
 #[derive(Serialize)]
-pub enum LLMProvider {
+pub enum EntityExtractionProvider {
     Anthropic,
-}
-
-#[derive(Serialize)]
-pub struct LargeLanguageModel {
-    pub label: String,
-    pub ai_provider: LLMProvider,
-    pub api_name: String,
-
-    pub context_window: Option<u32>,
-
-    // Prices are in US cents
-    pub price_per_million_input_tokens: Option<i32>,
-    pub price_per_million_output_tokens: Option<i32>,
+    Gliner,
 }
 
 pub trait EntityExtraction {
     // fn get_payload_content_type(&self) -> String;
 
-    fn get_labels(&self) -> Vec<EntityType>;
+    fn get_labels(&self) -> Vec<String>;
 
     // fn get_example_text(&self) -> String {
     //     String::from("")

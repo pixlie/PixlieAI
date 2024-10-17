@@ -6,12 +6,14 @@
 // https://www.pixlie.com/ai/license
 
 use super::{extract_entites_from_lines, EntityExtraction};
-use crate::entity::ExtractedEntity;
+use crate::entity::{EntityType, ExtractedEntity};
 use crate::error::PiResult;
 use log::{error, info};
 use pyo3::types::{PyAnyMethods, PyList, PyModule};
 use pyo3::{FromPyObject, Python};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 #[derive(FromPyObject)]
 pub struct GlinerEntity {
@@ -22,7 +24,33 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-pub async fn extract_entities<T>(payload: &T, path_to_gliner_home: &str) -> Vec<ExtractedEntity>
+const PYTHON_CODE: &str = r#"
+from gliner import GLiNER
+from dataclasses import dataclass
+
+@dataclass
+class Extracted:
+    start: int
+    end: int
+    text: str
+    label: str
+    score: float
+
+def extract_entities(text, labels):
+    # Initialize GLiNER with the base model
+    model = GLiNER.from_pretrained("urchade/gliner_mediumv2.1")
+
+    # Perform entity prediction
+    entities = model.predict_entities(text, labels, threshold=0.5)
+
+    return [Extracted(**x) for x in entities]
+
+"#;
+
+pub async fn extract_entities<T>(
+    payload: &T,
+    path_to_gliner_home: &str,
+) -> PiResult<Vec<ExtractedEntity>>
 where
     T: EntityExtraction,
 {
@@ -30,56 +58,30 @@ where
     let mut path_to_site_packages = PathBuf::from(path_to_gliner_home);
     path_to_site_packages.push(".venv/lib/python3.12/site-packages");
     pyo3::prepare_freethreaded_python();
-    let mut extracted = Python::with_gil(|py| -> PiResult<Vec<String>> {
+    Python::with_gil(|py| -> PiResult<Vec<ExtractedEntity>> {
         let os = PyModule::import_bound(py, "os")?;
         let chdir = os.getattr("chdir")?;
         chdir.call1((path_to_gliner_home,));
         let sys = PyModule::import_bound(py, "sys")?;
         let path = sys.getattr("path")?;
         path.call_method1("append", (path_to_site_packages,))?;
-        let extractor = PyModule::from_code_bound(
-            py,
-            r#"
-def extract_entities(text, labels):
-    from gliner import GLiNER
-
-    # Initialize GLiNER with the base model
-    model = GLiNER.from_pretrained("urchade/gliner_mediumv2.1")
-
-    # Perform entity prediction
-    entities = model.predict_entities(text, labels, threshold=0.5)
-
-    print(text, labels, entities)
-    return entities
-
-"#,
-            "extractor.py",
-            "extractor",
-        )?;
-        let list_entity_text: Vec<GlinerEntity> = extractor
+        let extractor = PyModule::from_code_bound(py, PYTHON_CODE, "extractor.py", "extractor")?;
+        let gliner_entities: Vec<GlinerEntity> = extractor
             .call_method1(
                 "extract_entities",
-                (
-                    payload.get_payload(),
-                    payload
-                        .get_labels()
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>(),
-                ),
+                (payload.get_payload(), payload.get_labels()),
             )?
             .extract()?;
-        // assert!(list_entity_text.len() > 0);
-        // for x in list_entity_text {
-        //     info!("Label: {}, Text: {}", x.label, x.text);
-        // }
-        Ok(vec![])
-    });
-    match extracted {
-        Ok(extracted) => extract_entites_from_lines(&extracted.join("\n")),
-        Err(err) => {
-            error!("Error calling GLiNER: {}", err);
-            vec![]
-        }
-    }
+
+        Ok(gliner_entities
+            .iter()
+            .filter_map(|x| match EntityType::from_str(&x.label) {
+                Ok(et) => Some(ExtractedEntity {
+                    entity_type: et,
+                    matching_text: x.text.clone(),
+                }),
+                Err(_) => None,
+            })
+            .collect())
+    })
 }

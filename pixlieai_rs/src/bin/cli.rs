@@ -1,8 +1,8 @@
-use log::info;
+use log::{error, info};
 use pixlieai::{
     config::{get_cli_settings, Settings},
     entity::startup::StartupNews,
-    provider::{anthropic, gliner},
+    provider::{anthropic, gliner, EntityExtractionProvider},
 };
 
 static SAMPLE_NEWS_TITLE: &str = r#"
@@ -31,18 +31,32 @@ async fn main() {
         title: SAMPLE_NEWS_TITLE.to_string(),
         body_text: SAMPLE_NEWS_BODY.to_string(),
     };
+    let provider: EntityExtractionProvider = EntityExtractionProvider::Gliner;
 
-    // Use GLiNER
-    let entities = gliner::extract_entities(&startup_news, &settings.path_to_gliner_home).await;
-    // Use Anthropic
-    // let entities = anthropic::extract_entities(&startup_news, &settings.anthropic_api_key).await;
+    let entities = match provider {
+        EntityExtractionProvider::Gliner => {
+            // Use GLiNER
+            gliner::extract_entities(&startup_news, &settings.path_to_gliner_home).await
+        }
+        EntityExtractionProvider::Anthropic => {
+            // Use Anthropic
+            anthropic::extract_entities(&startup_news, &settings.anthropic_api_key).await
+        }
+    };
     // Log the entities
-    info!(
-        "Extracted entities:\n{}",
-        entities
-            .iter()
-            .map(|x| format!("{},{}", x.entity_type.to_string(), x.matching_text.as_str()))
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
+    match entities {
+        Ok(entities) => {
+            info!(
+                "Extracted entities:\n{}",
+                entities
+                    .iter()
+                    .map(|x| format!("{},{}", x.entity_type.to_string(), x.matching_text.as_str()))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+        }
+        Err(err) => {
+            error!("Error extracting entities: {}", err);
+        }
+    }
 }
