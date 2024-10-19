@@ -5,7 +5,7 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::entity::{ExtractedEntity, LabelId};
+use crate::entity::ExtractedEntity;
 use serde::Serialize;
 use std::{fmt::Display, hash::Hasher, str::FromStr};
 use strum::EnumString;
@@ -22,7 +22,7 @@ pub enum EntityExtractionProvider {
 pub trait EntityExtraction {
     // fn get_payload_content_type(&self) -> String;
 
-    fn get_labels(&self) -> Vec<String>;
+    fn get_labels_to_extract(&self) -> Vec<String>;
 
     // fn get_example_text(&self) -> String {
     //     String::from("")
@@ -46,7 +46,7 @@ pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
         match line {
             Ok(line) => {
                 extracted.push(ExtractedEntity {
-                    label: LabelId::try_from(line.get(0).unwrap().to_string().as_str()).unwrap(),
+                    label: line.get(0).unwrap().to_string(),
                     matching_text: line.get(1).unwrap().to_string(),
                 });
             }

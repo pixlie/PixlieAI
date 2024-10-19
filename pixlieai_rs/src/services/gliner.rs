@@ -6,7 +6,7 @@
 // https://www.pixlie.com/ai/license
 
 use super::{extract_entites_from_lines, EntityExtraction};
-use crate::entity::{ExtractedEntity, LabelId};
+use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
 use pyo3::types::{PyAnyMethods, PyList, PyModule};
@@ -70,18 +70,15 @@ where
         let gliner_entities: Vec<GlinerEntity> = extractor
             .call_method1(
                 "extract_entities",
-                (payload.get_payload(), payload.get_labels()),
+                (payload.get_payload(), payload.get_labels_to_extract()),
             )?
             .extract()?;
 
         Ok(gliner_entities
             .iter()
-            .filter_map(|x| match LabelId::from_str(&x.label) {
-                Ok(et) => Some(ExtractedEntity {
-                    label: et,
-                    matching_text: x.text.clone(),
-                }),
-                Err(_) => None,
+            .map(|x| ExtractedEntity {
+                label: x.label.clone(),
+                matching_text: x.text.clone(),
             })
             .collect())
     })

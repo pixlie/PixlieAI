@@ -7,6 +7,7 @@ use serde::Deserialize;
 pub struct Settings {
     pub anthropic_api_key: String,
     pub path_to_gliner_home: String,
+    pub path_to_storage_root: String,
 }
 
 pub fn get_test_settings() -> PiResult<Settings> {

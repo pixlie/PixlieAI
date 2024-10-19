@@ -7,10 +7,7 @@
 
 use super::{EntityExtraction, EntityExtractionProvider};
 use crate::{
-    entity::{ExtractedEntity, LabelId},
-    error::PiResult,
-    provider::extract_entites_from_lines,
-    GraphEntity,
+    entity::ExtractedEntity, error::PiResult, services::extract_entites_from_lines, GraphEntity,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -68,7 +65,7 @@ Exctract EntityType and MatchingText from the following:
 
 {}
 "#,
-        payload.get_labels().join("\n"),
+        payload.get_labels_to_extract().join("\n"),
         payload.get_payload()
     );
 

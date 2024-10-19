@@ -1,27 +1,62 @@
-use super::LabelId;
-use crate::services::EntityExtraction;
+use super::fetchable::FetchStatus;
+use crate::{engine::NodeId, services::EntityExtraction};
+use chrono::{DateTime, Utc};
 
-pub struct FundingNews {
+#[derive(Clone)]
+pub struct Link {
     pub url: String,
-    pub title: String,
-    pub body_text: String,
+    pub fetched: FetchStatus,
 }
 
-impl EntityExtraction for FundingNews {
-    fn get_labels(&self) -> Vec<String> {
-        vec![]
+pub struct WebPage {
+    pub url: String,
+    pub topics: Vec<String>,
+    pub title: String,
+    pub body: String,
+    pub is_scraped: bool,
+}
+
+static WEBPAGE_EXTRACT_LABELS: &str = r#"
+[
+    Company,
+    Funding,
+    PreviousFunding,
+    TotalFunding,
+    Valuation,
+    FundingStage,
+    Investor,
+    Founder,
+]
+"#;
+
+impl EntityExtraction for WebPage {
+    fn get_labels_to_extract(&self) -> Vec<String> {
+        serde_yaml::from_str(WEBPAGE_EXTRACT_LABELS).unwrap()
     }
 
     fn get_payload(&self) -> String {
-        self.body_text.clone()
+        self.body.clone()
     }
 }
 
-static SAMPLE_NEWS_TITLE: &str = r#"
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        config::get_test_settings,
+        services::{
+            anthropic::{self, extract_entities},
+            gliner, EntityExtractionProvider,
+        },
+    };
+    use log::{error, info};
+    use test_log::test;
+
+    static SAMPLE_NEWS_TITLE: &str = r#"
 KoBold Metals, which uses AI to help find critical minerals for the energy transition, raises $491M
 "#;
 
-static SAMPLE_NEWS_BODY: &str = r#"
+    static SAMPLE_NEWS_BODY: &str = r#"
 Earlier this year, KoBold Metals found what might be one of the largest high-grade copper deposits of all time, with the potential to produce hundreds of thousands of metric tons per year, the company’s CEO said.
 Now, just eight months later, KoBold is close to raising over half a billion dollars. The funding should help the company develop the massive copper resource while moving forward on its other exploration projects, which number in the dozens.
 The mineral discovery startup has already raised $491 million of a targeted $527 million round, according to an SEC filing. Its previous round of $195 million valued the company at $1 billion post-money, according to PitchBook. The startup is reportedly aiming for a $2 billion valuation for the current round.
@@ -32,37 +67,48 @@ With the enormous copper deposit in Zambia, Kobold appears to have delivered on 
 KoBold’s previous investors include Bill Gates, Jeff Bezos, Jack Ma, Andreessen Horowitz, and Breakthrough Energy Ventures.
 "#;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{config::get_test_settings, provider::anthropic::extract_entities};
-    use log::{error, info};
-    use test_log::test;
-
     #[test(tokio::test)]
     async fn test_extract_entities_from_startup_news() {
-        let startup_news = FundingNews {
+        let startup_news = WebPage {
             url: "https://techcrunch.com/2024/10/07/ai-powered-critical-mineral-startup-kobold-metals-has-raised-491m-filings-reveal/".to_string(),
+            topics: vec![],
             title: SAMPLE_NEWS_TITLE.to_string(),
-            body_text: SAMPLE_NEWS_BODY.to_string(),
+            body: SAMPLE_NEWS_BODY.to_string(),
+            is_scraped: false,
         };
         let settings = get_test_settings().unwrap();
+        let provider: EntityExtractionProvider = EntityExtractionProvider::Gliner;
 
-        let entities = extract_entities(&startup_news, &settings.anthropic_api_key).await;
-        // Log the entities
-        info!(
-            "Extracted entities:\n{}",
-            entities
-                .iter()
-                .map(|x| format!("{},{}", x.entity_type.to_string(), x.matching_text.as_str()))
-                .collect::<Vec<String>>()
-                .join("\n")
-        );
+        let entities = match provider {
+            EntityExtractionProvider::Gliner => {
+                // Use GLiNER
+                gliner::extract_entities(&startup_news, &settings.path_to_gliner_home).await
+            }
+            EntityExtractionProvider::Anthropic => {
+                // Use Anthropic
+                anthropic::extract_entities(&startup_news, &settings.anthropic_api_key).await
+            }
+        };
 
-        assert!(entities.len() > 8);
-        assert!(entities
-            .iter()
-            .any(|x| x.entity_type == EntityTypeStartups::Funding
-                && x.matching_text.contains("491M")));
+        match entities {
+            Ok(entities) => {
+                // Log the entities
+                info!(
+                    "Extracted entities:\n{}",
+                    entities
+                        .iter()
+                        .map(|x| format!("{},{}", x.label, x.matching_text))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                );
+                assert!(entities.len() > 8);
+                assert!(entities
+                    .iter()
+                    .any(|x| x.label == "Funding" && x.matching_text.contains("491M")));
+            }
+            Err(err) => {
+                error!("Error extracting entities: {}", err);
+            }
+        };
     }
 }

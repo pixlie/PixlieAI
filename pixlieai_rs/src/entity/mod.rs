@@ -13,18 +13,15 @@ between them.
 Not all entity types have a corresponding node. Some nodes have an internal type
 and therefore many entities may point to the same node.
 */
-
-use strum::{Display, EnumString};
-
 pub mod content;
 pub mod email;
+pub mod fetchable;
 pub mod organization;
 pub mod people;
-pub mod startup;
+pub mod web;
 
-pub type LabelId = u16;
-
+// This is the struct used to extract entities from the data using any of the entity extraction providers
 pub struct ExtractedEntity {
-    pub label: LabelId, // The engine keeps track of the actual entity type label
+    pub label: String, // The label is checked when inserting into the engine
     pub matching_text: String,
 }

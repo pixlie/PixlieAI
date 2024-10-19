@@ -18,6 +18,9 @@ pub enum PiError {
 
     #[error("Error from reqwest: {0}")]
     ReqwestError(#[from] reqwest::Error),
+
+    #[error("Failed to fetch after retries")]
+    FetchFailedAfterRetries,
 }
 
 pub type PiResult<T> = Result<T, PiError>;

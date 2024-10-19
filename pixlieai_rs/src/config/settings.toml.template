@@ -1,2 +1,3 @@
 anthropic_api_key = ""
 path_to_gliner_home = ""
+path_to_storage_root = ""
