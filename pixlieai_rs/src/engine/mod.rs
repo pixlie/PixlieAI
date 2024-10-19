@@ -5,19 +5,17 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::entity::EntityType;
+use crate::entity::LabelId;
 use chrono::{DateTime, Utc};
-use petgraph::graph::NodeIndex;
+// use petgraph::graph::NodeIndex;
 
 pub mod api;
 // pub mod executor;
 pub mod state;
 
-pub type EntityNode = (EntityType, NodeIndex);
-
-pub struct EntityTypeNodesChunk {
-    // Either created or modified
+pub type NodeId = u32;
+pub struct Node {
+    pub id: NodeId,
+    pub payload: Box<dyn Send>,
     pub written_at: DateTime<Utc>,
-    pub entity_type: EntityType,
-    pub node_indices: Vec<NodeIndex>,
 }

@@ -22,41 +22,9 @@ pub mod organization;
 pub mod people;
 pub mod startup;
 
-#[derive(Clone, EnumString, Display, Hash, PartialEq, Eq)]
-pub enum EntityType {
-    Date,
-    Event,
-    Person,
-    Place,
-    SocialGroup,
-    Organization,
-    Workplace,
-    Financial,
-    Shopping,
-    News,
-    NeedHelp,
-    Question,
-    Request,
-
-    Title,
-    EmailAccount,
-    Mailbox,
-    Email,
-    Link,
-
-    // Related to startups, funding, PR news, etc.
-    Funding,
-    PreviousFunding,
-    TotalFunding,
-    Valuation,
-    FundingStage,
-    Investor,
-    Product,
-    Industry,
-    Founder,
-}
+pub type LabelId = u16;
 
 pub struct ExtractedEntity {
-    pub entity_type: EntityType,
+    pub label: LabelId, // The engine keeps track of the actual entity type label
     pub matching_text: String,
 }

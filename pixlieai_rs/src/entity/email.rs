@@ -10,7 +10,7 @@ The Email entity represents emails that we use in our daily lives.
 An email consists of a sender, a receiver, date, subject, body, etc.
 */
 
-use super::EntityType;
+use super::LabelId;
 use crate::provider::EntityExtraction;
 use serde::{Deserialize, Serialize};
 
@@ -49,25 +49,7 @@ impl EntityExtraction for Email {
     // }
 
     fn get_labels(&self) -> Vec<String> {
-        vec![
-            EntityType::Person,
-            EntityType::Event,
-            EntityType::Place,
-            EntityType::Date,
-            EntityType::SocialGroup,
-            EntityType::Organization,
-            EntityType::Workplace,
-            EntityType::Financial,
-            EntityType::Shopping,
-            EntityType::News,
-            EntityType::NeedHelp,
-            EntityType::Question,
-            EntityType::Request,
-            EntityType::Link,
-        ]
-        .iter()
-        .map(|x| x.to_string())
-        .collect()
+        vec![]
     }
 
     // fn get_example_text(&self) -> String {

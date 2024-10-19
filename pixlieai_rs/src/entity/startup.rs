@@ -1,66 +1,19 @@
-use super::EntityType;
-use crate::provider::EntityExtraction;
+use super::LabelId;
+use crate::services::EntityExtraction;
 
-pub enum FundingStage {
-    Angel,
-    Seed,
-    Series(String),
-}
-
-pub enum EntityTypeStartups {
-    // Related to companies, startups, company processes, trends, etc.
-    Funding,
-    PreviousFunding,
-    TotalFunding,
-    Valuation,
-    FundingStage,
-    Investor,
-    Product,
-    Industry,
-    Founder,
-    // Startup,
-    // Enterprise,
-    // CoFounder,
-    // Funding,
-    // PressRelease,
-    // BlogPost,
-    // Industry,
-    Country,
-}
-
-pub struct StartupNews {
+pub struct FundingNews {
     pub url: String,
     pub title: String,
     pub body_text: String,
 }
 
-impl EntityExtraction for StartupNews {
+impl EntityExtraction for FundingNews {
     fn get_labels(&self) -> Vec<String> {
-        vec![
-            EntityType::Funding,
-            EntityType::PreviousFunding,
-            EntityType::TotalFunding,
-            EntityType::Valuation,
-            EntityType::FundingStage,
-            EntityType::Investor,
-            EntityType::Product,
-            EntityType::Industry,
-            EntityType::Founder,
-        ]
-        .iter()
-        .map(|x| x.to_string())
-        .collect()
+        vec![]
     }
 
     fn get_payload(&self) -> String {
-        format!(
-            r#"
-{}
-
-{}
-"#,
-            self.title, self.body_text
-        )
+        self.body_text.clone()
     }
 }
 
@@ -88,7 +41,7 @@ mod tests {
 
     #[test(tokio::test)]
     async fn test_extract_entities_from_startup_news() {
-        let startup_news = StartupNews {
+        let startup_news = FundingNews {
             url: "https://techcrunch.com/2024/10/07/ai-powered-critical-mineral-startup-kobold-metals-has-raised-491m-filings-reveal/".to_string(),
             title: SAMPLE_NEWS_TITLE.to_string(),
             body_text: SAMPLE_NEWS_BODY.to_string(),
@@ -109,6 +62,7 @@ mod tests {
         assert!(entities.len() > 8);
         assert!(entities
             .iter()
-            .any(|x| x.entity_type == EntityType::Funding && x.matching_text.contains("491M")));
+            .any(|x| x.entity_type == EntityTypeStartups::Funding
+                && x.matching_text.contains("491M")));
     }
 }

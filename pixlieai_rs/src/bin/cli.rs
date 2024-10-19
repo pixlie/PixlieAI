@@ -1,7 +1,7 @@
 use log::{error, info};
 use pixlieai::{
     config::{get_cli_settings, Settings},
-    entity::startup::StartupNews,
+    entity::startup::FundingNews,
     provider::{anthropic, gliner, EntityExtractionProvider},
 };
 
@@ -26,7 +26,7 @@ async fn main() {
     // Log current directory
     let settings: Settings = get_cli_settings().unwrap();
 
-    let startup_news = StartupNews {
+    let startup_news = FundingNews {
         url: "https://techcrunch.com/2024/10/07/ai-powered-critical-mineral-startup-kobold-metals-has-raised-491m-filings-reveal/".to_string(),
         title: SAMPLE_NEWS_TITLE.to_string(),
         body_text: SAMPLE_NEWS_BODY.to_string(),
@@ -50,7 +50,7 @@ async fn main() {
                 "Extracted entities:\n{}",
                 entities
                     .iter()
-                    .map(|x| format!("{},{}", x.entity_type.to_string(), x.matching_text.as_str()))
+                    .map(|x| format!("{},{}", x.label.to_string(), x.matching_text.as_str()))
                     .collect::<Vec<String>>()
                     .join("\n")
             );

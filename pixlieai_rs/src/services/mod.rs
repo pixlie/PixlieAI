@@ -5,7 +5,7 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::entity::{EntityType, ExtractedEntity};
+use crate::entity::{ExtractedEntity, LabelId};
 use serde::Serialize;
 use std::{fmt::Display, hash::Hasher, str::FromStr};
 use strum::EnumString;
@@ -36,6 +36,9 @@ pub trait EntityExtraction {
 }
 
 pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
+    // This function is mainly used to extract entities from API responses from large language models
+    // Each line (in the CSV format) is an entity type and the matching text
+
     let mut extracted: Vec<ExtractedEntity> = vec![];
     let text = lines;
     let mut reader = csv::Reader::from_reader(text.as_bytes());
@@ -43,8 +46,7 @@ pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
         match line {
             Ok(line) => {
                 extracted.push(ExtractedEntity {
-                    entity_type: EntityType::try_from(line.get(0).unwrap().to_string().as_str())
-                        .unwrap(),
+                    label: LabelId::try_from(line.get(0).unwrap().to_string().as_str()).unwrap(),
                     matching_text: line.get(1).unwrap().to_string(),
                 });
             }

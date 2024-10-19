@@ -6,7 +6,7 @@
 // https://www.pixlie.com/ai/license
 
 use super::{extract_entites_from_lines, EntityExtraction};
-use crate::entity::{EntityType, ExtractedEntity};
+use crate::entity::{ExtractedEntity, LabelId};
 use crate::error::PiResult;
 use log::{error, info};
 use pyo3::types::{PyAnyMethods, PyList, PyModule};
@@ -38,11 +38,12 @@ class Extracted:
 
 def extract_entities(text, labels):
     # Initialize GLiNER with the base model
-    model = GLiNER.from_pretrained("urchade/gliner_mediumv2.1")
+    model = GLiNER.from_pretrained("EmergentMethods/gliner_medium_news-v2.1")
 
     # Perform entity prediction
-    entities = model.predict_entities(text, labels, threshold=0.5)
+    entities = model.predict_entities(text, labels)
 
+    print(entities)
     return [Extracted(**x) for x in entities]
 
 "#;
@@ -75,9 +76,9 @@ where
 
         Ok(gliner_entities
             .iter()
-            .filter_map(|x| match EntityType::from_str(&x.label) {
+            .filter_map(|x| match LabelId::from_str(&x.label) {
                 Ok(et) => Some(ExtractedEntity {
-                    entity_type: et,
+                    label: et,
                     matching_text: x.text.clone(),
                 }),
                 Err(_) => None,

@@ -12,8 +12,7 @@ pub mod config;
 pub mod engine;
 pub mod entity;
 pub mod error;
-pub mod graph;
-pub mod provider;
+pub mod services;
 
 #[derive(Debug, Deserialize)]
 pub struct GraphEntity {

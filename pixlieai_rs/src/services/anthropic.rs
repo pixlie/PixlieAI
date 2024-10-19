@@ -7,7 +7,7 @@
 
 use super::{EntityExtraction, EntityExtractionProvider};
 use crate::{
-    entity::{EntityType, ExtractedEntity},
+    entity::{ExtractedEntity, LabelId},
     error::PiResult,
     provider::extract_entites_from_lines,
     GraphEntity,
