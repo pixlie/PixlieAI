@@ -8,8 +8,6 @@ use chrono::Utc;
 use log::error;
 use reqwest::{blocking, IntoUrl};
 
-// pub async fn helper_extract_tables(contents: String) -> PiResult<Vec<String>> {}
-
 impl NodeWorker for Link {
     fn process(&mut self, engine: &Engine, node_id: &NodeId) {
         // Download the linked URL and add a new WebPage node
