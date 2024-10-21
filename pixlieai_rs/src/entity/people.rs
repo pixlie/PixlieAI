@@ -12,18 +12,32 @@ pub struct Person {
     pub last_name: Option<String>,
 }
 
+pub struct PhoneNumber {
+    pub country_code: String,
+    pub number: String,
+}
+
+pub struct Address {
+    pub street: String,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub zip: String,
+    pub country: String,
+}
+
 pub enum ContactType {
     Email,
-    Phone,
-    WhatsApp,
-    Telegram,
-    Address,
+    Phone(PhoneNumber),
+    WhatsApp(PhoneNumber),
+    Telegram(PhoneNumber),
+    AddressSigle(String),
+    Address(Address),
     Twitter,
     Facebook,
     Instagram,
     LinkedIn,
     GitHub,
-    Other,
+    Other(String),
 }
 
 pub struct Contact {

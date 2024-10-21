@@ -10,8 +10,7 @@ The Email entity represents emails that we use in our daily lives.
 An email consists of a sender, a receiver, date, subject, body, etc.
 */
 
-use super::EntityType;
-use crate::llm::EntityExtractionWithLLM;
+use crate::services::EntityExtraction;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -43,54 +42,39 @@ pub struct Email {
     pub in_reply_to: Vec<String>,
 }
 
-impl EntityExtractionWithLLM for Email {
-    fn get_payload_content_type(&self) -> String {
-        "email".to_string()
+impl EntityExtraction for Email {
+    // fn get_payload_content_type(&self) -> String {
+    //     "email".to_string()
+    // }
+
+    fn get_labels_to_extract(&self) -> Vec<String> {
+        vec![]
     }
 
-    fn get_extractable_entity_types(&self) -> Vec<EntityType> {
-        vec![
-            EntityType::Person,
-            EntityType::Event,
-            EntityType::Place,
-            EntityType::Date,
-            EntityType::SocialGroup,
-            EntityType::Organization,
-            EntityType::Workplace,
-            EntityType::Financial,
-            EntityType::Shopping,
-            EntityType::News,
-            EntityType::NeedHelp,
-            EntityType::Question,
-            EntityType::Request,
-            EntityType::Link,
-        ]
-    }
+    // fn get_example_text(&self) -> String {
+    //     "I came across Alex Ohom at a Microsoft event here in London.
+    //     He wanted to know about the new product I am working on. How are things on your side?
+    //     I would love to have a chat with you. Oh btw, I am still looking for a new job."
+    //         .to_string()
+    // }
 
-    fn get_example_text(&self) -> String {
-        "I came across Alex Ohom at a Microsoft event here in London.
-        He wanted to know about the new product I am working on. How are things on your side?
-        I would love to have a chat with you. Oh btw, I am still looking for a new job."
-            .to_string()
-    }
-
-    fn get_example_extractions(&self) -> Vec<(EntityType, String)> {
-        vec![
-            (EntityType::Person, "Alex Ohom".to_string()),
-            (EntityType::Organization, "Microsoft event".to_string()),
-            (EntityType::Place, "London".to_string()),
-            (
-                EntityType::Workplace,
-                "new product I am working on".to_string(),
-            ),
-            (
-                EntityType::Question,
-                "How are things on your side?".to_string(),
-            ),
-            (EntityType::Request, "would love to have a chat".to_string()),
-            (EntityType::NeedHelp, "looking for a new job".to_string()),
-        ]
-    }
+    // fn get_example_extractions(&self) -> Vec<(EntityType, String)> {
+    //     vec![
+    //         (EntityType::Person, "Alex Ohom".to_string()),
+    //         (EntityType::Organization, "Microsoft event".to_string()),
+    //         (EntityType::Place, "London".to_string()),
+    //         (
+    //             EntityType::Workplace,
+    //             "new product I am working on".to_string(),
+    //         ),
+    //         (
+    //             EntityType::Question,
+    //             "How are things on your side?".to_string(),
+    //         ),
+    //         (EntityType::Request, "would love to have a chat".to_string()),
+    //         (EntityType::NeedHelp, "looking for a new job".to_string()),
+    //     ]
+    // }
 
     fn get_payload(&self) -> String {
         format!(

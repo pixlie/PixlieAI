@@ -13,38 +13,14 @@ between them.
 Not all entity types have a corresponding node. Some nodes have an internal type
 and therefore many entities may point to the same node.
 */
-
-use strum::{Display, EnumString};
-
 pub mod content;
 pub mod email;
 pub mod organization;
 pub mod people;
+pub mod web;
 
-#[derive(Clone, EnumString, Display, Hash, PartialEq, Eq)]
-pub enum EntityType {
-    Date,
-    Event,
-    Person,
-    Place,
-    SocialGroup,
-    Organization,
-    Workplace,
-    Financial,
-    Shopping,
-    News,
-    NeedHelp,
-    Question,
-    Request,
-
-    Title,
-    EmailAccount,
-    Mailbox,
-    Email,
-    Link,
-}
-
+// This is the struct used to extract entities from the data using any of the entity extraction providers
 pub struct ExtractedEntity {
-    pub entity_type: EntityType,
+    pub label: String, // The label is checked when inserting into the engine
     pub matching_text: String,
 }

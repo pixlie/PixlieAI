@@ -5,20 +5,21 @@
 //
 // https://www.pixlie.com/ai/license
 
-use serde::{Deserialize, Serialize};
-use std::error::Error;
+use serde::Deserialize;
+use thiserror::Error;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub enum PixlieAIError {}
+#[derive(Debug, Error)]
+pub enum PiError {
+    #[error("Config error: {0}")]
+    SettingsError(#[from] config::ConfigError),
 
-impl Error for PixlieAIError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
+    // #[error("Error from Python code: {0}")]
+    // PythonError(#[from] pyo3::PyErr),
+    #[error("Error from reqwest: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error("Failed to fetch after retries")]
+    FetchFailedAfterRetries,
 }
 
-impl std::fmt::Display for PixlieAIError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
+pub type PiResult<T> = Result<T, PiError>;
