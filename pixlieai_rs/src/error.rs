@@ -13,9 +13,8 @@ pub enum PiError {
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
-    #[error("Error from Python code: {0}")]
-    PythonError(#[from] pyo3::PyErr),
-
+    // #[error("Error from Python code: {0}")]
+    // PythonError(#[from] pyo3::PyErr),
     #[error("Error from reqwest: {0}")]
     ReqwestError(#[from] reqwest::Error),
 

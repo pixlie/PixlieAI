@@ -11,7 +11,7 @@ use std::{fmt::Display, hash::Hasher, str::FromStr};
 use strum::EnumString;
 
 pub mod anthropic;
-pub mod gliner;
+// pub mod gliner;
 
 #[derive(Serialize)]
 pub enum EntityExtractionProvider {

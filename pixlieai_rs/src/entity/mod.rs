@@ -15,7 +15,6 @@ and therefore many entities may point to the same node.
 */
 pub mod content;
 pub mod email;
-pub mod fetchable;
 pub mod organization;
 pub mod people;
 pub mod web;
