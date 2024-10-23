@@ -10,6 +10,7 @@ use crate::{
     entity::ExtractedEntity, error::PiResult, services::extract_entites_from_lines, GraphEntity,
 };
 use log::{error, info};
+use reqwest::blocking::{self, Client};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -31,7 +32,18 @@ pub struct ClaudeContentText {
 }
 
 #[derive(Serialize)]
-pub struct ClaudeChatModel {
+pub struct ClaudeBatchRequest {
+    pub requests: Vec<ClaudeBatchItem>,
+}
+
+#[derive(Serialize)]
+pub struct ClaudeBatchItem {
+    pub custom_id: String,
+    pub params: ClaudeChat,
+}
+
+#[derive(Serialize)]
+pub struct ClaudeChat {
     pub model: &'static str,
     pub max_tokens: u32,
     pub messages: Vec<ClaudeChatMessage>,
@@ -43,43 +55,47 @@ pub struct ClaudeChatMessage {
     pub content: String,
 }
 
-pub async fn extract_entities<T>(payload: &T, api_key: &str) -> PiResult<Vec<ExtractedEntity>>
+pub fn get_prompt<T>(payload: &T) -> String
+where
+    T: EntityExtraction,
+{
+    format!(
+        r#"
+    You are a data analyst who is helping me extract named entities from my data.
+    Reply in CSV format only with these headings:
+
+    EntityType,MatchedText
+
+    Use these as possible EntityType:
+    {}
+
+    Exctract EntityType and MatchingText from the following:
+
+    -------------------------------------------------
+
+    {}
+    "#,
+        payload.get_labels_to_extract().join("\n"),
+        payload.get_payload()
+    )
+}
+
+pub fn extract_entities<T>(payload: &T, api_key: &str) -> PiResult<Vec<ExtractedEntity>>
 where
     T: EntityExtraction,
 {
     let mut extracted: Vec<ExtractedEntity> = vec![];
 
-    let prompt = format!(
-        r#"
-You are a data analyst who is helping me extract named entities from my data.
-Reply in CSV format only with these headings:
-
-EntityType,MatchedText
-
-Use these as possible EntityType:
-{}
-
-Exctract EntityType and MatchingText from the following:
-
--------------------------------------------------
-
-{}
-"#,
-        payload.get_labels_to_extract().join("\n"),
-        payload.get_payload()
-    );
-
-    info!("Prompt: {}", &prompt);
-    let payload = ClaudeChatModel {
+    let payload = ClaudeChat {
         model: "claude-3-haiku-20240307",
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
             role: "user",
-            content: prompt,
+            content: get_prompt(payload),
         }],
     };
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
     let response = client
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
@@ -87,10 +103,52 @@ Exctract EntityType and MatchingText from the following:
         .header("content-type", "application/json")
         .body(serde_json::to_string(&payload).unwrap())
         .send()
-        .await
         .unwrap();
 
-    let response = response.json::<ClaudeResponse>().await?;
+    let response = response.json::<ClaudeResponse>()?;
+    Ok(extract_entites_from_lines(
+        response.content[0].text.as_str(),
+    ))
+}
+
+pub fn extract_entities_in_batch<T>(
+    payload: Vec<&T>,
+    api_key: &str,
+) -> PiResult<Vec<ExtractedEntity>>
+where
+    T: EntityExtraction,
+{
+    let mut extracted: Vec<ExtractedEntity> = vec![];
+
+    let payload = ClaudeBatchRequest {
+        requests: payload
+            .iter()
+            .map(|x| ClaudeBatchItem {
+                custom_id: "".to_string(),
+                params: ClaudeChat {
+                    model: "claude-3-haiku-20240307",
+                    max_tokens: 1024,
+                    messages: vec![ClaudeChatMessage {
+                        role: "user",
+                        content: get_prompt(*x),
+                    }],
+                },
+            })
+            .collect(),
+    };
+
+    let client = Client::new();
+    let response = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("anthropic-beta", "message-batches-2024-09-24")
+        .header("content-type", "application/json")
+        .body(serde_json::to_string(&payload).unwrap())
+        .send()
+        .unwrap();
+
+    let response = response.json::<ClaudeResponse>()?;
     Ok(extract_entites_from_lines(
         response.content[0].text.as_str(),
     ))

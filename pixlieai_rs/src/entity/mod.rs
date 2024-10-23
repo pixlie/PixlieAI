@@ -15,8 +15,6 @@ and therefore many entities may point to the same node.
 */
 pub mod content;
 pub mod email;
-pub mod organization;
-pub mod people;
 pub mod web;
 
 // This is the struct used to extract entities from the data using any of the entity extraction providers

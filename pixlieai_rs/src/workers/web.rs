@@ -9,14 +9,14 @@ use crate::{
 };
 use chrono::Utc;
 use log::{error, info};
-use reqwest::{blocking, IntoUrl};
+use reqwest::{blocking::get, IntoUrl};
 use scraper::{Html, Node};
 
 impl NodeWorker for Link {
     fn process(&mut self, engine: &Engine, node_id: &NodeId) {
         // Download the linked URL and add a new WebPage node
         if !self.is_fetched {
-            match blocking::get(&self.url) {
+            match get(&self.url) {
                 Ok(response) => match response.text() {
                     Ok(contents) => {
                         engine.add_related_node(

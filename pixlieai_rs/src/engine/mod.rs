@@ -14,6 +14,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
@@ -26,7 +27,7 @@ pub mod api;
 // pub mod executor;
 // pub mod state;
 
-#[derive(Display)]
+#[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
     Link(Link),
     FileHTML(WebPage),
@@ -38,6 +39,8 @@ pub enum Payload {
 }
 
 pub type NodeId = u32;
+
+#[derive(Deserialize, Serialize)]
 pub struct Node {
     pub id: NodeId,
     pub label: String,
