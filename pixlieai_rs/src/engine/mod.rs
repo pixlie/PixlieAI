@@ -5,24 +5,22 @@
 //
 // https://www.pixlie.com/ai/license
 
-use chrono::{DateTime, Utc};
-use log::info;
-use strum::Display;
-// use petgraph::graph::NodeIndex;
-// use petgraph::{Directed, Graph};
 use crate::{
     entity::{
-        content::Title,
-        web::{CrawledWebPage, Link},
+        content::{Heading, Paragraph, Table, TableRow, Title},
+        web::{Link, WebPage},
     },
     workers,
 };
+use chrono::{DateTime, Utc};
+use log::info;
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
     thread::sleep,
     time::Duration,
 };
+use strum::Display;
 
 pub mod api;
 // pub mod executor;
@@ -31,8 +29,12 @@ pub mod api;
 #[derive(Display)]
 pub enum Payload {
     Link(Link),
-    FileHTML(CrawledWebPage),
+    FileHTML(WebPage),
     Title(Title),
+    Heading(Heading),
+    Paragraph(Paragraph),
+    Table(Table),
+    TableRow(TableRow),
 }
 
 pub type NodeId = u32;
@@ -129,11 +131,11 @@ impl Engine {
                 .and_modify(|entries| entries.push(id))
                 .or_insert(vec![id]);
         }
-        info!("Added node of type {}", label);
         id
     }
 
     pub fn add_pending_nodes(&self) {
+        let count = self.nodes_to_write.read().unwrap().len();
         while let Some(pending_node) = self.nodes_to_write.write().unwrap().pop() {
             let id = self.add_node(pending_node.payload);
             match pending_node.related_type {
@@ -159,10 +161,10 @@ impl Engine {
                 }
             }
         }
+        info!("Added {} pending nodes", count);
     }
 
     pub fn add_part_node(&self, parent_id: &NodeId, payload: Payload) {
-        info!("Will add part node {}", &payload.to_string());
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
             creating_node_id: *parent_id,
@@ -171,7 +173,6 @@ impl Engine {
     }
 
     pub fn add_related_node(&self, parent_id: &NodeId, payload: Payload) {
-        info!("Will add related node {}", &payload.to_string());
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
             creating_node_id: *parent_id,

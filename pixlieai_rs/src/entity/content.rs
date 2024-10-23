@@ -6,17 +6,24 @@ pub struct Heading(pub String);
 
 pub struct Paragraph(pub String);
 
-pub struct TableHead(pub Vec<String>);
-
-pub enum CommonDataTypes {
+pub enum TableCellType {
     SmallInteger(i8),
     Integer(i32),
     Float(f32),
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+    Time(DateTime<Utc>),
+    DateTime(DateTime<Utc>),
+    Email(String),
+    Link(String),
+    Currency(String),
+    Place(String),
+    Country(String),
 }
 
-pub struct TableRow(Vec<CommonDataTypes>);
+pub struct TableRow(pub Vec<TableCellType>);
 
-pub struct Table(Vec<TableRow>);
+// Headings are part of Table node
+// Has part nodes to TableRow(s)
+pub struct Table(pub Vec<String>);

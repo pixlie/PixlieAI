@@ -7,7 +7,7 @@
 
 use crate::{
     engine::{Engine, Node, NodeId, Payload},
-    entity::web::{CrawledWebPage, Link},
+    entity::web::{Link, WebPage},
 };
 use log::info;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
@@ -25,6 +25,9 @@ impl Engine {
             // We get the node from the engine
             match node.payload {
                 Payload::Link(ref mut payload) => {
+                    payload.process(self, &node.id);
+                }
+                Payload::FileHTML(ref mut payload) => {
                     payload.process(self, &node.id);
                 }
                 _ => {}

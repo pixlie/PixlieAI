@@ -5,7 +5,6 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 
-#[derive(Clone)]
 pub struct Link {
     pub url: String,
     pub is_fetched: bool,
@@ -20,13 +19,9 @@ impl Link {
     }
 }
 
-pub struct CrawledWebPage {
+pub struct WebPage {
     pub contents: String,
     pub is_scraped: bool,
-}
-
-pub struct WebPage {
-    pub summary: String,
 }
 
 static WEBPAGE_EXTRACT_LABELS: &str = r#"
