@@ -5,7 +5,7 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{EntityExtraction, EntityExtractionProvider};
+use super::{EntityExtractionProvider, ExtractionRequest};
 use crate::{
     entity::ExtractedEntity, error::PiResult, services::extract_entites_from_lines, GraphEntity,
 };
@@ -55,10 +55,7 @@ pub struct ClaudeChatMessage {
     pub content: String,
 }
 
-pub fn get_prompt<T>(payload: &T) -> String
-where
-    T: EntityExtraction,
-{
+pub fn get_prompt(extraction_request: ExtractionRequest) -> String {
     format!(
         r#"
     You are a data analyst who is helping me extract named entities from my data.
@@ -75,15 +72,15 @@ where
 
     {}
     "#,
-        payload.get_labels_to_extract().join("\n"),
-        payload.get_payload()
+        extraction_request.labels.join("\n"),
+        extraction_request.payload
     )
 }
 
-pub fn extract_entities<T>(payload: &T, api_key: &str) -> PiResult<Vec<ExtractedEntity>>
-where
-    T: EntityExtraction,
-{
+pub fn extract_entities(
+    extraction_request: ExtractionRequest,
+    api_key: &str,
+) -> PiResult<Vec<ExtractedEntity>> {
     let mut extracted: Vec<ExtractedEntity> = vec![];
 
     let payload = ClaudeChat {
@@ -91,7 +88,7 @@ where
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
             role: "user",
-            content: get_prompt(payload),
+            content: get_prompt(extraction_request),
         }],
     };
 
@@ -111,18 +108,15 @@ where
     ))
 }
 
-pub fn extract_entities_in_batch<T>(
-    payload: Vec<&T>,
+pub fn extract_entities_in_batch(
+    extraction_request: Vec<ExtractionRequest>,
     api_key: &str,
-) -> PiResult<Vec<ExtractedEntity>>
-where
-    T: EntityExtraction,
-{
+) -> PiResult<Vec<ExtractedEntity>> {
     let mut extracted: Vec<ExtractedEntity> = vec![];
 
     let payload = ClaudeBatchRequest {
-        requests: payload
-            .iter()
+        requests: extraction_request
+            .into_iter()
             .map(|x| ClaudeBatchItem {
                 custom_id: "".to_string(),
                 params: ClaudeChat {
@@ -130,7 +124,7 @@ where
                     max_tokens: 1024,
                     messages: vec![ClaudeChatMessage {
                         role: "user",
-                        content: get_prompt(*x),
+                        content: get_prompt(x),
                     }],
                 },
             })

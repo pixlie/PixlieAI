@@ -10,7 +10,6 @@ The Email entity represents emails that we use in our daily lives.
 An email consists of a sender, a receiver, date, subject, body, etc.
 */
 
-use crate::services::EntityExtraction;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -40,51 +39,6 @@ pub struct Email {
 
     // This is from email headers
     pub in_reply_to: Vec<String>,
-}
-
-impl EntityExtraction for Email {
-    // fn get_payload_content_type(&self) -> String {
-    //     "email".to_string()
-    // }
-
-    fn get_labels_to_extract(&self) -> Vec<String> {
-        vec![]
-    }
-
-    // fn get_example_text(&self) -> String {
-    //     "I came across Alex Ohom at a Microsoft event here in London.
-    //     He wanted to know about the new product I am working on. How are things on your side?
-    //     I would love to have a chat with you. Oh btw, I am still looking for a new job."
-    //         .to_string()
-    // }
-
-    // fn get_example_extractions(&self) -> Vec<(EntityType, String)> {
-    //     vec![
-    //         (EntityType::Person, "Alex Ohom".to_string()),
-    //         (EntityType::Organization, "Microsoft event".to_string()),
-    //         (EntityType::Place, "London".to_string()),
-    //         (
-    //             EntityType::Workplace,
-    //             "new product I am working on".to_string(),
-    //         ),
-    //         (
-    //             EntityType::Question,
-    //             "How are things on your side?".to_string(),
-    //         ),
-    //         (EntityType::Request, "would love to have a chat".to_string()),
-    //         (EntityType::NeedHelp, "looking for a new job".to_string()),
-    //     ]
-    // }
-
-    fn get_payload(&self) -> String {
-        format!(
-            "Email content:
-        Subject - {}
-        Body - {}
-        ",
-            self.subject, self.body_text
-        )
-    }
 }
 
 // pub fn add_email_accounts_to_graph(

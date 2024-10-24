@@ -24,14 +24,10 @@ pub struct EntityExtractionExample {
     pub extractions: Vec<ExtractedEntity>,
 }
 
-pub trait EntityExtraction {
-    fn get_labels_to_extract(&self) -> Vec<String>;
-
-    fn get_example_extractions(&self) -> Option<EntityExtractionExample> {
-        None
-    }
-
-    fn get_payload(&self) -> String;
+#[derive(Serialize)]
+pub struct ExtractionRequest {
+    pub payload: String,
+    pub labels: Vec<String>,
 }
 
 pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {

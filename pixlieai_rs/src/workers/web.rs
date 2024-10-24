@@ -24,6 +24,7 @@ impl NodeWorker for Link {
                             Payload::FileHTML(WebPage {
                                 contents,
                                 is_scraped: false,
+                                is_extracted: false,
                             }),
                         );
                         self.is_fetched = true;
@@ -40,123 +41,135 @@ impl NodeWorker for Link {
     }
 }
 
+impl WebPage {
+    pub fn scrape(&mut self, engine: &Engine, node_id: &NodeId) {
+        let document = Html::parse_document(&self.contents);
+        let mut start_node = document.root_element();
+        for child in start_node.descendent_elements() {
+            match child.value().name() {
+                "title" => {
+                    engine.add_part_node(
+                        node_id,
+                        Payload::Title(Title(
+                            child
+                                .text()
+                                .map(|x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join("")
+                                .trim()
+                                .to_string(),
+                        )),
+                    );
+                }
+                "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                    engine.add_part_node(
+                        node_id,
+                        Payload::Heading(Heading(
+                            child
+                                .text()
+                                .map(|x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join("")
+                                .trim()
+                                .to_string(),
+                        )),
+                    );
+                }
+                "p" => {
+                    engine.add_part_node(
+                        node_id,
+                        Payload::Paragraph(Paragraph(
+                            child
+                                .text()
+                                .map(|x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join("")
+                                .trim()
+                                .to_string(),
+                        )),
+                    );
+                }
+                "table" => {
+                    let mut head: Vec<String> = vec![];
+                    let mut body: Vec<TableRow> = vec![];
+                    for table_child in child.descendent_elements() {
+                        match table_child.value().name() {
+                            "thead" => {
+                                for table_head in table_child.descendent_elements() {
+                                    match table_head.value().name() {
+                                        "th" => {
+                                            head.push(
+                                                table_head
+                                                    .text()
+                                                    .map(|x| x.to_string())
+                                                    .collect::<Vec<String>>()
+                                                    .join("")
+                                                    .trim()
+                                                    .to_string(),
+                                            );
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            "tbody" => {
+                                for table_body in table_child.descendent_elements() {
+                                    match table_body.value().name() {
+                                        "tr" => {
+                                            let mut row: Vec<TableCellType> = vec![];
+                                            for table_cell in table_body.descendent_elements() {
+                                                match table_cell.value().name() {
+                                                    "td" => {
+                                                        row.push(TableCellType::String(
+                                                            table_cell
+                                                                .text()
+                                                                .map(|x| x.to_string())
+                                                                .collect::<Vec<String>>()
+                                                                .join("")
+                                                                .trim()
+                                                                .to_string(),
+                                                        ));
+                                                    }
+                                                    _ => {}
+                                                }
+                                            }
+                                            body.push(TableRow(row));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    // We check that head and body are not empty and that the count of elements
+                    // in head and in each row of body are the same
+                    if !head.is_empty() && !body.is_empty() {
+                        let len = head.len();
+                        if body.iter().all(|row| row.0.len() == len) {
+                            engine.add_part_node(node_id, Payload::Table(Table(head)));
+                            for row in body {
+                                engine.add_part_node(node_id, Payload::TableRow(row));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+impl WebPage {
+    pub fn extract_entities(&mut self, engine: &Engine, node_id: &NodeId) {}
+}
+
 impl NodeWorker for WebPage {
     fn process(&mut self, engine: &Engine, node_id: &NodeId) {
         if !self.is_scraped {
-            let document = Html::parse_document(&self.contents);
-            let mut start_node = document.root_element();
-            for child in start_node.descendent_elements() {
-                match child.value().name() {
-                    "title" => {
-                        engine.add_part_node(
-                            node_id,
-                            Payload::Title(Title(
-                                child
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            )),
-                        );
-                    }
-                    "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                        engine.add_part_node(
-                            node_id,
-                            Payload::Heading(Heading(
-                                child
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            )),
-                        );
-                    }
-                    "p" => {
-                        engine.add_part_node(
-                            node_id,
-                            Payload::Paragraph(Paragraph(
-                                child
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            )),
-                        );
-                    }
-                    "table" => {
-                        let mut head: Vec<String> = vec![];
-                        let mut body: Vec<TableRow> = vec![];
-                        for table_child in child.descendent_elements() {
-                            match table_child.value().name() {
-                                "thead" => {
-                                    for table_head in table_child.descendent_elements() {
-                                        match table_head.value().name() {
-                                            "th" => {
-                                                head.push(
-                                                    table_head
-                                                        .text()
-                                                        .map(|x| x.to_string())
-                                                        .collect::<Vec<String>>()
-                                                        .join("")
-                                                        .trim()
-                                                        .to_string(),
-                                                );
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                }
-                                "tbody" => {
-                                    for table_body in table_child.descendent_elements() {
-                                        match table_body.value().name() {
-                                            "tr" => {
-                                                let mut row: Vec<TableCellType> = vec![];
-                                                for table_cell in table_body.descendent_elements() {
-                                                    match table_cell.value().name() {
-                                                        "td" => {
-                                                            row.push(TableCellType::String(
-                                                                table_cell
-                                                                    .text()
-                                                                    .map(|x| x.to_string())
-                                                                    .collect::<Vec<String>>()
-                                                                    .join("")
-                                                                    .trim()
-                                                                    .to_string(),
-                                                            ));
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                                body.push(TableRow(row));
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                        // We check that head and body are not empty and that the count of elements
-                        // in head and in each row of body are the same
-                        if !head.is_empty() && !body.is_empty() {
-                            let len = head.len();
-                            if body.iter().all(|row| row.0.len() == len) {
-                                engine.add_part_node(node_id, Payload::Table(Table(head)));
-                                for row in body {
-                                    engine.add_part_node(node_id, Payload::TableRow(row));
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            self.scrape(engine, node_id);
+        } else if !self.is_extracted {
+            self.extract_entities(engine, node_id);
         }
     }
 }
@@ -196,6 +209,7 @@ mod tests {
         engine.add_node(Payload::FileHTML(WebPage {
             contents,
             is_scraped: false,
+            is_extracted: false,
         }));
         engine.process_nodes();
         engine.add_pending_nodes();

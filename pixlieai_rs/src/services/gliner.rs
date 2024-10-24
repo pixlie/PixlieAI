@@ -5,7 +5,7 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{extract_entites_from_lines, EntityExtraction};
+use super::{extract_entites_from_lines, ExtractionRequest};
 use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
@@ -26,10 +26,10 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-pub fn extract_entities<T>(payload: &T, path_to_gliner_home: &str) -> PiResult<Vec<ExtractedEntity>>
-where
-    T: EntityExtraction,
-{
+pub fn extract_entities(
+    extraction_request: ExtractionRequest,
+    path_to_gliner_home: &str,
+) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
     let mut mqtt_options = MqttOptions::new("pixlieai", "tcp://localhost:1883", 1883);
     mqtt_options.set_keep_alive(Duration::from_secs(5));
@@ -44,7 +44,7 @@ where
             "gliner/extract_entities",
             QoS::AtMostOnce,
             true,
-            payload.get_payload(),
+            serde_json::to_string(&extraction_request).unwrap(),
         )
         .unwrap();
     match connetion.recv() {

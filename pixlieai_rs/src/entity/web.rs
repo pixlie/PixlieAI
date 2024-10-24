@@ -1,6 +1,5 @@
 use crate::{
     engine::{Engine, NodeId, Payload},
-    services::EntityExtraction,
     workers::NodeWorker,
 };
 use chrono::{DateTime, Utc};
@@ -25,6 +24,7 @@ impl Link {
 pub struct WebPage {
     pub contents: String,
     pub is_scraped: bool,
+    pub is_extracted: bool, // Has entity extraction process been run on this page
 }
 
 static WEBPAGE_EXTRACT_LABELS: &str = r#"
@@ -39,16 +39,6 @@ static WEBPAGE_EXTRACT_LABELS: &str = r#"
     Founder,
 ]
 "#;
-
-impl EntityExtraction for WebPage {
-    fn get_labels_to_extract(&self) -> Vec<String> {
-        serde_yaml::from_str(WEBPAGE_EXTRACT_LABELS).unwrap()
-    }
-
-    fn get_payload(&self) -> String {
-        self.contents.clone()
-    }
-}
 
 // #[cfg(test)]
 // mod tests {
