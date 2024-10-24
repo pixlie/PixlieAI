@@ -1,11 +1,11 @@
 use crate::{
     engine::{Engine, NodeId, Payload},
-    services::EntityExtraction,
     workers::NodeWorker,
 };
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Deserialize, Serialize)]
 pub struct Link {
     pub url: String,
     pub is_fetched: bool,
@@ -20,13 +20,11 @@ impl Link {
     }
 }
 
-pub struct CrawledWebPage {
+#[derive(Deserialize, Serialize)]
+pub struct WebPage {
     pub contents: String,
     pub is_scraped: bool,
-}
-
-pub struct WebPage {
-    pub summary: String,
+    pub is_extracted: bool, // Has entity extraction process been run on this page
 }
 
 static WEBPAGE_EXTRACT_LABELS: &str = r#"
@@ -41,16 +39,6 @@ static WEBPAGE_EXTRACT_LABELS: &str = r#"
     Founder,
 ]
 "#;
-
-// impl EntityExtraction for CrawledWebPage {
-//     fn get_labels_to_extract(&self) -> Vec<String> {
-//         serde_yaml::from_str(WEBPAGE_EXTRACT_LABELS).unwrap()
-//     }
-
-//     fn get_payload(&self) -> String {
-//         self.body.clone()
-//     }
-// }
 
 // #[cfg(test)]
 // mod tests {

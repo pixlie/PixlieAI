@@ -5,17 +5,19 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{extract_entites_from_lines, EntityExtraction};
+use super::{extract_entites_from_lines, ExtractionRequest};
 use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
-use pyo3::types::{PyAnyMethods, PyList, PyModule};
-use pyo3::{FromPyObject, Python};
+use rumqttc::v5::mqttbytes::QoS;
+use rumqttc::v5::{Client, Event, Incoming, MqttOptions};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
-#[derive(FromPyObject)]
+#[derive(Deserialize)]
 pub struct GlinerEntity {
     pub start: u32,
     pub end: u32,
@@ -24,62 +26,44 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-const PYTHON_CODE: &str = r#"
-from gliner import GLiNER
-from dataclasses import dataclass
-
-@dataclass
-class Extracted:
-    start: int
-    end: int
-    text: str
-    label: str
-    score: float
-
-def extract_entities(text, labels):
-    # Initialize GLiNER with the base model
-    model = GLiNER.from_pretrained("EmergentMethods/gliner_medium_news-v2.1")
-
-    # Perform entity prediction
-    entities = model.predict_entities(text, labels)
-
-    print(entities)
-    return [Extracted(**x) for x in entities]
-
-"#;
-
-pub async fn extract_entities<T>(
-    payload: &T,
+pub fn extract_entities(
+    extraction_request: ExtractionRequest,
     path_to_gliner_home: &str,
-) -> PiResult<Vec<ExtractedEntity>>
-where
-    T: EntityExtraction,
-{
-    // We use PyO3 to call the Python code that uses GLiNER to extract entities
-    let mut path_to_site_packages = PathBuf::from(path_to_gliner_home);
-    path_to_site_packages.push(".venv/lib/python3.12/site-packages");
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| -> PiResult<Vec<ExtractedEntity>> {
-        let os = PyModule::import_bound(py, "os")?;
-        let chdir = os.getattr("chdir")?;
-        chdir.call1((path_to_gliner_home,));
-        let sys = PyModule::import_bound(py, "sys")?;
-        let path = sys.getattr("path")?;
-        path.call_method1("append", (path_to_site_packages,))?;
-        let extractor = PyModule::from_code_bound(py, PYTHON_CODE, "extractor.py", "extractor")?;
-        let gliner_entities: Vec<GlinerEntity> = extractor
-            .call_method1(
-                "extract_entities",
-                (payload.get_payload(), payload.get_labels_to_extract()),
-            )?
-            .extract()?;
+) -> PiResult<Vec<ExtractedEntity>> {
+    // We use MQTT to call the Python code that uses GLiNER to extract entities
+    let mut mqtt_options = MqttOptions::new("pixlieai", "tcp://localhost:1883", 1883);
+    mqtt_options.set_keep_alive(Duration::from_secs(5));
 
-        Ok(gliner_entities
-            .iter()
-            .map(|x| ExtractedEntity {
-                label: x.label.clone(),
-                matching_text: x.text.clone(),
-            })
-            .collect())
-    })
+    let extracted: Vec<ExtractedEntity> = vec![];
+    let (client, mut connetion) = Client::new(mqtt_options, 10);
+    client
+        .subscribe("gliner/extract_entities", QoS::AtMostOnce)
+        .unwrap();
+    client
+        .publish(
+            "gliner/extract_entities",
+            QoS::AtMostOnce,
+            true,
+            serde_json::to_string(&extraction_request).unwrap(),
+        )
+        .unwrap();
+    match connetion.recv() {
+        Ok(received) => match received {
+            Ok(message) => match message {
+                Event::Incoming(Incoming::Publish(publish)) => {
+                    info!("Received message: {:?}", publish);
+                }
+                _ => {
+                    error!("Received unexpected message: {:?}", message);
+                }
+            },
+            Err(err) => {
+                error!("Error receiving message {}", err);
+            }
+        },
+        Err(err) => {
+            error!("Error receiving message: {:?}", err);
+        }
+    };
+    Ok(extracted)
 }

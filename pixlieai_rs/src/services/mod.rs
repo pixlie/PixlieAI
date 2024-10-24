@@ -11,7 +11,7 @@ use std::{fmt::Display, hash::Hasher, str::FromStr};
 use strum::EnumString;
 
 pub mod anthropic;
-// pub mod gliner;
+pub mod gliner;
 
 #[derive(Serialize)]
 pub enum EntityExtractionProvider {
@@ -19,20 +19,15 @@ pub enum EntityExtractionProvider {
     Gliner,
 }
 
-pub trait EntityExtraction {
-    // fn get_payload_content_type(&self) -> String;
+pub struct EntityExtractionExample {
+    pub text: String,
+    pub extractions: Vec<ExtractedEntity>,
+}
 
-    fn get_labels_to_extract(&self) -> Vec<String>;
-
-    // fn get_example_text(&self) -> String {
-    //     String::from("")
-    // }
-
-    // fn get_example_extractions(&self) -> Vec<(EntityType, String)> {
-    //     vec![]
-    // }
-
-    fn get_payload(&self) -> String;
+#[derive(Serialize)]
+pub struct ExtractionRequest {
+    pub payload: String,
+    pub labels: Vec<String>,
 }
 
 pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
