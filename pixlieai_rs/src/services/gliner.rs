@@ -27,7 +27,7 @@ pub struct GlinerEntity {
 }
 
 pub fn extract_entities(
-    extraction_request: ExtractionRequest,
+    extraction_request: &ExtractionRequest,
     path_to_gliner_home: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities

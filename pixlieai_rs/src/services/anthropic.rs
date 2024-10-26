@@ -55,7 +55,7 @@ pub struct ClaudeChatMessage {
     pub content: String,
 }
 
-pub fn get_prompt(extraction_request: ExtractionRequest) -> String {
+pub fn get_prompt(extraction_request: &ExtractionRequest) -> String {
     format!(
         r#"
     You are a data analyst who is helping me extract named entities from my data.
@@ -78,7 +78,7 @@ pub fn get_prompt(extraction_request: ExtractionRequest) -> String {
 }
 
 pub fn extract_entities(
-    extraction_request: ExtractionRequest,
+    extraction_request: &ExtractionRequest,
     api_key: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
     let mut extracted: Vec<ExtractedEntity> = vec![];
@@ -116,7 +116,7 @@ pub fn extract_entities_in_batch(
 
     let payload = ClaudeBatchRequest {
         requests: extraction_request
-            .into_iter()
+            .iter()
             .map(|x| ClaudeBatchItem {
                 custom_id: "".to_string(),
                 params: ClaudeChat {

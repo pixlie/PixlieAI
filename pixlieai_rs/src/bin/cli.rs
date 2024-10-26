@@ -1,5 +1,4 @@
 use pixlieai::{
-    config::{get_cli_settings, Settings},
     engine::{Engine, Payload},
     entity::web::Link,
 };
@@ -7,14 +6,12 @@ use pixlieai::{
 fn main() {
     env_logger::init();
     // Log current directory
-    let _settings: Settings = get_cli_settings().unwrap();
-
-    let news = Link {
-        url: "https://growthlist.co/funded-startups/".to_string(),
-        is_fetched: false,
-    };
 
     let engine = Engine::new();
-    engine.add_node(Payload::Link(news));
+    engine.add_node(Payload::Link(Link {
+        url: "https://growthlist.co/funded-startups/".to_string(),
+        // url: "http://localhost:4321/pixlieai-tests/webpage-with-table.html".to_string(),
+        is_fetched: false,
+    }));
     engine.execute();
 }

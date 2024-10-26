@@ -5,16 +5,15 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::{
-    entity::{
-        content::{Heading, Paragraph, Table, TableRow, Title},
-        web::{Link, WebPage},
-    },
-    workers,
+use crate::entity::{
+    content::{Heading, Paragraph, Table, TableRow, Title},
+    web::{Link, WebPage},
 };
 use chrono::{DateTime, Utc};
 use log::info;
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
@@ -100,6 +99,50 @@ impl Engine {
         }
     }
 
+    pub fn process_nodes(&self) {
+        let mut updates: Vec<(NodeId, Option<Payload>)> = self
+            .nodes
+            .read()
+            .unwrap()
+            .par_iter()
+            .map(|node| {
+                // We get the node from the engine
+                match node.payload {
+                    Payload::Link(ref payload) => {
+                        let update = payload.process(self, &node.id);
+                        match update {
+                            Some(payload) => (node.id, Some(Payload::Link(payload))),
+                            None => (node.id, None),
+                        }
+                    }
+                    Payload::FileHTML(ref payload) => {
+                        let update = payload.process(self, &node.id);
+                        match update {
+                            Some(payload) => (node.id, Some(Payload::FileHTML(payload))),
+                            None => (node.id, None),
+                        }
+                    }
+                    _ => (node.id, None),
+                }
+            })
+            .collect();
+
+        for update in updates {
+            match update.1 {
+                Some(payload) => {
+                    self.nodes
+                        .write()
+                        .unwrap()
+                        .iter_mut()
+                        .find(|x| x.id == update.0)
+                        .unwrap()
+                        .payload = payload;
+                }
+                None => {}
+            }
+        }
+    }
+
     pub fn add_node(&self, payload: Payload) -> NodeId {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
@@ -138,7 +181,7 @@ impl Engine {
     }
 
     pub fn add_pending_nodes(&self) {
-        let count = self.nodes_to_write.read().unwrap().len();
+        let mut count = 0;
         while let Some(pending_node) = self.nodes_to_write.write().unwrap().pop() {
             let id = self.add_node(pending_node.payload);
             match pending_node.related_type {
@@ -163,8 +206,11 @@ impl Engine {
                         .push(id);
                 }
             }
+            count += 1;
         }
-        info!("Added {} pending nodes", count);
+        if count > 0 {
+            info!("Added {} nodes", count);
+        }
     }
 
     pub fn add_part_node(&self, parent_id: &NodeId, payload: Payload) {
@@ -183,7 +229,25 @@ impl Engine {
         });
     }
 
-    // pub async fn get_nodes_by_label(&self, label: &str) -> Vec<&Node> {
-
+    // pub fn iter_part_nodes<'a>(
+    //     &'a self,
+    //     node_id: &NodeId,
+    // ) -> Option<impl Iterator<Item = &'a Node>> {
+    //     match self.nodes.read().unwrap().iter().find(|x| x.id == *node_id) {
+    //         Some(start_node) => Some(
+    //             self.nodes
+    //                 .read()
+    //                 .unwrap()
+    //                 .iter()
+    //                 .filter(|x| start_node.part_node_ids.contains(&x.id)),
+    //         ),
+    //         None => None,
+    //     }
     // }
+}
+
+pub trait NodeWorker {
+    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
+    where
+        Self: Sized;
 }
