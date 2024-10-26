@@ -20,6 +20,9 @@ pub enum PiError {
 
     #[error("Failed to fetch after retries")]
     FetchFailedAfterRetries,
+
+    #[error("Not configured properly")]
+    NotConfiguredProperly,
 }
 
 pub type PiResult<T> = Result<T, PiError>;
