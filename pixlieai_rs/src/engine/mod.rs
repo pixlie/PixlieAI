@@ -13,7 +13,10 @@ use chrono::{DateTime, Utc};
 use log::info;
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
@@ -23,8 +26,6 @@ use std::{
 use strum::Display;
 
 pub mod api;
-// pub mod executor;
-// pub mod state;
 
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
@@ -37,7 +38,7 @@ pub enum Payload {
     TableRow(TableRow),
 }
 
-pub type NodeId = u32;
+pub type NodeId = Arc<u32>;
 
 #[derive(Deserialize, Serialize)]
 pub struct Node {
@@ -66,11 +67,10 @@ pub struct PendingNode {
 // All the entity labels are loaded in the engine
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    // pub graph: RwLock<Graph<PiNode, PiEdge, Directed>>,
     pub labels: RwLock<HashSet<String>>,
-    pub nodes: RwLock<Vec<Node>>, // All nodes that are in the engine
+    pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
     pub nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
-    last_node_id: RwLock<u32>,
+    last_node_id: Mutex<u32>,
     // pub storage_root: String,
     pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
@@ -81,16 +81,15 @@ impl Engine {
     pub fn new() -> Engine {
         Engine {
             labels: RwLock::new(HashSet::new()),
-            nodes: RwLock::new(vec![]),
+            nodes: HashMap::new(),
             nodes_to_write: RwLock::new(vec![]),
-            last_node_id: RwLock::new(0),
+            last_node_id: Mutex::new(0),
             nodes_by_label: RwLock::new(HashMap::new()),
-            // entity_type_last_run: RwLock::new(HashMap::new()),
             execute_every: 1,
         }
     }
 
-    pub fn execute(&self) {
+    pub fn execute(&mut self) {
         loop {
             // Execute each worker function, passing them the engine
             self.process_nodes();
@@ -100,57 +99,36 @@ impl Engine {
     }
 
     pub fn process_nodes(&self) {
-        let mut updates: Vec<(NodeId, Option<Payload>)> = self
-            .nodes
-            .read()
-            .unwrap()
-            .par_iter()
-            .map(|node| {
-                // We get the node from the engine
-                match node.payload {
-                    Payload::Link(ref payload) => {
-                        let update = payload.process(self, &node.id);
-                        match update {
-                            Some(payload) => (node.id, Some(Payload::Link(payload))),
-                            None => (node.id, None),
-                        }
-                    }
-                    Payload::FileHTML(ref payload) => {
-                        let update = payload.process(self, &node.id);
-                        match update {
-                            Some(payload) => (node.id, Some(Payload::FileHTML(payload))),
-                            None => (node.id, None),
-                        }
-                    }
-                    _ => (node.id, None),
+        self.nodes.par_iter().for_each(|(node_id, node)| {
+            let mut node = node.write().unwrap();
+            match node.payload {
+                Payload::Link(ref mut payload) => {
+                    let update = payload.process(self, &node_id);
+                    match update {
+                        Some(payload) => (node_id, Some(Payload::Link(payload))),
+                        None => (node_id, None),
+                    };
                 }
-            })
-            .collect();
-
-        for update in updates {
-            match update.1 {
-                Some(payload) => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == update.0)
-                        .unwrap()
-                        .payload = payload;
+                Payload::FileHTML(ref mut payload) => {
+                    let update = payload.process(self, &node_id);
+                    match update {
+                        Some(payload) => (node_id, Some(Payload::FileHTML(payload))),
+                        None => (node_id, None),
+                    };
                 }
-                None => {}
-            }
-        }
+                _ => {}
+            };
+        });
     }
 
-    pub fn add_node(&self, payload: Payload) -> NodeId {
+    pub fn add_node(&mut self, payload: Payload) -> NodeId {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
-        let id = {
-            let mut id = self.last_node_id.write().unwrap();
+        let id = Arc::new({
+            let mut id = self.last_node_id.lock().unwrap();
             *id += 1;
             *id
-        };
+        });
         // Store the label in the engine
         {
             let mut labels = self.labels.write().unwrap();
@@ -158,54 +136,48 @@ impl Engine {
         };
         // Store the node in the engine
         {
-            self.nodes.write().unwrap().push(Node {
-                id,
-                label: label.clone(),
-                payload,
+            self.nodes.insert(
+                id.clone(),
+                RwLock::new(Node {
+                    id: id.clone(),
+                    label: label.clone(),
+                    payload,
 
-                parent_id: None,
-                part_node_ids: vec![],
-                related_node_ids: vec![],
-                written_at: Utc::now(),
-            });
+                    parent_id: None,
+                    part_node_ids: vec![],
+                    related_node_ids: vec![],
+                    written_at: Utc::now(),
+                }),
+            );
         }
         // Store the node in nodes_by_label_id
         {
             let mut nodes_by_label = self.nodes_by_label.write().unwrap();
             nodes_by_label
                 .entry(label.clone())
-                .and_modify(|entries| entries.push(id))
-                .or_insert(vec![id]);
+                .and_modify(|entries| entries.push(id.clone()))
+                .or_insert(vec![id.clone()]);
         }
         id
     }
 
-    pub fn add_pending_nodes(&self) {
+    pub fn add_pending_nodes(&mut self) {
         let mut count = 0;
-        while let Some(pending_node) = self.nodes_to_write.write().unwrap().pop() {
+        let mut nodes_to_write: Vec<PendingNode> =
+            self.nodes_to_write.write().unwrap().drain(..).collect();
+        while let Some(pending_node) = nodes_to_write.pop() {
             let id = self.add_node(pending_node.payload);
-            match pending_node.related_type {
-                RelationType::IsPart => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == pending_node.creating_node_id)
-                        .unwrap()
-                        .part_node_ids
-                        .push(id);
-                }
-                RelationType::IsRelated => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == pending_node.creating_node_id)
-                        .unwrap()
-                        .related_node_ids
-                        .push(id);
-                }
-            }
+            match self.nodes.get(&pending_node.creating_node_id) {
+                Some(node) => match pending_node.related_type {
+                    RelationType::IsPart => {
+                        node.write().unwrap().part_node_ids.push(id);
+                    }
+                    RelationType::IsRelated => {
+                        node.write().unwrap().related_node_ids.push(id);
+                    }
+                },
+                None => {}
+            };
             count += 1;
         }
         if count > 0 {
@@ -216,7 +188,7 @@ impl Engine {
     pub fn add_part_node(&self, parent_id: &NodeId, payload: Payload) {
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
-            creating_node_id: *parent_id,
+            creating_node_id: parent_id.clone(),
             related_type: RelationType::IsPart,
         });
     }
@@ -224,30 +196,14 @@ impl Engine {
     pub fn add_related_node(&self, parent_id: &NodeId, payload: Payload) {
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
-            creating_node_id: *parent_id,
+            creating_node_id: parent_id.clone(),
             related_type: RelationType::IsRelated,
         });
     }
-
-    // pub fn iter_part_nodes<'a>(
-    //     &'a self,
-    //     node_id: &NodeId,
-    // ) -> Option<impl Iterator<Item = &'a Node>> {
-    //     match self.nodes.read().unwrap().iter().find(|x| x.id == *node_id) {
-    //         Some(start_node) => Some(
-    //             self.nodes
-    //                 .read()
-    //                 .unwrap()
-    //                 .iter()
-    //                 .filter(|x| start_node.part_node_ids.contains(&x.id)),
-    //         ),
-    //         None => None,
-    //     }
-    // }
 }
 
 pub trait NodeWorker {
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
+    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<Self>
     where
         Self: Sized;
 }

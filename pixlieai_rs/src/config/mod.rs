@@ -37,3 +37,29 @@ impl Settings {
         Err(PiError::NotConfiguredProperly)
     }
 }
+
+#[derive(Clone)]
+pub enum RuleCondition {
+    IfContextIncludes(String),
+}
+
+pub struct Rule {
+    pub applies_to: String,
+    pub action: String,
+    pub conditions: Vec<RuleCondition>,
+}
+
+impl Rule {
+    pub fn new<S: Into<String>>(applies_to: S, action: S, conditions: Vec<RuleCondition>) -> Rule {
+        Rule {
+            applies_to: applies_to.into(),
+            action: action.into(),
+            conditions,
+        }
+    }
+}
+
+pub struct Rules {
+    pub description: String,
+    pub rules: Vec<Rule>,
+}

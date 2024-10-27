@@ -27,7 +27,7 @@ impl Link {
 }
 
 impl NodeWorker for Link {
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
+    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
         if !self.is_fetched {
             match get(&self.url) {
@@ -41,10 +41,7 @@ impl NodeWorker for Link {
                                 is_extracted: false,
                             }),
                         );
-                        return Some(Link {
-                            is_fetched: true,
-                            ..self.clone()
-                        });
+                        self.is_fetched = true;
                     }
                     Err(err) => {
                         error!("Error fetching link: {}", err);
@@ -190,21 +187,27 @@ impl WebPage {
         // A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
         // We collect all these nodes from the engine and pass them to the entity extraction service
         let settings = get_cli_settings().unwrap();
-        let nodes = engine.nodes.read().unwrap();
-        let content = match nodes.iter().find(|x| x.id == *node_id) {
-            Some(me) => nodes
-                .iter()
-                .filter(|x| me.part_node_ids.contains(&x.id))
-                .map(|part| match part.payload {
-                    Payload::Title(ref title) => title.0.trim().to_string(),
-                    Payload::Heading(ref heading) => heading.0.trim().to_string(),
-                    Payload::Paragraph(ref paragraph) => paragraph.0.trim().to_string(),
-                    _ => "".to_string(),
-                })
-                .collect::<Vec<String>>()
-                .join("\n\n"),
-            None => "".to_string(),
-        };
+        let part_nodes = engine
+            .nodes
+            .get(node_id)
+            .unwrap()
+            .read()
+            .unwrap()
+            .part_node_ids
+            .clone();
+
+        let content = part_nodes
+            .iter()
+            .filter_map(
+                |nid| match engine.nodes.get(nid).unwrap().read().unwrap().payload {
+                    Payload::Title(ref title) => Some(title.0.trim().to_string()),
+                    Payload::Heading(ref heading) => Some(heading.0.trim().to_string()),
+                    Payload::Paragraph(ref paragraph) => Some(paragraph.0.trim().to_string()),
+                    _ => None,
+                },
+            )
+            .collect::<Vec<String>>()
+            .join("\n\n");
         // info!("Content to be sent for entity extraction: {}", content);
         let request = ExtractionRequest {
             payload: content,
@@ -233,19 +236,13 @@ impl WebPage {
 }
 
 impl NodeWorker for WebPage {
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
+    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
         if !self.is_scraped {
             self.scrape(engine, node_id);
-            return Some(WebPage {
-                is_scraped: true,
-                ..self.clone()
-            });
+            self.is_scraped = true;
         } else if !self.is_extracted {
             self.extract_entities(engine, node_id);
-            return Some(WebPage {
-                is_extracted: true,
-                ..self.clone()
-            });
+            self.is_extracted = true;
         }
         None
     }

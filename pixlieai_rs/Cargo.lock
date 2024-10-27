@@ -1483,6 +1483,7 @@ dependencies = [
  "env_logger",
  "log",
  "postcard",
+ "rand",
  "rayon",
  "reqwest",
  "rocksdb",
