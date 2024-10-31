@@ -3,8 +3,7 @@ use crate::{
     services::EntityExtractionProvider,
 };
 use config::Config;
-use log::error;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct Settings {
@@ -38,11 +37,12 @@ impl Settings {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum RuleCondition {
     IfContextIncludes(String),
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct Rule {
     pub applies_to: String,
     pub action: String,
@@ -57,9 +57,4 @@ impl Rule {
             conditions,
         }
     }
-}
-
-pub struct Rules {
-    pub description: String,
-    pub rules: Vec<Rule>,
 }

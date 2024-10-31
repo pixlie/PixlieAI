@@ -5,9 +5,12 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::entity::{
-    content::{Heading, Paragraph, Table, TableRow, Title},
-    web::{Link, WebPage},
+use crate::{
+    config::Rule,
+    entity::{
+        content::{Heading, Paragraph, Table, TableRow, Title},
+        web::{Link, WebPage},
+    },
 };
 use chrono::{DateTime, Utc};
 use log::info;
@@ -29,6 +32,7 @@ pub mod api;
 
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
+    Rule(Rule),
     Link(Link),
     FileHTML(WebPage),
     Title(Title),
@@ -69,7 +73,7 @@ pub struct PendingNode {
 pub struct Engine {
     pub labels: RwLock<HashSet<String>>,
     pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
-    pub nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
+    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
     // pub storage_root: String,
     pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
@@ -99,26 +103,39 @@ impl Engine {
     }
 
     pub fn process_nodes(&self) {
-        self.nodes.par_iter().for_each(|(node_id, node)| {
-            let mut node = node.write().unwrap();
-            match node.payload {
-                Payload::Link(ref mut payload) => {
-                    let update = payload.process(self, &node_id);
-                    match update {
-                        Some(payload) => (node_id, Some(Payload::Link(payload))),
-                        None => (node_id, None),
-                    };
+        let updates: Vec<(NodeId, Option<Payload>)> = self
+            .nodes
+            .par_iter()
+            .map(|(node_id, node)| {
+                let node = node.read().unwrap();
+                let node_id = node_id.clone();
+                match node.payload {
+                    Payload::Link(ref payload) => {
+                        let update = payload.process(self, &node_id);
+                        match update {
+                            Some(payload) => (node_id, Some(Payload::Link(payload))),
+                            None => (node_id, None),
+                        }
+                    }
+                    Payload::FileHTML(ref payload) => {
+                        let update = payload.process(self, &node_id);
+                        match update {
+                            Some(payload) => (node_id, Some(Payload::FileHTML(payload))),
+                            None => (node_id, None),
+                        }
+                    }
+                    _ => (node_id, None),
                 }
-                Payload::FileHTML(ref mut payload) => {
-                    let update = payload.process(self, &node_id);
-                    match update {
-                        Some(payload) => (node_id, Some(Payload::FileHTML(payload))),
-                        None => (node_id, None),
-                    };
+            })
+            .collect();
+        for (node_id, update) in updates {
+            match update {
+                Some(update) => {
+                    self.nodes.get(&node_id).unwrap().write().unwrap().payload = update;
                 }
-                _ => {}
+                None => {}
             };
-        });
+        }
     }
 
     pub fn add_node(&mut self, payload: Payload) -> NodeId {
@@ -203,7 +220,7 @@ impl Engine {
 }
 
 pub trait NodeWorker {
-    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<Self>
+    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
     where
         Self: Sized;
 }

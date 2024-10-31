@@ -2,13 +2,12 @@ use crate::{
     config::get_cli_settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
     entity::content::{Heading, Paragraph, Table, TableCellType, TableRow, Title},
-    error::{PiError, PiResult},
+    error::PiResult,
     services::{anthropic, gliner, EntityExtractionProvider, ExtractionRequest},
 };
-use chrono::{DateTime, Utc};
 use log::{error, info};
-use reqwest::{blocking::get, IntoUrl};
-use scraper::{Html, Node};
+use reqwest::blocking::get;
+use scraper::Html;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -27,7 +26,7 @@ impl Link {
 }
 
 impl NodeWorker for Link {
-    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
+    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
         if !self.is_fetched {
             match get(&self.url) {
@@ -41,7 +40,10 @@ impl NodeWorker for Link {
                                 is_extracted: false,
                             }),
                         );
-                        self.is_fetched = true;
+                        return Some(Link {
+                            is_fetched: true,
+                            ..self.clone()
+                        });
                     }
                     Err(err) => {
                         error!("Error fetching link: {}", err);
@@ -195,6 +197,7 @@ impl WebPage {
             .unwrap()
             .part_node_ids
             .clone();
+        info!("Getting part nodes for web page");
 
         let content = part_nodes
             .iter()
@@ -216,7 +219,7 @@ impl WebPage {
         let entities = match settings.get_entity_extraction_provider()? {
             EntityExtractionProvider::Gliner => {
                 // Use GLiNER
-                gliner::extract_entities(&request, &settings.path_to_gliner_home.unwrap())
+                gliner::extract_entities(&request)
             }
             EntityExtractionProvider::Anthropic => {
                 // Use Anthropic
@@ -236,13 +239,19 @@ impl WebPage {
 }
 
 impl NodeWorker for WebPage {
-    fn process(&mut self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
+    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
         if !self.is_scraped {
             self.scrape(engine, node_id);
-            self.is_scraped = true;
+            return Some(WebPage {
+                is_scraped: true,
+                ..self.clone()
+            });
         } else if !self.is_extracted {
-            self.extract_entities(engine, node_id);
-            self.is_extracted = true;
+            self.extract_entities(engine, node_id).unwrap();
+            return Some(WebPage {
+                is_extracted: true,
+                ..self.clone()
+            });
         }
         None
     }

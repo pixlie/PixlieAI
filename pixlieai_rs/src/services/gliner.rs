@@ -5,16 +5,13 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{extract_entites_from_lines, ExtractionRequest};
+use super::ExtractionRequest;
 use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
 use rumqttc::v5::mqttbytes::QoS;
 use rumqttc::v5::{Client, Event, Incoming, MqttOptions};
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Deserialize)]
@@ -26,18 +23,15 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-pub fn extract_entities(
-    extraction_request: &ExtractionRequest,
-    path_to_gliner_home: &str,
-) -> PiResult<Vec<ExtractedEntity>> {
+pub fn extract_entities(extraction_request: &ExtractionRequest) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
-    let mut mqtt_options = MqttOptions::new("pixlieai", "tcp://localhost:1883", 1883);
+    let mut mqtt_options = MqttOptions::new("pixlieai", "localhost", 1883);
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
     let extracted: Vec<ExtractedEntity> = vec![];
     let (client, mut connetion) = Client::new(mqtt_options, 10);
     client
-        .subscribe("gliner/extract_entities", QoS::AtMostOnce)
+        .subscribe("pixlieai/extract_entities_gliner", QoS::AtMostOnce)
         .unwrap();
     client
         .publish(
@@ -47,6 +41,7 @@ pub fn extract_entities(
             serde_json::to_string(&extraction_request).unwrap(),
         )
         .unwrap();
+    info!("Published entity extraction with GLiNER request to MQTT server");
     match connetion.recv() {
         Ok(received) => match received {
             Ok(message) => match message {

@@ -87,24 +87,33 @@ impl Engine {
 
     pub fn execute(&mut self) {
         // Loop till we have 10_000_000 nodes
-        while self.nodes.len() < 10_000_000 {
+        let mut count = 0;
+        loop {
             // For each iteration, add random number of part nodes
             self.nodes.par_iter().for_each(|(node_id, _)| {
                 process_node(&self, node_id);
             });
             self.add_pending_nodes();
+
+            if count % 100 == 0 {
+                info!("Nodes: {}", self.nodes.len());
+            }
+            count += 1;
         }
     }
 }
 
 fn process_node(engine: &Engine, node_id: &NodeId) {
-    // Add a random number of part nodes
-    for i in 0..rand::thread_rng().gen_range(5..20) {
-        // Insert a random char as a part node
-        engine.add_part_node(
-            node_id,
-            format!("{}/{}", rand::thread_rng().gen_range(0..26), i),
-        );
+    // Add a random number of part nodes if total nodes is less than 100_000
+    if engine.nodes.len() < 100_000 {
+        for i in 0..rand::thread_rng().gen_range(5..10) {
+            // Insert a random char as a part node
+            engine.add_part_node(
+                node_id,
+                format!("{}/{}", rand::thread_rng().gen_range(0..26), i),
+            );
+        }
+    } else {
         // Find all part nodes that have the same starting char
         let part_nodes = engine
             .nodes
@@ -115,10 +124,23 @@ fn process_node(engine: &Engine, node_id: &NodeId) {
             .part_node_ids
             .clone();
 
-        // Do some operation on the engine nodes
+        let random_chars: Vec<_> = vec!["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+
         part_nodes
             .iter()
-            .map(|nid| engine.nodes.get(nid).unwrap().read().unwrap().label.clone())
+            .filter_map(|nid| match engine.nodes.get(nid) {
+                Some(node) => match node.read() {
+                    Ok(node) => {
+                        if random_chars.contains(&node.label.as_str()) {
+                            Some(node.label.clone())
+                        } else {
+                            None
+                        }
+                    }
+                    Err(_) => None,
+                },
+                None => None,
+            })
             .count();
     }
 }
