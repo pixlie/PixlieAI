@@ -7,8 +7,6 @@
 
 use crate::entity::ExtractedEntity;
 use serde::Serialize;
-use std::{fmt::Display, hash::Hasher, str::FromStr};
-use strum::EnumString;
 
 pub mod anthropic;
 pub mod gliner;
@@ -26,7 +24,7 @@ pub struct EntityExtractionExample {
 
 #[derive(Serialize)]
 pub struct ExtractionRequest {
-    pub payload: String,
+    pub text: String,
     pub labels: Vec<String>,
 }
 
@@ -43,6 +41,7 @@ pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
                 extracted.push(ExtractedEntity {
                     label: line.get(0).unwrap().to_string(),
                     matching_text: line.get(1).unwrap().to_string(),
+                    ..Default::default()
                 });
             }
             Err(_) => {}

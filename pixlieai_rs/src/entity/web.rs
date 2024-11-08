@@ -68,7 +68,7 @@ pub struct WebPage {
 impl WebPage {
     pub fn scrape(&self, engine: &Engine, node_id: &NodeId) {
         let document = Html::parse_document(&self.contents);
-        let mut start_node = document.root_element();
+        let start_node = document.root_element();
         for child in start_node.descendent_elements() {
             match child.value().name() {
                 "title" => {
@@ -213,17 +213,17 @@ impl WebPage {
             .join("\n\n");
         // info!("Content to be sent for entity extraction: {}", content);
         let request = ExtractionRequest {
-            payload: content,
+            text: content,
             labels: serde_yaml::from_str(WEBPAGE_EXTRACT_LABELS).unwrap(),
         };
         let entities = match settings.get_entity_extraction_provider()? {
             EntityExtractionProvider::Gliner => {
                 // Use GLiNER
-                gliner::extract_entities(&request)
+                gliner::extract_entities(request)
             }
             EntityExtractionProvider::Anthropic => {
                 // Use Anthropic
-                anthropic::extract_entities(&request, &settings.anthropic_api_key.unwrap())
+                anthropic::extract_entities(request, &settings.anthropic_api_key.unwrap())
             }
         }?;
         info!(

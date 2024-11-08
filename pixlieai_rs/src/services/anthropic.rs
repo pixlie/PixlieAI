@@ -5,12 +5,11 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::{EntityExtractionProvider, ExtractionRequest};
+use super::ExtractionRequest;
 use crate::{
     entity::ExtractedEntity, error::PiResult, services::extract_entites_from_lines, GraphEntity,
 };
-use log::{error, info};
-use reqwest::blocking::{self, Client};
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -73,22 +72,20 @@ pub fn get_prompt(extraction_request: &ExtractionRequest) -> String {
     {}
     "#,
         extraction_request.labels.join("\n"),
-        extraction_request.payload
+        extraction_request.text
     )
 }
 
 pub fn extract_entities(
-    extraction_request: &ExtractionRequest,
+    extraction_request: ExtractionRequest,
     api_key: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
-    let mut extracted: Vec<ExtractedEntity> = vec![];
-
     let payload = ClaudeChat {
         model: "claude-3-haiku-20240307",
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
             role: "user",
-            content: get_prompt(extraction_request),
+            content: get_prompt(&extraction_request),
         }],
     };
 
@@ -112,8 +109,6 @@ pub fn extract_entities_in_batch(
     extraction_request: Vec<ExtractionRequest>,
     api_key: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
-    let mut extracted: Vec<ExtractedEntity> = vec![];
-
     let payload = ClaudeBatchRequest {
         requests: extraction_request
             .iter()

@@ -1,7 +1,10 @@
-use log::info;
+use log::{error, info};
 use rand::Rng;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rumqttc::{Client, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
+use std::thread;
+use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, RwLock},
@@ -99,13 +102,17 @@ impl Engine {
                 info!("Nodes: {}", self.nodes.len());
             }
             count += 1;
+            send_to_mqtt();
+            if count > 1 {
+                break;
+            }
         }
     }
 }
 
 fn process_node(engine: &Engine, node_id: &NodeId) {
     // Add a random number of part nodes if total nodes is less than 100_000
-    if engine.nodes.len() < 100_000 {
+    if engine.nodes.len() < 10_000 {
         for i in 0..rand::thread_rng().gen_range(5..10) {
             // Insert a random char as a part node
             engine.add_part_node(
@@ -145,6 +152,44 @@ fn process_node(engine: &Engine, node_id: &NodeId) {
     }
 }
 
+fn send_to_mqtt() {
+    let mut mqttoptions = MqttOptions::new("pixlieai", "localhost", 1883);
+    mqttoptions.set_keep_alive(Duration::from_secs(5));
+
+    let (client, mut connection) = Client::new(mqttoptions, 10);
+    client
+        .subscribe("pixlieai/named_entities/gliner_request", QoS::AtMostOnce)
+        .unwrap();
+    thread::spawn(move || {
+        client
+            .publish(
+                "pixlieai/named_entities/gliner_request",
+                QoS::AtLeastOnce,
+                false,
+                "Hello World",
+            )
+            .unwrap();
+    });
+
+    // Iterate to poll the eventloop for connection progress
+    for (_, notification) in connection.iter().enumerate() {
+        match notification {
+            Ok(message) => match message {
+                rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish)) => {
+                    if publish.topic == "pixlieai/named_entities/gliner_request" {
+                        info!("Notification for MQTT message: {}", publish.topic);
+                        break;
+                    }
+                }
+                _ => {}
+            },
+            Err(err) => {
+                error!("Error polling eventloop: {}", err);
+            }
+        };
+    }
+}
+
 fn main() {
     env_logger::init();
 
@@ -158,14 +203,14 @@ fn main() {
         engine.insert_node(format!("{}/0", char));
     }
     engine.execute();
-    info!("Nodes: {}", engine.nodes.len());
+    // info!("Nodes: {}", engine.nodes.len());
 
     // Parallel iter
-    let count = engine
-        .nodes
-        .par_iter()
-        .map(|(_, v)| v.read().unwrap().label.clone())
-        .count();
+    // let count = engine
+    //     .nodes
+    //     .par_iter()
+    //     .map(|(_, v)| v.read().unwrap().label.clone())
+    //     .count();
 
-    info!("Count: {}", count);
+    // info!("Count: {}", count);
 }

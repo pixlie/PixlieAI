@@ -14,12 +14,9 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use log::info;
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{
-    any::Any,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
@@ -28,7 +25,7 @@ use std::{
 };
 use strum::Display;
 
-pub mod api;
+// pub mod api;
 
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {

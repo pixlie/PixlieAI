@@ -18,7 +18,11 @@ pub mod email;
 pub mod web;
 
 // This is the struct used to extract entities from the data using any of the entity extraction providers
+#[derive(Default)]
 pub struct ExtractedEntity {
     pub label: String, // The label is checked when inserting into the engine
     pub matching_text: String,
+    pub start: Option<u32>,
+    pub end: Option<u32>,
+    pub score: Option<f32>,
 }
