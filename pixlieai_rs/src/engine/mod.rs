@@ -9,7 +9,7 @@ use crate::{
     config::Rule,
     entity::{
         content::{Heading, Paragraph, Table, TableRow, Title},
-        web::{Link, WebPage},
+        web::{Domain, Link, WebPage},
     },
 };
 use chrono::{DateTime, Utc};
@@ -30,6 +30,7 @@ use strum::Display;
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
     Rule(Rule),
+    Domain(Domain),
     Link(Link),
     FileHTML(WebPage),
     Title(Title),
@@ -181,14 +182,31 @@ impl Engine {
             self.nodes_to_write.write().unwrap().drain(..).collect();
         while let Some(pending_node) = nodes_to_write.pop() {
             let id = self.add_node(pending_node.payload);
+            // Add a relation edge or part edge from the parent node to the new node
             match self.nodes.get(&pending_node.creating_node_id) {
                 Some(node) => match pending_node.related_type {
                     RelationType::IsPart => {
-                        node.write().unwrap().part_node_ids.push(id);
+                        node.write().unwrap().part_node_ids.push(id.clone());
                     }
                     RelationType::IsRelated => {
-                        node.write().unwrap().related_node_ids.push(id);
+                        node.write().unwrap().related_node_ids.push(id.clone());
                     }
+                },
+                None => {}
+            };
+            // Add a relation edge from the new node to the parent node
+            match self.nodes.get(&id) {
+                Some(node) => match pending_node.related_type {
+                    // RelationType::IsPart => {
+                    //     node.write().unwrap().part_node_ids.push(pending_node.creating_node_id);
+                    // }
+                    RelationType::IsRelated => {
+                        node.write()
+                            .unwrap()
+                            .related_node_ids
+                            .push(pending_node.creating_node_id);
+                    }
+                    _ => {}
                 },
                 None => {}
             };

@@ -9,6 +9,7 @@ use log::{error, info};
 use reqwest::blocking::get;
 use scraper::Html;
 use serde::{Deserialize, Serialize};
+use url::{ParseError, Url};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Link {
@@ -25,33 +26,56 @@ impl Link {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct Domain(pub String);
+
 impl NodeWorker for Link {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
-        if !self.is_fetched {
-            match get(&self.url) {
-                Ok(response) => match response.text() {
-                    Ok(contents) => {
-                        engine.add_related_node(
-                            node_id,
-                            Payload::FileHTML(WebPage {
-                                contents,
-                                is_scraped: false,
-                                is_extracted: false,
-                            }),
-                        );
-                        return Some(Link {
-                            is_fetched: true,
-                            ..self.clone()
-                        });
-                    }
-                    Err(err) => {
-                        error!("Error fetching link: {}", err);
-                    }
-                },
+        if self.is_fetched {
+            info!("Link already fetched: {}", self.url);
+            return None;
+        }
+        // Get the domain for the URL
+        match Url::parse(&self.url) {
+            Ok(parsed) => match parsed.domain() {
+                Some(domain) => {
+                    engine.add_part_node(node_id, Payload::Domain(Domain(domain.to_string())));
+                }
+                None => {
+                    error!("Can not parse URL to get domain for link: {}", self.url);
+                    return None;
+                }
+            },
+            Err(err) => match err {
+                _ => {
+                    error!("Can not parse URL to get domain for link: {}", self.url);
+                    return None;
+                }
+            },
+        }
+        match get(&self.url) {
+            Ok(response) => match response.text() {
+                Ok(contents) => {
+                    engine.add_related_node(
+                        node_id,
+                        Payload::FileHTML(WebPage {
+                            contents,
+                            is_scraped: false,
+                            is_extracted: false,
+                        }),
+                    );
+                    return Some(Link {
+                        is_fetched: true,
+                        ..self.clone()
+                    });
+                }
                 Err(err) => {
                     error!("Error fetching link: {}", err);
                 }
+            },
+            Err(err) => {
+                error!("Error fetching link: {}", err);
             }
         }
         None
@@ -67,11 +91,62 @@ pub struct WebPage {
 
 impl WebPage {
     pub fn scrape(&self, engine: &Engine, node_id: &NodeId) {
+        // Find the Link node that is the parent of this WebPage node
+        let current_link = {
+            let related_node_ids = engine
+                .nodes
+                .get(node_id)
+                .unwrap()
+                .read()
+                .unwrap()
+                .related_node_ids
+                .clone();
+            related_node_ids.iter().find_map(|node_id| {
+                match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
+                    Payload::Link(ref link) => Some(link.clone()),
+                    _ => None,
+                }
+            })
+        };
+
+        if current_link.is_none() {
+            error!("Cannot find parent Link node for WebPage node");
+            return;
+        }
+        let current_link = current_link.unwrap();
+        let current_domain = match Url::parse(&current_link.url) {
+            Ok(parsed) => match parsed.domain() {
+                Some(domain) => domain.to_string(),
+                None => {
+                    error!(
+                        "Can not parse URL to get domain for link: {}",
+                        current_link.url
+                    );
+                    return;
+                }
+            },
+            Err(err) => match err {
+                _ => {
+                    error!(
+                        "Can not parse URL to get domain for link: {}",
+                        current_link.url
+                    );
+                    return;
+                }
+            },
+        };
+        info!("Scraping URL {}", current_link.url);
+
+        let mut links_found: Vec<String> = vec![];
+        let mut titles_found: Vec<String> = vec![];
+        let mut headings_found: Vec<String> = vec![];
+
         let document = Html::parse_document(&self.contents);
         let start_node = document.root_element();
         for child in start_node.descendent_elements() {
             match child.value().name() {
                 "title" => {
+                    titles_found.push(child.text().collect::<Vec<&str>>().join(""));
                     engine.add_part_node(
                         node_id,
                         Payload::Title(Title(
@@ -86,6 +161,7 @@ impl WebPage {
                     );
                 }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                    headings_found.push(child.text().collect::<Vec<&str>>().join(""));
                     engine.add_part_node(
                         node_id,
                         Payload::Heading(Heading(
@@ -100,6 +176,10 @@ impl WebPage {
                     );
                 }
                 "p" => {
+                    // info!(
+                    //     "Found paragraph: {}",
+                    //     child.text().collect::<Vec<&str>>().join("")
+                    // );
                     engine.add_part_node(
                         node_id,
                         Payload::Paragraph(Paragraph(
@@ -112,6 +192,43 @@ impl WebPage {
                                 .to_string(),
                         )),
                     );
+                }
+                "a" => {
+                    let url = child.value().attr("href").unwrap();
+                    // Skip links to anchors
+                    if url.starts_with("#") {
+                        continue;
+                    }
+                    let link_text = child.text().collect::<Vec<&str>>().join("");
+                    if link_text.is_empty() {
+                        continue;
+                    }
+                    match Url::parse(&url) {
+                        Ok(parsed) => match parsed.domain() {
+                            Some(domain) => {
+                                // Check if link is on the same domain as the current link
+                                if domain == current_domain {
+                                    links_found.push(url.to_string());
+                                    engine.add_related_node(
+                                        node_id,
+                                        Payload::Link(Link {
+                                            url: child.value().attr("href").unwrap().to_string(),
+                                            is_fetched: false,
+                                        }),
+                                    );
+                                }
+                            }
+                            None => {
+                                error!(
+                                    "Can not parse URL to get domain for link: {}",
+                                    child.value().attr("href").unwrap()
+                                );
+                            }
+                        },
+                        Err(err) => {
+                            error!("Can not parse URL to get domain for link: {}\n{}", url, err);
+                        }
+                    }
                 }
                 "table" => {
                     let mut head: Vec<String> = vec![];
@@ -181,6 +298,10 @@ impl WebPage {
                 _ => {}
             }
         }
+
+        info!("Links found: {}", links_found.join(", "));
+        info!("Titles found: {}", titles_found.join(", "));
+        info!("Headings found: {}", headings_found.join(", "));
     }
 }
 

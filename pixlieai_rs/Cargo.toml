@@ -33,6 +33,7 @@ strum = { version = "0.26.3", features = ["derive"] }
 test-log = { version = "0.2.16", default-features = false, features = ["log"] }
 thiserror = { version = "1.0.64", default-features = false }
 tokio = { version = "1.41.0", default-features = false }
+url = { version = "2.5.3", default-features = false }
 
 [[bin]]
 name = "cli"

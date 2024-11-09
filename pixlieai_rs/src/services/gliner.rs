@@ -9,9 +9,8 @@ use super::ExtractionRequest;
 use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
-use rumqttc::v5::mqttbytes::v5::PublishProperties;
 use rumqttc::v5::mqttbytes::QoS;
-use rumqttc::v5::{Client, Event, Incoming, MqttOptions};
+use rumqttc::v5::{Client, ConnectionError, Event, Incoming, MqttOptions};
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
@@ -28,6 +27,7 @@ pub struct GlinerEntity {
 pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
     let mqtt_topic = "pixlieai/extract_named_entities_gliner";
+
     thread::spawn(move || {
         let mut mqtt_options = MqttOptions::new("pixlieai_gliner_publisher", "localhost", 1883);
         mqtt_options.set_keep_alive(Duration::from_secs(5));
@@ -52,9 +52,19 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                     }
                     _ => {}
                 },
-                Err(err) => {
-                    error!("Error receiving message {}", err);
-                }
+                Err(err) => match err {
+                    ConnectionError::ConnectionRefused(_) => {
+                        error!("Connection to MQTT server refused, is it running?");
+                        break;
+                    }
+                    ConnectionError::Io(_) => {
+                        error!("Connection to MQTT server failed, is it running?");
+                        break;
+                    }
+                    _ => {
+                        error!("Error receiving message {}", err);
+                    }
+                },
             };
         }
     });
@@ -92,9 +102,19 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                 }
                 _ => {}
             },
-            Err(err) => {
-                error!("Error receiving message {}", err);
-            }
+            Err(err) => match err {
+                ConnectionError::ConnectionRefused(_) => {
+                    error!("Connection to MQTT server refused, is it running?");
+                    break;
+                }
+                ConnectionError::Io(_) => {
+                    error!("Connection to MQTT server failed, is it running?");
+                    break;
+                }
+                _ => {
+                    error!("Error receiving message {}", err);
+                }
+            },
         };
     }
 
