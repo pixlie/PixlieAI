@@ -9,21 +9,14 @@ use log::{error, info};
 use reqwest::blocking::get;
 use scraper::Html;
 use serde::{Deserialize, Serialize};
-use url::{ParseError, Url};
+use url::Url;
 
-#[derive(Clone, Deserialize, Serialize)]
+// A link that should fetch
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Link {
     pub url: String,
+    pub text: String,
     pub is_fetched: bool,
-}
-
-impl Link {
-    pub fn new(url: String) -> Link {
-        Link {
-            url,
-            is_fetched: false,
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -33,7 +26,7 @@ impl NodeWorker for Link {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
-            info!("Link already fetched: {}", self.url);
+            // info!("Link already fetched: {}", self.url);
             return None;
         }
         // Get the domain for the URL
@@ -213,7 +206,8 @@ impl WebPage {
                                         node_id,
                                         Payload::Link(Link {
                                             url: child.value().attr("href").unwrap().to_string(),
-                                            is_fetched: false,
+                                            text: link_text,
+                                            ..Default::default()
                                         }),
                                     );
                                 }
@@ -299,9 +293,9 @@ impl WebPage {
             }
         }
 
-        info!("Links found: {}", links_found.join(", "));
-        info!("Titles found: {}", titles_found.join(", "));
-        info!("Headings found: {}", headings_found.join(", "));
+        info!("Possible links to fetch: [{}]", links_found.join(", "));
+        info!("Titles found: [{}]", titles_found.join(", "));
+        info!("Headings found: [{}]", headings_found.join(", "));
     }
 }
 

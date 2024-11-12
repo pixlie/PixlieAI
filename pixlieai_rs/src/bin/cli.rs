@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use pixlieai::{
     config::{Rule, RuleCondition},
     engine::{Engine, Payload},
@@ -42,14 +44,14 @@ fn main() {
         entity_extraction_conditions.clone(),
     );
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(PathBuf::from("/run/media/home/brainless/Projects/PixlieAI"));
     engine.add_node(Payload::Rule(link_extract_rule));
     engine.add_node(Payload::Rule(table_data_extract_rule));
     engine.add_node(Payload::Rule(entity_extract_rule));
     engine.add_node(Payload::Link(Link {
         url: "https://growthlist.co/funded-startups/".to_string(),
-        // url: "http://localhost:4321/pixlieai-tests/webpage-with-table.html".to_string(),
-        is_fetched: false,
+        text: "List of funded startups for 2024".to_string(),
+        ..Default::default()
     }));
     engine.execute();
 }

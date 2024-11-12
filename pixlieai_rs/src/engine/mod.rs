@@ -13,15 +13,20 @@ use crate::{
     },
 };
 use chrono::{DateTime, Utc};
-use log::info;
+use log::{error, info};
+use postcard::{from_bytes, to_allocvec};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rocksdb::DB;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
     thread::sleep,
     time::Duration,
+};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
 };
 use strum::Display;
 
@@ -73,22 +78,37 @@ pub struct Engine {
     pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
     nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
-    // pub storage_root: String,
+    storage_root: String,
     pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
     pub execute_every: u8, // Number of seconds to wait before executing the engine
 }
 
 impl Engine {
-    pub fn new() -> Engine {
-        Engine {
+    pub fn new(storage_root: PathBuf) -> Engine {
+        let mut engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: HashMap::new(),
             nodes_to_write: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
+            storage_root: storage_root.to_str().unwrap().to_string(),
             nodes_by_label: RwLock::new(HashMap::new()),
             execute_every: 1,
-        }
+        };
+        // We load the graph from disk
+        engine.load_from_disk();
+        info!(
+            "There are {} webpage nodes in the graph",
+            engine
+                .nodes
+                .iter()
+                .filter(|x| match x.1.read().unwrap().payload {
+                    Payload::FileHTML(_) => true,
+                    _ => false,
+                })
+                .count()
+        );
+        engine
     }
 
     pub fn execute(&mut self) {
@@ -96,6 +116,7 @@ impl Engine {
             // Execute each worker function, passing them the engine
             self.process_nodes();
             self.add_pending_nodes();
+            self.save_to_disk();
             sleep(Duration::from_secs(self.execute_every as u64));
         }
     }
@@ -232,6 +253,76 @@ impl Engine {
             related_type: RelationType::IsRelated,
         });
     }
+
+    pub fn save_to_disk(&self) {
+        // We use RocksDB to store the graph
+        let mut path = PathBuf::from(&self.storage_root);
+        path.push("pixlieai.rocksdb");
+        let db = DB::open_default(path).unwrap();
+        for (node_id, node) in self.nodes.iter() {
+            let bytes = match node.read() {
+                Ok(node) => match to_allocvec(&*node) {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        error!("Error serializing node: {}", err);
+                        break;
+                    }
+                },
+                Err(err) => {
+                    error!("Error reading node: {}", err);
+                    break;
+                }
+            };
+            match db.put(node_id.to_le_bytes(), bytes) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error writing node: {}", err);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn load_from_disk(&mut self) {
+        let mut path = PathBuf::from(&self.storage_root);
+        path.push("pixlieai.rocksdb");
+        let db = DB::open_default(path).unwrap();
+        let iter = db.iterator(rocksdb::IteratorMode::Start);
+        for item in iter {
+            let (key, value) = match item {
+                Ok(item) => item,
+                Err(err) => {
+                    error!("Error iterating over RocksDB: {}", err);
+                    break;
+                }
+            };
+            let node_id = Arc::new(read_le_u32(&mut &*key));
+            let node: Node = match from_bytes(&value) {
+                Ok(node) => node,
+                Err(err) => {
+                    error!("Error deserializing node: {}", err);
+                    break;
+                }
+            };
+            let label = node.payload.to_string().clone();
+            self.nodes.insert(node_id.clone(), RwLock::new(node));
+
+            // Store the node in nodes_by_label_id
+            {
+                let mut nodes_by_label = self.nodes_by_label.write().unwrap();
+                nodes_by_label
+                    .entry(label)
+                    .and_modify(|entries| entries.push(node_id.clone()))
+                    .or_insert(vec![node_id.clone()]);
+            }
+        }
+    }
+}
+
+fn read_le_u32(input: &mut &[u8]) -> u32 {
+    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
+    *input = rest;
+    u32::from_le_bytes(int_bytes.try_into().unwrap())
 }
 
 pub trait NodeWorker {

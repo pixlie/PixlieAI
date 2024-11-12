@@ -26,15 +26,17 @@ pub struct GlinerEntity {
 
 pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
-    let mqtt_topic = "pixlieai/extract_named_entities_gliner";
+    let mqtt_topic = "extract_named_entities_gliner";
 
+    //  This is where we initiate a request with GLiNER using MQTT
     thread::spawn(move || {
-        let mut mqtt_options = MqttOptions::new("pixlieai_gliner_publisher", "localhost", 1883);
+        let mut mqtt_options =
+            MqttOptions::new(format!("{}_requests", mqtt_topic), "localhost", 1883);
         mqtt_options.set_keep_alive(Duration::from_secs(5));
 
         let (pubisher, mut connection) = Client::new(mqtt_options.clone(), 10);
         match pubisher.publish(
-            format!("{}/requests", mqtt_topic),
+            format!("pixlieai/{}/requests", mqtt_topic),
             QoS::ExactlyOnce,
             false,
             serde_json::to_string(&extraction_request).unwrap(),
@@ -49,33 +51,26 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                 Ok(message) => match message {
                     Event::Incoming(Incoming::Publish(_)) => {
                         info!("Published entity extraction with GLiNER request to MQTT server");
+                        break;
                     }
                     _ => {}
                 },
-                Err(err) => match err {
-                    ConnectionError::ConnectionRefused(_) => {
-                        error!("Connection to MQTT server refused, is it running?");
-                        break;
-                    }
-                    ConnectionError::Io(_) => {
-                        error!("Connection to MQTT server failed, is it running?");
-                        break;
-                    }
-                    _ => {
-                        error!("Error receiving message {}", err);
-                    }
-                },
+                Err(_) => {}
             };
         }
     });
 
-    let mut mqtt_options = MqttOptions::new("pixlieai", "localhost", 1883);
+    // This is where we listen for responses from GLiNER using MQTT
+    let mut mqtt_options = MqttOptions::new(format!("{}_responses", mqtt_topic), "localhost", 1883);
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
     let mut extracted: Vec<ExtractedEntity> = vec![];
     let (subscriber, mut connection) = Client::new(mqtt_options, 10);
     subscriber
-        .subscribe(format!("{}/responses", mqtt_topic), QoS::AtMostOnce)
+        .subscribe(
+            format!("pixlieai/{}/responses", mqtt_topic),
+            QoS::ExactlyOnce,
+        )
         .unwrap();
 
     for notification in connection.iter() {
@@ -102,21 +97,17 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                 }
                 _ => {}
             },
-            Err(err) => match err {
-                ConnectionError::ConnectionRefused(_) => {
-                    error!("Connection to MQTT server refused, is it running?");
-                    break;
-                }
-                ConnectionError::Io(_) => {
-                    error!("Connection to MQTT server failed, is it running?");
-                    break;
-                }
-                _ => {
-                    error!("Error receiving message {}", err);
-                }
-            },
+            Err(_) => {}
         };
     }
 
+    info!(
+        "Extracted entities: {}",
+        extracted
+            .iter()
+            .map(|x| x.label.clone())
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
     Ok(extracted)
 }

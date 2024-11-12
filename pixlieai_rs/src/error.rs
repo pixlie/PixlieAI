@@ -5,7 +5,6 @@
 //
 // https://www.pixlie.com/ai/license
 
-use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
