@@ -37,7 +37,7 @@ impl Settings {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub enum RuleCondition {
     IfContextIncludes(String),
 }

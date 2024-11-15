@@ -10,7 +10,7 @@ use crate::entity::ExtractedEntity;
 use crate::error::PiResult;
 use log::{error, info};
 use rumqttc::v5::mqttbytes::QoS;
-use rumqttc::v5::{Client, ConnectionError, Event, Incoming, MqttOptions};
+use rumqttc::v5::{Client, Event, Incoming, MqttOptions};
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
@@ -24,51 +24,30 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<ExtractedEntity>> {
+pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
     let mqtt_topic = "extract_named_entities_gliner";
+    let random_id = rand::random::<u32>();
 
     //  This is where we initiate a request with GLiNER using MQTT
-    thread::spawn(move || {
-        let mut mqtt_options =
-            MqttOptions::new(format!("{}_requests", mqtt_topic), "localhost", 1883);
-        mqtt_options.set_keep_alive(Duration::from_secs(5));
-
-        let (pubisher, mut connection) = Client::new(mqtt_options.clone(), 10);
-        match pubisher.publish(
-            format!("pixlieai/{}/requests", mqtt_topic),
-            QoS::ExactlyOnce,
-            false,
-            serde_json::to_string(&extraction_request).unwrap(),
-        ) {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Error publishing {}/requests: {}", mqtt_topic, err);
-            }
-        }
-        for notification in connection.iter() {
-            match notification {
-                Ok(message) => match message {
-                    Event::Incoming(Incoming::Publish(_)) => {
-                        info!("Published entity extraction with GLiNER request to MQTT server");
-                        break;
-                    }
-                    _ => {}
-                },
-                Err(_) => {}
-            };
-        }
-    });
+    {
+        let random_id = random_id.clone();
+        thread::spawn(move || extract_entities_sender(text, labels, random_id));
+    };
 
     // This is where we listen for responses from GLiNER using MQTT
-    let mut mqtt_options = MqttOptions::new(format!("{}_responses", mqtt_topic), "localhost", 1883);
+    let mut mqtt_options = MqttOptions::new(
+        format!("{}_receiver_{}", mqtt_topic, random_id),
+        "localhost",
+        1883,
+    );
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
     let mut extracted: Vec<ExtractedEntity> = vec![];
-    let (subscriber, mut connection) = Client::new(mqtt_options, 10);
-    subscriber
+    let (receiver, mut connection) = Client::new(mqtt_options, 10);
+    receiver
         .subscribe(
-            format!("pixlieai/{}/responses", mqtt_topic),
+            format!("pixlieai/{}/responses/{}", mqtt_topic, random_id),
             QoS::ExactlyOnce,
         )
         .unwrap();
@@ -80,6 +59,9 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                     match serde_json::from_slice::<Vec<GlinerEntity>>(&publish.payload) {
                         Ok(entities) => {
                             for entity in entities {
+                                if entity.text.is_empty() {
+                                    continue;
+                                }
                                 extracted.push(ExtractedEntity {
                                     label: entity.label,
                                     matching_text: entity.text,
@@ -88,26 +70,71 @@ pub fn extract_entities(extraction_request: ExtractionRequest) -> PiResult<Vec<E
                                     score: Some(entity.score),
                                 });
                             }
+                            receiver
+                                .unsubscribe(format!(
+                                    "pixlieai/{}/responses/{}",
+                                    mqtt_topic, random_id
+                                ))
+                                .unwrap();
+                            break;
                         }
                         Err(err) => {
-                            error!("Error deserializing gliner entities: {}", err);
+                            error!(
+                                "Receiver {}: Error deserializing gliner entities: {}",
+                                random_id, err
+                            );
                         }
                     };
-                    break;
                 }
                 _ => {}
             },
-            Err(_) => {}
+            Err(_) => {
+                break;
+            }
         };
     }
 
-    info!(
-        "Extracted entities: {}",
-        extracted
-            .iter()
-            .map(|x| x.label.clone())
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
     Ok(extracted)
+}
+
+fn extract_entities_sender(text: String, labels: Vec<String>, random_id: u32) {
+    let mqtt_topic = "extract_named_entities_gliner";
+    let mut mqtt_options = MqttOptions::new(
+        format!("{}_sender_{}", mqtt_topic, random_id),
+        "localhost",
+        1883,
+    );
+    mqtt_options.set_keep_alive(Duration::from_secs(5));
+
+    let (sender, mut connection) = Client::new(mqtt_options.clone(), 10);
+    thread::spawn(move || {
+        match sender.publish(
+            format!("pixlieai/{}/requests/{}", mqtt_topic, random_id),
+            QoS::ExactlyOnce,
+            false,
+            serde_json::to_string(&ExtractionRequest { text, labels }).unwrap(),
+        ) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error publishing {}/requests: {}", mqtt_topic, err);
+            }
+        }
+    });
+    for notification in connection.iter() {
+        match notification {
+            Ok(message) => match message {
+                Event::Incoming(Incoming::Publish(_)) => {
+                    info!(
+                        "Sender {}: Requested entity extraction with GLiNER",
+                        random_id
+                    );
+                }
+                _ => {}
+            },
+            Err(err) => {
+                error!("Sender {}: {}", random_id, err);
+                break;
+            }
+        };
+    }
 }

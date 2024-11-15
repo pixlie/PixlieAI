@@ -12,6 +12,9 @@ pub enum PiError {
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
+    #[error("API key not configured")]
+    ApiKeyNotConfigured,
+
     // #[error("Error from Python code: {0}")]
     // PythonError(#[from] pyo3::PyErr),
     #[error("Error from reqwest: {0}")]
@@ -22,6 +25,9 @@ pub enum PiError {
 
     #[error("Not configured properly")]
     NotConfiguredProperly,
+
+    #[error("Could not classify text")]
+    CouldNotClassifyText,
 }
 
 pub type PiResult<T> = Result<T, PiError>;

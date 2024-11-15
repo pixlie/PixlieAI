@@ -43,6 +43,8 @@ pub enum Payload {
     Paragraph(Paragraph),
     Table(Table),
     TableRow(TableRow),
+    Label(String),
+    NamedEntity(String, String), // label, text
 }
 
 pub type NodeId = Arc<u32>;
@@ -202,7 +204,12 @@ impl Engine {
         let mut nodes_to_write: Vec<PendingNode> =
             self.nodes_to_write.write().unwrap().drain(..).collect();
         while let Some(pending_node) = nodes_to_write.pop() {
-            let id = self.add_node(pending_node.payload);
+            let id = if let Some(existing_node_id) = self.find_existing(&pending_node.payload) {
+                // If the payload already exists in the graph, we simply add a relation edge
+                existing_node_id
+            } else {
+                self.add_node(pending_node.payload)
+            };
             // Add a relation edge or part edge from the parent node to the new node
             match self.nodes.get(&pending_node.creating_node_id) {
                 Some(node) => match pending_node.related_type {
@@ -252,6 +259,73 @@ impl Engine {
             creating_node_id: parent_id.clone(),
             related_type: RelationType::IsRelated,
         });
+    }
+
+    fn find_existing(&self, payload: &Payload) -> Option<Arc<u32>> {
+        // For certain node payloads, check if there is a node with the same payload
+        match payload {
+            Payload::Domain(ref domain) => {
+                // We do not want duplicate domains in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Domain(ref other_domain) => {
+                            if domain == other_domain {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::Link(ref link) => {
+                // We do not want duplicate links in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Link(ref other_link) => {
+                            if link == other_link {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::Label(ref label) => {
+                // We do not want duplicate labels in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Label(ref other_label) => {
+                            if label == other_label {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::NamedEntity(ref label, ref text) => {
+                // We do not want duplicate named entities in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::NamedEntity(ref other_label, ref other_text) => {
+                            if label == other_label && text == other_text {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            _ => None,
+        }
     }
 
     pub fn save_to_disk(&self) {

@@ -2,8 +2,8 @@ use crate::{
     config::get_cli_settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
     entity::content::{Heading, Paragraph, Table, TableCellType, TableRow, Title},
-    error::PiResult,
-    services::{anthropic, gliner, EntityExtractionProvider, ExtractionRequest},
+    error::{PiError, PiResult},
+    services::{anthropic, gliner, EntityExtractionProvider},
 };
 use log::{error, info};
 use reqwest::blocking::get;
@@ -12,14 +12,14 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 // A link that should fetch
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Link {
     pub url: String,
     pub text: String,
     pub is_fetched: bool,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Eq, PartialEq)]
 pub struct Domain(pub String);
 
 impl NodeWorker for Link {
@@ -54,8 +54,7 @@ impl NodeWorker for Link {
                         node_id,
                         Payload::FileHTML(WebPage {
                             contents,
-                            is_scraped: false,
-                            is_extracted: false,
+                            ..Default::default()
                         }),
                     );
                     return Some(Link {
@@ -75,33 +74,35 @@ impl NodeWorker for Link {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct WebPage {
     pub contents: String,
     pub is_scraped: bool,
+    pub is_classified: bool,
     pub is_extracted: bool, // Has entity extraction process been run on this page
 }
 
 impl WebPage {
-    pub fn scrape(&self, engine: &Engine, node_id: &NodeId) {
-        // Find the Link node that is the parent of this WebPage node
-        let current_link = {
-            let related_node_ids = engine
-                .nodes
-                .get(node_id)
-                .unwrap()
-                .read()
-                .unwrap()
-                .related_node_ids
-                .clone();
-            related_node_ids.iter().find_map(|node_id| {
-                match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
-                    Payload::Link(ref link) => Some(link.clone()),
-                    _ => None,
-                }
-            })
-        };
+    fn get_link(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
+        let related_node_ids = engine
+            .nodes
+            .get(node_id)
+            .unwrap()
+            .read()
+            .unwrap()
+            .related_node_ids
+            .clone();
+        related_node_ids.iter().find_map(|node_id| {
+            match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
+                Payload::Link(ref link) => Some(link.clone()),
+                _ => None,
+            }
+        })
+    }
 
+    fn scrape(&self, engine: &Engine, node_id: &NodeId) {
+        // Find the Link node that is the parent of this WebPage node
+        let current_link = self.get_link(engine, node_id);
         if current_link.is_none() {
             error!("Cannot find parent Link node for WebPage node");
             return;
@@ -294,16 +295,11 @@ impl WebPage {
         }
 
         info!("Possible links to fetch: [{}]", links_found.join(", "));
-        info!("Titles found: [{}]", titles_found.join(", "));
-        info!("Headings found: [{}]", headings_found.join(", "));
+        // info!("Titles found: [{}]", titles_found.join(", "));
+        // info!("Headings found: [{}]", headings_found.join(", "));
     }
-}
 
-impl WebPage {
-    pub fn extract_entities(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
-        // A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
-        // We collect all these nodes from the engine and pass them to the entity extraction service
-        let settings = get_cli_settings().unwrap();
+    fn get_content(&self, engine: &Engine, node_id: &NodeId) -> String {
         let part_nodes = engine
             .nodes
             .get(node_id)
@@ -312,9 +308,8 @@ impl WebPage {
             .unwrap()
             .part_node_ids
             .clone();
-        info!("Getting part nodes for web page");
 
-        let content = part_nodes
+        part_nodes
             .iter()
             .filter_map(
                 |nid| match engine.nodes.get(nid).unwrap().read().unwrap().payload {
@@ -325,54 +320,98 @@ impl WebPage {
                 },
             )
             .collect::<Vec<String>>()
-            .join("\n\n");
-        // info!("Content to be sent for entity extraction: {}", content);
-        let request = ExtractionRequest {
-            text: content,
-            labels: serde_yaml::from_str(WEBPAGE_EXTRACT_LABELS).unwrap(),
-        };
+            .join("\n\n")
+    }
+
+    fn classify(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
+        // Classify the web page using Anthropic
+        let settings = get_cli_settings().unwrap();
+        let content = self.get_content(engine, node_id);
+        if content.is_empty() {
+            return Ok(());
+        }
+        let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_CLASSIFICATION_LABELS).unwrap();
+        match settings.anthropic_api_key {
+            Some(api_key) => {
+                let classification = anthropic::classify(content, &labels, &api_key)?;
+                // Insert the classification into the engine
+                engine.add_related_node(node_id, Payload::Label(classification.clone()));
+                let current_link = self.get_link(engine, node_id);
+                info!(
+                    "Web page {} classified as: {}",
+                    current_link.unwrap().url,
+                    classification
+                );
+                Ok(())
+            }
+            None => Err(PiError::ApiKeyNotConfigured),
+        }
+    }
+
+    fn extract_entities(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
+        // A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
+        // We collect all these nodes from the engine and pass them to the entity extraction service
+        let settings = get_cli_settings().unwrap();
+        let content = self.get_content(engine, node_id);
+        let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_EXTRACTION_LABELS).unwrap();
         let entities = match settings.get_entity_extraction_provider()? {
             EntityExtractionProvider::Gliner => {
                 // Use GLiNER
-                gliner::extract_entities(request)
+                gliner::extract_entities(content, labels)
             }
             EntityExtractionProvider::Anthropic => {
                 // Use Anthropic
-                anthropic::extract_entities(request, &settings.anthropic_api_key.unwrap())
+                anthropic::extract_entities(content, &labels, &settings.anthropic_api_key.unwrap())
             }
         }?;
-        info!(
-            "Extracted entities {}",
-            entities
-                .iter()
-                .map(|x| format!("{}: {}", x.label, x.matching_text))
-                .collect::<Vec<String>>()
-                .join("\n")
-        );
         Ok(())
     }
 }
 
 impl NodeWorker for WebPage {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
+        // TODO: save the scraped nodes to graph only if webpage is classified as important to us
         if !self.is_scraped {
             self.scrape(engine, node_id);
             return Some(WebPage {
                 is_scraped: true,
                 ..self.clone()
             });
-        } else if !self.is_extracted {
-            self.extract_entities(engine, node_id).unwrap();
+        } else if !self.is_classified {
+            self.classify(engine, node_id).unwrap();
             return Some(WebPage {
-                is_extracted: true,
+                is_classified: true,
                 ..self.clone()
             });
+        } else if !self.is_extracted {
+            // Get the related Label node and check that classification is not "Other"
+            let classification = engine
+                .nodes
+                .get(node_id)
+                .unwrap()
+                .read()
+                .unwrap()
+                .related_node_ids
+                .iter()
+                .find_map(|node_id| {
+                    match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
+                        Payload::Label(ref label) => Some(label.clone()),
+                        _ => None,
+                    }
+                });
+            if classification.is_some_and(|x| x != "Other") {
+                self.extract_entities(engine, node_id).unwrap();
+                return Some(WebPage {
+                    is_extracted: true,
+                    ..self.clone()
+                });
+            }
         }
         None
     }
 }
 
-static WEBPAGE_EXTRACT_LABELS: &str = r#"
+static WEBPAGE_EXTRACTION_LABELS: &str = r#"
 [
     Company,
     Funding,
@@ -382,6 +421,17 @@ static WEBPAGE_EXTRACT_LABELS: &str = r#"
     FundingStage,
     Investor,
     Founder,
+]
+"#;
+
+static WEBPAGE_CLASSIFICATION_LABELS: &str = r#"
+[
+    Startup,
+    Funding,
+    Investor,
+    Founder,
+    Product,
+    Other,
 ]
 "#;
 

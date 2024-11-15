@@ -5,10 +5,13 @@
 //
 // https://www.pixlie.com/ai/license
 
-use super::ExtractionRequest;
 use crate::{
-    entity::ExtractedEntity, error::PiResult, services::extract_entites_from_lines, GraphEntity,
+    entity::ExtractedEntity,
+    error::{PiError, PiResult},
+    services::extract_entites_from_lines,
+    GraphEntity,
 };
+use log::info;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +57,9 @@ pub struct ClaudeChatMessage {
     pub content: String,
 }
 
-pub fn get_prompt(extraction_request: &ExtractionRequest) -> String {
+const HAIKU_MODEL: &str = "claude-3-5-haiku-20241022";
+
+fn get_prompt_to_extract_entities(text: String, labels: &Vec<String>) -> String {
     format!(
         r#"
     You are a data analyst who is helping me extract named entities from my data.
@@ -71,21 +76,22 @@ pub fn get_prompt(extraction_request: &ExtractionRequest) -> String {
 
     {}
     "#,
-        extraction_request.labels.join("\n"),
-        extraction_request.text
+        labels.join("\n"),
+        text
     )
 }
 
 pub fn extract_entities(
-    extraction_request: ExtractionRequest,
+    text: String,
+    labels: &Vec<String>,
     api_key: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
     let payload = ClaudeChat {
-        model: "claude-3-haiku-20240307",
+        model: HAIKU_MODEL,
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
             role: "user",
-            content: get_prompt(&extraction_request),
+            content: get_prompt_to_extract_entities(text, labels),
         }],
     };
 
@@ -105,25 +111,70 @@ pub fn extract_entities(
     ))
 }
 
-pub fn extract_entities_in_batch(
-    extraction_request: Vec<ExtractionRequest>,
-    api_key: &str,
-) -> PiResult<Vec<ExtractedEntity>> {
-    let payload = ClaudeBatchRequest {
-        requests: extraction_request
-            .iter()
-            .map(|x| ClaudeBatchItem {
-                custom_id: "".to_string(),
-                params: ClaudeChat {
-                    model: "claude-3-haiku-20240307",
-                    max_tokens: 1024,
-                    messages: vec![ClaudeChatMessage {
-                        role: "user",
-                        content: get_prompt(x),
-                    }],
-                },
-            })
-            .collect(),
+// pub fn extract_entities_in_batch(
+//     extraction_request: Vec<ExtractionRequest>,
+//     api_key: &str,
+// ) -> PiResult<Vec<ExtractedEntity>> {
+//     let payload = ClaudeBatchRequest {
+//         requests: extraction_request
+//             .iter()
+//             .map(|x| ClaudeBatchItem {
+//                 custom_id: "".to_string(),
+//                 params: ClaudeChat {
+//                     model: "claude-3-haiku-20240307",
+//                     max_tokens: 1024,
+//                     messages: vec![ClaudeChatMessage {
+//                         role: "user",
+//                         content: get_prompt(x),
+//                     }],
+//                 },
+//             })
+//             .collect(),
+//     };
+
+//     let client = Client::new();
+//     let response = client
+//         .post("https://api.anthropic.com/v1/messages")
+//         .header("x-api-key", api_key)
+//         .header("anthropic-version", "2023-06-01")
+//         .header("anthropic-beta", "message-batches-2024-09-24")
+//         .header("content-type", "application/json")
+//         .body(serde_json::to_string(&payload).unwrap())
+//         .send()
+//         .unwrap();
+
+//     let response = response.json::<ClaudeResponse>()?;
+//     Ok(extract_entites_from_lines(
+//         response.content[0].text.as_str(),
+//     ))
+// }
+
+fn get_prompt_to_classify(text: String, labels: &Vec<String>) -> String {
+    format!(
+        r#"
+    You are a data analyst who is helping me classify the following text.
+    Please classify the text as one one of the following labels:
+
+    {}
+
+    Classify the following text and reply only with the label:
+    -------------------------------------------------
+
+    {}
+    "#,
+        labels.join("\n"),
+        text
+    )
+}
+
+pub fn classify(text: String, labels: &Vec<String>, api_key: &str) -> PiResult<String> {
+    let payload = ClaudeChat {
+        model: HAIKU_MODEL,
+        max_tokens: 1024,
+        messages: vec![ClaudeChatMessage {
+            role: "user",
+            content: get_prompt_to_classify(text, labels),
+        }],
     };
 
     let client = Client::new();
@@ -131,14 +182,18 @@ pub fn extract_entities_in_batch(
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
-        .header("anthropic-beta", "message-batches-2024-09-24")
         .header("content-type", "application/json")
         .body(serde_json::to_string(&payload).unwrap())
         .send()
         .unwrap();
 
     let response = response.json::<ClaudeResponse>()?;
-    Ok(extract_entites_from_lines(
-        response.content[0].text.as_str(),
-    ))
+    let classification = response.content[0].text.clone();
+    if classification.is_empty() {
+        return Err(PiError::CouldNotClassifyText);
+    }
+    if !labels.contains(&classification) {
+        return Err(PiError::CouldNotClassifyText);
+    }
+    Ok(classification)
 }
