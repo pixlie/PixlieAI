@@ -17,7 +17,7 @@ pub struct Cli {
     pub mqtt_port: u16,
 
     /// Respect robots.txt file
-    #[clap(short, long)]
+    #[clap(short, long, default_value_t = true)]
     pub respect_robots_txt: bool,
 }
 

@@ -3,6 +3,7 @@ use config::{Cli, CrawlRequest};
 use env_logger;
 use log::error;
 use log::info;
+use rumqttc::v5::mqttbytes::QoS;
 use rumqttc::v5::AsyncClient;
 use rumqttc::v5::ConnectionError;
 use rumqttc::v5::Event;
@@ -16,7 +17,7 @@ use spider::website::Website;
 
 pub mod config;
 
-async fn crawl(website: Website) {
+async fn download(website: Website) {
     match website
         .build()
     {
@@ -49,10 +50,16 @@ async fn crawl(website: Website) {
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    let mqtt_topic = "pixlieai/crawler_spider";
+
     let cli = Cli::parse();
     // let crawl_request = CrawlRequest
     let mqqt_opts = MqttOptions::new("pixlieai", cli.mqtt_host, cli.mqtt_port);
-    let (_, mut eventloop) = AsyncClient::new(mqqt_opts, 10);
+    let (client, mut eventloop) = AsyncClient::new(mqqt_opts, 10);
+    client
+        .subscribe(format!("{}/requests", mqtt_topic), QoS::ExactlyOnce)
+        .await
+        .unwrap();
 
     if cli.verbose {
         use env_logger::Env;
@@ -83,7 +90,7 @@ async fn main() {
                                 .with_limit(100)
                                 .with_depth(3);
 
-                            crawl(website).await;
+                            download(website).await;
                         }
                         Err(e) => {
                             println!("Error parsing crawl request: {}", e);
