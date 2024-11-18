@@ -42,11 +42,5 @@ Pixlie AI takes care of:
 - API to browse the graph and all related data
 
 ## License
-- Pixlie AI is licensed under Business Source License 1.1 (BSL-1.1)
+- Pixlie AI is licensed under the GNU General Public License version 3.0
 - See the [LICENSE](LICENSE) file for details
-- Every release of Pixlie AI converts to Apache License 2.0 after two years
-
-## Can I use Pixlie AI to power my product?
-Yes! you can use Pixlie AI to power your SaaS or desktop applications.
-There is no restriction except unless you are competing with our paid service(s).
-Please see the [LICENSE](LICENSE) file for details.
