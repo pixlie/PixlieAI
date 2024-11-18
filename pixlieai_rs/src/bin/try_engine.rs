@@ -1,7 +1,6 @@
 use log::{error, info};
 use rand::Rng;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use rumqttc::v5::ConnectionError;
 use rumqttc::{Client, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
 use std::thread;

@@ -11,7 +11,6 @@ use crate::{
     services::extract_entites_from_lines,
     GraphEntity,
 };
-use log::info;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
@@ -149,7 +148,7 @@ pub fn extract_entities(
 //     ))
 // }
 
-fn get_prompt_to_classify(text: String, labels: &Vec<String>) -> String {
+fn get_prompt_to_classify(text: &String, labels: &Vec<String>) -> String {
     format!(
         r#"
     You are a data analyst who is helping me classify the following text.
@@ -167,13 +166,13 @@ fn get_prompt_to_classify(text: String, labels: &Vec<String>) -> String {
     )
 }
 
-pub fn classify(text: String, labels: &Vec<String>, api_key: &str) -> PiResult<String> {
+pub fn classify(text: &String, labels: &Vec<String>, api_key: &str) -> PiResult<String> {
     let payload = ClaudeChat {
         model: HAIKU_MODEL,
         max_tokens: 1024,
         messages: vec![ClaudeChatMessage {
             role: "user",
-            content: get_prompt_to_classify(text, labels),
+            content: get_prompt_to_classify(&text, labels),
         }],
     };
 

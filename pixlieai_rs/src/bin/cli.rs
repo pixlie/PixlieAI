@@ -1,13 +1,15 @@
-use std::path::PathBuf;
-
+use log::info;
 use pixlieai::{
     config::{Rule, RuleCondition},
     engine::{Engine, Payload},
     entity::web::Link,
 };
+use std::env;
+use std::path::PathBuf;
 
 fn main() {
     env_logger::init();
+    let args: Vec<String> = env::args().collect();
 
     let data_extraction_conditions: Vec<RuleCondition> =
         ["Startup Funding", "Startup Investment", "Startup Product"]
@@ -44,7 +46,9 @@ fn main() {
         entity_extraction_conditions.clone(),
     );
 
-    let mut engine = Engine::new(PathBuf::from("/run/media/home/brainless/Projects/PixlieAI"));
+    let mut storage_dir = PathBuf::from(&args[1]);
+    storage_dir.push("pixlieai.rocksdb");
+    let mut engine = Engine::new(storage_dir);
     engine.add_node(Payload::Rule(link_extract_rule));
     engine.add_node(Payload::Rule(table_data_extract_rule));
     engine.add_node(Payload::Rule(entity_extract_rule));
