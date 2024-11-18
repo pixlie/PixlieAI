@@ -5,29 +5,37 @@
 //
 // https://www.pixlie.com/ai/license
 
-use crate::entity::{
-    content::{Heading, Paragraph, Table, TableRow, Title},
-    web::{Link, WebPage},
+use crate::{
+    config::Rule,
+    entity::{
+        content::{Heading, Paragraph, Table, TableRow, Title},
+        web::{Domain, Link, WebPage},
+    },
 };
 use chrono::{DateTime, Utc};
-use log::info;
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use log::{error, info};
+use postcard::{from_bytes, to_allocvec};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rocksdb::DB;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
     thread::sleep,
     time::Duration,
 };
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 use strum::Display;
 
-pub mod api;
-// pub mod executor;
-// pub mod state;
+// pub mod api;
 
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
+    Rule(Rule),
+    Domain(Domain),
     Link(Link),
     FileHTML(WebPage),
     Title(Title),
@@ -35,9 +43,11 @@ pub enum Payload {
     Paragraph(Paragraph),
     Table(Table),
     TableRow(TableRow),
+    Label(String),
+    NamedEntity(String, String), // label, text
 }
 
-pub type NodeId = u32;
+pub type NodeId = Arc<u32>;
 
 #[derive(Deserialize, Serialize)]
 pub struct Node {
@@ -66,91 +76,97 @@ pub struct PendingNode {
 // All the entity labels are loaded in the engine
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    // pub graph: RwLock<Graph<PiNode, PiEdge, Directed>>,
     pub labels: RwLock<HashSet<String>>,
-    pub nodes: RwLock<Vec<Node>>, // All nodes that are in the engine
-    pub nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
-    last_node_id: RwLock<u32>,
-    // pub storage_root: String,
+    pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
+    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
+    last_node_id: Mutex<u32>,
+    storage_root: String,
     pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
     pub execute_every: u8, // Number of seconds to wait before executing the engine
 }
 
 impl Engine {
-    pub fn new() -> Engine {
-        Engine {
+    pub fn new(storage_root: PathBuf) -> Engine {
+        let mut engine = Engine {
             labels: RwLock::new(HashSet::new()),
-            nodes: RwLock::new(vec![]),
+            nodes: HashMap::new(),
             nodes_to_write: RwLock::new(vec![]),
-            last_node_id: RwLock::new(0),
+            last_node_id: Mutex::new(0),
+            storage_root: storage_root.to_str().unwrap().to_string(),
             nodes_by_label: RwLock::new(HashMap::new()),
-            // entity_type_last_run: RwLock::new(HashMap::new()),
             execute_every: 1,
-        }
+        };
+        // We load the graph from disk
+        engine.load_from_disk();
+        info!(
+            "There are {} webpage nodes in the graph",
+            engine
+                .nodes
+                .iter()
+                .filter(|x| match x.1.read().unwrap().payload {
+                    Payload::FileHTML(_) => true,
+                    _ => false,
+                })
+                .count()
+        );
+        engine
     }
 
-    pub fn execute(&self) {
+    pub fn execute(&mut self) {
         loop {
             // Execute each worker function, passing them the engine
             self.process_nodes();
             self.add_pending_nodes();
+            self.save_to_disk();
             sleep(Duration::from_secs(self.execute_every as u64));
         }
     }
 
     pub fn process_nodes(&self) {
-        let mut updates: Vec<(NodeId, Option<Payload>)> = self
+        let updates: Vec<(NodeId, Option<Payload>)> = self
             .nodes
-            .read()
-            .unwrap()
             .par_iter()
-            .map(|node| {
-                // We get the node from the engine
+            .map(|(node_id, node)| {
+                let node = node.read().unwrap();
+                let node_id = node_id.clone();
                 match node.payload {
                     Payload::Link(ref payload) => {
-                        let update = payload.process(self, &node.id);
+                        let update = payload.process(self, &node_id);
                         match update {
-                            Some(payload) => (node.id, Some(Payload::Link(payload))),
-                            None => (node.id, None),
+                            Some(payload) => (node_id, Some(Payload::Link(payload))),
+                            None => (node_id, None),
                         }
                     }
                     Payload::FileHTML(ref payload) => {
-                        let update = payload.process(self, &node.id);
+                        let update = payload.process(self, &node_id);
                         match update {
-                            Some(payload) => (node.id, Some(Payload::FileHTML(payload))),
-                            None => (node.id, None),
+                            Some(payload) => (node_id, Some(Payload::FileHTML(payload))),
+                            None => (node_id, None),
                         }
                     }
-                    _ => (node.id, None),
+                    _ => (node_id, None),
                 }
             })
             .collect();
-
-        for update in updates {
-            match update.1 {
-                Some(payload) => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == update.0)
-                        .unwrap()
-                        .payload = payload;
+        for (node_id, update) in updates {
+            match update {
+                Some(update) => {
+                    self.nodes.get(&node_id).unwrap().write().unwrap().payload = update;
                 }
                 None => {}
-            }
+            };
         }
     }
 
-    pub fn add_node(&self, payload: Payload) -> NodeId {
+    pub fn add_node(&mut self, payload: Payload) -> NodeId {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
-        let id = {
-            let mut id = self.last_node_id.write().unwrap();
+        let id = Arc::new({
+            let mut id = self.last_node_id.lock().unwrap();
             *id += 1;
             *id
-        };
+        });
         // Store the label in the engine
         {
             let mut labels = self.labels.write().unwrap();
@@ -158,54 +174,70 @@ impl Engine {
         };
         // Store the node in the engine
         {
-            self.nodes.write().unwrap().push(Node {
-                id,
-                label: label.clone(),
-                payload,
+            self.nodes.insert(
+                id.clone(),
+                RwLock::new(Node {
+                    id: id.clone(),
+                    label: label.clone(),
+                    payload,
 
-                parent_id: None,
-                part_node_ids: vec![],
-                related_node_ids: vec![],
-                written_at: Utc::now(),
-            });
+                    parent_id: None,
+                    part_node_ids: vec![],
+                    related_node_ids: vec![],
+                    written_at: Utc::now(),
+                }),
+            );
         }
         // Store the node in nodes_by_label_id
         {
             let mut nodes_by_label = self.nodes_by_label.write().unwrap();
             nodes_by_label
                 .entry(label.clone())
-                .and_modify(|entries| entries.push(id))
-                .or_insert(vec![id]);
+                .and_modify(|entries| entries.push(id.clone()))
+                .or_insert(vec![id.clone()]);
         }
         id
     }
 
-    pub fn add_pending_nodes(&self) {
+    pub fn add_pending_nodes(&mut self) {
         let mut count = 0;
-        while let Some(pending_node) = self.nodes_to_write.write().unwrap().pop() {
-            let id = self.add_node(pending_node.payload);
-            match pending_node.related_type {
-                RelationType::IsPart => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == pending_node.creating_node_id)
-                        .unwrap()
-                        .part_node_ids
-                        .push(id);
-                }
-                RelationType::IsRelated => {
-                    self.nodes
-                        .write()
-                        .unwrap()
-                        .iter_mut()
-                        .find(|x| x.id == pending_node.creating_node_id)
-                        .unwrap()
-                        .related_node_ids
-                        .push(id);
-                }
-            }
+        let mut nodes_to_write: Vec<PendingNode> =
+            self.nodes_to_write.write().unwrap().drain(..).collect();
+        while let Some(pending_node) = nodes_to_write.pop() {
+            let id = if let Some(existing_node_id) = self.find_existing(&pending_node.payload) {
+                // If the payload already exists in the graph, we simply add a relation edge
+                existing_node_id
+            } else {
+                self.add_node(pending_node.payload)
+            };
+            // Add a relation edge or part edge from the parent node to the new node
+            match self.nodes.get(&pending_node.creating_node_id) {
+                Some(node) => match pending_node.related_type {
+                    RelationType::IsPart => {
+                        node.write().unwrap().part_node_ids.push(id.clone());
+                    }
+                    RelationType::IsRelated => {
+                        node.write().unwrap().related_node_ids.push(id.clone());
+                    }
+                },
+                None => {}
+            };
+            // Add a relation edge from the new node to the parent node
+            match self.nodes.get(&id) {
+                Some(node) => match pending_node.related_type {
+                    // RelationType::IsPart => {
+                    //     node.write().unwrap().part_node_ids.push(pending_node.creating_node_id);
+                    // }
+                    RelationType::IsRelated => {
+                        node.write()
+                            .unwrap()
+                            .related_node_ids
+                            .push(pending_node.creating_node_id);
+                    }
+                    _ => {}
+                },
+                None => {}
+            };
             count += 1;
         }
         if count > 0 {
@@ -216,7 +248,7 @@ impl Engine {
     pub fn add_part_node(&self, parent_id: &NodeId, payload: Payload) {
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
-            creating_node_id: *parent_id,
+            creating_node_id: parent_id.clone(),
             related_type: RelationType::IsPart,
         });
     }
@@ -224,26 +256,147 @@ impl Engine {
     pub fn add_related_node(&self, parent_id: &NodeId, payload: Payload) {
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
-            creating_node_id: *parent_id,
+            creating_node_id: parent_id.clone(),
             related_type: RelationType::IsRelated,
         });
     }
 
-    // pub fn iter_part_nodes<'a>(
-    //     &'a self,
-    //     node_id: &NodeId,
-    // ) -> Option<impl Iterator<Item = &'a Node>> {
-    //     match self.nodes.read().unwrap().iter().find(|x| x.id == *node_id) {
-    //         Some(start_node) => Some(
-    //             self.nodes
-    //                 .read()
-    //                 .unwrap()
-    //                 .iter()
-    //                 .filter(|x| start_node.part_node_ids.contains(&x.id)),
-    //         ),
-    //         None => None,
-    //     }
-    // }
+    fn find_existing(&self, payload: &Payload) -> Option<Arc<u32>> {
+        // For certain node payloads, check if there is a node with the same payload
+        match payload {
+            Payload::Domain(ref domain) => {
+                // We do not want duplicate domains in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Domain(ref other_domain) => {
+                            if domain == other_domain {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::Link(ref link) => {
+                // We do not want duplicate links in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Link(ref other_link) => {
+                            if link == other_link {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::Label(ref label) => {
+                // We do not want duplicate labels in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::Label(ref other_label) => {
+                            if label == other_label {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            Payload::NamedEntity(ref label, ref text) => {
+                // We do not want duplicate named entities in the graph
+                self.nodes.par_iter().find_map_any(|other_node| {
+                    match other_node.1.read().unwrap().payload {
+                        Payload::NamedEntity(ref other_label, ref other_text) => {
+                            if label == other_label && text == other_text {
+                                Some(other_node.0.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn save_to_disk(&self) {
+        // We use RocksDB to store the graph
+        let mut path = PathBuf::from(&self.storage_root);
+        path.push("pixlieai.rocksdb");
+        let db = DB::open_default(path).unwrap();
+        for (node_id, node) in self.nodes.iter() {
+            let bytes = match node.read() {
+                Ok(node) => match to_allocvec(&*node) {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        error!("Error serializing node: {}", err);
+                        break;
+                    }
+                },
+                Err(err) => {
+                    error!("Error reading node: {}", err);
+                    break;
+                }
+            };
+            match db.put(node_id.to_le_bytes(), bytes) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error writing node: {}", err);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn load_from_disk(&mut self) {
+        let mut path = PathBuf::from(&self.storage_root);
+        path.push("pixlieai.rocksdb");
+        let db = DB::open_default(path).unwrap();
+        let iter = db.iterator(rocksdb::IteratorMode::Start);
+        for item in iter {
+            let (key, value) = match item {
+                Ok(item) => item,
+                Err(err) => {
+                    error!("Error iterating over RocksDB: {}", err);
+                    break;
+                }
+            };
+            let node_id = Arc::new(read_le_u32(&mut &*key));
+            let node: Node = match from_bytes(&value) {
+                Ok(node) => node,
+                Err(err) => {
+                    error!("Error deserializing node: {}", err);
+                    break;
+                }
+            };
+            let label = node.payload.to_string().clone();
+            self.nodes.insert(node_id.clone(), RwLock::new(node));
+
+            // Store the node in nodes_by_label_id
+            {
+                let mut nodes_by_label = self.nodes_by_label.write().unwrap();
+                nodes_by_label
+                    .entry(label)
+                    .and_modify(|entries| entries.push(node_id.clone()))
+                    .or_insert(vec![node_id.clone()]);
+            }
+        }
+    }
+}
+
+fn read_le_u32(input: &mut &[u8]) -> u32 {
+    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
+    *input = rest;
+    u32::from_le_bytes(int_bytes.try_into().unwrap())
 }
 
 pub trait NodeWorker {

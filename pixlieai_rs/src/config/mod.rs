@@ -3,8 +3,7 @@ use crate::{
     services::EntityExtractionProvider,
 };
 use config::Config;
-use log::error;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct Settings {
@@ -35,5 +34,27 @@ impl Settings {
             return Ok(EntityExtractionProvider::Anthropic);
         }
         Err(PiError::NotConfiguredProperly)
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
+pub enum RuleCondition {
+    IfContextIncludes(String),
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Rule {
+    pub applies_to: String,
+    pub action: String,
+    pub conditions: Vec<RuleCondition>,
+}
+
+impl Rule {
+    pub fn new<S: Into<String>>(applies_to: S, action: S, conditions: Vec<RuleCondition>) -> Rule {
+        Rule {
+            applies_to: applies_to.into(),
+            action: action.into(),
+            conditions,
+        }
     }
 }

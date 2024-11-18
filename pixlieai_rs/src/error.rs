@@ -5,13 +5,15 @@
 //
 // https://www.pixlie.com/ai/license
 
-use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PiError {
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
+
+    #[error("API key not configured")]
+    ApiKeyNotConfigured,
 
     // #[error("Error from Python code: {0}")]
     // PythonError(#[from] pyo3::PyErr),
@@ -23,6 +25,9 @@ pub enum PiError {
 
     #[error("Not configured properly")]
     NotConfiguredProperly,
+
+    #[error("Could not classify text")]
+    CouldNotClassifyText,
 }
 
 pub type PiResult<T> = Result<T, PiError>;
