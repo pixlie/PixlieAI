@@ -1,45 +1,33 @@
 # Pixlie AI
-graph + ai in your products; reduce costs and get correct answers from your data
+AI powered knowledge graphs for semantically accurate insights. From personal research to semantic search in your apps.
 
 ## What is Pixlie AI?
-Pixlie AI is a framework to create applications that use a graph + S/LLM (Small/Large Language Model) approach
-to semantic search, knowledge base, question/answering, and more.
+Pixlie AI helps you create knowledge graphs that stores semantic information about your data.
+It uses a combination of AI/ML models like GLiNER or Anthropic's Claude to extract semantics at a low cost.
+The extracted semantics are stored in the graph, retaining the rich real world context of your data.
+You can then get insights from the graph, either visually or programmatically.
 
-These are some high level bullet points that highlight our approach to the problems and kind of solutions we want to bring about:
-- We are building a system that would "**understand your data**" very well
-- Our approach, with Pixlie AI, is to create a **knowledge graph on your data**
-- Pixlie AI is **source available**, *converts to open source* 2 years after each release - **no vendor lock in**
-- We are **not** trying to be a **generic AI solution** which can deliver answers to every question out there
-- Pixlie AI aims to give **accurate answers** where **semantics** matter (meaning and relation of things)
-- **Fast, reliable and low cost** - use Rust, deterministic cache, small language models, NLP tools, efficient storage, memory and compute management
-- Large (and Small) Language Models help **extract entities** (people, places, events, time, tasks,...) from data
-- Pixlie AI graph can manage **millions of entities**, 100s of millions of relations to hold semantics of data
-- **Input question** translated to graph operations (using S/L LMs) and answered
-- **Internal router** to guess model performance for given task - small models can further lower time and financial costs
-- Output **answer has entity labels** (person, place, time,...) which can help in better UX and further workflow
+Here is how it works:
+- Setup Pixlie AI on your computer (on  on the cloud)
+- Start with a problem or question that you want to deep dive into
+- Share your data with Pixlie AI or crawl the web
+- Pixlie AI uses LLMs (Anthropic's Claude) classify your data (your API keys)
+- Pixlie AI uses GLiNER (running locally or on the cloud) to extract semantics from your data
+- Pixlie AI can crawl data from the web if youw want
+- A knowledge graph is created that holds semantic information about your data
+- Query the graph visually or programmatically
 
-Pixlie AI is being build as batteries-included and ready to use out of the box for majority of use-cases. Like Redis, or PostgreSQL.
+## How can I use Pixlie AI?
+Pixlie AI is open source and is under active development. Our work is done in public, please star this repository, it means a lot to us.
+If you want to be notified when Pixlie AI is ready for use, please subscribe to our [insights newsletter](https://pixlie.com/insights).
 
-## What does this solve?
-Ever had a conversation with an LLM and saw that the answers are not always correct?
+## Is Pixlie AI an alternative to using vector databases?
+Yes, Pixlie AI is an alternative to using vector databases. Vector databases are good for storing and querying semantic data,
+but is they do not model the underlying data accurately. In Pxlie AI, we use LLMs to classify individual pieces of semantically
+meaningful data. Each individual entity, like a person, place, date, event, item of interest is stored separately in the graph.
+Their relationships to other entitiies and also stored in the graph. This makes our graph based approach better where accuracy is
+important.
 
-This is exactly what we want to solve. The graph is a rich set of connections between your data and all the
-real world attributes they have. LLMs are great at finding details in data but are not so good at keeping
-track of everything. The graph stores and retrieves all the data and metadata (from LLMs) deterministically.
-
-This is an alternative to using vector databases for RAG (Retreival Augmented Generation).
-
-## How does it work?
-Pixlie AI is a framework that you can use in your products, share data to it and tweak the graph using the API.
-Pixlie AI takes care of:
-- Data storage with RocksDB (consider Pixlie AI data storage to be ephimeral)
-- APIs to send your data to it (similar to search engines)
-- Graph creation and management
-- Integration with Large Language Models (your API keys)
-- Entity and relationship extraction from your data
-- Enrich the graph with extracted entities and relationships
-- Query the graph using an API or natural language
-- API to browse the graph and all related data
 
 ## License
 - Pixlie AI is licensed under the GNU General Public License version 3.0
