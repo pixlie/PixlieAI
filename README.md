@@ -1,11 +1,13 @@
 # Pixlie AI
-Knowledge graphs on your data using LLMs
+AI powered knowledge graphs for semantically accurate insights. From personal research to semantic search in your apps.
 
 ## What is Pixlie AI?
-Pixlie AI helps your create knowledge graphs on your data that can answer semantic questions.
-Use LLMs like Anthropic's Claude to extract semantics. Then get insights from the graph.
+Pixlie AI helps you create knowledge graphs that stores semantic information about your data.
+It uses a combination of AI/ML models like GLiNER or Anthropic's Claude to extract semantics at a low cost.
+The extracted semantics are stored in the graph, retaining the rich real world context of your data.
+You can then get insights from the graph, either visually or programmatically.
 
-Here is and overview of how to use Pixlie AI:
+Here is how it works:
 - Setup Pixlie AI on your computer (on  on the cloud)
 - Start with a problem or question that you want to deep dive into
 - Share your data with Pixlie AI or crawl the web
@@ -15,6 +17,9 @@ Here is and overview of how to use Pixlie AI:
 - A knowledge graph is created that holds semantic information about your data
 - Query the graph visually or programmatically
 
+## How can I use Pixlie AI?
+Pixlie AI is open source and is under active development. Our work is done in public, please star this repository, it means a lot to us.
+If you want to be notified when Pixlie AI is ready for use, please subscribe to our [insights newsletter](https://pixlie.com/insights).
 
 ## Is Pixlie AI an alternative to using vector databases?
 Yes, Pixlie AI is an alternative to using vector databases. Vector databases are good for storing and querying semantic data,
