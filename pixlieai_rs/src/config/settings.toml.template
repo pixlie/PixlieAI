@@ -1,3 +1,5 @@
 anthropic_api_key = ""
-path_to_gliner_home = ""
+ollama_hosts = [""]
+ollama_port = 11434
+mqtt_broker_host = ""
 path_to_storage_root = ""

@@ -3,7 +3,7 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 /*!
 The Email entity represents emails that we use in our daily lives.

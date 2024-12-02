@@ -3,18 +3,24 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::ExtractedEntity;
 use serde::Serialize;
 
 pub mod anthropic;
 pub mod gliner;
+pub mod ollama;
 
-#[derive(Serialize)]
 pub enum EntityExtractionProvider {
     Anthropic,
     Gliner,
+    Ollama,
+}
+
+pub enum TextClassificationProvider {
+    Anthropic,
+    Ollama,
 }
 
 pub struct EntityExtractionExample {

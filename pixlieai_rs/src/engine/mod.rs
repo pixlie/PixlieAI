@@ -3,14 +3,15 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::{
-    config::Rule,
+    config::{get_cli_settings, startup_funding_insights_app, Rule},
     entity::{
-        content::{Heading, Paragraph, Table, TableRow, Title},
+        content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
         web::{Domain, Link, WebPage},
     },
+    error::PiResult,
 };
 use chrono::{DateTime, Utc};
 use log::{error, info};
@@ -41,6 +42,8 @@ pub enum Payload {
     Title(Title),
     Heading(Heading),
     Paragraph(Paragraph),
+    BulletPoints(BulletPoints),
+    OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
     Label(String),
@@ -403,4 +406,15 @@ pub trait NodeWorker {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
     where
         Self: Sized;
+}
+
+pub fn engine_manager() -> PiResult<()> {
+    let settings = get_cli_settings()?;
+    let mut storage_dir = PathBuf::from(&settings.path_to_storage_dir.unwrap());
+    let project_name = settings.current_project.unwrap();
+    storage_dir.push(format!("{}.rocksdb", project_name));
+    let mut engine = Engine::new(storage_dir);
+    startup_funding_insights_app(&mut engine);
+    engine.execute();
+    Ok(())
 }

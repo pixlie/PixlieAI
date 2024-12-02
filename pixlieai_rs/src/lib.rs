@@ -3,10 +3,11 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use serde::Deserialize;
 
+pub mod admin;
 pub mod config;
 pub mod engine;
 pub mod entity;

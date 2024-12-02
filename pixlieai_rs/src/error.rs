@@ -3,12 +3,15 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PiError {
+    #[error("Cannot read config file")]
+    CannotReadConfigFile,
+
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
@@ -28,6 +31,9 @@ pub enum PiError {
 
     #[error("Could not classify text")]
     CouldNotClassifyText,
+
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 pub type PiResult<T> = Result<T, PiError>;
