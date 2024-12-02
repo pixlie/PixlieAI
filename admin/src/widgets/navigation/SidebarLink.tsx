@@ -13,7 +13,7 @@ const SidebarLink: Component<IPropTypes> = (props) => {
   const [_, { getClasses }] = useTailwindClasses();
 
   let classes =
-    "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold " +
+    "group flex items-center gap-x-3 rounded-md px-2 py-4 text-sm/6 font-semibold " +
     getClasses()["sideBar.link"];
 
   return (
