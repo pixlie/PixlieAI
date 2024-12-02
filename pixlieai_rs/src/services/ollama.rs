@@ -63,7 +63,7 @@ fn get_prompt_to_extract_entities(text: String, labels: &Vec<String>) -> String 
 pub fn extract_entities(
     text: String,
     labels: &Vec<String>,
-    ollama_host: String,
+    ollama_host: &String,
     ollama_port: u16,
 ) -> PiResult<Vec<ExtractedEntity>> {
     let payload = OllamaChat {
@@ -103,7 +103,7 @@ Please reply with only one label to classify the following text, add no other te
 pub fn classify(
     text: &String,
     labels: &Vec<String>,
-    ollama_host: String,
+    ollama_host: &String,
     ollama_port: u16,
 ) -> PiResult<String> {
     let payload = OllamaChat {

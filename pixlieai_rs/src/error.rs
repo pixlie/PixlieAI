@@ -31,6 +31,9 @@ pub enum PiError {
 
     #[error("Could not classify text")]
     CouldNotClassifyText,
+
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 pub type PiResult<T> = Result<T, PiError>;

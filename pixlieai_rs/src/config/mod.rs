@@ -15,15 +15,21 @@ use config::Config;
 use dirs::config_dir;
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::fs::create_dir;
+use std::{
+    fs::{create_dir, create_dir_all},
+    path::PathBuf,
+};
 
 #[derive(Deserialize)]
 pub struct Settings {
     pub anthropic_api_key: Option<String>,
     pub is_gliner_available: Option<bool>,
-    pub ollama_hosts: Option<String>,
+    pub ollama_hosts: Option<Vec<String>>,
+    pub ollama_port: Option<u16>,
     pub mqtt_broker_host: Option<String>,
-    pub path_to_storage_root: Option<String>,
+    #[serde(skip_deserializing)]
+    pub path_to_config_dir: String,
+    pub path_to_storage_dir: Option<String>,
     pub current_project: Option<String>,
 }
 
@@ -35,6 +41,7 @@ pub fn check_cli_settings() -> PiResult<()> {
     }
     let mut config_path = config_path.unwrap();
     config_path.push("pixlie_ai");
+    let mut static_root = config_path.clone();
     if !config_path.exists() {
         // Create the `pixlie_ai` config directory since it does not exist
         match create_dir(config_path.clone()) {
@@ -72,18 +79,40 @@ pub fn check_cli_settings() -> PiResult<()> {
             }
         }
     };
+    static_root.push("PixlieAI");
+    static_root.push("admin");
+    static_root.push("dist");
+    if !static_root.exists() {
+        // Create the `pixlie_ai` config directory since it does not exist
+        match create_dir_all(static_root.clone()) {
+            Ok(_) => {}
+            Err(err) => {
+                error!(
+                    "Could not create static directory at {}\nError: {}",
+                    &static_root.display(),
+                    err
+                );
+                return Err(PiError::CannotReadConfigFile);
+            }
+        }
+    };
     Ok(())
 }
 
 pub fn get_cli_settings() -> PiResult<Settings> {
     let mut config_path = config_dir().unwrap();
-    config_path.push("pixlie_ai/settings.toml");
+    config_path.push("pixlie_ai");
+    let path_to_config_dir = config_path.clone();
+    config_path.push("settings.toml");
     match config_path.to_str() {
         Some(config_path) => {
             let settings = Config::builder()
                 .add_source(config::File::with_name(config_path))
                 .build()?;
-            Ok(settings.try_deserialize::<Settings>()?)
+            let mut settings = settings.try_deserialize::<Settings>()?;
+            settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
+            settings.path_to_config_dir = path_to_config_dir.to_str().unwrap().to_string();
+            Ok(settings)
         }
         None => Err(PiError::CannotReadConfigFile),
     }
@@ -108,6 +137,14 @@ impl Settings {
             return Ok(TextClassificationProvider::Anthropic);
         }
         Err(PiError::NotConfiguredProperly)
+    }
+
+    pub fn get_path_to_static_dir(&self) -> PathBuf {
+        let mut static_root = PathBuf::from(self.path_to_config_dir.clone());
+        static_root.push("PixlieAI");
+        static_root.push("admin");
+        static_root.push("dist");
+        static_root
     }
 }
 

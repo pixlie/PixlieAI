@@ -410,7 +410,7 @@ pub trait NodeWorker {
 
 pub fn engine_manager() -> PiResult<()> {
     let settings = get_cli_settings()?;
-    let mut storage_dir = PathBuf::from(&settings.path_to_storage_root.unwrap());
+    let mut storage_dir = PathBuf::from(&settings.path_to_storage_dir.unwrap());
     let project_name = settings.current_project.unwrap();
     storage_dir.push(format!("{}.rocksdb", project_name));
     let mut engine = Engine::new(storage_dir);
