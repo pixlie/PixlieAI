@@ -3,7 +3,7 @@
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// https://www.pixlie.com/ai/license
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use super::ExtractionRequest;
 use crate::entity::ExtractedEntity;
@@ -24,7 +24,7 @@ pub struct GlinerEntity {
     pub score: f32,
 }
 
-pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
+pub fn extract_entities(text: String, labels: &Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
     // We use MQTT to call the Python code that uses GLiNER to extract entities
     let mqtt_topic = "extract_named_entities_gliner";
     let random_id = rand::random::<u32>();
@@ -32,7 +32,8 @@ pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<Extra
     //  This is where we initiate a request with GLiNER using MQTT
     {
         let random_id = random_id.clone();
-        thread::spawn(move || extract_entities_sender(text, labels, random_id));
+        let labels = labels.clone();
+        thread::spawn(move || extract_entities_sender(text, &labels, random_id));
     };
 
     // This is where we listen for responses from GLiNER using MQTT
@@ -97,7 +98,7 @@ pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<Extra
     Ok(extracted)
 }
 
-fn extract_entities_sender(text: String, labels: Vec<String>, random_id: u32) {
+fn extract_entities_sender(text: String, labels: &Vec<String>, random_id: u32) {
     let mqtt_topic = "extract_named_entities_gliner";
     let mut mqtt_options = MqttOptions::new(
         format!("{}_sender_{}", mqtt_topic, random_id),
@@ -107,6 +108,7 @@ fn extract_entities_sender(text: String, labels: Vec<String>, random_id: u32) {
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
     let (sender, mut connection) = Client::new(mqtt_options.clone(), 10);
+    let labels = labels.clone();
     thread::spawn(move || {
         match sender.publish(
             format!("pixlieai/{}/requests/{}", mqtt_topic, random_id),

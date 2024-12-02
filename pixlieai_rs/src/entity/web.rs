@@ -2,14 +2,16 @@ use crate::{
     config::get_cli_settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
     entity::content::{Heading, Paragraph, TableCellType, TableRow, Title},
-    error::{PiError, PiResult},
-    services::{anthropic, gliner, EntityExtractionProvider},
+    error::PiResult,
+    services::{anthropic, gliner, ollama, EntityExtractionProvider, TextClassificationProvider},
 };
 use log::{error, info};
 use reqwest::blocking::get;
 use scraper::Html;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use super::content::{BulletPoints, OrderedPoints};
 
 // A link that should fetch
 #[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq)]
@@ -139,6 +141,48 @@ impl WebPage {
                             .trim()
                             .to_string(),
                     )));
+                }
+                "ul" => {
+                    let mut bullet_points: Vec<String> = vec![];
+                    for list_item in child.descendent_elements() {
+                        match list_item.value().name() {
+                            "li" => {
+                                let text = list_item
+                                    .text()
+                                    .map(|x| x.to_string())
+                                    .collect::<Vec<String>>()
+                                    .join("")
+                                    .trim()
+                                    .to_string();
+                                if !text.is_empty() {
+                                    bullet_points.push(text);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    parts.push(Payload::BulletPoints(BulletPoints(bullet_points)));
+                }
+                "ol" => {
+                    let mut ordered_points: Vec<String> = vec![];
+                    for list_item in child.descendent_elements() {
+                        match list_item.value().name() {
+                            "li" => {
+                                let text = list_item
+                                    .text()
+                                    .map(|x| x.to_string())
+                                    .collect::<Vec<String>>()
+                                    .join("")
+                                    .trim()
+                                    .to_string();
+                                if !text.is_empty() {
+                                    ordered_points.push(text);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    parts.push(Payload::OrderedPoints(OrderedPoints(ordered_points)));
                 }
                 "a" => {
                     if child.value().attr("href").is_none() {
@@ -290,8 +334,20 @@ impl WebPage {
             .filter_map(
                 |nid| match engine.nodes.get(nid).unwrap().read().unwrap().payload {
                     // Payload::Title(ref title) => Some(title.0.to_string()),
-                    Payload::Heading(ref heading) => Some(heading.0.to_string()),
-                    Payload::Paragraph(ref paragraph) => Some(paragraph.0.to_string()),
+                    Payload::Heading(ref heading) => {
+                        if heading.0.len() > 20 {
+                            Some(heading.0.to_string())
+                        } else {
+                            None
+                        }
+                    }
+                    Payload::Paragraph(ref paragraph) => {
+                        if paragraph.0.len() > 200 {
+                            Some(paragraph.0.to_string())
+                        } else {
+                            None
+                        }
+                    }
                     _ => None,
                 },
             )
@@ -307,20 +363,22 @@ impl WebPage {
             return Ok(());
         }
         let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_CLASSIFICATION_LABELS).unwrap();
-        match settings.anthropic_api_key {
-            Some(api_key) => {
-                let classification = anthropic::classify(&content, &labels, &api_key)?;
-                // Insert the classification into the engine
-                engine.add_related_node(node_id, Payload::Label(classification.clone()));
-                let current_link = self.get_link(engine, node_id);
-                info!("Web page: {}", current_link.unwrap().url);
-                info!("Content to classify: {}", content);
-                info!("Labels to classify: [{}]", labels.join(", "));
-                info!("Classified as: {}", classification);
-                Ok(())
+
+        let classification = match settings.get_text_classification_provider()? {
+            TextClassificationProvider::Ollama => {
+                // Use Ollama
+                ollama::classify(&content, &labels, settings.ollama_hosts.unwrap(), 8080)?
             }
-            None => Err(PiError::ApiKeyNotConfigured),
-        }
+            TextClassificationProvider::Anthropic => {
+                // Use Anthropic
+                anthropic::classify(&content, &labels, &settings.anthropic_api_key.unwrap())?
+            }
+        };
+        // Insert the classification into the engine
+        // engine.add_related_node(node_id, Payload::Label(classification.clone()));
+        info!("Content: {}\n\nclassified as: {}", content, classification);
+
+        Ok(())
     }
 
     fn extract_entities(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
@@ -332,7 +390,11 @@ impl WebPage {
         let _entities = match settings.get_entity_extraction_provider()? {
             EntityExtractionProvider::Gliner => {
                 // Use GLiNER
-                gliner::extract_entities(content, labels)
+                gliner::extract_entities(content, &labels)
+            }
+            EntityExtractionProvider::Ollama => {
+                // Use Ollama
+                ollama::extract_entities(content, &labels, settings.ollama_hosts.unwrap(), 8080)
             }
             EntityExtractionProvider::Anthropic => {
                 // Use Anthropic
