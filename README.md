@@ -8,7 +8,7 @@ The extracted semantics are stored in the graph, retaining the rich real world c
 You can then get insights from the graph, either visually or programmatically.
 
 Here is how it works:
-- Setup Pixlie AI on your computer (on  on the cloud)
+- Setup Pixlie AI on your computer (or  on the cloud)
 - Start with a problem or question that you want to deep dive into
 - Share your data with Pixlie AI or crawl the web
 - Pixlie AI uses LLMs (Anthropic's Claude) classify your data (your API keys)
