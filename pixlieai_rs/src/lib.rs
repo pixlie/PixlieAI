@@ -8,11 +8,16 @@
 use serde::Deserialize;
 
 pub mod admin;
+pub mod api;
 pub mod config;
 pub mod engine;
 pub mod entity;
 pub mod error;
 pub mod services;
+
+pub enum PiCliEvent {
+    SettingsUpdated,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct GraphEntity {

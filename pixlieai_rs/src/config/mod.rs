@@ -13,24 +13,31 @@ use crate::{
 };
 use config::Config;
 use dirs::config_dir;
-use log::error;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{create_dir, create_dir_all},
+    fs::{create_dir, create_dir_all, File},
+    io::Write,
     path::PathBuf,
 };
+use ts_rs::TS;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export, rename_all = "camelCase")]
 pub struct Settings {
     pub anthropic_api_key: Option<String>,
-    pub is_gliner_available: Option<bool>,
     pub ollama_hosts: Option<Vec<String>>,
     pub ollama_port: Option<u16>,
     pub mqtt_broker_host: Option<String>,
-    #[serde(skip_deserializing)]
-    pub path_to_config_dir: String,
     pub path_to_storage_dir: Option<String>,
     pub current_project: Option<String>,
+
+    #[serde(skip_deserializing)]
+    #[ts(skip)]
+    pub is_gliner_available: Option<bool>,
+    #[serde(skip_deserializing)]
+    #[ts(skip)]
+    pub path_to_config_dir: String,
 }
 
 pub fn check_cli_settings() -> PiResult<()> {
@@ -99,26 +106,32 @@ pub fn check_cli_settings() -> PiResult<()> {
     Ok(())
 }
 
-pub fn get_cli_settings() -> PiResult<Settings> {
-    let mut config_path = config_dir().unwrap();
-    config_path.push("pixlie_ai");
-    let path_to_config_dir = config_path.clone();
-    config_path.push("settings.toml");
-    match config_path.to_str() {
-        Some(config_path) => {
-            let settings = Config::builder()
-                .add_source(config::File::with_name(config_path))
-                .build()?;
-            let mut settings = settings.try_deserialize::<Settings>()?;
-            settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
-            settings.path_to_config_dir = path_to_config_dir.to_str().unwrap().to_string();
-            Ok(settings)
-        }
-        None => Err(PiError::CannotReadConfigFile),
-    }
+pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
+    let mut path_to_config_dir = config_dir().unwrap();
+    path_to_config_dir.push("pixlie_ai");
+    let mut path_to_config_file = path_to_config_dir.clone();
+    path_to_config_file.push("settings.toml");
+    debug!("CLI settings path {}", path_to_config_file.display());
+    Ok((path_to_config_dir, path_to_config_file))
 }
 
 impl Settings {
+    pub fn get_cli_settings() -> PiResult<Self> {
+        let (path_to_config_dir, path_to_config_file) = get_cli_settings_path()?;
+        match path_to_config_file.to_str() {
+            Some(config_path) => {
+                let settings = Config::builder()
+                    .add_source(config::File::with_name(config_path))
+                    .build()?;
+                let mut settings = settings.try_deserialize::<Settings>()?;
+                settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
+                settings.path_to_config_dir = path_to_config_dir.to_str().unwrap().to_string();
+                Ok(settings)
+            }
+            None => Err(PiError::CannotReadConfigFile),
+        }
+    }
+
     pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
         if let Some(true) = self.is_gliner_available {
             return Ok(EntityExtractionProvider::Gliner);
@@ -145,6 +158,40 @@ impl Settings {
         static_root.push("admin");
         static_root.push("dist");
         static_root
+    }
+
+    pub fn merge_updates(&mut self, updates: &Settings) {
+        if updates.anthropic_api_key.is_some() {
+            self.anthropic_api_key = updates.anthropic_api_key.clone();
+        }
+        if updates.ollama_hosts.is_some() {
+            self.ollama_hosts = updates.ollama_hosts.clone();
+        }
+        if updates.ollama_port.is_some() {
+            self.ollama_port = updates.ollama_port.clone();
+        }
+        if updates.mqtt_broker_host.is_some() {
+            self.mqtt_broker_host = updates.mqtt_broker_host.clone();
+        }
+        if updates.path_to_storage_dir.is_some() {
+            self.path_to_storage_dir = updates.path_to_storage_dir.clone();
+        }
+        if updates.current_project.is_some() {
+            self.current_project = updates.current_project.clone();
+        }
+    }
+
+    pub fn write_to_config_file(&self) -> PiResult<()> {
+        let (_path_to_config_dir, path_to_config_file) = get_cli_settings_path()?;
+        // Write the TOML file to the config file
+        match toml::to_string_pretty(self) {
+            Ok(config_string) => {
+                let mut config_file = File::create(path_to_config_file)?;
+                config_file.write_all(config_string.as_bytes())?;
+                Ok(())
+            }
+            Err(err) => Err(PiError::FailedToWriteConfigFile(err.to_string())),
+        }
     }
 }
 

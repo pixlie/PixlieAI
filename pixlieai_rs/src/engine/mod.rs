@@ -6,12 +6,13 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::{
-    config::{get_cli_settings, startup_funding_insights_app, Rule},
+    config::{Rule, Settings},
     entity::{
         content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
         web::{Domain, Link, WebPage},
     },
     error::PiResult,
+    PiCliEvent,
 };
 use chrono::{DateTime, Utc};
 use log::{error, info};
@@ -21,7 +22,7 @@ use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    sync::RwLock,
+    sync::{mpsc, RwLock},
     thread::sleep,
     time::Duration,
 };
@@ -86,7 +87,7 @@ pub struct Engine {
     storage_root: String,
     pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
-    pub execute_every: u8, // Number of seconds to wait before executing the engine
+    // pub execute_every: u8, // Number of seconds to wait before executing the engine
 }
 
 impl Engine {
@@ -98,7 +99,7 @@ impl Engine {
             last_node_id: Mutex::new(0),
             storage_root: storage_root.to_str().unwrap().to_string(),
             nodes_by_label: RwLock::new(HashMap::new()),
-            execute_every: 1,
+            // execute_every: 1,
         };
         // We load the graph from disk
         engine.load_from_disk();
@@ -117,13 +118,13 @@ impl Engine {
     }
 
     pub fn execute(&mut self) {
-        loop {
-            // Execute each worker function, passing them the engine
-            self.process_nodes();
-            self.add_pending_nodes();
-            self.save_to_disk();
-            sleep(Duration::from_secs(self.execute_every as u64));
-        }
+        // loop {
+        // Execute each worker function, passing them the engine
+        self.process_nodes();
+        self.add_pending_nodes();
+        self.save_to_disk();
+        // sleep(Duration::from_secs(self.execute_every as u64));
+        // }
     }
 
     pub fn process_nodes(&self) {
@@ -408,13 +409,56 @@ pub trait NodeWorker {
         Self: Sized;
 }
 
-pub fn engine_manager() -> PiResult<()> {
-    let settings = get_cli_settings()?;
-    let mut storage_dir = PathBuf::from(&settings.path_to_storage_dir.unwrap());
-    let project_name = settings.current_project.unwrap();
-    storage_dir.push(format!("{}.rocksdb", project_name));
-    let mut engine = Engine::new(storage_dir);
-    startup_funding_insights_app(&mut engine);
-    engine.execute();
-    Ok(())
+pub fn engine_manager(rx: mpsc::Receiver<PiCliEvent>) -> PiResult<()> {
+    let mut settings: Settings = Settings::get_cli_settings()?;
+    let mut engine: Option<Engine> = None;
+    loop {
+        if settings.path_to_storage_dir.is_some() && settings.current_project.is_some() {
+            engine = {
+                let mut storage_dir =
+                    PathBuf::from(&settings.path_to_storage_dir.as_ref().unwrap());
+                storage_dir.push(format!(
+                    "{}.rocksdb",
+                    settings.current_project.as_ref().unwrap()
+                ));
+                Some(Engine::new(storage_dir))
+            }
+            // startup_funding_insights_app(&mut engine);
+        }
+        if engine.is_some() {
+            engine.as_mut().unwrap().execute();
+        }
+
+        match rx.try_recv() {
+            Ok(res) => match res {
+                PiCliEvent::SettingsUpdated => {
+                    let new_settings: Settings = Settings::get_cli_settings()?;
+                    if new_settings.path_to_storage_dir.is_some()
+                        && new_settings.current_project.is_some()
+                    {
+                        // Check that new settings values are different from old ones
+                        if new_settings.path_to_storage_dir.as_ref().unwrap()
+                            != settings.path_to_storage_dir.as_ref().unwrap()
+                            || new_settings.current_project.as_ref().unwrap()
+                                != settings.current_project.as_ref().unwrap()
+                        {
+                            info!("Settings changed, reloading engine");
+                            // TODO: Reload the engine
+                            settings = new_settings;
+                            engine = Some(Engine::new(PathBuf::from(
+                                &settings.path_to_storage_dir.as_ref().unwrap(),
+                            )));
+                        }
+                    } else {
+                        // TODO: Stop the engine
+                        settings = new_settings;
+                        engine = None;
+                    }
+                }
+            },
+            Err(_) => {}
+        }
+
+        sleep(Duration::from_secs(1));
+    }
 }
