@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+actix-cors = { version = "0.7.0", default-features = false }
 actix-files = { version = "0.6.6", default-features = false }
 actix-web = { version = "4.9.0", default-features = false }
 chrono = { version = "0.4.38", features = ["serde"] }

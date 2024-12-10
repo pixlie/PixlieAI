@@ -1,12 +1,11 @@
-use crate::{config::Settings, error::PiResult};
+use crate::{config::get_path_to_static_dir, error::PiResult};
 use actix_files as fs;
 use actix_web::{rt, App, HttpServer};
 use log::info;
 
 pub fn admin_manager() -> PiResult<()> {
     info!("Starting Pixlie AI admin, please visit http://localhost:58235");
-    let settings = Settings::get_cli_settings()?;
-    let path_to_static_dir = settings.get_path_to_static_dir();
+    let path_to_static_dir = get_path_to_static_dir()?;
     rt::System::new().block_on(
         HttpServer::new(move || {
             App::new()

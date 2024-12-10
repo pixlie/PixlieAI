@@ -31,13 +31,22 @@ pub struct Settings {
     pub mqtt_broker_host: Option<String>,
     pub path_to_storage_dir: Option<String>,
     pub current_project: Option<String>,
+}
 
-    #[serde(skip_deserializing)]
-    #[ts(skip)]
-    pub is_gliner_available: Option<bool>,
-    #[serde(skip_deserializing)]
-    #[ts(skip)]
-    pub path_to_config_dir: String,
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub enum SettingsIncompleteReason {
+    MissingLLMProvider,
+    MissingGliner,
+    MissingMqtt,
+    StorageDirNotConfigured,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub enum SettingsStatus {
+    Incomplete(Vec<SettingsIncompleteReason>),
+    Complete,
 }
 
 pub fn check_cli_settings() -> PiResult<()> {
@@ -115,9 +124,18 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     Ok((path_to_config_dir, path_to_config_file))
 }
 
+pub fn get_path_to_static_dir() -> PiResult<PathBuf> {
+    let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
+    let mut static_root = PathBuf::from(path_to_config_dir.clone());
+    static_root.push("PixlieAI");
+    static_root.push("admin");
+    static_root.push("dist");
+    Ok(static_root)
+}
+
 impl Settings {
     pub fn get_cli_settings() -> PiResult<Self> {
-        let (path_to_config_dir, path_to_config_file) = get_cli_settings_path()?;
+        let (_path_to_config_dir, path_to_config_file) = get_cli_settings_path()?;
         match path_to_config_file.to_str() {
             Some(config_path) => {
                 let settings = Config::builder()
@@ -125,15 +143,40 @@ impl Settings {
                     .build()?;
                 let mut settings = settings.try_deserialize::<Settings>()?;
                 settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
-                settings.path_to_config_dir = path_to_config_dir.to_str().unwrap().to_string();
                 Ok(settings)
             }
             None => Err(PiError::CannotReadConfigFile),
         }
     }
 
+    pub fn get_is_gliner_available(&self) -> bool {
+        // GLiNER is supported locally only
+        false
+    }
+
+    pub fn get_settings_status(&self) -> SettingsStatus {
+        let mut incomplete_reasons = Vec::new();
+        if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::MissingLLMProvider);
+        }
+        if !self.get_is_gliner_available() {
+            incomplete_reasons.push(SettingsIncompleteReason::MissingGliner);
+        }
+        if self.mqtt_broker_host.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::MissingMqtt);
+        }
+        if self.path_to_storage_dir.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
+        }
+        if incomplete_reasons.is_empty() {
+            SettingsStatus::Complete
+        } else {
+            SettingsStatus::Incomplete(incomplete_reasons)
+        }
+    }
+
     pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
-        if let Some(true) = self.is_gliner_available {
+        if let true = self.get_is_gliner_available() {
             return Ok(EntityExtractionProvider::Gliner);
         } else if let Some(_) = self.ollama_hosts {
             return Ok(EntityExtractionProvider::Ollama);
@@ -150,14 +193,6 @@ impl Settings {
             return Ok(TextClassificationProvider::Anthropic);
         }
         Err(PiError::NotConfiguredProperly)
-    }
-
-    pub fn get_path_to_static_dir(&self) -> PathBuf {
-        let mut static_root = PathBuf::from(self.path_to_config_dir.clone());
-        static_root.push("PixlieAI");
-        static_root.push("admin");
-        static_root.push("dist");
-        static_root
     }
 
     pub fn merge_updates(&mut self, updates: &Settings) {

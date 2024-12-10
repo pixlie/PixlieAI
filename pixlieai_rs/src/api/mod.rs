@@ -1,48 +1,21 @@
-use crate::{config::Settings, error::PiResult, PiCliEvent};
-use actix_web::{error::ErrorInternalServerError, rt, web, App, HttpServer, Responder, Result};
-use log::{error, info};
+use crate::{error::PiResult, PiCliEvent};
+use actix_cors::Cors;
+use actix_web::{http, rt, web, App, HttpServer, Responder};
+use log::info;
+use settings::{check_settings_status, read_settings, update_settings};
 use std::sync::mpsc;
+
+pub mod settings;
 
 const API_ROOT: &str = "/api";
 
 #[derive(Clone)]
-struct ApiState {
-    cli_tx: mpsc::Sender<PiCliEvent>,
+pub struct ApiState {
+    pub cli_tx: mpsc::Sender<PiCliEvent>,
 }
 
 async fn hello() -> impl Responder {
     format!("Hello, world!")
-}
-
-async fn read_settings() -> impl Responder {
-    let settings = Settings::get_cli_settings().unwrap();
-    web::Json(settings)
-}
-
-async fn update_settings(
-    updates: web::Json<Settings>,
-    api_state: web::Data<ApiState>,
-) -> Result<web::Json<Settings>> {
-    // updates contains partial settings, we merge it with the existing settings
-    match Settings::get_cli_settings() {
-        Ok(mut settings) => {
-            settings.merge_updates(&updates);
-            match settings.write_to_config_file() {
-                Ok(_) => {
-                    api_state.cli_tx.send(PiCliEvent::SettingsUpdated).unwrap();
-                    Ok(web::Json(settings))
-                }
-                Err(err) => {
-                    error!("Error writing settings: {}", err);
-                    Err(ErrorInternalServerError::<_>(err))
-                }
-            }
-        }
-        Err(err) => {
-            error!("Error reading settings: {}", err);
-            Err(ErrorInternalServerError::<_>(err))
-        }
-    }
 }
 
 pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
@@ -50,13 +23,25 @@ pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
     let api_state = web::Data::new(ApiState { cli_tx: tx });
     rt::System::new().block_on(
         HttpServer::new(move || {
+            // Allow for localhost, ports 5173 (development) and 58235
+            let cors = Cors::default()
+                .allowed_origin("http://localhost:5173")
+                .allowed_origin("http://localhost:58235")
+                .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+                .allowed_headers(vec![http::header::ACCEPT]);
+
             App::new()
+                .wrap(cors)
                 .app_data(api_state.clone())
                 .service(web::resource(API_ROOT).route(web::get().to(hello)))
                 .service(
                     web::resource(format!("{}/settings", API_ROOT))
                         .route(web::get().to(read_settings))
                         .route(web::put().to(update_settings)),
+                )
+                .service(
+                    web::resource(format!("{}/settings/status", API_ROOT))
+                        .route(web::get().to(check_settings_status)),
                 )
         })
         .bind(("localhost", 58236))?
