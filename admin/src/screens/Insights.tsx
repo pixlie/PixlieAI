@@ -16,13 +16,18 @@ interface IItem {
 }
 
 enum TypeChoices {
-  //   average = 'average',
+  average = "average",
   percentage = "percentage",
   ratio = "ratio",
   list = "list",
 }
 
 const DUMMY_DATA: IData[] = [
+  {
+    type: TypeChoices.average,
+    insight: "📊 Average of startups with [blank]",
+    items: [{ name: "X", value: 50 }],
+  },
   {
     type: TypeChoices.percentage,
     insight: "✨ [blank]% of startups have [blank].",
@@ -58,9 +63,13 @@ const DUMMY_DATA: IData[] = [
   },
 ];
 
-// const Average = ({ data }: { data: IData[] }) => {
-//   return <p class="text md:text-xl text-primary text-center font-bold">WIP</p>;
-// };
+const Average = ({ items }: { items: IItem[] }) => {
+  return (
+    <div class="flex h-full w-auto aspect-square rounded-full items-center justify-center bg-blue-100 shadow">
+      <p class="text-center text-xl font-semibold">{`${items[0]?.name}`}</p>
+    </div>
+  );
+};
 
 const Percentage = ({ items = [] }: { items: IItem[] }) => {
   const colors = [
@@ -183,7 +192,7 @@ const Insights: Component = () => {
             {insight}
           </h2>
           <div class="flex-1">
-            {/* {type === TypeChoices.average && <Average data={data} />} */}
+            {type === TypeChoices.average && <Average items={items} />}
             {type === TypeChoices.percentage && <Percentage items={items} />}
             {type === TypeChoices.ratio && <Ratio items={items} />}
             {type === TypeChoices.list && <List items={items} />}
