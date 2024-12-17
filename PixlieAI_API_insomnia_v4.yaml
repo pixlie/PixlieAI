@@ -1,0 +1,76 @@
+_type: export
+__export_format: 4
+__export_date: 2024-12-10T02:59:59.938Z
+__export_source: insomnia.desktop.app:v10.1.1
+resources:
+  - _id: req_6c23a944009d495b95b3ffe033b07ccd
+    parentId: fld_b2d625e0c6ed4ca6bb93f12628bd5d7b
+    modified: 1733799549538
+    created: 1733799539248
+    url: "{{api}}/settings"
+    name: New Request
+    description: ""
+    method: GET
+    body: {}
+    parameters: []
+    headers:
+      - name: User-Agent
+        value: insomnia/10.1.1
+    authentication: {}
+    metaSortKey: -1733799539248
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_b2d625e0c6ed4ca6bb93f12628bd5d7b
+    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
+    modified: 1733799513917
+    created: 1733799513917
+    name: settings
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1733799513917
+    _type: request_group
+  - _id: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
+    parentId: null
+    modified: 1733799217934
+    created: 1733799217934
+    name: Pixlie AI
+    description: ""
+    scope: collection
+    _type: workspace
+  - _id: env_92ee1d333c34a7669a7839b5c87f909cb12a4f35
+    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
+    modified: 1733799499830
+    created: 1733799217936
+    name: Base Environment
+    data:
+      api_protocol: http
+      api_host: localhost
+      api_port: 58236
+      api_root: /api
+      api: "{{api_protocol}}://{{ _.api_host }}:{{ _.api_port }}{{ _.api_root }}"
+    dataPropertyOrder:
+      "&":
+        - api_protocol
+        - api_host
+        - api_port
+        - api_root
+        - api
+    color: null
+    isPrivate: false
+    metaSortKey: 1733799217936
+    _type: environment
+  - _id: jar_92ee1d333c34a7669a7839b5c87f909cb12a4f35
+    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
+    modified: 1733799217937
+    created: 1733799217937
+    name: Default Jar
+    cookies: []
+    _type: cookie_jar
