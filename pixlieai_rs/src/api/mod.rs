@@ -28,7 +28,7 @@ pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
                 .allowed_origin("http://localhost:5173")
                 .allowed_origin("http://localhost:58235")
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-                .allowed_headers(vec![http::header::ACCEPT]);
+                .allowed_headers(vec![http::header::ACCEPT, http::header::CONTENT_TYPE]);
 
             App::new()
                 .wrap(cors)

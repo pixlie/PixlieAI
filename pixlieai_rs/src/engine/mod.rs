@@ -426,7 +426,7 @@ pub fn engine_manager(rx: mpsc::Receiver<PiCliEvent>) -> PiResult<()> {
             // startup_funding_insights_app(&mut engine);
         }
         if engine.is_some() {
-            engine.as_mut().unwrap().execute();
+            // engine.as_mut().unwrap().execute();
         }
 
         match rx.try_recv() {

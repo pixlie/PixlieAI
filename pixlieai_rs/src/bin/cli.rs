@@ -31,12 +31,12 @@ fn main() {
         }
     }));
 
-    thread_handles.push(thread::spawn(move || match engine_manager(rx) {
-        Ok(_) => {}
-        Err(err) => {
-            error!("Error with graph engine: {}", err);
-        }
-    }));
+    // thread_handles.push(thread::spawn(move || match engine_manager(rx) {
+    //     Ok(_) => {}
+    //     Err(err) => {
+    //         error!("Error with graph engine: {}", err);
+    //     }
+    // }));
     for thread_handle in thread_handles {
         thread_handle.join().unwrap();
     }
