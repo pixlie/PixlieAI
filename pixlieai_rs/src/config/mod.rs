@@ -14,6 +14,7 @@ use crate::{
 use config::Config;
 use dirs::config_dir;
 use log::{debug, error};
+use python::check_system_python;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, create_dir_all, File},
@@ -21,6 +22,8 @@ use std::{
     path::PathBuf,
 };
 use ts_rs::TS;
+
+pub mod python;
 
 #[derive(Deserialize, Serialize, TS)]
 #[ts(export, rename_all = "camelCase")]
@@ -40,6 +43,9 @@ pub enum SettingsIncompleteReason {
     MissingGliner,
     MissingMqtt,
     StorageDirNotConfigured,
+    PythonNotAvailable,
+    PythonVenvNotAvailable,
+    PythonPipNotAvailable,
 }
 
 #[derive(Serialize, TS)]
@@ -167,6 +173,18 @@ impl Settings {
         }
         if self.path_to_storage_dir.is_none() {
             incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
+        }
+        let python_status = check_system_python();
+        if python_status.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::PythonNotAvailable);
+        } else {
+            let python_status = python_status.unwrap();
+            if !python_status.venv {
+                incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
+            }
+            if !python_status.pip {
+                incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
+            }
         }
         if incomplete_reasons.is_empty() {
             SettingsStatus::Complete
