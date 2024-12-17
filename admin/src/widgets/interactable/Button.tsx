@@ -1,16 +1,17 @@
 import { Component, JSX, createMemo } from "solid-js";
-import { useUserInterface } from "../../stores/userInterface";
-import { FormButton } from "../../api_types/FormButton";
+import { useUIClasses } from "../../stores/UIClasses";
+// import { FormButton } from "../../api_types/FormButton";
 
-interface IPropTypes extends FormButton {
+interface IPropTypes {
   size?: "sm" | "base" | "lg";
+  label: string;
   isBlock?: boolean;
   onClick?: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent>;
   href?: string;
 }
 
 const Button: Component<IPropTypes> = (props) => {
-  const [_, { getColors }] = useUserInterface();
+  const [_, { getColors }] = useUIClasses();
 
   const getSizeClass = createMemo(() => {
     switch (props.size) {
@@ -25,42 +26,30 @@ const Button: Component<IPropTypes> = (props) => {
   });
 
   let buttonType = "button";
-  if (!!props.buttonType && props.buttonType === "Submit") {
-    buttonType = "submit";
-  }
+  // if (!!props.buttonType && props.buttonType === "Submit") {
+  //   buttonType = "submit";
+  // }
 
   const buttonClasses =
     getSizeClass() +
     " rounded-md select-none cursor-pointer hover:shadow " +
-    `${props.isBlock ? "w-full" : ""}`;
-  const styles = {
-    color: getColors().colors["button.foreground"],
-    "background-color": getColors().colors["button.background"],
-  };
+    `${props.isBlock ? "w-full" : ""}` +
+    getColors()["button"];
 
   if (!!props.href) {
     return (
-      <a class={buttonClasses} href={props.href} style={styles}>
+      <a class={buttonClasses} href={props.href}>
         {props.label}
       </a>
     );
   } else if (!!props.onClick) {
     return (
-      <button
-        class={buttonClasses}
-        style={styles}
-        onClick={props.onClick}
-        type={buttonType}
-      >
+      <button class={buttonClasses} onClick={props.onClick}>
         {props.label}
       </button>
     );
   } else {
-    return (
-      <button class={buttonClasses} style={styles} type={buttonType}>
-        {props.label}
-      </button>
-    );
+    return <button class={buttonClasses}>{props.label}</button>;
   }
 };
 

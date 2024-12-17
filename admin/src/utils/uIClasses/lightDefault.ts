@@ -13,6 +13,8 @@ const lightDefault = {
     text: "text-gray-700",
     input: "bg-gray-50 text-gray-700 border-gray-300",
     "input.label": "text-gray-400",
+
+    button: "bg-green-600 text-white",
   },
 };
 

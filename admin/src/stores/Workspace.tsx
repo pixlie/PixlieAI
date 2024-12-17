@@ -1,8 +1,13 @@
 import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { IProviderPropTypes, IWorkspace } from "../utils/types";
-import { getPixlieAIAPIRoot } from "../utils/api";
+import {
+  camelCasedKeys,
+  getPixlieAIAPIRoot,
+  snakeCasedKeys,
+} from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
+import { Settings } from "../api_types/Settings";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -14,13 +19,19 @@ const makeStore = () => {
     store,
     {
       fetchSettings: async () => {
+        setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(`${pixieAIAPIRoot}/api/settings`);
         if (!response.ok) {
           throw new Error("Failed to fetch settings");
         }
-        let settings = await response.json();
-        setStore("settings", settings);
+        let settings: Settings = await response.json();
+        setStore((data) => ({
+          ...data,
+          isFetching: false,
+          isReady: true,
+          settings: camelCasedKeys(settings),
+        }));
       },
 
       fetchSettingsStatus: async () => {
@@ -33,11 +44,14 @@ const makeStore = () => {
         setStore("settingsStatus", settingsStatus as SettingsStatus);
       },
 
-      saveSettings: async (settings: IWorkspace["settings"]) => {
+      saveSettings: async (settings: Partial<IWorkspace["settings"]>) => {
         let pixieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(`${pixieAIAPIRoot}/api/settings`, {
-          method: "POST",
-          body: JSON.stringify(settings),
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(snakeCasedKeys(settings)),
         });
         if (!response.ok) {
           throw new Error("Failed to save settings");

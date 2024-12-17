@@ -2,6 +2,10 @@ import { Component } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
 import Markdown from "../typography/Markdown";
 import TextInput from "../interactable/TextInput";
+import Button from "../interactable/Button";
+import { useWorkspace } from "../../stores/Workspace";
+import { createStore } from "solid-js/store";
+import { IFormFieldValue } from "../../utils/types";
 
 const setupIntroduction = `
 The storage directory is where we store the graph data, some AI/ML model data, etc.
@@ -10,14 +14,48 @@ The storage directory is where we store the graph data, some AI/ML model data, e
 Please copy and paste the path to the directory where you want to store the data.
 `;
 
+interface IStorageDirFormData {
+  pathToStorageDir: string;
+}
+
 const StorageDir: Component = () => {
+  const [workspace, { saveSettings }] = useWorkspace();
+  const [formData, setFormData] = createStore<IStorageDirFormData>({
+    pathToStorageDir: workspace.settings?.pathToStorageDir || "",
+  });
+
+  const handleChange = (name: string, value: IFormFieldValue) => {
+    if (!!value && typeof value === "string") {
+      setFormData((existing) => ({
+        ...existing,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleSubmit = () => {
+    saveSettings({
+      ...formData,
+    });
+  };
+
   // The user has to set the storage directory
   return (
     <>
       <Heading size={3}>Storage Directory</Heading>
       <Markdown text={setupIntroduction} />
 
-      <TextInput name="path_to_storage_dir" isEditable />
+      <div class="max-w-screen-sm flex flex-col gap-y-2">
+        <TextInput
+          name="path_to_storage_dir"
+          isEditable
+          onChange={handleChange}
+          value={formData.pathToStorageDir}
+        />
+        <div>
+          <Button label="Set storage directory" onClick={handleSubmit} />
+        </div>
+      </div>
     </>
   );
 };

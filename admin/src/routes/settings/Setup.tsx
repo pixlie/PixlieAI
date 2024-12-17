@@ -5,6 +5,7 @@ import MQTTBroker from "../../widgets/settings/MQTTBroker";
 import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
+import { useWorkspace } from "../../stores/Workspace";
 
 const setupIntroduction = `
 Let up walk through the initial setup process for Pixlie AI.
@@ -14,24 +15,32 @@ Don't worry if you are unsure about these, we will walk you through the process.
 `;
 
 const Setup: Component = () => {
+  const [workspace] = useWorkspace();
+
   return (
     <>
       <Heading size={2}>Setup</Heading>
       <Markdown text={setupIntroduction} />
 
-      <div class="mb-4" />
-      <StorageDir />
+      {!!workspace.isReady ? (
+        <>
+          <div class="mb-4" />
+          <StorageDir />
 
-      <div class="mb-4" />
-      <LocalPythonEnv />
+          <div class="mb-4" />
+          <LocalPythonEnv />
 
-      <div class="mb-4" />
-      <MQTTBroker />
+          <div class="mb-4" />
+          <MQTTBroker />
 
-      <div class="mb-4" />
-      <Ollama />
+          <div class="mb-4" />
+          <Ollama />
 
-      <div class="mb-4" />
+          <div class="mb-4" />
+        </>
+      ) : (
+        <div class="mb-4">Loading...</div>
+      )}
     </>
   );
 };

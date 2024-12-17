@@ -30,4 +30,4 @@ interface IFormField {
   isEditable?: boolean;
 }
 
-export type { IProviderPropTypes, IWorkspace, IFormField };
+export type { IProviderPropTypes, IWorkspace, IFormField, IFormFieldValue };

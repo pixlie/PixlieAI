@@ -21,7 +21,7 @@ const Sidebar: Component = () => {
             src="https://pixlie.com/images/logo.png"
             alt="Pixlie AI"
           />
-          <p class={"text-2xl font-medium " + getClasses()["sideBar.link"]}>
+          <p class={"text-2xl font-medium " + getColors()["sideBar.link"]}>
             Pixlie AI
           </p>
         </div>
@@ -30,7 +30,7 @@ const Sidebar: Component = () => {
           <ul role="list" class="flex flex-1 flex-col gap-y-7">
             <li>
               <ul role="list" class="-mx-2 space-y-1">
-                {workspace.isReady && !!workspace.settings ? (
+                {!!workspace.isReady && !!workspace.settingsStatus ? (
                   <For each={routes}>{(item) => <SidebarLink {...item} />}</For>
                 ) : (
                   <SidebarLink
