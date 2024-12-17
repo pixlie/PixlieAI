@@ -14,14 +14,16 @@ const Sidebar: Component = () => {
         "fixed inset-y-0 z-50 w-72 flex flex-col " + getColors()["sideBar"]
       }
     >
-      <div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
-        <div class="flex h-16 shrink-0 items-center">
+      <div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 py-4">
+        <div class="flex items-center gap-3">
           <img
-            class="h-8 w-auto"
+            class="h-auto w-7"
             src="https://pixlie.com/images/logo.png"
             alt="Pixlie AI"
           />
-          &nbsp; Pixlie AI
+          <p class={"text-2xl font-medium " + getClasses()["sideBar.link"]}>
+            Pixlie AI
+          </p>
         </div>
 
         <nav class="flex flex-1 flex-col">

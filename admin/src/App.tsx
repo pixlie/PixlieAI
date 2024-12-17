@@ -17,7 +17,7 @@ const AppInner: Component<AppInnerProps> = (props) => {
       <Loader />
       <Sidebar />
 
-      <div class="pl-72 ml-6">{props.children}</div>
+      <div class="pl-72 ml-6 flex-1">{props.children}</div>
     </div>
   );
 };
