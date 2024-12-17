@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@solidjs/router": "^0.15.1",
+    "marked": "^15.0.3",
+    "prettier": "^3.4.2",
     "solid-js": "^1.9.3"
   },
   "devDependencies": {

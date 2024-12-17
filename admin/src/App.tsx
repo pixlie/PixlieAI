@@ -1,13 +1,35 @@
+import { Component, JSX } from "solid-js";
 import Sidebar from "./layout/Sidebar";
+import { WorkspaceProvider } from "./stores/Workspace";
+import Loader from "./utils/Loader";
+import { UIClassesProvider, useUIClasses } from "./stores/UIClasses";
+import { RouteSectionProps } from "@solidjs/router";
 
-function App() {
+interface AppInnerProps {
+  children: JSX.Element;
+}
+
+const AppInner: Component<AppInnerProps> = (props) => {
+  const [_, { getColors }] = useUIClasses();
+
   return (
-    <div class="relative isolate flex min-h-svh w-full bg-white">
+    <div class={`relative isolate flex min-h-svh w-full ${getColors().app}`}>
+      <Loader />
       <Sidebar />
 
-      <div class="pl-72"></div>
+      <div class="pl-72 ml-6">{props.children}</div>
     </div>
   );
-}
+};
+
+const App: Component<RouteSectionProps> = (props) => {
+  return (
+    <UIClassesProvider>
+      <WorkspaceProvider>
+        <AppInner children={props.children} />
+      </WorkspaceProvider>
+    </UIClassesProvider>
+  );
+};
 
 export default App;

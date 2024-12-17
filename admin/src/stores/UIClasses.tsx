@@ -18,7 +18,7 @@ const makeStore = () => {
       setTheme: (theme: "lightDefault") => {
         setStore("currentTheme", theme);
       },
-      getClasses() {
+      getColors() {
         return lightDefault["tailwindClasses"];
       },
     },
@@ -28,17 +28,15 @@ const makeStore = () => {
 type TStoreAndFunctions = ReturnType<typeof makeStore>;
 const tailwindClassesStore = makeStore();
 
-const tailwindClassesContext =
+const uiClassesContext =
   createContext<TStoreAndFunctions>(tailwindClassesStore);
 
-export const TailwindClassesProvider: Component<IProviderPropTypes> = (
-  props,
-) => {
+export const UIClassesProvider: Component<IProviderPropTypes> = (props) => {
   return (
-    <tailwindClassesContext.Provider value={tailwindClassesStore}>
+    <uiClassesContext.Provider value={tailwindClassesStore}>
       {props.children}
-    </tailwindClassesContext.Provider>
+    </uiClassesContext.Provider>
   );
 };
 
-export const useTailwindClasses = () => useContext(tailwindClassesContext);
+export const useUIClasses = () => useContext(uiClassesContext);

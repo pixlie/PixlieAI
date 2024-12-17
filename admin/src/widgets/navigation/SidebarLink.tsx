@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import { useTailwindClasses } from "../../stores/TailwindClasses";
+import { useUIClasses } from "../../stores/UIClasses";
 import GetIcon from "../../utils/Icons";
 
 interface IPropTypes {
@@ -10,11 +10,11 @@ interface IPropTypes {
 }
 
 const SidebarLink: Component<IPropTypes> = (props) => {
-  const [_, { getClasses }] = useTailwindClasses();
+  const [_, { getColors }] = useUIClasses();
 
   let classes =
     "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold " +
-    getClasses()["sideBar.link"];
+    getColors()["sideBar.link"];
 
   return (
     <li>
