@@ -1,14 +1,63 @@
 _type: export
 __export_format: 4
-__export_date: 2024-12-10T02:59:59.938Z
-__export_source: insomnia.desktop.app:v10.1.1
+__export_date: 2024-12-17T02:31:56.557Z
+__export_source: insomnia.desktop.app:v10.2.0
 resources:
-  - _id: req_6c23a944009d495b95b3ffe033b07ccd
-    parentId: fld_b2d625e0c6ed4ca6bb93f12628bd5d7b
-    modified: 1733799549538
+  - _id: req_5afecb604e3d47f3aff4f0d196385eb3
+    parentId: fld_f6ca5b45e3f048fe8b5ab407cfbe80b4
+    modified: 1733799794445
+    created: 1733799741870
+    url: "{{api}}/settings"
+    name: put settings
+    description: ""
+    method: PUT
+    body:
+      mimeType: application/json
+      text: |-
+        {
+        	"current_project": "startup_funding_insights"
+        }
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/10.1.1
+    authentication: {}
+    metaSortKey: -1733799741870
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_f6ca5b45e3f048fe8b5ab407cfbe80b4
+    parentId: wrk_scratchpad
+    modified: 1733799513917
+    created: 1733799513917
+    name: settings
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1733799513917
+    _type: request_group
+  - _id: wrk_scratchpad
+    parentId: null
+    modified: 1733454150697
+    created: 1733454150697
+    name: Scratch Pad
+    description: ""
+    scope: collection
+    _type: workspace
+  - _id: req_91647320c1614a67bd3f3c1c751b6dd7
+    parentId: fld_f6ca5b45e3f048fe8b5ab407cfbe80b4
+    modified: 1733799737709
     created: 1733799539248
     url: "{{api}}/settings"
-    name: New Request
+    name: get settings
     description: ""
     method: GET
     body: {}
@@ -27,35 +76,41 @@ resources:
     settingRebuildPath: true
     settingFollowRedirects: global
     _type: request
-  - _id: fld_b2d625e0c6ed4ca6bb93f12628bd5d7b
-    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
-    modified: 1733799513917
-    created: 1733799513917
-    name: settings
+  - _id: req_3689e21241a54638981604bc806d6b42
+    parentId: fld_f6ca5b45e3f048fe8b5ab407cfbe80b4
+    modified: 1733831101945
+    created: 1733830885836
+    url: "{{api}}/settings/status"
+    name: get settings status
     description: ""
-    environment: {}
-    environmentPropertyOrder: null
-    metaSortKey: -1733799513917
-    _type: request_group
-  - _id: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
-    parentId: null
-    modified: 1733799217934
-    created: 1733799217934
-    name: Pixlie AI
-    description: ""
-    scope: collection
-    _type: workspace
-  - _id: env_92ee1d333c34a7669a7839b5c87f909cb12a4f35
-    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
-    modified: 1733799499830
-    created: 1733799217936
-    name: Base Environment
+    method: GET
+    body: {}
+    parameters: []
+    headers:
+      - name: User-Agent
+        value: insomnia/10.1.1
+    authentication: {}
+    metaSortKey: -1733799539198
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: env_99d30891da4bdcebc63947a8fc17f076de878684
+    parentId: wrk_scratchpad
+    modified: 1733799706618
+    created: 1733454159361
+    name: pixlieai_local
     data:
       api_protocol: http
       api_host: localhost
       api_port: 58236
       api_root: /api
-      api: "{{api_protocol}}://{{ _.api_host }}:{{ _.api_port }}{{ _.api_root }}"
+      api: "{{ _.api_protocol }}://{{ _.api_host }}:{{ _.api_port }}{{ _.api_root }}"
     dataPropertyOrder:
       "&":
         - api_protocol
@@ -65,12 +120,12 @@ resources:
         - api
     color: null
     isPrivate: false
-    metaSortKey: 1733799217936
+    metaSortKey: 1733454159361
     _type: environment
-  - _id: jar_92ee1d333c34a7669a7839b5c87f909cb12a4f35
-    parentId: wrk_3ba2752e102f4a5c8e7f6e55c308aa7f
-    modified: 1733799217937
-    created: 1733799217937
+  - _id: jar_99d30891da4bdcebc63947a8fc17f076de878684
+    parentId: wrk_scratchpad
+    modified: 1733454159425
+    created: 1733454159425
     name: Default Jar
     cookies: []
     _type: cookie_jar
