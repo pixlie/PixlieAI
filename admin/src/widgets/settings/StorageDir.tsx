@@ -7,7 +7,7 @@ import { useWorkspace } from "../../stores/Workspace";
 import { createStore } from "solid-js/store";
 import { IFormFieldValue } from "../../utils/types";
 
-const setupIntroduction = `
+const help = `
 The storage directory is where we store the graph data, some AI/ML model data, etc.
 [Gliner](https://github.com/gliner/gliner), which is one of the AI/ML tools, needs about 6 GB of space.
 
@@ -43,9 +43,9 @@ const StorageDir: Component = () => {
   return (
     <>
       <Heading size={3}>Storage Directory</Heading>
-      <Markdown text={setupIntroduction} />
+      <Markdown text={help} />
 
-      <div class="max-w-screen-sm flex flex-col gap-y-2">
+      <div class="flex flex-col gap-y-2">
         <TextInput
           name="path_to_storage_dir"
           isEditable

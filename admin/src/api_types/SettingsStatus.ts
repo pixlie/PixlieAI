@@ -2,5 +2,5 @@
 import type { SettingsIncompleteReason } from "./SettingsIncompleteReason";
 
 export type SettingsStatus =
-  | { Incomplete: Array<SettingsIncompleteReason> }
-  | "Complete";
+  | { type: "Incomplete"; data: Array<SettingsIncompleteReason> }
+  | { type: "Complete" };
