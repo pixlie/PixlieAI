@@ -1,5 +1,7 @@
-use log::{debug, error};
-use std::process::Command;
+use super::Settings;
+use crate::error::PiResult;
+use log::error;
+use std::{path::PathBuf, process::Command};
 
 pub struct Python {
     pub version: (u8, u8, u8),

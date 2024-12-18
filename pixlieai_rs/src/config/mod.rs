@@ -23,6 +23,8 @@ use std::{
 };
 use ts_rs::TS;
 
+pub mod gliner;
+pub mod mqtt;
 pub mod python;
 
 #[derive(Deserialize, Serialize, TS)]
@@ -40,15 +42,16 @@ pub struct Settings {
 #[ts(export)]
 pub enum SettingsIncompleteReason {
     MissingLLMProvider,
-    MissingGliner,
     MissingMqtt,
     StorageDirNotConfigured,
     PythonNotAvailable,
     PythonVenvNotAvailable,
     PythonPipNotAvailable,
+    MissingGliner,
 }
 
 #[derive(Serialize, TS)]
+#[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum SettingsStatus {
     Incomplete(Vec<SettingsIncompleteReason>),
