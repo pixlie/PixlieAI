@@ -8,7 +8,7 @@ We use MQTT as the protocol, and we recommend you install [Mosquitto](https://mo
 
 const MQTTBroker: Component = () => {
   // We will call our API to see if we detect the MQTT broker, else we will ask user to install.
-  // We create a SolidJS resource and call our API check_mqtt_broker_connection
+  // We create a SolidJS resource and call our API check_mqtt_broker
   const [data] = createResource(async () => {
     let pixieAIAPIRoot = getPixlieAIAPIRoot();
     const res = await fetch(`${pixieAIAPIRoot}/api/settings/check_mqtt_broker`);
@@ -22,7 +22,7 @@ const MQTTBroker: Component = () => {
 
       <div class="mt-4">
         {data() === "OK" ? (
-          <>MQTT Server found</>
+          <>MQTT Server found.</>
         ) : (
           <>
             No MQTT Server found. We suggest you install and run Mosquitto and

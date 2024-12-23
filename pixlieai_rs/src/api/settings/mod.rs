@@ -1,6 +1,6 @@
 use super::ApiState;
 use crate::{
-    config::{mqtt, Settings},
+    config::{gliner, mqtt, Settings},
     PiCliEvent,
 };
 use actix_web::{error::ErrorInternalServerError, web, Responder, Result};
@@ -44,6 +44,13 @@ pub async fn update_settings(
 
 pub async fn check_mqtt_broker() -> Result<impl Responder> {
     match mqtt::check_mqtt_broker().await {
+        Ok(_) => Ok("OK"),
+        Err(e) => Err(ErrorInternalServerError::<_>(e)),
+    }
+}
+
+pub async fn setup_gliner() -> Result<impl Responder> {
+    match gliner::setup_gliner() {
         Ok(_) => Ok("OK"),
         Err(e) => Err(ErrorInternalServerError::<_>(e)),
     }

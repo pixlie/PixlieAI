@@ -2,7 +2,9 @@ use crate::{error::PiResult, PiCliEvent};
 use actix_cors::Cors;
 use actix_web::{http, rt, web, App, HttpServer, Responder};
 use log::info;
-use settings::{check_mqtt_broker, check_settings_status, read_settings, update_settings};
+use settings::{
+    check_mqtt_broker, check_settings_status, read_settings, setup_gliner, update_settings,
+};
 use std::sync::mpsc;
 
 pub mod settings;
@@ -46,6 +48,10 @@ pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
                 .service(
                     web::resource(format!("{}/settings/check_mqtt_broker", API_ROOT))
                         .route(web::get().to(check_mqtt_broker)),
+                )
+                .service(
+                    web::resource(format!("{}/settings/setup_gliner", API_ROOT))
+                        .route(web::post().to(setup_gliner)),
                 )
         })
         .bind(("localhost", 58236))?
