@@ -1,7 +1,7 @@
 use super::Settings;
-use crate::error::PiResult;
+use crate::{error::PiResult, PiEvent};
 use log::error;
-use std::{path::PathBuf, process::Command};
+use std::{path::PathBuf, process::Command, sync::mpsc};
 
 fn get_path_to_gliner() -> PiResult<PathBuf> {
     let settings = Settings::get_cli_settings()?;
@@ -53,11 +53,9 @@ fn install_gliner_dependencies() -> PiResult<bool> {
     }
 }
 
-pub fn setup_gliner() -> PiResult<bool> {
+fn test_long_running_job() -> PiResult<bool> {
     let mut path_to_gliner = get_path_to_gliner()?;
     path_to_gliner.push("arch_test.iso");
-    create_venv_for_gliner()?;
-    // install_gliner_dependencies()?;
     match Command::new("curl")
         .arg("-o")
         .arg(path_to_gliner)
@@ -70,4 +68,11 @@ pub fn setup_gliner() -> PiResult<bool> {
             Err(err.into())
         }
     }
+}
+
+pub fn setup_gliner(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
+    create_venv_for_gliner()?;
+    test_long_running_job()?;
+    tx.send(PiEvent::FinishedSetupGliner).unwrap();
+    Ok(())
 }

@@ -16,7 +16,7 @@ pub enum PiError {
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
-    #[error("Faile to write config file")]
+    #[error("Failed to write config file")]
     FailedToWriteConfigFile(String),
 
     #[error("API key not configured")]

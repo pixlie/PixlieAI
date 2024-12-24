@@ -1,9 +1,9 @@
-use crate::{error::PiResult, PiCliEvent};
+use crate::{error::PiResult, PiEvent};
 use actix_cors::Cors;
 use actix_web::{http, rt, web, App, HttpServer, Responder};
 use log::info;
 use settings::{
-    check_mqtt_broker, check_settings_status, read_settings, setup_gliner, update_settings,
+    check_mqtt_broker, check_settings_status, read_settings, request_setup_gliner, update_settings,
 };
 use std::sync::mpsc;
 
@@ -13,14 +13,14 @@ const API_ROOT: &str = "/api";
 
 #[derive(Clone)]
 pub struct ApiState {
-    pub cli_tx: mpsc::Sender<PiCliEvent>,
+    pub cli_tx: mpsc::Sender<PiEvent>,
 }
 
 async fn hello() -> impl Responder {
     format!("Hello, world!")
 }
 
-pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
+pub fn api_manager(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
     info!("Starting Pixlie AI API");
     let api_state = web::Data::new(ApiState { cli_tx: tx });
     rt::System::new().block_on(
@@ -51,7 +51,7 @@ pub fn api_manager(tx: mpsc::Sender<PiCliEvent>) -> PiResult<()> {
                 )
                 .service(
                     web::resource(format!("{}/settings/setup_gliner", API_ROOT))
-                        .route(web::post().to(setup_gliner)),
+                        .route(web::post().to(request_setup_gliner)),
                 )
         })
         .bind(("localhost", 58236))?

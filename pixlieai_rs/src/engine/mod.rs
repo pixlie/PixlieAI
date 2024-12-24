@@ -6,13 +6,11 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::{
-    config::{Rule, Settings},
+    config::Rule,
     entity::{
         content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
         web::{Domain, Link, WebPage},
     },
-    error::PiResult,
-    PiCliEvent,
 };
 use chrono::{DateTime, Utc};
 use log::{error, info};
@@ -22,9 +20,7 @@ use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    sync::{mpsc, RwLock},
-    thread::sleep,
-    time::Duration,
+    sync::RwLock,
 };
 use std::{
     path::PathBuf,
@@ -32,7 +28,7 @@ use std::{
 };
 use strum::Display;
 
-// pub mod api;
+pub mod manager;
 
 #[derive(Display, Deserialize, Serialize)]
 pub enum Payload {
@@ -407,58 +403,4 @@ pub trait NodeWorker {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
     where
         Self: Sized;
-}
-
-pub fn engine_manager(rx: mpsc::Receiver<PiCliEvent>) -> PiResult<()> {
-    let mut settings: Settings = Settings::get_cli_settings()?;
-    let mut engine: Option<Engine> = None;
-    loop {
-        if settings.path_to_storage_dir.is_some() && settings.current_project.is_some() {
-            engine = {
-                let mut storage_dir =
-                    PathBuf::from(&settings.path_to_storage_dir.as_ref().unwrap());
-                storage_dir.push(format!(
-                    "{}.rocksdb",
-                    settings.current_project.as_ref().unwrap()
-                ));
-                Some(Engine::new(storage_dir))
-            }
-            // startup_funding_insights_app(&mut engine);
-        }
-        if engine.is_some() {
-            // engine.as_mut().unwrap().execute();
-        }
-
-        match rx.try_recv() {
-            Ok(res) => match res {
-                PiCliEvent::SettingsUpdated => {
-                    let new_settings: Settings = Settings::get_cli_settings()?;
-                    if new_settings.path_to_storage_dir.is_some()
-                        && new_settings.current_project.is_some()
-                    {
-                        // Check that new settings values are different from old ones
-                        if new_settings.path_to_storage_dir.as_ref().unwrap()
-                            != settings.path_to_storage_dir.as_ref().unwrap()
-                            || new_settings.current_project.as_ref().unwrap()
-                                != settings.current_project.as_ref().unwrap()
-                        {
-                            info!("Settings changed, reloading engine");
-                            // TODO: Reload the engine
-                            settings = new_settings;
-                            engine = Some(Engine::new(PathBuf::from(
-                                &settings.path_to_storage_dir.as_ref().unwrap(),
-                            )));
-                        }
-                    } else {
-                        // TODO: Stop the engine
-                        settings = new_settings;
-                        engine = None;
-                    }
-                }
-            },
-            Err(_) => {}
-        }
-
-        sleep(Duration::from_secs(1));
-    }
 }

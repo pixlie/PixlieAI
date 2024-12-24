@@ -5,8 +5,6 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use serde::Deserialize;
-
 pub mod admin;
 pub mod api;
 pub mod config;
@@ -15,12 +13,8 @@ pub mod entity;
 pub mod error;
 pub mod services;
 
-pub enum PiCliEvent {
+pub enum PiEvent {
     SettingsUpdated,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GraphEntity {
-    pub entity_type: String,
-    pub matching_text: String,
+    SetupGliner,
+    FinishedSetupGliner,
 }

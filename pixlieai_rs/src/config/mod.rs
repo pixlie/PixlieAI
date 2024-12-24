@@ -129,6 +129,11 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     path_to_config_dir.push("pixlie_ai");
     let mut path_to_config_file = path_to_config_dir.clone();
     path_to_config_file.push("settings.toml");
+    // Create a blank config file if it does not exist
+    if !path_to_config_file.exists() {
+        let mut config_file = File::create(path_to_config_file.clone())?;
+        config_file.write_all(b"")?;
+    }
     debug!("CLI settings path {}", path_to_config_file.display());
     Ok((path_to_config_dir, path_to_config_file))
 }
