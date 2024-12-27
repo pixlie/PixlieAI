@@ -2,9 +2,9 @@
 
 export type SettingsIncompleteReason =
   | "MissingLLMProvider"
-  | "MissingGliner"
   | "MissingMqtt"
   | "StorageDirNotConfigured"
   | "PythonNotAvailable"
   | "PythonVenvNotAvailable"
-  | "PythonPipNotAvailable";
+  | "PythonPipNotAvailable"
+  | "GlinerNotSetup";

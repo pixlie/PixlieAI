@@ -28,17 +28,25 @@ const Setup: Component = () => {
           <div class="mb-12" />
           <StorageDir />
 
-          <div class="mb-12" />
-          <LocalPythonEnv />
+          {!!workspace.settings?.pathToStorageDir ? (
+            <>
+              <div class="mb-12" />
+              <LocalPythonEnv />
 
-          <div class="mb-12" />
-          <MQTTBroker />
+              <div class="mb-12" />
+              <MQTTBroker />
 
-          <div class="mb-12" />
-          <Ollama />
+              <div class="mb-12" />
+              <Ollama />
 
-          <div class="mb-12" />
-          <Anthropic />
+              <div class="mb-12" />
+              <Anthropic />
+            </>
+          ) : (
+            <div class="my-12">
+              Please set the storage directory to continue.
+            </div>
+          )}
         </>
       ) : (
         <div class="my-12">Loading...</div>

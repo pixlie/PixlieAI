@@ -47,7 +47,7 @@ pub enum SettingsIncompleteReason {
     PythonNotAvailable,
     PythonVenvNotAvailable,
     PythonPipNotAvailable,
-    MissingGliner,
+    GlinerNotSetup,
 }
 
 #[derive(Serialize, TS)]
@@ -171,7 +171,7 @@ impl Settings {
         let mut path_to_gliner_venv = path_to_config_dir.clone();
         path_to_gliner_venv.push("gliner");
         path_to_gliner_venv.push(".venv");
-        false
+        path_to_gliner_venv.exists()
     }
 
     pub fn get_settings_status(&self) -> SettingsStatus {
@@ -186,13 +186,11 @@ impl Settings {
             let python_status = python_status.unwrap();
             if !python_status.venv {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
-            }
-            if !python_status.pip {
+            } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
+            } else if !self.get_is_gliner_available() {
+                incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
-        }
-        if !self.get_is_gliner_available() {
-            incomplete_reasons.push(SettingsIncompleteReason::MissingGliner);
         }
         if self.mqtt_broker_host.is_none() {
             incomplete_reasons.push(SettingsIncompleteReason::MissingMqtt);

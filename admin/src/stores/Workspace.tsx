@@ -23,7 +23,7 @@ const makeStore = () => {
         let pixieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(`${pixieAIAPIRoot}/api/settings`);
         if (!response.ok) {
-          throw new Error("Failed to fetch settings");
+          console.error("Failed to fetch settings");
         }
         let settings: Settings = await response.json();
         setStore((data) => ({

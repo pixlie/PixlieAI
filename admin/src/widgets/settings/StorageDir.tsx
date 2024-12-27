@@ -19,7 +19,7 @@ interface IStorageDirFormData {
 }
 
 const StorageDir: Component = () => {
-  const [workspace, { saveSettings }] = useWorkspace();
+  const [workspace, { fetchSettings, saveSettings }] = useWorkspace();
   const [formData, setFormData] = createStore<IStorageDirFormData>({
     pathToStorageDir: workspace.settings?.pathToStorageDir || "",
   });
@@ -33,10 +33,11 @@ const StorageDir: Component = () => {
     }
   };
 
-  const handleSubmit = () => {
-    saveSettings({
+  const handleSubmit = async () => {
+    await saveSettings({
       ...formData,
     });
+    await fetchSettings();
   };
 
   // The user has to set the storage directory

@@ -1,13 +1,13 @@
-use super::Settings;
+use super::get_cli_settings_path;
 use crate::{error::PiResult, PiEvent};
 use log::error;
 use std::{path::PathBuf, process::Command, sync::mpsc};
 
 fn get_path_to_gliner() -> PiResult<PathBuf> {
-    let settings = Settings::get_cli_settings()?;
-    let mut path_to_venv = PathBuf::from(settings.path_to_storage_dir.unwrap());
-    path_to_venv.push("gliner");
-    Ok(path_to_venv)
+    let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path().unwrap();
+    let mut path_to_gliner = path_to_config_dir.clone();
+    path_to_gliner.push("gliner");
+    Ok(path_to_gliner)
 }
 
 fn create_venv_for_gliner() -> PiResult<bool> {
