@@ -13,6 +13,7 @@ use crate::{
 };
 use config::Config;
 use dirs::config_dir;
+use gliner::get_path_to_gliner;
 use log::{debug, error};
 use python::check_system_python;
 use serde::{Deserialize, Serialize};
@@ -62,8 +63,8 @@ pub enum SettingsStatus {
 pub fn check_cli_settings() -> PiResult<()> {
     let config_path = config_dir();
     if config_path.is_none() {
-        error!("Could not detect the config directory");
-        return Err(PiError::CannotReadConfigFile);
+        error!("Can not detect the config directory of the current user");
+        return Err(PiError::CannotDetectConfigDirectory);
     }
     let mut config_path = config_path.unwrap();
     config_path.push("pixlie_ai");
@@ -78,7 +79,7 @@ pub fn check_cli_settings() -> PiResult<()> {
                     config_path.display(),
                     err
                 );
-                return Err(PiError::CannotReadConfigFile);
+                return Err(PiError::CannotReadOrWriteToConfigDirectory);
             }
         }
     };
@@ -96,12 +97,12 @@ pub fn check_cli_settings() -> PiResult<()> {
                             "Could not load config file at {}\nError: {}",
                             config_path, err
                         );
-                        return Err(PiError::CannotReadConfigFile);
+                        return Err(PiError::CannotReadOrWriteToConfigDirectory);
                     }
                 }
             }
             None => {
-                return Err(PiError::CannotReadConfigFile);
+                return Err(PiError::CannotDetectConfigDirectory);
             }
         }
     };
@@ -118,7 +119,7 @@ pub fn check_cli_settings() -> PiResult<()> {
                     &static_root.display(),
                     err
                 );
-                return Err(PiError::CannotReadConfigFile);
+                return Err(PiError::CannotReadOrWriteConfigFile);
             }
         }
     };
@@ -160,25 +161,23 @@ impl Settings {
                 settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
                 Ok(settings)
             }
-            None => Err(PiError::CannotReadConfigFile),
+            None => Err(PiError::CannotReadOrWriteConfigFile),
         }
     }
 
-    pub fn get_is_gliner_available(&self) -> bool {
+    pub fn get_is_gliner_available(&self) -> PiResult<bool> {
         // GLiNER is supported locally only
         // We check if the virtual environment for GLiNER has been created
         // The virtual environment is created in a gliner/.venv directory in the cli settings directory
-        let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path().unwrap();
-        let mut path_to_gliner_venv = path_to_config_dir.clone();
-        path_to_gliner_venv.push("gliner");
+        let mut path_to_gliner_venv = get_path_to_gliner()?;
         path_to_gliner_venv.push(".venv");
-        path_to_gliner_venv.exists()
+        Ok(path_to_gliner_venv.exists())
     }
 
-    pub fn get_settings_status(&self) -> SettingsStatus {
+    pub fn get_settings_status(&self) -> PiResult<SettingsStatus> {
         let mut incomplete_reasons = Vec::new();
-        if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::MissingLLMProvider);
+        if self.path_to_storage_dir.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
         }
         let python_status = check_system_python();
         if python_status.is_none() {
@@ -189,25 +188,25 @@ impl Settings {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
             } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            } else if !self.get_is_gliner_available() {
+            } else if !self.get_is_gliner_available()? {
                 incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
+        }
+        if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
+            incomplete_reasons.push(SettingsIncompleteReason::MissingLLMProvider);
         }
         if self.mqtt_broker_host.is_none() {
             incomplete_reasons.push(SettingsIncompleteReason::MissingMqtt);
         }
-        if self.path_to_storage_dir.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
-        }
         if incomplete_reasons.is_empty() {
-            SettingsStatus::Complete
+            Ok(SettingsStatus::Complete)
         } else {
-            SettingsStatus::Incomplete(incomplete_reasons)
+            Ok(SettingsStatus::Incomplete(incomplete_reasons))
         }
     }
 
     pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
-        if let true = self.get_is_gliner_available() {
+        if let true = self.get_is_gliner_available()? {
             return Ok(EntityExtractionProvider::Gliner);
         } else if let Some(_) = self.ollama_hosts {
             return Ok(EntityExtractionProvider::Ollama);

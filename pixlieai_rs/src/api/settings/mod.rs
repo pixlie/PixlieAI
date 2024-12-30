@@ -13,7 +13,7 @@ pub async fn read_settings() -> Result<impl Responder> {
 
 pub async fn check_settings_status() -> Result<impl Responder> {
     let settings = Settings::get_cli_settings().unwrap();
-    Ok(web::Json(settings.get_settings_status()))
+    Ok(web::Json(settings.get_settings_status().unwrap()))
 }
 
 pub async fn update_settings(

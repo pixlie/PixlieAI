@@ -1,6 +1,5 @@
 import { Component, JSX, createMemo } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
-// import { FormButton } from "../../api_types/FormButton";
 
 interface IPropTypes {
   size?: "sm" | "base" | "lg";
@@ -24,11 +23,6 @@ const Button: Component<IPropTypes> = (props) => {
         return "px-4 py-2 text-base font-normal";
     }
   });
-
-  let buttonType = "button";
-  // if (!!props.buttonType && props.buttonType === "Submit") {
-  //   buttonType = "submit";
-  // }
 
   const buttonClasses =
     getSizeClass() +

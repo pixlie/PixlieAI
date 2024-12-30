@@ -27,26 +27,26 @@ const TextInput: Component<IFormField> = (props) => {
     }
   };
 
-  const LinkOptions: Component = () => {
-    return (
-      <>
-        {props.value !== undefined && typeof props.value === "string" ? (
-          <div class="font-thin">
-            Click to{" "}
-            <a
-              href={props.value}
-              class="font-medium text-blue-500 underline"
-              rel="noreferrer"
-              target="_blank"
-            >
-              open URL in default browser
-            </a>{" "}
-            or right click link to copy
-          </div>
-        ) : null}
-      </>
-    );
-  };
+  // const LinkOptions: Component = () => {
+  //   return (
+  //     <>
+  //       {props.value !== undefined && typeof props.value === "string" ? (
+  //         <div class="font-thin">
+  //           Click to{" "}
+  //           <a
+  //             href={props.value}
+  //             class="font-medium text-blue-500 underline"
+  //             rel="noreferrer"
+  //             target="_blank"
+  //           >
+  //             open URL in default browser
+  //           </a>{" "}
+  //           or right click link to copy
+  //         </div>
+  //       ) : null}
+  //     </>
+  //   );
+  // };
 
   return (
     <>

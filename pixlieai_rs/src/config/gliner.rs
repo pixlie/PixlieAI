@@ -1,12 +1,29 @@
-use super::get_cli_settings_path;
-use crate::{error::PiResult, PiEvent};
+use super::Settings;
+use crate::{
+    error::{PiError, PiResult},
+    PiEvent,
+};
 use log::error;
-use std::{path::PathBuf, process::Command, sync::mpsc};
+use std::{fs::create_dir, path::PathBuf, process::Command, sync::mpsc};
 
-fn get_path_to_gliner() -> PiResult<PathBuf> {
-    let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path().unwrap();
-    let mut path_to_gliner = path_to_config_dir.clone();
+pub fn get_path_to_gliner() -> PiResult<PathBuf> {
+    let settings: Settings = Settings::get_cli_settings()?;
+    let mut path_to_gliner = PathBuf::from(&settings.path_to_storage_dir.unwrap());
     path_to_gliner.push("gliner");
+    if !path_to_gliner.exists() {
+        // Create the `gliner` directory since it does not exist
+        match create_dir(path_to_gliner.clone()) {
+            Ok(_) => {}
+            Err(err) => {
+                error!(
+                    "Could not create gliner directory at {}\nError: {}",
+                    path_to_gliner.display(),
+                    err
+                );
+                return Err(PiError::CannotReadOrWriteToStorageDirectory);
+            }
+        }
+    }
     Ok(path_to_gliner)
 }
 
@@ -53,26 +70,9 @@ fn install_gliner_dependencies() -> PiResult<bool> {
     }
 }
 
-fn test_long_running_job() -> PiResult<bool> {
-    let mut path_to_gliner = get_path_to_gliner()?;
-    path_to_gliner.push("arch_test.iso");
-    match Command::new("curl")
-        .arg("-o")
-        .arg(path_to_gliner)
-        .arg("https://mirrors.abhy.me/archlinux/iso/2024.12.01/archlinux-2024.12.01-x86_64.iso")
-        .output()
-    {
-        Ok(_) => Ok(true),
-        Err(err) => {
-            error!("Error opening command: {}", err);
-            Err(err.into())
-        }
-    }
-}
-
 pub fn setup_gliner(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
     create_venv_for_gliner()?;
-    test_long_running_job()?;
+    install_gliner_dependencies()?;
     tx.send(PiEvent::FinishedSetupGliner).unwrap();
     Ok(())
 }

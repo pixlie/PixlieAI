@@ -1,9 +1,9 @@
 import { Component, JSX } from "solid-js";
-import { useUserInterface } from "../../stores/userInterface";
 import { IFormField } from "../../utils/types";
+// import { useUIClasses } from "../../stores/UIClasses";
 
 const TextArea: Component<IFormField> = (props) => {
-  const [_, { getColors }] = useUserInterface();
+  // const [_, { getColors }] = useUIClasses();
 
   const handleChange: JSX.ChangeEventHandler<HTMLTextAreaElement, Event> = (
     event,
@@ -23,11 +23,6 @@ const TextArea: Component<IFormField> = (props) => {
       <textarea
         required={props.isRequired !== null ? props.isRequired : false}
         class="block w-full rounded-md px-2 py-1.5 border text-lg font-content"
-        style={{
-          "background-color": getColors().colors["input.background"],
-          "border-color": getColors().colors["input.border"],
-          color: getColors().colors["input.foreground"],
-        }}
         placeholder={props.placeholder !== null ? props.placeholder : ""}
         value={props.value || ""}
         onChange={handleChange}

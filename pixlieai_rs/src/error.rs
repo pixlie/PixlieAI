@@ -10,8 +10,17 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PiError {
+    #[error("Cannot detect the config directory of the current user")]
+    CannotDetectConfigDirectory,
+
+    #[error("Cannot read or write to config directory")]
+    CannotReadOrWriteToConfigDirectory,
+
     #[error("Cannot read config file")]
-    CannotReadConfigFile,
+    CannotReadOrWriteConfigFile,
+
+    #[error("Cannot read or write to storage directory")]
+    CannotReadOrWriteToStorageDirectory,
 
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),

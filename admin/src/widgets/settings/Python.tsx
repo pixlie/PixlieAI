@@ -10,7 +10,7 @@ const help = `
 Pixlie AI needs a Python environment to run some of the AI/ML tools.
 `;
 
-const LocalPythonEnv: Component = () => {
+const PythonEnv: Component = () => {
   // We need a local Python virtual environment. We are our API if it can detect system Python and venv.
   const [workspace, { fetchSettingsStatus }] = useWorkspace();
   const [_settings, { refetch }] = createResource(async () => {
@@ -35,54 +35,68 @@ const LocalPythonEnv: Component = () => {
       <Markdown text={help} />
 
       <div class="mt-4">
-        {!workspace.isReady && <>Loading...</>}
+        {!workspace.isReady ? (
+          <>Loading...</>
+        ) : (
+          <>
+            {workspace.settingsStatus?.type === "Complete" && (
+              <>Everything looks fine.</>
+            )}
 
-        {!!workspace.isReady &&
-          workspace.settingsStatus?.type === "Complete" && (
-            <>Everything looks fine.</>
-          )}
-
-        {!!workspace.isReady &&
-          workspace.settingsStatus?.type === "Incomplete" && (
-            <>
-              {workspace.settingsStatus?.data.includes(
-                "PythonNotAvailable",
-              ) && (
-                <>
-                  We need Python, version 3.9 or above, installed on this
-                  computer. Please install Python using your system's package
-                  manager and refresh this page.
-                </>
-              )}
-              {workspace.settingsStatus?.data.includes(
-                "PythonVenvNotAvailable",
-              ) && (
-                <>
-                  We need Python virtual environment (venv) installed on this
-                  computer. Please install Python venv using your system's
-                  package manager and refresh this page.
-                </>
-              )}
-              {workspace.settingsStatus?.data.includes(
+            {workspace.settingsStatus?.type === "Incomplete" &&
+              !workspace.settingsStatus?.data.includes("PythonNotAvailable") &&
+              !workspace.settingsStatus?.data.includes(
                 "PythonPipNotAvailable",
-              ) && (
-                <>
-                  We need Python pip installed on this computer. Please install
-                  Python pip using your system's package manager and refresh
-                  this page.
-                </>
+              ) &&
+              !workspace.settingsStatus?.data.includes(
+                "PythonVenvNotAvailable",
+              ) &&
+              !workspace.settingsStatus?.data.includes("GlinerNotSetup") && (
+                <>Everything looks fine.</>
               )}
-              {workspace.settingsStatus?.data.includes("GlinerNotSetup") && (
-                <>
-                  We need GLiNER installed on this computer.{" "}
-                  <Button label="Setup Gliner" onClick={handleSetupGliner} />
-                </>
-              )}
-            </>
-          )}
+
+            {workspace.settingsStatus?.type === "Incomplete" && (
+              <>
+                {workspace.settingsStatus?.data.includes(
+                  "PythonNotAvailable",
+                ) && (
+                  <>
+                    We need Python, version 3.9 or above, installed on this
+                    computer. Please install Python using your system's package
+                    manager and refresh this page.
+                  </>
+                )}
+                {workspace.settingsStatus?.data.includes(
+                  "PythonVenvNotAvailable",
+                ) && (
+                  <>
+                    We need Python virtual environment (venv) installed on this
+                    computer. Please install Python venv using your system's
+                    package manager and refresh this page.
+                  </>
+                )}
+                {workspace.settingsStatus?.data.includes(
+                  "PythonPipNotAvailable",
+                ) && (
+                  <>
+                    We need Python pip installed on this computer. Please
+                    install Python pip using your system's package manager and
+                    refresh this page.
+                  </>
+                )}
+                {workspace.settingsStatus?.data.includes("GlinerNotSetup") && (
+                  <>
+                    We need GLiNER installed on this computer.{" "}
+                    <Button label="Setup Gliner" onClick={handleSetupGliner} />
+                  </>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </>
   );
 };
 
-export default LocalPythonEnv;
+export default PythonEnv;

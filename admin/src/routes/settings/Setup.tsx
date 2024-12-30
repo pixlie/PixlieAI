@@ -1,6 +1,6 @@
 import { Component } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
-import LocalPythonEnv from "../../widgets/settings/Python";
+import PythonEnv from "../../widgets/settings/Python";
 import MQTTBroker from "../../widgets/settings/MQTTBroker";
 import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
@@ -9,10 +9,8 @@ import { useWorkspace } from "../../stores/Workspace";
 import Anthropic from "../../widgets/settings/Anthropic";
 
 const help = `
-Let up walk through the initial setup process for Pixlie AI.
-We will need a local installation of [Python](https://www.python.org/) and an MQTT server, like [Mosquitto](https://mosquitto.org/).
-
-Don't worry if you are unsure about these, we will walk you through the process.
+Let us walk through the setup process for Pixlie AI.
+We will need [Python](https://www.python.org/), Ollama (or Anthropic's API key) and an MQTT server like [Mosquitto](https://mosquitto.org/).
 `;
 
 const Setup: Component = () => {
@@ -31,7 +29,7 @@ const Setup: Component = () => {
           {!!workspace.settings?.pathToStorageDir ? (
             <>
               <div class="mb-12" />
-              <LocalPythonEnv />
+              <PythonEnv />
 
               <div class="mb-12" />
               <MQTTBroker />
