@@ -1,0 +1,161 @@
+{
+  "name": "rest_api",
+  "version": "1",
+  "items": [
+    {
+      "type": "folder",
+      "name": "settings",
+      "items": [
+        {
+          "type": "http",
+          "name": "get settings status",
+          "seq": 6,
+          "request": {
+            "url": "{{api}}/settings/status",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "User-Agent",
+                "value": "insomnia/10.1.1",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "body": {
+              "mode": "none",
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {},
+            "vars": {},
+            "assertions": [],
+            "tests": "",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http",
+          "name": "get settings",
+          "seq": 5,
+          "request": {
+            "url": "{{api}}/settings",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "User-Agent",
+                "value": "insomnia/10.1.1",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "body": {
+              "mode": "none",
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {},
+            "vars": {},
+            "assertions": [],
+            "tests": "",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http",
+          "name": "put settings",
+          "seq": 4,
+          "request": {
+            "url": "{{api}}/settings",
+            "method": "PUT",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "User-Agent",
+                "value": "insomnia/10.1.1",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"current_project\": null\n}",
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {},
+            "vars": {},
+            "assertions": [],
+            "tests": "",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "environments": [],
+  "root": {
+    "request": {
+      "vars": {
+        "req": [
+          {
+            "name": "api_host",
+            "value": "localhost",
+            "enabled": true,
+            "local": false,
+            "uid": "9kVQo49L4wev6mtSBoZ3h"
+          },
+          {
+            "name": "api",
+            "value": "{{api_protocol}}://{{api_host}}:{{api_port}}{{api_root}}",
+            "enabled": true,
+            "local": false,
+            "uid": "muUq9mrs5TeCdHzMbidW2"
+          },
+          {
+            "name": "api_protocol",
+            "value": "http",
+            "enabled": true,
+            "local": false,
+            "uid": "Qesn1qG4PPy5GA7mThhko"
+          },
+          {
+            "name": "api_port",
+            "value": "58236",
+            "enabled": true,
+            "local": false,
+            "uid": "0nSQX1PfDWwOiXJTsKIvm"
+          },
+          {
+            "name": "api_root",
+            "value": "/api",
+            "enabled": true,
+            "local": false,
+            "uid": "eJJJuAZOZiowG6YNokf9Y"
+          }
+        ]
+      }
+    }
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "rest_api",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  }
+}

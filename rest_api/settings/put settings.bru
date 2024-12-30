@@ -1,0 +1,22 @@
+meta {
+  name: put settings
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{api}}/settings
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  User-Agent: insomnia/10.1.1
+}
+
+body:json {
+  {
+    "current_project": null
+  }
+}

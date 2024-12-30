@@ -1,5 +1,5 @@
 use crate::{
-    config::get_cli_settings,
+    config::Settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
     error::PiResult,
     services::{anthropic, gliner, ollama, EntityExtractionProvider, TextClassificationProvider},
@@ -139,7 +139,7 @@ impl WebPage {
 
     fn classify(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
         // Classify the web page using Anthropic
-        let settings = get_cli_settings().unwrap();
+        let settings = Settings::get_cli_settings()?;
         let content = self.get_content(engine, node_id);
         if content.is_empty() {
             return Ok(());
@@ -175,7 +175,7 @@ impl WebPage {
     fn extract_entities(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
         // A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
         // We collect all these nodes from the engine and pass them to the entity extraction service
-        let settings = get_cli_settings().unwrap();
+        let settings = Settings::get_cli_settings()?;
         let content = self.get_content(engine, node_id);
         let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_EXTRACTION_LABELS).unwrap();
         let _entities = match settings.get_entity_extraction_provider()? {

@@ -5,21 +5,32 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use actix_web::ResponseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PiError {
+    #[error("Cannot detect the config directory of the current user")]
+    CannotDetectConfigDirectory,
+
+    #[error("Cannot read or write to config directory")]
+    CannotReadOrWriteToConfigDirectory,
+
     #[error("Cannot read config file")]
-    CannotReadConfigFile,
+    CannotReadOrWriteConfigFile,
+
+    #[error("Cannot read or write to storage directory")]
+    CannotReadOrWriteToStorageDirectory,
 
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
+    #[error("Failed to write config file")]
+    FailedToWriteConfigFile(String),
+
     #[error("API key not configured")]
     ApiKeyNotConfigured,
 
-    // #[error("Error from Python code: {0}")]
-    // PythonError(#[from] pyo3::PyErr),
     #[error("Error from reqwest: {0}")]
     ReqwestError(#[from] reqwest::Error),
 
@@ -34,6 +45,35 @@ pub enum PiError {
 
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("Error from rumqttc: {0}")]
+    RumqttcError(#[from] rumqttc::v5::ClientError),
+
+    #[error("Error from rumqttc connection: {0}")]
+    RumqttcConnectionError(#[from] rumqttc::v5::ConnectionError),
+}
+
+impl ResponseError for PiError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        match self {
+            // PiError::CannotReadConfigFile => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::SettingsError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::FailedToWriteConfigFile(_) => {
+            //     actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+            // }
+            // PiError::ApiKeyNotConfigured => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::ReqwestError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::FetchFailedAfterRetries => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::NotConfiguredProperly => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::CouldNotClassifyText => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::IOError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::RumqttcError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            // PiError::RumqttcConnectionError(_) => {
+            //     actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+            // }
+            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
 }
 
 pub type PiResult<T> = Result<T, PiError>;

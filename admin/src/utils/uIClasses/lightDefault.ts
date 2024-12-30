@@ -2,10 +2,19 @@ const lightDefault = {
   name: "Light default",
   type: "light",
   tailwindClasses: {
-    app: "bg-stone-200",
+    app: "bg-stone-200 text-stone-800",
 
-    sideBar: "bg-gray-800",
-    "sideBar.link": "text-gray-300 hover:text-white hover:bg-gray-700",
+    sideBar: "bg-gray-500",
+    "sideBar.link": "text-gray-800 hover:text-white hover:bg-gray-700",
+
+    mainContent: "",
+    heading: "text-gray-800",
+
+    text: "text-gray-700",
+    input: "bg-gray-50 text-gray-700 border-gray-300",
+    "input.label": "text-gray-400",
+
+    button: "bg-green-600 text-white",
   },
 };
 

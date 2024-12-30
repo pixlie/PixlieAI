@@ -77,7 +77,7 @@ def main():
     client.on_message = on_message
 
     try:
-        client.connect("localhost", 1883, 60)
+        client.connect("51.159.172.85", 1883, 60)
         log.info("GLiNER worker {}: Connected to MQTT server".format(client_random_id))
     except ConnectionRefusedError:
         log.error(
