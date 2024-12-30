@@ -32,6 +32,7 @@ serde = { version = "1.0.210", features = [
 ], default-features = false }
 serde_json = "1.0.128"
 serde_yaml = { version = "0.9.34", default-features = false }
+signal-hook = { version = "0.3.17", default-features = false }
 spider = { version = "2.10.6", default-features = false, features = [
     "default",
 ] }

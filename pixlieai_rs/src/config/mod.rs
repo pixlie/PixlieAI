@@ -33,6 +33,7 @@ pub struct Settings {
     pub anthropic_api_key: Option<String>,
     pub ollama_hosts: Option<Vec<String>>,
     pub ollama_port: Option<u16>,
+    pub gpu_hosts: Option<Vec<String>>,
     pub mqtt_broker_host: Option<String>,
     pub path_to_storage_dir: Option<String>,
     pub current_project: Option<String>,

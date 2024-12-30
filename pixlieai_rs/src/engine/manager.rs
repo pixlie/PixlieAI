@@ -8,7 +8,7 @@ use log::info;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::mpsc,
+    sync::{atomic::AtomicBool, mpsc, Arc},
     thread::{self, sleep},
     time::Duration,
 };
@@ -22,7 +22,16 @@ pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) ->
     let mut settings: Settings = Settings::get_cli_settings()?;
     let mut engine: Option<Engine> = None;
     let mut jobs: HashMap<JobType, thread::JoinHandle<()>> = HashMap::new();
-    loop {
+
+    // We loop until we receive a SIGTERM or SIGINT signals
+    let is_sig_term = Arc::new(AtomicBool::new(false));
+    let is_sig_int = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&is_sig_term))?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&is_sig_int))?;
+
+    while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
+        && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
+    {
         if settings.path_to_storage_dir.is_some() && settings.current_project.is_some() {
             engine = {
                 let mut storage_dir =
@@ -89,4 +98,5 @@ pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) ->
 
         sleep(Duration::from_secs(1));
     }
+    Ok(())
 }
