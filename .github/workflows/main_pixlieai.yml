@@ -1,13 +1,14 @@
 on:
   push:
-    tags:
-      - "v*"
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release_pixlieai:
+  main_pixlieai:
     strategy:
       matrix:
         include:
@@ -32,11 +33,3 @@ jobs:
       - name: Build release
         working-directory: "./pixlieai_rs"
         run: cargo build --release
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: pixlieai_rs/target/release/${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.asset_name }}
-          tag: ${{ github.ref }}
