@@ -5,19 +5,8 @@ on:
 
 jobs:
   release_admin:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: ${{ github.event.repository.name }}
-            asset_name: ${{ github.event.repository.name }}-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: ${{ github.event.repository.name }}.exe
-          #   asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
-          # - os: macos-latest
-          #   artifact_name: ${{ github.event.repository.name }}
-          #   asset_name: ${{ github.event.repository.name }}-macos-amd64
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,28 +17,28 @@ jobs:
           version: 9
           run_install: false
 
-      - name: Install Node.js for Admin
+      - name: Install Node.js for admin
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
           cache-dependency-path: "./admin/pnpm-lock.yaml"
 
-      - name: Install dependencies for Admin
+      - name: Install dependencies for admin
         working-directory: "./admin"
         run: pnpm install
 
-      - name: Build Admin
+      - name: Build admin
         working-directory: "./admin"
         run: pnpm run build
 
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gzip the admin build directory
+        working-directory: "./admin"
+        run: tar -czvf admin.tar.gz admin/dist
+
+      - name: Upload admin to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./admin/dist/${{ matrix.asset_name }}
-          asset_name: ${{ matrix.asset_name }}
-          asset_content_type: application/octet-stream
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: admin.tar.gz
+          tag: ${{ github.ref }}

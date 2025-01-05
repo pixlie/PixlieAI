@@ -6,19 +6,8 @@ on:
 
 jobs:
   main_admin:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: ${{ github.event.repository.name }}
-            asset_name: ${{ github.event.repository.name }}-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: ${{ github.event.repository.name }}.exe
-          #   asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
-          # - os: macos-latest
-          #   artifact_name: ${{ github.event.repository.name }}
-          #   asset_name: ${{ github.event.repository.name }}-macos-amd64
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
