@@ -1,0 +1,55 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release_admin:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ${{ github.event.repository.name }}
+            asset_name: ${{ github.event.repository.name }}-linux-amd64
+          # - os: windows-latest
+          #   artifact_name: ${{ github.event.repository.name }}.exe
+          #   asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
+          # - os: macos-latest
+          #   artifact_name: ${{ github.event.repository.name }}
+          #   asset_name: ${{ github.event.repository.name }}-macos-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install Node.js for Admin
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: "./admin/pnpm-lock.yaml"
+
+      - name: Install dependencies for Admin
+        working-directory: "./admin"
+        run: pnpm install
+
+      - name: Build Admin
+        working-directory: "./admin"
+        run: pnpm run build
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./admin/dist/${{ matrix.asset_name }}
+          asset_name: ${{ matrix.asset_name }}
+          asset_content_type: application/octet-stream

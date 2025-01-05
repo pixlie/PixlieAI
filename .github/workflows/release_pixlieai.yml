@@ -1,0 +1,45 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release_pixlieai:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ${{ github.event.repository.name }}
+            asset_name: ${{ github.event.repository.name }}-linux-amd64
+          # - os: windows-latest
+          #   artifact_name: ${{ github.event.repository.name }}.exe
+          #   asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
+          # - os: macos-latest
+          #   artifact_name: ${{ github.event.repository.name }}
+          #   asset_name: ${{ github.event.repository.name }}-macos-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Rustup
+        run: rustup update
+
+      - name: Test pixlieai_rs
+        working-directory: "./pixlieai_rs"
+        run: cargo test
+
+      - name: Build release
+        working-directory: "./pixlieai_rs"
+        run: cargo build --release
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: pixlieai_rs/target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
