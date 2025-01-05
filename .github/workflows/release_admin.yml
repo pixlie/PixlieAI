@@ -26,7 +26,7 @@ jobs:
 
       - name: Install dependencies for admin
         working-directory: "./admin"
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build admin
         working-directory: "./admin"

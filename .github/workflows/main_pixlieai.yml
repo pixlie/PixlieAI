@@ -13,14 +13,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: ${{ github.event.repository.name }}
-            asset_name: ${{ github.event.repository.name }}-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: ${{ github.event.repository.name }}.exe
-          #   asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
-          # - os: macos-latest
-          #   artifact_name: ${{ github.event.repository.name }}
-          #   asset_name: ${{ github.event.repository.name }}-macos-amd64
+            artifact_name: cli
+            asset_name: pixlieai-linux-amd64
+          - os: macos-latest
+            artifact_name: cli
+            asset_name: pixlieai-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
