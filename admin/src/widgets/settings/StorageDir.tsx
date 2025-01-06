@@ -14,13 +14,13 @@ The storage directory is where we store the graph data, some AI/ML model data, e
 Please copy and paste the path to the directory where you want to store the data.
 `;
 
-interface IStorageDirFormData {
+interface IFormData {
   pathToStorageDir: string;
 }
 
 const StorageDir: Component = () => {
   const [workspace, { fetchSettings, saveSettings }] = useWorkspace();
-  const [formData, setFormData] = createStore<IStorageDirFormData>({
+  const [formData, setFormData] = createStore<IFormData>({
     pathToStorageDir: workspace.settings?.pathToStorageDir || "",
   });
 
