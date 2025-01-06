@@ -32,8 +32,8 @@ jobs:
         working-directory: "./admin"
         run: pnpm run build
 
-      - name: Gzip the admin build directory
-        run: tar -czvf admin.tar.gz ./admin/dist
+      - name: Tar Gzip the admin build directory
+        run: tar -czvf admin.tar.gz -C admin/dist .
 
       - name: Upload admin to release
         uses: svenstaro/upload-release-action@v2
