@@ -1,6 +1,6 @@
 import { Component } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
-import PythonEnv from "../../widgets/settings/Python";
+import Gliner from "../../widgets/settings/Gliner";
 import MQTTBroker from "../../widgets/settings/MQTTBroker";
 // import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
@@ -29,7 +29,7 @@ const Setup: Component = () => {
           {!!workspace.settings?.pathToStorageDir ? (
             <>
               <div class="mb-16" />
-              <PythonEnv />
+              <Gliner />
 
               <div class="mb-16" />
               <MQTTBroker />

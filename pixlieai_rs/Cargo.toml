@@ -1,6 +1,6 @@
 [package]
 name = "pixlieai"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
@@ -44,7 +44,9 @@ test-log = { version = "0.2.16", default-features = false, features = ["log"] }
 thiserror = { version = "1.0.64", default-features = false }
 tokio = { version = "1.41.0", default-features = false }
 toml = { version = "0.8.19", default-features = false }
-ts-rs = { version = "10.1.0", default-features = false, features = ["serde-compat"] }
+ts-rs = { version = "10.1.0", default-features = false, features = [
+    "serde-compat",
+] }
 url = { version = "2.5.3", default-features = false }
 
 [[bin]]

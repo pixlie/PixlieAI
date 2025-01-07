@@ -15,7 +15,7 @@ use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
 use flate2::read::GzDecoder;
-use gliner::get_path_to_gliner;
+use gliner::get_is_gliner_setup;
 use log::{debug, error};
 use python::check_system_python;
 use serde::{Deserialize, Serialize};
@@ -186,15 +186,6 @@ impl Settings {
         }
     }
 
-    pub fn get_is_gliner_available(&self) -> PiResult<bool> {
-        // GLiNER is supported locally only
-        // We check if the virtual environment for GLiNER has been created
-        // The virtual environment is created in a gliner/.venv directory in the cli settings directory
-        let mut path_to_gliner_venv = get_path_to_gliner()?;
-        path_to_gliner_venv.push(".venv");
-        Ok(path_to_gliner_venv.exists())
-    }
-
     pub fn get_settings_status(&self) -> PiResult<SettingsStatus> {
         let mut incomplete_reasons = Vec::new();
         if self.path_to_storage_dir.is_none() {
@@ -209,7 +200,7 @@ impl Settings {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
             } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            } else if !self.get_is_gliner_available()? {
+            } else if !get_is_gliner_setup()? {
                 incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
         }
@@ -227,7 +218,7 @@ impl Settings {
     }
 
     pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
-        if let true = self.get_is_gliner_available()? {
+        if let true = get_is_gliner_setup()? {
             return Ok(EntityExtractionProvider::Gliner);
         } else if let Some(_) = self.ollama_hosts {
             return Ok(EntityExtractionProvider::Ollama);

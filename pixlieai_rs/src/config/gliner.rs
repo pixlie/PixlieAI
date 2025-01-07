@@ -5,8 +5,13 @@ use crate::{
 };
 use bytes::Buf;
 use flate2::read::GzDecoder;
-use log::error;
-use std::{fs::create_dir, path::PathBuf, process::Command, sync::mpsc};
+use log::{debug, error, info};
+use std::{
+    fs::{create_dir, exists, remove_dir_all, remove_file, File},
+    path::PathBuf,
+    process::Command,
+    sync::mpsc,
+};
 use tar::Archive;
 
 pub fn get_path_to_gliner() -> PiResult<PathBuf> {
@@ -83,6 +88,66 @@ fn install_gliner_dependencies() -> PiResult<bool> {
     {
         Ok(status) => Ok(status.success()),
         Err(err) => {
+            error!(
+                "Could not install Gliner dependencies at {}\nError: {}",
+                path_to_gliner.display(),
+                err
+            );
+            Err(err.into())
+        }
+    }
+}
+
+pub fn get_is_gliner_setup() -> PiResult<bool> {
+    // GLiNER is supported locally only
+    // We check if the virtual environment for GLiNER has been created
+    // The virtual environment is created in a gliner/.venv directory in the cli settings directory
+    let path_to_gliner = get_path_to_gliner()?;
+    let mut path_to_gliner_venv = path_to_gliner.clone();
+    path_to_gliner_venv.push(".venv");
+    let mut path_to_gliner_python = path_to_gliner_venv.clone();
+    path_to_gliner_python.push("bin");
+    path_to_gliner_python.push("python");
+    // Check if the virtual environment has been created
+    match exists(&path_to_gliner_venv) {
+        Ok(true) => {}
+        Ok(false) => {
+            return Ok(false);
+        }
+        Err(err) => {
+            error!(
+                "Error checking if Gliner virtual environment exists: {}",
+                err
+            );
+            return Err(err.into());
+        }
+    }
+    // Check if Gliner has been installed
+    match Command::new(path_to_gliner_python)
+        .arg("-m")
+        .arg("pip")
+        .arg("freeze")
+        .current_dir(path_to_gliner.to_str().unwrap())
+        .output()
+    {
+        Ok(output) => {
+            if output.status.success() {
+                debug!(
+                    "Gliner pip freeze output: {}",
+                    String::from_utf8_lossy(&output.stdout)
+                );
+                // Check if gliner is installed
+                let output = String::from_utf8_lossy(&output.stdout).to_string();
+                if output.contains("gliner") {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            } else {
+                Ok(false)
+            }
+        }
+        Err(err) => {
             error!("Error: {}", err);
             Err(err.into())
         }
@@ -90,9 +155,54 @@ fn install_gliner_dependencies() -> PiResult<bool> {
 }
 
 pub fn setup_gliner(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
+    // Touch a lock file when setting up Gliner
+    let path_to_gliner = get_path_to_gliner()?;
+    let mut path_to_gliner_venv = path_to_gliner.clone();
+    path_to_gliner_venv.push(".venv");
+    let mut path_to_gliner_setup_lock = path_to_gliner.clone();
+    path_to_gliner_setup_lock.push(".gliner_setup");
+    match File::create_new(&path_to_gliner_setup_lock) {
+        Ok(_) => match exists(&path_to_gliner_venv) {
+            Ok(true) => match remove_dir_all(&path_to_gliner_venv) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!(
+                        "Could not delete existing Gliner's virtual environment at {}\nError: {}",
+                        path_to_gliner_venv.display(),
+                        err
+                    );
+                    return Err(err.into());
+                }
+            },
+            _ => {}
+        },
+        Err(err) => {
+            error!(
+                "Could not create Gliner setup lock file at {}, perhaps Gliner is being setup\nError: {}",
+                path_to_gliner_setup_lock.display(),
+                err
+            );
+            return Err(err.into());
+        }
+    }
+
     create_venv_for_gliner()?;
     download_gliner_code()?;
     install_gliner_dependencies()?;
+
+    // Remove the lock file
+    match remove_file(&path_to_gliner_setup_lock) {
+        Ok(_) => {}
+        Err(err) => {
+            error!(
+                "Could not remove Gliner setup lock file at {}\nError: {}",
+                path_to_gliner_setup_lock.display(),
+                err
+            );
+            return Err(err.into());
+        }
+    }
+    info!("Gliner setup complete");
     tx.send(PiEvent::FinishedSetupGliner).unwrap();
     Ok(())
 }
