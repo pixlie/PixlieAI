@@ -1,8 +1,8 @@
 import { Component } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
-import PythonEnv from "../../widgets/settings/Python";
+import Gliner from "../../widgets/settings/Gliner";
 import MQTTBroker from "../../widgets/settings/MQTTBroker";
-import Ollama from "../../widgets/settings/Ollama";
+// import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
 import { useWorkspace } from "../../stores/Workspace";
@@ -23,22 +23,24 @@ const Setup: Component = () => {
 
       {!!workspace.isReady ? (
         <>
-          <div class="mb-12" />
+          <div class="mb-16" />
           <StorageDir />
 
           {!!workspace.settings?.pathToStorageDir ? (
             <>
-              <div class="mb-12" />
-              <PythonEnv />
+              <div class="mb-16" />
+              <Gliner />
 
-              <div class="mb-12" />
+              <div class="mb-16" />
               <MQTTBroker />
 
-              <div class="mb-12" />
-              <Ollama />
+              {/* <div class="mb-16" />
+              <Ollama /> */}
 
-              <div class="mb-12" />
+              <div class="mb-16" />
               <Anthropic />
+
+              <div class="mb-16" />
             </>
           ) : (
             <div class="my-12">

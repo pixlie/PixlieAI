@@ -11,17 +11,20 @@ use crate::{
     error::{PiError, PiResult},
     services::{EntityExtractionProvider, TextClassificationProvider},
 };
+use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
-use gliner::get_path_to_gliner;
+use flate2::read::GzDecoder;
+use gliner::get_is_gliner_setup;
 use log::{debug, error};
 use python::check_system_python;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{create_dir, create_dir_all, File},
+    fs::{create_dir, exists, File},
     io::Write,
     path::PathBuf,
 };
+use tar::Archive;
 use ts_rs::TS;
 
 pub mod gliner;
@@ -68,7 +71,6 @@ pub fn check_cli_settings() -> PiResult<()> {
     }
     let mut config_path = config_path.unwrap();
     config_path.push("pixlie_ai");
-    let mut static_root = config_path.clone();
     if !config_path.exists() {
         // Create the `pixlie_ai` config directory since it does not exist
         match create_dir(config_path.clone()) {
@@ -106,23 +108,6 @@ pub fn check_cli_settings() -> PiResult<()> {
             }
         }
     };
-    static_root.push("PixlieAI");
-    static_root.push("admin");
-    static_root.push("dist");
-    if !static_root.exists() {
-        // Create the `pixlie_ai` config directory since it does not exist
-        match create_dir_all(static_root.clone()) {
-            Ok(_) => {}
-            Err(err) => {
-                error!(
-                    "Could not create static directory at {}\nError: {}",
-                    &static_root.display(),
-                    err
-                );
-                return Err(PiError::CannotReadOrWriteConfigFile);
-            }
-        }
-    };
     Ok(())
 }
 
@@ -140,12 +125,48 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     Ok((path_to_config_dir, path_to_config_file))
 }
 
-pub fn get_path_to_static_dir() -> PiResult<PathBuf> {
+pub fn download_admin_site(admin_path: &PathBuf) -> PiResult<()> {
+    // We download admin.tar.gz from our GitHub release
+    let admin_tar_gz_url =
+        "https://github.com/pixlie/PixlieAI/releases/download/v0.1.0/admin.tar.gz";
+    let admin_tar_gz_response = reqwest::blocking::get(admin_tar_gz_url)?;
+    let admin_tar_gz_bytes = admin_tar_gz_response.bytes()?;
+    // Use flate2 to decompress the tar.gz file
+    let admin_tar_gz = GzDecoder::new(admin_tar_gz_bytes.reader());
+    // Use tar to extract the files from the tar.gz file
+    Archive::new(admin_tar_gz).unpack(&admin_path)?;
+    Ok(())
+}
+
+pub fn get_static_admin_dir() -> PiResult<PathBuf> {
     let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
     let mut static_root = PathBuf::from(path_to_config_dir.clone());
-    static_root.push("PixlieAI");
     static_root.push("admin");
-    static_root.push("dist");
+    // Create the `admin` directory if it does not exist
+    match exists(&static_root) {
+        Ok(true) => {}
+        Ok(false) => match create_dir(static_root.clone()) {
+            Ok(_) => {
+                download_admin_site(&static_root)?;
+            }
+            Err(err) => {
+                error!(
+                    "Could not create admin directory at {}\nError: {}",
+                    static_root.display(),
+                    err
+                );
+                return Err(PiError::CannotReadOrWriteToConfigDirectory);
+            }
+        },
+        Err(err) => {
+            error!(
+                "Could not check if admin directory exists at {}\nError: {}",
+                static_root.display(),
+                err
+            );
+            return Err(PiError::CannotReadOrWriteToConfigDirectory);
+        }
+    }
     Ok(static_root)
 }
 
@@ -165,15 +186,6 @@ impl Settings {
         }
     }
 
-    pub fn get_is_gliner_available(&self) -> PiResult<bool> {
-        // GLiNER is supported locally only
-        // We check if the virtual environment for GLiNER has been created
-        // The virtual environment is created in a gliner/.venv directory in the cli settings directory
-        let mut path_to_gliner_venv = get_path_to_gliner()?;
-        path_to_gliner_venv.push(".venv");
-        Ok(path_to_gliner_venv.exists())
-    }
-
     pub fn get_settings_status(&self) -> PiResult<SettingsStatus> {
         let mut incomplete_reasons = Vec::new();
         if self.path_to_storage_dir.is_none() {
@@ -188,7 +200,7 @@ impl Settings {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
             } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            } else if !self.get_is_gliner_available()? {
+            } else if !get_is_gliner_setup()? {
                 incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
         }
@@ -206,7 +218,7 @@ impl Settings {
     }
 
     pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
-        if let true = self.get_is_gliner_available()? {
+        if let true = get_is_gliner_setup()? {
             return Ok(EntityExtractionProvider::Gliner);
         } else if let Some(_) = self.ollama_hosts {
             return Ok(EntityExtractionProvider::Ollama);

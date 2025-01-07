@@ -1,7 +1,6 @@
 use log::error;
 use pixlieai::{
-    admin::admin_manager, api::api_manager, config::check_cli_settings,
-    engine::manager::engine_manager, PiEvent,
+    api::api_manager, config::check_cli_settings, engine::manager::engine_manager, PiEvent,
 };
 use std::{sync::mpsc, thread};
 
@@ -16,13 +15,6 @@ fn main() {
     }
     let mut thread_handles: Vec<thread::JoinHandle<()>> = Vec::new();
     let (tx, rx) = mpsc::channel::<PiEvent>();
-    thread_handles.push(thread::spawn(|| match admin_manager() {
-        Ok(_) => {}
-        Err(err) => {
-            error!("Error with admin manager: {}", err);
-        }
-    }));
-
     let api_manager_tx = tx.clone();
     thread_handles.push(thread::spawn(move || match api_manager(api_manager_tx) {
         Ok(_) => {}

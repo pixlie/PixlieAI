@@ -1,5 +1,5 @@
 import { Component, createResource } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
+import Heading from "../typography/Heading";
 import { useWorkspace } from "../../stores/Workspace";
 import Markdown from "../typography/Markdown";
 import Button from "../interactable/Button";
@@ -7,10 +7,11 @@ import { getPixlieAIAPIRoot } from "../../utils/api";
 import { onMount } from "solid-js";
 
 const help = `
-Pixlie AI needs a Python environment to run some of the AI/ML tools.
+Gliner is a Python library that we use to extract semantics from the data.
+Pixlie AI needs a Python environment and Gliner installed on your computer.
 `;
 
-const PythonEnv: Component = () => {
+const Gliner: Component = () => {
   // We need a local Python virtual environment. We are our API if it can detect system Python and venv.
   const [workspace, { fetchSettingsStatus }] = useWorkspace();
   const [_settings, { refetch }] = createResource(async () => {
@@ -31,7 +32,7 @@ const PythonEnv: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Python</Heading>
+      <Heading size={3}>Python and Gliner</Heading>
       <Markdown text={help} />
 
       <div class="mt-4">
@@ -86,7 +87,8 @@ const PythonEnv: Component = () => {
                 )}
                 {workspace.settingsStatus?.data.includes("GlinerNotSetup") && (
                   <>
-                    We need GLiNER installed on this computer.{" "}
+                    We can install Gliner on this computer, this will take a
+                    while.{" "}
                     <Button label="Setup Gliner" onClick={handleSetupGliner} />
                   </>
                 )}
@@ -99,4 +101,4 @@ const PythonEnv: Component = () => {
   );
 };
 
-export default PythonEnv;
+export default Gliner;
