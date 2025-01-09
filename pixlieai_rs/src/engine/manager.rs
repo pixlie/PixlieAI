@@ -1,6 +1,6 @@
 use super::Engine;
 use crate::{
-    config::{gliner::setup_gliner, Settings},
+    config::{gliner::setup_gliner, startup_funding_insights_app, Settings},
     error::PiResult,
     PiEvent,
 };
@@ -41,12 +41,19 @@ pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) ->
                     settings.current_project.as_ref().unwrap()
                 ));
                 Some(Engine::new(storage_dir))
-            }
-            // startup_funding_insights_app(&mut engine);
+            };
+            match engine.as_mut() {
+                Some(mut engine) => {
+                    if settings.current_project.as_ref().unwrap() == "startup_funding_insights" {
+                        startup_funding_insights_app(&mut engine);
+                    }
+                }
+                None => {}
+            };
         }
-        if engine.is_some() {
-            // engine.as_mut().unwrap().execute();
-        }
+        // if engine.is_some() {
+        //     engine.as_mut().unwrap().execute();
+        // }
 
         match rx.try_recv() {
             Ok(res) => match res {
@@ -55,24 +62,26 @@ pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) ->
                     if new_settings.path_to_storage_dir.is_some()
                         && new_settings.current_project.is_some()
                     {
-                        // Check that new settings values are different from old ones
-                        if new_settings.path_to_storage_dir.as_ref().unwrap()
-                            != settings.path_to_storage_dir.as_ref().unwrap()
-                            || new_settings.current_project.as_ref().unwrap()
-                                != settings.current_project.as_ref().unwrap()
-                        {
-                            info!("Settings changed, reloading engine");
-                            // TODO: Reload the engine
-                            settings = new_settings;
-                            engine = Some(Engine::new(PathBuf::from(
-                                &settings.path_to_storage_dir.as_ref().unwrap(),
-                            )));
-                        }
+                        info!("Settings changed, reloading engine");
+                        // TODO: Reload the engine
+                        engine = Some(Engine::new(PathBuf::from(
+                            &settings.path_to_storage_dir.as_ref().unwrap(),
+                        )));
+                        match engine.as_mut() {
+                            Some(mut engine) => {
+                                if settings.current_project.as_ref().unwrap()
+                                    == "startup_funding_insights"
+                                {
+                                    startup_funding_insights_app(&mut engine);
+                                }
+                            }
+                            None => {}
+                        };
                     } else {
                         // TODO: Stop the engine
-                        settings = new_settings;
                         engine = None;
                     }
+                    settings = new_settings;
                 }
                 PiEvent::SetupGliner => {
                     // Run setup_gliner only if it is not already running

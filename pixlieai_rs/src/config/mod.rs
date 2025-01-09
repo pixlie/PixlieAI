@@ -47,7 +47,6 @@ pub struct Settings {
 #[ts(export)]
 pub enum SettingsIncompleteReason {
     MissingLLMProvider,
-    MissingMqtt,
     StorageDirNotConfigured,
     PythonNotAvailable,
     PythonVenvNotAvailable,
@@ -206,9 +205,6 @@ impl Settings {
         }
         if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
             incomplete_reasons.push(SettingsIncompleteReason::MissingLLMProvider);
-        }
-        if self.mqtt_broker_host.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::MissingMqtt);
         }
         if incomplete_reasons.is_empty() {
             Ok(SettingsStatus::Complete)
