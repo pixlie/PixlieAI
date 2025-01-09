@@ -20,11 +20,6 @@ const routes = [
     icon: "inbox",
     href: "/p/1/crawl",
   },
-  {
-    label: "Settings",
-    icon: "cog",
-    href: "/p/1/settings",
-  },
 ];
 
 export type { Route };
