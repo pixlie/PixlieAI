@@ -6,21 +6,21 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
 	integrations: [
 		starlight({
-			title: 'My Docs',
+			title: 'PixlieAI Docs',
 			social: {
-				github: 'https://github.com/withastro/starlight',
+				github: 'https://github.com/pixlie/PixlieAI',
 			},
 			sidebar: [
 				{
-					label: 'Guides',
+					label: 'Getting Started',
 					items: [
 						// Each item here is one entry in the navigation menu.
-						{ label: 'Example Guide', slug: 'guides/example' },
+						{ label: 'Getting Started', slug: 'guides/example' },
 					],
 				},
 				{
-					label: 'Reference',
-					autogenerate: { directory: 'reference' },
+					label: 'Integrations',
+					autogenerate: { directory: 'integrations' },
 				},
 			],
 		}),
