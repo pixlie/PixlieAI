@@ -5,28 +5,39 @@ use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http, rt, web, App, HttpServer, Responder,
 };
+use crossbeam_channel;
+use crossbeam_utils::atomic::AtomicCell;
 use log::info;
 use settings::{
     check_mqtt_broker, check_settings_status, read_settings, request_setup_gliner, update_settings,
 };
-use std::{path::PathBuf, sync::mpsc};
+use std::path::PathBuf;
 
+pub mod engine;
 pub mod settings;
 
 const API_ROOT: &str = "/api";
 
-#[derive(Clone)]
 pub struct ApiState {
-    pub cli_tx: mpsc::Sender<PiEvent>,
+    pub channel_tx: crossbeam_channel::Sender<PiEvent>,
+    pub channel_rx: crossbeam_channel::Receiver<PiEvent>,
+    pub req_id: AtomicCell<u32>,
 }
 
 async fn hello() -> impl Responder {
     format!("Hello, world! I am the API of Pixlie AI.")
 }
 
-pub fn api_manager(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
+pub fn api_manager(
+    tx: crossbeam_channel::Sender<PiEvent>,
+    rx: crossbeam_channel::Receiver<PiEvent>,
+) -> PiResult<()> {
     info!("Starting Pixlie AI API");
-    let api_state = web::Data::new(ApiState { cli_tx: tx });
+    let api_state = web::Data::new(ApiState {
+        channel_tx: tx,
+        channel_rx: rx,
+        req_id: AtomicCell::new(0),
+    });
     let static_admin_dir = get_static_admin_dir()?;
     rt::System::new().block_on(
         HttpServer::new(move || {

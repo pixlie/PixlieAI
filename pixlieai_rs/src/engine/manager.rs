@@ -1,14 +1,15 @@
-use super::Engine;
+use super::{api::handle_engine_api_request, Engine};
 use crate::{
     config::{gliner::setup_gliner, startup_funding_insights_app, Settings},
     error::PiResult,
     PiEvent,
 };
+use crossbeam_channel;
 use log::info;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{atomic::AtomicBool, mpsc, Arc},
+    sync::{atomic::AtomicBool, Arc},
     thread::{self, sleep},
     time::Duration,
 };
@@ -18,7 +19,10 @@ pub enum JobType {
     SetupGliner,
 }
 
-pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) -> PiResult<()> {
+pub fn engine_manager(
+    tx: crossbeam_channel::Sender<PiEvent>,
+    rx: crossbeam_channel::Receiver<PiEvent>,
+) -> PiResult<()> {
     let mut settings: Settings = Settings::get_cli_settings()?;
     let mut engine: Option<Engine> = None;
     let mut jobs: HashMap<JobType, thread::JoinHandle<()>> = HashMap::new();
@@ -101,6 +105,16 @@ pub fn engine_manager(tx: mpsc::Sender<PiEvent>, rx: mpsc::Receiver<PiEvent>) ->
                         job.join().unwrap();
                     }
                 }
+                PiEvent::EngineRequest(api_request) => {
+                    match engine {
+                        Some(ref mut engine) => {
+                            let channel_tx = tx.clone();
+                            handle_engine_api_request(api_request, engine, channel_tx).unwrap();
+                        }
+                        None => {}
+                    };
+                }
+                PiEvent::EngineResponse(_) => {}
             },
             Err(_) => {}
         }

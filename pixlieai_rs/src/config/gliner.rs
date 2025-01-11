@@ -4,13 +4,13 @@ use crate::{
     PiEvent,
 };
 use bytes::Buf;
+use crossbeam_channel;
 use flate2::read::GzDecoder;
 use log::{debug, error, info};
 use std::{
     fs::{create_dir, exists, remove_dir_all, remove_file, File},
     path::PathBuf,
     process::Command,
-    sync::mpsc,
 };
 use tar::Archive;
 
@@ -154,7 +154,7 @@ pub fn get_is_gliner_setup() -> PiResult<bool> {
     }
 }
 
-pub fn setup_gliner(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
+pub fn setup_gliner(tx: crossbeam_channel::Sender<PiEvent>) -> PiResult<()> {
     // Touch a lock file when setting up Gliner
     let path_to_gliner = get_path_to_gliner()?;
     let mut path_to_gliner_venv = path_to_gliner.clone();

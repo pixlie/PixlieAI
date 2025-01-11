@@ -26,7 +26,7 @@ pub async fn update_settings(
             settings.merge_updates(&updates);
             match settings.write_to_config_file() {
                 Ok(_) => {
-                    api_state.cli_tx.send(PiEvent::SettingsUpdated).unwrap();
+                    api_state.channel_tx.send(PiEvent::SettingsUpdated).unwrap();
                     Ok(web::Json(settings))
                 }
                 Err(err) => {
@@ -50,6 +50,6 @@ pub async fn check_mqtt_broker() -> Result<impl Responder> {
 }
 
 pub async fn request_setup_gliner(api_state: web::Data<ApiState>) -> Result<impl Responder> {
-    api_state.cli_tx.send(PiEvent::SetupGliner).unwrap();
+    api_state.channel_tx.send(PiEvent::SetupGliner).unwrap();
     Ok("OK")
 }

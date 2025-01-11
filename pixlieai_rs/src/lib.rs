@@ -5,6 +5,8 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use engine::api::{EngineRequestMessage, EngineResponseMessage};
+
 pub mod api;
 pub mod config;
 pub mod engine;
@@ -16,4 +18,6 @@ pub enum PiEvent {
     SettingsUpdated,
     SetupGliner,
     FinishedSetupGliner,
+    EngineRequest(EngineRequestMessage),
+    EngineResponse(EngineResponseMessage),
 }
