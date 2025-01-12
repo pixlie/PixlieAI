@@ -8,22 +8,22 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Title(pub String);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Heading(pub String);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Paragraph(pub String);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct BulletPoints(pub Vec<String>);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct OrderedPoints(pub Vec<String>);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum TableCellType {
     SmallInteger(i8),
     Integer(i32),
@@ -40,10 +40,10 @@ pub enum TableCellType {
     Country(String),
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct TableRow(pub Vec<TableCellType>);
 
 // Headings are part of Table node
 // Has part nodes to TableRow(s)
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Table(pub Vec<String>);

@@ -2,7 +2,6 @@
 
 export type SettingsIncompleteReason =
   | "MissingLLMProvider"
-  | "MissingMqtt"
   | "StorageDirNotConfigured"
   | "PythonNotAvailable"
   | "PythonVenvNotAvailable"

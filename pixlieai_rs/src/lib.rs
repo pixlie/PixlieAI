@@ -5,6 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use crossbeam_channel::unbounded;
 use engine::api::{EngineRequestMessage, EngineResponseMessage};
 
 pub mod api;
@@ -13,6 +14,19 @@ pub mod engine;
 pub mod entity;
 pub mod error;
 pub mod services;
+
+#[derive(Clone)]
+pub struct CommsChannel {
+    tx: crossbeam_channel::Sender<PiEvent>,
+    rx: crossbeam_channel::Receiver<PiEvent>,
+}
+
+impl CommsChannel {
+    pub fn new() -> CommsChannel {
+        let (tx, rx) = unbounded::<PiEvent>();
+        CommsChannel { tx, rx }
+    }
+}
 
 pub enum PiEvent {
     SettingsUpdated,

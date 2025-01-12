@@ -1,7 +1,6 @@
-use crossbeam_channel::unbounded;
 use log::error;
 use pixlieai::{
-    api::api_manager, config::check_cli_settings, engine::manager::engine_manager, PiEvent,
+    api::api_manager, config::check_cli_settings, engine::manager::engine_manager, CommsChannel,
 };
 use std::thread;
 
@@ -15,10 +14,12 @@ fn main() {
         }
     }
     let mut thread_handles: Vec<thread::JoinHandle<()>> = Vec::new();
-    let (tx, rx) = unbounded::<PiEvent>();
-    let (api_manager_tx, api_manager_rx) = (tx.clone(), rx.clone());
+    let engine_ch = CommsChannel::new();
+    let api_ch = CommsChannel::new();
+    let engine_ch1 = engine_ch.clone();
+    let api_ch1 = api_ch.clone();
     thread_handles.push(thread::spawn(move || {
-        match api_manager(api_manager_tx, api_manager_rx) {
+        match api_manager(engine_ch1, api_ch1) {
             Ok(_) => {}
             Err(err) => {
                 error!("Error with api manager: {}", err);
@@ -26,9 +27,8 @@ fn main() {
         }
     }));
 
-    let (engine_manager_tx, engine_manager_rx) = (tx.clone(), rx.clone());
     thread_handles.push(thread::spawn(move || {
-        match engine_manager(engine_manager_tx, engine_manager_rx) {
+        match engine_manager(engine_ch, api_ch) {
             Ok(_) => {}
             Err(err) => {
                 error!("Error with graph engine: {}", err);

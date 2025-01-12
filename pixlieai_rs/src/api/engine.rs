@@ -4,22 +4,32 @@ use crate::{
     PiEvent,
 };
 use actix_web::{web, Responder, Result};
+use log::debug;
+use serde::Deserialize;
 
-pub async fn engine_api(
-    engine_request: web::Json<EngineRequest>,
+#[derive(Deserialize)]
+pub struct NodesByLabelParams {
+    label: String,
+}
+
+pub async fn get_nodes_by_label(
+    params: web::Query<NodesByLabelParams>,
     api_state: web::Data<ApiState>,
 ) -> Result<impl Responder> {
+    debug!("Label request for get_nodes_by_label: {}", params.label);
     let request_id = api_state.req_id.fetch_add(1);
     api_state
-        .channel_tx
+        .engine_ch
+        .tx
         .send(PiEvent::EngineRequest(EngineRequestMessage {
             request_id: request_id.clone(),
-            payload: engine_request.into_inner(),
+            payload: EngineRequest::GetNodesWithLabel(params.label.clone()),
         }))
         .unwrap();
 
+    debug!("Waiting for response for request {}", request_id);
     let response: Option<EngineApiResponse> = web::block(move || {
-        api_state.channel_rx.iter().find_map(|event| match event {
+        api_state.api_ch.rx.iter().find_map(|event| match event {
             PiEvent::EngineResponse(response) => {
                 if response.request_id == request_id {
                     Some(response.payload)
@@ -32,6 +42,7 @@ pub async fn engine_api(
     })
     .await
     .unwrap();
+    debug!("Got response for request {}", request_id);
 
     Ok(web::Json(response))
 }

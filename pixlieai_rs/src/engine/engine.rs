@@ -26,6 +26,7 @@ impl Engine {
         };
         // We load the graph from disk
         engine.load_from_disk();
+
         info!(
             "There are {} webpage nodes in the graph",
             engine
@@ -309,13 +310,12 @@ impl Engine {
             self.nodes.insert(node_id.clone(), RwLock::new(node));
 
             // Store the node in nodes_by_label_id
-            {
-                let mut nodes_by_label = self.nodes_by_label.write().unwrap();
-                nodes_by_label
-                    .entry(label)
-                    .and_modify(|entries| entries.push(node_id.clone()))
-                    .or_insert(vec![node_id.clone()]);
-            }
+            self.nodes_by_label
+                .write()
+                .unwrap()
+                .entry(label)
+                .and_modify(|entries| entries.push(node_id.clone()))
+                .or_insert(vec![node_id.clone()]);
         }
     }
 }

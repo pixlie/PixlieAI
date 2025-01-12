@@ -25,7 +25,7 @@ pub mod api;
 pub mod engine;
 pub mod manager;
 
-#[derive(Display, Deserialize, Serialize)]
+#[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
     Rule(Rule),
     Domain(Domain),
@@ -44,7 +44,7 @@ pub enum Payload {
 
 pub type NodeId = Arc<u32>;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Node {
     pub id: NodeId,
     pub label: String,

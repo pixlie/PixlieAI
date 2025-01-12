@@ -273,7 +273,7 @@ pub enum RuleCondition {
     IfContextIncludes(String),
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Rule {
     pub applies_to: String,
     pub action: String,

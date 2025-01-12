@@ -20,7 +20,7 @@ pub struct Link {
     pub is_fetched: bool,
 }
 
-#[derive(Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Domain(pub String);
 
 impl NodeWorker for Link {
