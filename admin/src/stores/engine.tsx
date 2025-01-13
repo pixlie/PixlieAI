@@ -1,11 +1,14 @@
 import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import { IProviderPropTypes, IWorkspace } from "../utils/types";
-import { camelCasedKeys, getPixlieAIAPIRoot } from "../utils/api";
-import { Settings } from "../api_types/Settings";
+import { IEngine, IProviderPropTypes } from "../utils/types";
+import { getPixlieAIAPIRoot } from "../utils/api";
+import { EngineApiResponse } from "../api_types/EngineApiResponse";
 
 const makeStore = () => {
-  const [store, setStore] = createStore<IWorkspace>({
+  const [store, setStore] = createStore<IEngine>({
+    nodes: {},
+    nodeIdsByLabel: {},
+
     isReady: false,
     isFetching: false,
   });
@@ -13,25 +16,31 @@ const makeStore = () => {
   return [
     store,
     {
-      fetchNodesByLabel: async () => {
+      fetchNodesByLabel: async (label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(
-          `${pixieAIAPIRoot}/engine?` +
+          `${pixieAIAPIRoot}/api/engine/nodes?` +
             new URLSearchParams({
-              label: "domain",
+              label,
             }).toString(),
         );
         if (!response.ok) {
           console.error("Failed to fetch settings");
         }
-        let settings: Settings = await response.json();
-        setStore((data) => ({
-          ...data,
-          isFetching: false,
-          isReady: true,
-          settings: camelCasedKeys(settings),
-        }));
+        let engineResponse: EngineApiResponse = await response.json();
+        if (engineResponse.type === "Results") {
+          setStore((state) => ({
+            ...state,
+            nodes: engineResponse.data.nodes,
+            nodeIdsByLabel: {
+              ...state.nodeIdsByLabel,
+              [label]: engineResponse.data.query_type.NodeIdsByLabel[1],
+            },
+            isFetching: false,
+            isReady: true,
+          }));
+        }
       },
     },
   ] as const; // `as const` forces tuple type inference

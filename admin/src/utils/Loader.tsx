@@ -1,5 +1,5 @@
 import { Component, createEffect, createResource, onMount } from "solid-js";
-import { useWorkspace } from "../stores/Workspace";
+import { useWorkspace } from "../stores/workspace";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot } from "./api";
 

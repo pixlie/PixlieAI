@@ -1,15 +1,30 @@
 import { Component, onMount } from "solid-js";
-import Screen from "../../layout/Screen";
-import { useEngine } from "../../stores/Engine";
+import { useEngine } from "../../stores/engine";
+import Heading from "../../widgets/typography/Heading";
+import NodeListItem from "../../widgets/node/ListItem";
 
 const Graph: Component = () => {
-  const [_engine, { fetchNodesByLabel }] = useEngine();
+  const [engine, { fetchNodesByLabel }] = useEngine();
 
   onMount(() => {
-    fetchNodesByLabel();
+    fetchNodesByLabel("Link");
   });
 
-  return <Screen title="Graph" />;
+  return (
+    <>
+      <Heading size={1}>Graph</Heading>
+
+      {!engine.isReady ? (
+        <>Loading...</>
+      ) : (
+        <>
+          {Object.keys(engine.nodes).map((nodeId) => (
+            <NodeListItem nodeId={nodeId} />
+          ))}
+        </>
+      )}
+    </>
+  );
 };
 
 export default Graph;

@@ -3,7 +3,7 @@ import Heading from "../../widgets/typography/Heading";
 import Markdown from "../typography/Markdown";
 import TextInput from "../interactable/TextInput";
 import Button from "../interactable/Button";
-import { useWorkspace } from "../../stores/Workspace";
+import { useWorkspace } from "../../stores/workspace";
 import { createStore } from "solid-js/store";
 import { IFormFieldValue } from "../../utils/types";
 
