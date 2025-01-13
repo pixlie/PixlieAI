@@ -1,13 +1,17 @@
 meta {
-  name: get settings status
+  name: nodes_by_label
   type: http
-  seq: 2
+  seq: 1
 }
 
 get {
-  url: {{api}}/settings/status
+  url: {{api}}/engine?label=Link
   body: none
   auth: none
+}
+
+params:query {
+  label: Link
 }
 
 headers {

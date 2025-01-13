@@ -1,6 +1,5 @@
 import { createResource, Component } from "solid-js";
-
-import Screen from "../layout/Screen";
+import Screen from "../../layout/Screen";
 
 interface IData {
   type: TypeChoices;

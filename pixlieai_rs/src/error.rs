@@ -5,6 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use crate::PiEvent;
 use actix_web::ResponseError;
 use thiserror::Error;
 
@@ -51,6 +52,9 @@ pub enum PiError {
 
     #[error("Error from rumqttc connection: {0}")]
     RumqttcConnectionError(#[from] rumqttc::v5::ConnectionError),
+
+    #[error("Error sending to crossbeam channel: {0}")]
+    CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
 }
 
 impl ResponseError for PiError {

@@ -1,32 +1,40 @@
-use crate::{config::get_static_admin_dir, error::PiResult, PiEvent};
+use crate::{config::get_static_admin_dir, error::PiResult, CommsChannel};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http, rt, web, App, HttpServer, Responder,
 };
+use crossbeam_utils::atomic::AtomicCell;
+use engine::get_nodes_by_label;
 use log::info;
 use settings::{
     check_mqtt_broker, check_settings_status, read_settings, request_setup_gliner, update_settings,
 };
-use std::{path::PathBuf, sync::mpsc};
+use std::path::PathBuf;
 
+pub mod engine;
 pub mod settings;
 
 const API_ROOT: &str = "/api";
 
-#[derive(Clone)]
 pub struct ApiState {
-    pub cli_tx: mpsc::Sender<PiEvent>,
+    pub engine_ch: CommsChannel,
+    pub api_ch: CommsChannel,
+    pub req_id: AtomicCell<u32>,
 }
 
 async fn hello() -> impl Responder {
     format!("Hello, world! I am the API of Pixlie AI.")
 }
 
-pub fn api_manager(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
+pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()> {
     info!("Starting Pixlie AI API");
-    let api_state = web::Data::new(ApiState { cli_tx: tx });
+    let api_state = web::Data::new(ApiState {
+        engine_ch,
+        api_ch,
+        req_id: AtomicCell::new(0),
+    });
     let static_admin_dir = get_static_admin_dir()?;
     rt::System::new().block_on(
         HttpServer::new(move || {
@@ -67,6 +75,10 @@ pub fn api_manager(tx: mpsc::Sender<PiEvent>) -> PiResult<()> {
                 .service(
                     web::resource(format!("{}/settings/setup_gliner", API_ROOT))
                         .route(web::post().to(request_setup_gliner)),
+                )
+                .service(
+                    web::resource(format!("{}/engine/nodes", API_ROOT))
+                        .route(web::get().to(get_nodes_by_label)),
                 )
                 // This is the admin UI and should be the last service
                 .service(static_admin)

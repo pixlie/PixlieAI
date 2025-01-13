@@ -1,5 +1,5 @@
 import { Component, For } from "solid-js";
-import SidebarLink from "../widgets/navigation/SidebarLink";
+import SidebarLink from "./navigation/SidebarLink";
 import { routes } from "../routes/routeList";
 import { useUIClasses } from "../stores/UIClasses";
 import { useWorkspace } from "../stores/Workspace";
