@@ -268,12 +268,13 @@ impl Settings {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
 pub enum RuleCondition {
     IfContextIncludes(String),
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct Rule {
     pub applies_to: String,
     pub action: String,

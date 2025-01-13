@@ -20,12 +20,14 @@ use std::{
     sync::RwLock,
 };
 use strum::Display;
+use ts_rs::TS;
 
 pub mod api;
 pub mod engine;
 pub mod manager;
 
-#[derive(Clone, Display, Deserialize, Serialize)]
+#[derive(Clone, Display, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub enum Payload {
     Rule(Rule),
     Domain(Domain),
@@ -44,7 +46,8 @@ pub enum Payload {
 
 pub type NodeId = Arc<u32>;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct Node {
     pub id: NodeId,
     pub label: String,
@@ -82,7 +85,7 @@ pub struct Engine {
     nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
     storage_root: String,
-    pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
+    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
     // pub execute_every: u8, // Number of seconds to wait before executing the engine
 }

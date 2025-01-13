@@ -21,7 +21,7 @@ impl Engine {
             nodes_to_write: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             storage_root: storage_root.to_str().unwrap().to_string(),
-            nodes_by_label: RwLock::new(HashMap::new()),
+            node_ids_by_label: RwLock::new(HashMap::new()),
             // execute_every: 1,
         };
         // We load the graph from disk
@@ -118,7 +118,7 @@ impl Engine {
         }
         // Store the node in nodes_by_label_id
         {
-            let mut nodes_by_label = self.nodes_by_label.write().unwrap();
+            let mut nodes_by_label = self.node_ids_by_label.write().unwrap();
             nodes_by_label
                 .entry(label.clone())
                 .and_modify(|entries| entries.push(id.clone()))
@@ -310,7 +310,7 @@ impl Engine {
             self.nodes.insert(node_id.clone(), RwLock::new(node));
 
             // Store the node in nodes_by_label_id
-            self.nodes_by_label
+            self.node_ids_by_label
                 .write()
                 .unwrap()
                 .entry(label)

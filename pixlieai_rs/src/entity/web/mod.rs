@@ -8,19 +8,22 @@ use log::{error, info};
 use rand::seq::SliceRandom;
 use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use url::Url;
 
 pub mod scraper;
 
 // A link that should fetch
-#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
+#[ts(export)]
 pub struct Link {
     pub url: String,
     pub text: String,
     pub is_fetched: bool,
 }
 
-#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
+#[ts(export)]
 pub struct Domain(pub String);
 
 impl NodeWorker for Link {
@@ -75,7 +78,8 @@ impl NodeWorker for Link {
     }
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct WebPage {
     pub contents: String,
     pub is_scraped: bool,

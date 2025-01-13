@@ -28,7 +28,7 @@ pub async fn get_nodes_by_label(
         .unwrap();
 
     debug!("Waiting for response for request {}", request_id);
-    let response: Option<EngineApiResponse> = web::block(move || {
+    let response_opt: Option<EngineApiResponse> = web::block(move || {
         api_state.api_ch.rx.iter().find_map(|event| match event {
             PiEvent::EngineResponse(response) => {
                 if response.request_id == request_id {
@@ -44,5 +44,10 @@ pub async fn get_nodes_by_label(
     .unwrap();
     debug!("Got response for request {}", request_id);
 
-    Ok(web::Json(response))
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineApiResponse::Error(format!(
+            "Could not get a response"
+        )))),
+    }
 }
