@@ -1,5 +1,4 @@
-import { Component, createMemo } from "solid-js";
-import { Node } from "../../api_types/Node";
+import { Component } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { Payload } from "../../api_types/Payload";
 
@@ -10,7 +9,7 @@ interface NodePayloadProps {
 const NodePayload: Component<NodePayloadProps> = (props) => {
   return (
     <>
-      {"Link" in props.payload ? (
+      {"Link" in props.payload && (
         <div class="grid grid-cols-3 items-center">
           <div>{props.payload["Link"].text}</div>
           <div>{props.payload["Link"].url}</div>
@@ -18,8 +17,36 @@ const NodePayload: Component<NodePayloadProps> = (props) => {
             {props.payload["Link"].is_fetched ? "Fetched" : "Not Fetched"}
           </div>
         </div>
-      ) : (
-        <></>
+      )}
+      {"Domain" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["Domain"]}</div>
+        </div>
+      )}
+      {"Title" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["Title"]}</div>
+        </div>
+      )}
+      {"Paragraph" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["Paragraph"]}</div>
+        </div>
+      )}
+      {"Heading" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["Heading"]}</div>
+        </div>
+      )}
+      {"BulletPoints" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["BulletPoints"]}</div>
+        </div>
+      )}
+      {"OrderedPoints" in props.payload && (
+        <div class="grid grid-cols-3 items-center">
+          <div>{props.payload["OrderedPoints"]}</div>
+        </div>
       )}
     </>
   );
@@ -31,16 +58,11 @@ interface NodeListItemProps {
 
 const NodeListItem: Component<NodeListItemProps> = (props) => {
   const [engine] = useEngine();
-  const getNode = createMemo<Node | undefined>(() =>
-    engine.isReady && props.nodeId in engine.nodes
-      ? engine.nodes[props.nodeId]
-      : undefined,
-  );
 
   return (
     <>
-      {!!engine.isReady && !!getNode() ? (
-        <NodePayload payload={getNode()!.payload} />
+      {!!engine.isReady && props.nodeId in engine.nodes ? (
+        <NodePayload payload={engine.nodes[props.nodeId].payload} />
       ) : (
         <></>
       )}

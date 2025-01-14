@@ -1,5 +1,5 @@
 import { Component, JSX } from "solid-js";
-import Sidebar from "./widgets/Sidebar";
+import Sidebar from "./widgets/navigation/Sidebar";
 import { WorkspaceProvider } from "./stores/workspace";
 import Loader from "./utils/Loader";
 import { UIClassesProvider, useUIClasses } from "./stores/UIClasses";

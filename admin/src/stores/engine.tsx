@@ -30,9 +30,15 @@ const makeStore = () => {
         }
         let engineResponse: EngineApiResponse = await response.json();
         if (engineResponse.type === "Results") {
-          setStore((state) => ({
+          setStore((state: IEngine) => ({
             ...state,
-            nodes: engineResponse.data.nodes,
+            nodes: engineResponse.data.nodes.reduce(
+              (acc, item) => ({
+                ...acc,
+                [item.id]: item,
+              }),
+              state.nodes,
+            ),
             nodeIdsByLabel: {
               ...state.nodeIdsByLabel,
               [label]: engineResponse.data.query_type.NodeIdsByLabel[1],

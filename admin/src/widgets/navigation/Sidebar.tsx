@@ -1,8 +1,8 @@
 import { Component, For } from "solid-js";
-import SidebarLink from "./navigation/SidebarLink";
-import { routes } from "../routes/routeList";
-import { useUIClasses } from "../stores/UIClasses";
-import { useWorkspace } from "../stores/workspace";
+import SidebarLink from "./SidebarLink";
+import { routes } from "../../routes/routeList";
+import { useUIClasses } from "../../stores/UIClasses";
+import { useWorkspace } from "../../stores/workspace";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
