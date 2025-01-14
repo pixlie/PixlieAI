@@ -12,6 +12,7 @@ pub struct EngineRequestMessage {
 #[derive(Deserialize, TS)]
 #[ts(export)]
 pub enum EngineRequest {
+    GetLabels,
     GetNodesWithLabel(String),
     GetRelatedNodes(u32),
     GetPartNodes(u32),
@@ -25,6 +26,7 @@ pub struct EngineResponseMessage {
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub enum EngineApiQueryType {
+    Labels(Vec<String>),
     NodeIdsByLabel(String, Vec<u32>),
 }
 
@@ -50,6 +52,19 @@ pub fn handle_engine_api_request(
 ) -> PiResult<()> {
     debug!("Got an engine API request");
     let response: EngineApiResponse = match request.payload {
+        EngineRequest::GetLabels => match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => {
+                let labels = node_ids_by_label.keys().cloned().collect();
+                EngineApiResponse::Results(EngineApiData {
+                    nodes: vec![],
+                    query_type: EngineApiQueryType::Labels(labels),
+                })
+            }
+            Err(err) => {
+                error!("Error reading nodes_by_label: {}", err);
+                EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
+            }
+        },
         EngineRequest::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
             Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
                 Some(node_ids) => {
