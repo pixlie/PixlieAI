@@ -1,10 +1,7 @@
-use log::{error, info};
+use log::info;
 use rand::Rng;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use rumqttc::{Client, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
-use std::thread;
-use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, RwLock},
@@ -102,7 +99,6 @@ impl Engine {
                 info!("Nodes: {}", self.nodes.len());
             }
             count += 1;
-            mqtt();
             if count > 1 {
                 break;
             }
@@ -149,117 +145,6 @@ fn process_node(engine: &Engine, node_id: &NodeId) {
                 None => None,
             })
             .count();
-    }
-}
-
-fn mqtt() {
-    let mqtt_topic = "try_engine";
-    thread::spawn(mqtt_worker);
-    thread::spawn(mqtt_sender);
-
-    let mut mqttoptions = MqttOptions::new(format!("{}_receiver", mqtt_topic), "localhost", 1883);
-    mqttoptions.set_keep_alive(Duration::from_secs(5));
-
-    let (client, mut connection) = Client::new(mqttoptions, 10);
-    client
-        .subscribe(
-            format!("pixlieai/{}/responses", mqtt_topic),
-            QoS::ExactlyOnce,
-        )
-        .unwrap();
-
-    // Iterate to poll the eventloop for connection progress
-    for (_, notification) in connection.iter().enumerate() {
-        match notification {
-            Ok(message) => match message {
-                rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish)) => {
-                    info!("Receiver: notification for MQTT message: {}", publish.topic);
-                    break;
-                }
-                _ => {}
-            },
-            Err(err) => {
-                error!("Receiver: error polling eventloop: {}", err);
-                break;
-            }
-        };
-    }
-}
-
-fn mqtt_sender() {
-    let mqtt_topic = "try_engine";
-    let mut mqttoptions = MqttOptions::new(format!("{}_sender", mqtt_topic), "localhost", 1883);
-    mqttoptions.set_keep_alive(Duration::from_secs(5));
-
-    let (client, mut connection) = Client::new(mqttoptions, 10);
-    thread::spawn(move || {
-        match client.publish(
-            format!("pixlieai/{}/requests", mqtt_topic),
-            QoS::ExactlyOnce,
-            false,
-            "Hello",
-        ) {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Sender: error publishing to MQTT server: {}", err);
-            }
-        }
-    });
-
-    for (_, notification) in connection.iter().enumerate() {
-        match notification {
-            Ok(message) => match message {
-                rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish)) => {
-                    info!("Sender: notification for MQTT message: {}", publish.topic);
-                    break;
-                }
-                _ => {}
-            },
-            Err(err) => {
-                error!("Sender: error polling eventloop: {}", err);
-                break;
-            }
-        };
-    }
-}
-
-fn mqtt_worker() {
-    let mqtt_topic = "try_engine";
-    let mut mqttoptions = MqttOptions::new(format!("{}_worker", mqtt_topic), "localhost", 1883);
-    mqttoptions.set_keep_alive(Duration::from_secs(5));
-
-    let (client, mut connection) = Client::new(mqttoptions, 10);
-    client
-        .subscribe(
-            format!("pixlieai/{}/requests", mqtt_topic),
-            QoS::ExactlyOnce,
-        )
-        .unwrap();
-
-    for (_, notification) in connection.iter().enumerate() {
-        match notification {
-            Ok(message) => match message {
-                rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish)) => {
-                    info!("Worker: notification for MQTT message: {}", publish.topic);
-                    match client.publish(
-                        format!("pixlieai/{}/responses", mqtt_topic),
-                        QoS::ExactlyOnce,
-                        false,
-                        "World",
-                    ) {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("Worker: error publishing to MQTT server: {}", err);
-                        }
-                    }
-                }
-                _ => {}
-            },
-            Err(err) => {
-                error!("Worker: error polling eventloop: {}", err);
-                break;
-            }
-        };
     }
 }
 

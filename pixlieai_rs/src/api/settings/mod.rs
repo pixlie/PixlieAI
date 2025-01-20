@@ -1,8 +1,5 @@
 use super::ApiState;
-use crate::{
-    config::{mqtt, Settings},
-    PiEvent,
-};
+use crate::{config::Settings, PiEvent};
 use actix_web::{error::ErrorInternalServerError, web, Responder, Result};
 use log::error;
 
@@ -43,13 +40,6 @@ pub async fn update_settings(
             error!("Error reading settings: {}", err);
             Err(ErrorInternalServerError::<_>(err))
         }
-    }
-}
-
-pub async fn check_mqtt_broker() -> Result<impl Responder> {
-    match mqtt::check_mqtt_broker().await {
-        Ok(_) => Ok("OK"),
-        Err(e) => Err(ErrorInternalServerError::<_>(e)),
     }
 }
 

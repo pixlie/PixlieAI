@@ -18,7 +18,6 @@ pub mod scraper;
 #[ts(export)]
 pub struct Link {
     pub url: String,
-    pub text: String,
     pub is_fetched: bool,
 }
 
@@ -26,7 +25,17 @@ pub struct Link {
 #[ts(export)]
 pub struct Domain(pub String);
 
+impl NodeWorker for Domain {
+    fn get_label() -> String {
+        "Domain".to_string()
+    }
+}
+
 impl NodeWorker for Link {
+    fn get_label() -> String {
+        "Link".to_string()
+    }
+
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
@@ -210,6 +219,10 @@ impl WebPage {
 }
 
 impl NodeWorker for WebPage {
+    fn get_label() -> String {
+        "WebPage".to_string()
+    }
+
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
         // TODO: save the scraped nodes to graph only if webpage is classified as important to us
         if !self.is_scraped {

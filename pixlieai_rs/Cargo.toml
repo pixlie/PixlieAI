@@ -29,7 +29,6 @@ reqwest = { version = "0.12.7", features = [
     "json",
 ], default-features = false }
 rocksdb = { version = "0.22.0", default-features = false }
-rumqttc = { version = "0.24.0", default-features = false }
 scraper = { version = "0.20.0", default-features = false }
 serde = { version = "1.0.210", features = [
     "derive",
@@ -47,7 +46,11 @@ test-log = { version = "0.2.16", default-features = false, features = ["log"] }
 thiserror = { version = "1.0.64", default-features = false }
 tokio = { version = "1.41.0", default-features = false }
 toml = { version = "0.8.19", default-features = false }
-ts-rs = { version = "10.1.0", default-features = false, features = ["chrono", "chrono-impl", "serde-compat"] }
+ts-rs = { version = "10.1.0", default-features = false, features = [
+    "chrono",
+    "chrono-impl",
+    "serde-compat",
+] }
 url = { version = "2.5.3", default-features = false }
 
 [[bin]]

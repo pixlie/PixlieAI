@@ -8,9 +8,7 @@ use actix_web::{
 use crossbeam_utils::atomic::AtomicCell;
 use engine::{get_labels, get_nodes_by_label};
 use log::info;
-use settings::{
-    check_mqtt_broker, check_settings_status, read_settings, request_setup_gliner, update_settings,
-};
+use settings::{check_settings_status, read_settings, request_setup_gliner, update_settings};
 use std::path::PathBuf;
 
 pub mod engine;
@@ -67,10 +65,6 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
                 .service(
                     web::resource(format!("{}/settings/status", API_ROOT))
                         .route(web::get().to(check_settings_status)),
-                )
-                .service(
-                    web::resource(format!("{}/settings/check_mqtt_broker", API_ROOT))
-                        .route(web::get().to(check_mqtt_broker)),
                 )
                 .service(
                     web::resource(format!("{}/settings/setup_gliner", API_ROOT))

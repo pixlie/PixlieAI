@@ -5,14 +5,14 @@ import type { Heading } from "./Heading";
 import type { Link } from "./Link";
 import type { OrderedPoints } from "./OrderedPoints";
 import type { Paragraph } from "./Paragraph";
-import type { Rule } from "./Rule";
 import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
 import type { Title } from "./Title";
 import type { WebPage } from "./WebPage";
+import type { WorkflowStep } from "./WorkflowStep";
 
 export type Payload =
-  | { Rule: Rule }
+  | { Step: WorkflowStep }
   | { Domain: Domain }
   | { Link: Link }
   | { FileHTML: WebPage }
