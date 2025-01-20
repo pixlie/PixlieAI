@@ -12,6 +12,7 @@ pub struct EngineRequestMessage {
 #[derive(Deserialize, TS)]
 #[ts(export)]
 pub enum EngineRequest {
+    GetLabels,
     GetNodesWithLabel(String),
     GetRelatedNodes(u32),
     GetPartNodes(u32),
@@ -22,11 +23,26 @@ pub struct EngineResponseMessage {
     pub payload: EngineApiResponse,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub enum EngineApiQueryType {
+    Labels(Vec<String>),
+    NodeIdsByLabel(String, Vec<u32>),
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct EngineApiData {
+    pub nodes: Vec<Node>,
+    pub query_type: EngineApiQueryType,
+}
+
+#[derive(Serialize, TS)]
+#[serde(tag = "type", content = "data")]
+#[ts(export)]
 pub enum EngineApiResponse {
-    NodesWithLabel(Vec<Node>),
-    RelatedNodes(Vec<Node>),
-    PartNodes(Vec<Node>),
+    Results(EngineApiData),
+    Error(String),
 }
 
 pub fn handle_engine_api_request(
@@ -35,11 +51,24 @@ pub fn handle_engine_api_request(
     api_ch: CommsChannel,
 ) -> PiResult<()> {
     debug!("Got an engine API request");
-    match request.payload {
-        EngineRequest::GetNodesWithLabel(label) => match engine.nodes_by_label.read() {
-            Ok(nodes_by_label) => {
-                let nodes: Vec<Node> = match nodes_by_label.get(&label) {
-                    Some(nodes) => nodes
+    let response: EngineApiResponse = match request.payload {
+        EngineRequest::GetLabels => match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => {
+                let labels = node_ids_by_label.keys().cloned().collect();
+                EngineApiResponse::Results(EngineApiData {
+                    nodes: vec![],
+                    query_type: EngineApiQueryType::Labels(labels),
+                })
+            }
+            Err(err) => {
+                error!("Error reading nodes_by_label: {}", err);
+                EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
+            }
+        },
+        EngineRequest::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
+                Some(node_ids) => {
+                    let nodes = node_ids
                         .iter()
                         .filter_map(|node_id| match engine.nodes.get(node_id) {
                             Some(node) => match node.read() {
@@ -48,35 +77,32 @@ pub fn handle_engine_api_request(
                             },
                             None => None,
                         })
-                        .collect(),
-                    None => vec![],
-                };
-                api_ch
-                    .tx
-                    .send(PiEvent::EngineResponse(EngineResponseMessage {
-                        request_id: request.request_id,
-                        payload: EngineApiResponse::NodesWithLabel(nodes),
-                    }))?;
-            }
+                        .collect();
+
+                    EngineApiResponse::Results(EngineApiData {
+                        nodes,
+                        query_type: EngineApiQueryType::NodeIdsByLabel(
+                            label,
+                            node_ids.iter().map(|x| **x).collect(),
+                        ),
+                    })
+                }
+                None => EngineApiResponse::Error(format!("No node IDs found for label {}", label)),
+            },
             Err(err) => {
                 error!("Error reading nodes_by_label: {}", err);
+                EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
             }
         },
-        // EngineRequest::GetRelatedNodes(node_id) => {
-        //     let nodes = engine.get_related_nodes(&node_id);
-        //     channel_tx.send(PiEvent::EngineResponse(EngineResponseMessage {
-        //         request_id: request.request_id,
-        //         payload: EngineApiResponse::RelatedNodes(nodes),
-        //     }))?;
-        // }
-        // EngineRequest::GetPartNodes(node_id) => {
-        //     let nodes = engine.get_part_nodes(&node_id);
-        //     channel_tx.send(PiEvent::EngineResponse(EngineResponseMessage {
-        //         request_id: request.request_id,
-        //         payload: EngineApiResponse::PartNodes(nodes),
-        //     }))?;
-        // }
-        _ => {}
-    }
+        _ => EngineApiResponse::Error(format!("Could not understand request")),
+    };
+
+    api_ch
+        .tx
+        .send(PiEvent::EngineResponse(EngineResponseMessage {
+            request_id: request.request_id,
+            payload: response,
+        }))?;
+
     Ok(())
 }

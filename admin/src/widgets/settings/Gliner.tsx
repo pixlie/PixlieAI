@@ -1,6 +1,6 @@
 import { Component, createResource } from "solid-js";
 import Heading from "../typography/Heading";
-import { useWorkspace } from "../../stores/Workspace";
+import { useWorkspace } from "../../stores/workspace";
 import Markdown from "../typography/Markdown";
 import Button from "../interactable/Button";
 import { getPixlieAIAPIRoot } from "../../utils/api";

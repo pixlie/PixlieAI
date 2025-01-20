@@ -1,6 +1,6 @@
 use super::{api::handle_engine_api_request, Engine};
 use crate::{
-    config::{gliner::setup_gliner, startup_funding_insights_app, Settings},
+    config::{gliner::setup_gliner, Settings},
     error::PiResult,
     CommsChannel, PiEvent,
 };
@@ -67,11 +67,11 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                             &settings.path_to_storage_dir.as_ref().unwrap(),
                         )));
                         match engine.as_mut() {
-                            Some(mut engine) => {
+                            Some(mut _engine) => {
                                 if settings.current_project.as_ref().unwrap()
                                     == "startup_funding_insights"
                                 {
-                                    startup_funding_insights_app(&mut engine);
+                                    // startup_funding_insights_app(&mut engine);
                                 }
                             }
                             None => {}

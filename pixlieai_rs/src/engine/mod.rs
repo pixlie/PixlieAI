@@ -5,12 +5,10 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::{
-    config::Rule,
-    entity::{
-        content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
-        web::{Domain, Link, WebPage},
-    },
+use crate::entity::{
+    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
+    web::{Domain, Link, WebPage},
+    workflow::WorkflowStep,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,14 +18,17 @@ use std::{
     sync::RwLock,
 };
 use strum::Display;
+use ts_rs::TS;
 
 pub mod api;
 pub mod engine;
 pub mod manager;
+pub mod setup;
 
-#[derive(Clone, Display, Deserialize, Serialize)]
+#[derive(Clone, Display, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub enum Payload {
-    Rule(Rule),
+    Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
     FileHTML(WebPage),
@@ -44,7 +45,8 @@ pub enum Payload {
 
 pub type NodeId = Arc<u32>;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct Node {
     pub id: NodeId,
     pub label: String,
@@ -68,9 +70,14 @@ pub struct PendingNode {
 }
 
 pub trait NodeWorker {
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Self>
+    fn get_label() -> String;
+
+    fn process(&self, _engine: &Engine, _node_id: &NodeId) -> Option<Self>
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        None
+    }
 }
 
 // The engine keeps track of all the data nodes and their relationships
@@ -82,7 +89,7 @@ pub struct Engine {
     nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
     storage_root: String,
-    pub nodes_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
+    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
     // pub execute_every: u8, // Number of seconds to wait before executing the engine
 }

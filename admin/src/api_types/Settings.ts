@@ -5,7 +5,6 @@ export type Settings = {
   ollamaHosts: Array<string> | null;
   ollamaPort: number | null;
   gpuHosts: Array<string> | null;
-  mqttBrokerHost: string | null;
   pathToStorageDir: string | null;
   currentProject: string | null;
 };

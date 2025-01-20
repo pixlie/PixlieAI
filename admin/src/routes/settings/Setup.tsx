@@ -5,7 +5,7 @@ import MQTTBroker from "../../widgets/settings/MQTTBroker";
 // import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
-import { useWorkspace } from "../../stores/Workspace";
+import { useWorkspace } from "../../stores/workspace";
 import Anthropic from "../../widgets/settings/Anthropic";
 
 const help = `
