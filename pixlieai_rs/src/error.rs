@@ -49,6 +49,15 @@ pub enum PiError {
 
     #[error("Error sending to crossbeam channel: {0}")]
     CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
+
+    #[error("Error from postcard: {0}")]
+    PostcardError(#[from] postcard::Error),
+
+    #[error("Error from rocksdb: {0}")]
+    RocksdbError(#[from] rocksdb::Error),
+
+    #[error("Error from Actix Web Blocking Error: {0}")]
+    ActixWebError(#[from] actix_web::error::BlockingError),
 }
 
 impl ResponseError for PiError {

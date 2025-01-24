@@ -1,17 +1,13 @@
 meta {
-  name: nodes_by_label
+  name: get projects
   type: http
   seq: 1
 }
 
 get {
-  url: {{api}}/engine/nodes?label=Title
+  url: {{api}}/projects
   body: none
   auth: none
-}
-
-params:query {
-  label: Title
 }
 
 headers {

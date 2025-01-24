@@ -15,7 +15,6 @@ pub mod scraper;
 
 // A link that should fetch
 #[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
-#[ts(export)]
 pub struct Link {
     pub url: String,
     pub is_fetched: bool,

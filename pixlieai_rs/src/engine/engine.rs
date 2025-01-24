@@ -15,7 +15,7 @@ use std::{
 
 impl Engine {
     pub fn new(storage_root: PathBuf) -> Engine {
-        let mut engine = Engine {
+        let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: HashMap::new(),
             nodes_to_write: RwLock::new(vec![]),
@@ -24,31 +24,20 @@ impl Engine {
             node_ids_by_label: RwLock::new(HashMap::new()),
             // execute_every: 1,
         };
-        // We load the graph from disk
-        engine.load_from_disk();
+        engine
+    }
 
-        info!(
-            "There are {} webpage nodes in the graph",
-            engine
-                .nodes
-                .iter()
-                .filter(|x| match x.1.read().unwrap().payload {
-                    Payload::FileHTML(_) => true,
-                    _ => false,
-                })
-                .count()
-        );
+    pub fn new_with_project(storage_root: &String, project_name: &String) -> Engine {
+        let mut storage_dir = PathBuf::from(storage_root);
+        storage_dir.push(format!("{}.rocksdb", project_name));
+        let mut engine = Engine::new(storage_dir);
+        engine.load_from_disk();
         engine
     }
 
     pub fn execute(&mut self) {
-        // loop {
-        // Execute each worker function, passing them the engine
         self.process_nodes();
         self.add_pending_nodes();
-        self.save_to_disk();
-        // sleep(Duration::from_secs(self.execute_every as u64));
-        // }
     }
 
     pub fn process_nodes(&self) {
@@ -258,9 +247,7 @@ impl Engine {
 
     pub fn save_to_disk(&self) {
         // We use RocksDB to store the graph
-        let mut path = PathBuf::from(&self.storage_root);
-        path.push("pixlieai.rocksdb");
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&self.storage_root).unwrap();
         for (node_id, node) in self.nodes.iter() {
             let bytes = match node.read() {
                 Ok(node) => match to_allocvec(&*node) {
@@ -286,9 +273,7 @@ impl Engine {
     }
 
     pub fn load_from_disk(&mut self) {
-        let mut path = PathBuf::from(&self.storage_root);
-        path.push("pixlieai.rocksdb");
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&self.storage_root).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
         for item in iter {
             let (key, value) = match item {

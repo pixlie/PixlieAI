@@ -4,10 +4,9 @@ use crate::{
     error::PiResult,
     CommsChannel, PiEvent,
 };
-use log::{debug, info};
+use log::debug;
 use std::{
     collections::HashMap,
-    path::PathBuf,
     sync::{atomic::AtomicBool, Arc},
     thread::{self, sleep},
     time::Duration,
@@ -19,7 +18,7 @@ pub enum JobType {
 }
 
 pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()> {
-    let mut settings: Settings = Settings::get_cli_settings()?;
+    let settings: Settings = Settings::get_cli_settings()?;
     let mut engine: Option<Engine> = None;
     let mut jobs: HashMap<JobType, thread::JoinHandle<()>> = HashMap::new();
 
@@ -31,28 +30,19 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
 
     if settings.path_to_storage_dir.is_some() && settings.current_project.is_some() {
         engine = {
-            let mut storage_dir = PathBuf::from(&settings.path_to_storage_dir.as_ref().unwrap());
-            storage_dir.push(format!(
-                "{}.rocksdb",
-                settings.current_project.as_ref().unwrap()
-            ));
-            Some(Engine::new(storage_dir))
+            Some(Engine::new_with_project(
+                &settings.path_to_storage_dir.unwrap(),
+                &settings.current_project.unwrap(),
+            ))
         };
-        // match engine.as_mut() {
-        //     Some(mut engine) => {
-        //         if settings.current_project.as_ref().unwrap() == "startup_funding_insights" {
-        //             startup_funding_insights_app(&mut engine);
-        //         }
-        //     }
-        //     None => {}
-        // };
     }
     while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
         && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
     {
-        // if engine.is_some() {
-        //     engine.as_mut().unwrap().execute();
-        // }
+        // TODO: Try and infer if we need to execute the engine from the current state
+        if engine.is_some() {
+            engine.as_mut().unwrap().execute();
+        }
 
         match engine_ch.rx.try_recv() {
             Ok(res) => match res {
@@ -61,26 +51,21 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                     if new_settings.path_to_storage_dir.is_some()
                         && new_settings.current_project.is_some()
                     {
-                        info!("Settings changed, reloading engine");
-                        // TODO: Reload the engine
-                        engine = Some(Engine::new(PathBuf::from(
-                            &settings.path_to_storage_dir.as_ref().unwrap(),
-                        )));
-                        match engine.as_mut() {
-                            Some(mut _engine) => {
-                                if settings.current_project.as_ref().unwrap()
-                                    == "startup_funding_insights"
-                                {
-                                    // startup_funding_insights_app(&mut engine);
-                                }
+                        debug!("Settings changed, reloading engine");
+                        engine = Some(Engine::new_with_project(
+                            new_settings.path_to_storage_dir.as_ref().unwrap(),
+                            new_settings.current_project.as_ref().unwrap(),
+                        ));
+                    } else {
+                        match engine {
+                            Some(engine) => {
+                                engine.save_to_disk();
                             }
                             None => {}
-                        };
-                    } else {
-                        // TODO: Stop the engine
+                        }
                         engine = None;
                     }
-                    settings = new_settings;
+                    // settings = new_settings;
                 }
                 PiEvent::SetupGliner => {
                     // Run setup_gliner only if it is not already running
@@ -101,7 +86,7 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                     }
                 }
                 PiEvent::EngineRequest(api_request) => {
-                    debug!("Got an EngineRequest");
+                    debug!("Got an API request for the engine");
                     match engine {
                         Some(ref mut engine) => {
                             let api_ch1 = api_ch.clone();
@@ -116,8 +101,13 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
             },
             Err(_) => {}
         }
+    }
 
-        sleep(Duration::from_secs(1));
+    match engine {
+        Some(engine) => {
+            engine.save_to_disk();
+        }
+        None => {}
     }
     Ok(())
 }

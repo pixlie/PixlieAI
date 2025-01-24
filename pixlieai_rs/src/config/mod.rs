@@ -25,6 +25,7 @@ use std::{
 use tar::Archive;
 use ts_rs::TS;
 
+pub mod api;
 pub mod gliner;
 pub mod python;
 

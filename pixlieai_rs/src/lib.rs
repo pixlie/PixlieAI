@@ -13,7 +13,9 @@ pub mod config;
 pub mod engine;
 pub mod entity;
 pub mod error;
+pub mod projects;
 pub mod services;
+pub mod utils;
 
 #[derive(Clone)]
 pub struct CommsChannel {

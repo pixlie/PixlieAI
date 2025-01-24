@@ -1,10 +1,15 @@
-use super::ApiState;
-use crate::{config::Settings, PiEvent};
+use super::Settings;
+use crate::{api::ApiState, PiEvent};
 use actix_web::{error::ErrorInternalServerError, web, Responder, Result};
 use log::error;
 
 pub async fn read_settings() -> Result<impl Responder> {
-    let settings = Settings::get_cli_settings()?;
+    let mut settings = Settings::get_cli_settings()?;
+    // If Anthropic API key is set, keep the first and last few chars and replace everything else with *
+    match settings.anthropic_api_key.as_mut() {
+        Some(x) => *x = format!("{}****{}", &x[0..3], &x[x.len() - 3..]),
+        None => {}
+    }
     Ok(web::Json(settings))
 }
 
@@ -21,6 +26,9 @@ pub async fn update_settings(
     match Settings::get_cli_settings() {
         Ok(mut settings) => {
             settings.merge_updates(&updates);
+            if updates.current_project.is_none() {
+                settings.current_project = None
+            }
             match settings.write_to_config_file() {
                 Ok(_) => {
                     api_state
