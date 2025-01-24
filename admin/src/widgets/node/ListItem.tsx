@@ -18,34 +18,28 @@ const NodePayload: Component<NodePayloadProps> = (props) => {
           </div>
         </div>
       )}
-      {"Domain" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["Domain"]}</div>
-        </div>
-      )}
+      {"Domain" in props.payload && <div>{props.payload["Domain"]}</div>}
       {"Title" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["Title"]}</div>
-        </div>
+        <div class="mb-2">{props.payload["Title"]}</div>
       )}
       {"Paragraph" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["Paragraph"]}</div>
-        </div>
+        <div class="mb-6">{props.payload["Paragraph"]}</div>
       )}
       {"Heading" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["Heading"]}</div>
-        </div>
+        <div class="mb-2">{props.payload["Heading"]}</div>
       )}
       {"BulletPoints" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["BulletPoints"]}</div>
+        <div class="mb-6">
+          {props.payload["BulletPoints"].map((x) => (
+            <div class="list-item">{x}</div>
+          ))}
         </div>
       )}
       {"OrderedPoints" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["OrderedPoints"]}</div>
+        <div class="mb-6">
+          {props.payload["OrderedPoints"].map((x) => (
+            <div class="list-item">{x}</div>
+          ))}
         </div>
       )}
     </>

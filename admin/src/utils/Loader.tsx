@@ -1,7 +1,6 @@
 import { Component, createEffect, createResource, onMount } from "solid-js";
 import { useWorkspace } from "../stores/workspace";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { getPixlieAIAPIRoot } from "./api";
 
 const Loader: Component = () => {
   const [workspace, { fetchSettings, fetchSettingsStatus }] = useWorkspace();
@@ -11,11 +10,6 @@ const Loader: Component = () => {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const [data] = createResource(async () => {
-    let pixieAIAPIRoot = getPixlieAIAPIRoot();
-    const res = await fetch(`${pixieAIAPIRoot}/api/settings/check_mqtt_broker`);
-    return await res.text();
-  });
 
   onMount(() => {
     refetch();
@@ -23,18 +17,11 @@ const Loader: Component = () => {
 
   createEffect(() => {
     if (location.pathname.startsWith("/settings/setup")) {
-      if (
-        workspace.isReady &&
-        workspace.settingsStatus?.type === "Complete" &&
-        data() === "OK"
-      ) {
+      if (workspace.isReady && workspace.settingsStatus?.type === "Complete") {
         navigate("/");
       }
     }
-    if (
-      (workspace.isReady && workspace.settingsStatus?.type !== "Complete") ||
-      data() !== "OK"
-    ) {
+    if (workspace.isReady && workspace.settingsStatus?.type !== "Complete") {
       navigate("/settings/setup");
     }
   });

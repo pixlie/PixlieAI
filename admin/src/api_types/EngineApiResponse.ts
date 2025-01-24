@@ -2,5 +2,6 @@
 import type { EngineApiData } from "./EngineApiData";
 
 export type EngineApiResponse =
+  | { type: "Success" }
   | { type: "Results"; data: EngineApiData }
   | { type: "Error"; data: string };

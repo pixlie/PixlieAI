@@ -4,23 +4,24 @@ interface Route {
   href: string;
 }
 
-const routes = [
+const perProjectRoutes = [
+  {
+    label: "Workflow",
+    href: "/workflow",
+  },
   {
     label: "Insights",
-    icon: "insight",
-    href: "/p/1/insights",
+    href: "/insights",
   },
   {
     label: "Graph",
-    icon: "graph",
-    href: "/p/1/graph",
+    href: "/graph",
   },
   {
     label: "Crawl",
-    icon: "inbox",
-    href: "/p/1/crawl",
+    href: "/crawl",
   },
 ];
 
 export type { Route };
-export { routes };
+export { perProjectRoutes };

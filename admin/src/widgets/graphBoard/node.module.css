@@ -1,0 +1,89 @@
+.node {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  cursor: grab;
+  background-color: white;
+  border: 2px solid #c4c4c4;
+  border-radius: 6px;
+  box-shadow: 1px 1px 11px -6px rgba(0, 0, 0, 0.75);
+  user-select: none;
+  z-index: 1;
+  transition:
+    border ease 0.2s,
+    box-shadow ease 0.2s;
+  width: 120px;
+  height: 120px;
+}
+
+.node:hover {
+  box-shadow: 2px 2px 12px -6px rgba(0, 0, 0, 0.75);
+}
+
+.nodeSelected {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  cursor: grab;
+  background-color: white;
+  border: 2px solid #e38c29;
+  border-radius: 6px;
+  box-shadow: 1px 1px 11px -6px rgba(0, 0, 0, 0.75);
+  user-select: none;
+  z-index: 100;
+  transition:
+    border ease 0.2s,
+    box-shadow ease 0.2s;
+  width: 120px;
+  height: 120px;
+}
+
+.nodeSelected:hover {
+  box-shadow: 2px 2px 12px -6px rgba(0, 0, 0, 0.75);
+}
+
+.inputsWrapper {
+  position: absolute;
+  top: 0px;
+  left: -24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 12px;
+  pointer-events: none;
+}
+
+.input {
+  width: 12px;
+  height: 12px;
+  border-radius: 100%;
+  background-color: #e38c29;
+  cursor: crosshair;
+  pointer-events: all;
+}
+
+.outputsWrapper {
+  position: absolute;
+  top: 0px;
+  right: -24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 12px;
+  pointer-events: none;
+}
+
+.output {
+  width: 12px;
+  height: 12px;
+  border-radius: 100%;
+  background-color: #e38c29;
+  cursor: crosshair;
+  pointer-events: all;
+}

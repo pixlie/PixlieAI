@@ -8,6 +8,7 @@ import {
 } from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
+import {Project} from "../api_types/Project.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -20,8 +21,8 @@ const makeStore = () => {
     {
       fetchSettings: async () => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
-        let pixieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixieAIAPIRoot}/api/settings`);
+        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`);
         if (!response.ok) {
           console.error("Failed to fetch settings");
         }
@@ -35,8 +36,8 @@ const makeStore = () => {
       },
 
       fetchSettingsStatus: async () => {
-        let pixieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixieAIAPIRoot}/api/settings/status`);
+        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+        let response = await fetch(`${pixlieAIAPIRoot}/api/settings/status`);
         if (!response.ok) {
           throw new Error("Failed to fetch settings status");
         }
@@ -45,8 +46,8 @@ const makeStore = () => {
       },
 
       saveSettings: async (settings: Partial<IWorkspace["settings"]>) => {
-        let pixieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixieAIAPIRoot}/api/settings`, {
+        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -58,6 +59,17 @@ const makeStore = () => {
         }
         setStore("settings", settings);
       },
+      
+      fetchProjects: async () => {
+        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+        let response = await fetch(`${pixlieAIAPIRoot}/api/projects`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch projects");
+        }
+        let projects: Array<Project> = await response.json();
+        setStore("projects", projects);
+
+      }
     },
   ] as const; // `as const` forces tuple type inference
 };

@@ -2,13 +2,19 @@ import { Component, createEffect, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
 import NodeListItem from "../../widgets/node/ListItem";
-import Tabs from "../../widgets/navigation/Tab";
 import { useSearchParams } from "@solidjs/router";
+import Tabs from "../../widgets/navigation/Tab";
 
-const labelTypes: string[] = ["Domain", "Link"];
+const labelTypes: string[] = [
+  "Title",
+  "Paragraph",
+  "Heading",
+  "BulletPoints",
+  "OrderedPoints",
+];
 type LabelType = (typeof labelTypes)[number];
 
-const Crawl: Component = () => {
+const Graph: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
 
@@ -29,23 +35,23 @@ const Crawl: Component = () => {
 
   onMount(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType);
+      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
     } else {
-      fetchNodesByLabel("Domain");
+      fetchNodesByLabel("Domain").then((_) => {});
     }
   });
 
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType);
+      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
     } else {
-      fetchNodesByLabel("Domain");
+      fetchNodesByLabel("Domain").then((_) => {});
     }
   });
 
   return (
     <>
-      <Heading size={1}>Crawl</Heading>
+      <Heading size={1}>Graph</Heading>
 
       <Tabs tabs={getTabs()} />
       {!engine.isReady ? (
@@ -61,4 +67,4 @@ const Crawl: Component = () => {
   );
 };
 
-export default Crawl;
+export default Graph;

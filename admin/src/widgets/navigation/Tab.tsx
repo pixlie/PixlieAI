@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Component } from "solid-js";
+import { useUIClasses } from "../../stores/UIClasses.tsx";
 
 interface TabItemProps {
   label: string;
@@ -13,6 +14,7 @@ interface TabItemProps {
 const TabItem: Component<TabItemProps> = (props) => {
   const [_searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [_, { getColors }] = useUIClasses();
 
   const handleClick = () => {
     if (!!props.href) {
@@ -26,7 +28,10 @@ const TabItem: Component<TabItemProps> = (props) => {
     // Current: "border-indigo-500 text-indigo-600", Default: "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-700"
     <a
       onClick={handleClick}
-      class="flex whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-200 hover:text-gray-700 cursor-pointer"
+      class={
+        "flex whitespace-nowrap px-4 py-2 rounded-t text-sm font-medium cursor-pointer " +
+        getColors()["tabs.link"]
+      }
     >
       {props.label}
       {/* Current: "bg-indigo-100 text-indigo-600", Default: "bg-gray-100 text-gray-900" */}
@@ -44,15 +49,15 @@ interface TabProps {
 }
 
 const Tabs: Component<TabProps> = (props) => {
+  const [_, { getColors }] = useUIClasses();
+
   return (
-    <div class="hidden sm:block">
-      <div class="border-b border-gray-300 mb-4">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-          {props.tabs.map((tab) => (
-            <TabItem {...tab} />
-          ))}
-        </nav>
-      </div>
+    <div class={"border-b mb-4 px-4 " + getColors()["tabs"]}>
+      <nav class="-mb-px flex space-x-4" aria-label="Tabs">
+        {props.tabs.map((tab) => (
+          <TabItem {...tab} />
+        ))}
+      </nav>
     </div>
   );
 };
