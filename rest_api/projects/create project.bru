@@ -1,0 +1,21 @@
+meta {
+  name: create project
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{api}}/projects
+  body: json
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}
+
+body:json {
+  {
+    "name": "Test project"
+  }
+}

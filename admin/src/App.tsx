@@ -1,10 +1,10 @@
 import { Component, JSX } from "solid-js";
-import Sidebar from "./widgets/Sidebar";
-import { WorkspaceProvider } from "./stores/Workspace";
+import Sidebar from "./widgets/navigation/Sidebar";
+import { WorkspaceProvider } from "./stores/workspace";
 import Loader from "./utils/Loader";
 import { UIClassesProvider, useUIClasses } from "./stores/UIClasses";
 import { RouteSectionProps } from "@solidjs/router";
-import { EngineProvider } from "./stores/Engine";
+import { EngineProvider } from "./stores/engine.tsx";
 
 interface AppInnerProps {
   children: JSX.Element;
@@ -18,7 +18,7 @@ const AppInner: Component<AppInnerProps> = (props) => {
       <Loader />
       <Sidebar />
 
-      <div class="pl-72 ml-6 flex-1">{props.children}</div>
+      <div class="ml-48 px-6 flex-1">{props.children}</div>
     </div>
   );
 };

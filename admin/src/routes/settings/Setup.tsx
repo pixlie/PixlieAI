@@ -1,16 +1,14 @@
 import { Component } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
 import Gliner from "../../widgets/settings/Gliner";
-import MQTTBroker from "../../widgets/settings/MQTTBroker";
-// import Ollama from "../../widgets/settings/Ollama";
+import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
-import { useWorkspace } from "../../stores/Workspace";
+import { useWorkspace } from "../../stores/workspace";
 import Anthropic from "../../widgets/settings/Anthropic";
 
 const help = `
-Let us walk through the setup process for Pixlie AI.
-We will need [Python](https://www.python.org/), Ollama (or Anthropic's API key) and an MQTT server like [Mosquitto](https://mosquitto.org/).
+To run Pixlie AI, we need a storage space on your computer,
+[Python](https://www.python.org/) and Ollama (or Anthropic's API key).
 `;
 
 const Setup: Component = () => {
@@ -18,7 +16,6 @@ const Setup: Component = () => {
 
   return (
     <div class="max-w-screen-sm">
-      <Heading size={2}>Setup</Heading>
       <Markdown text={help} />
 
       {!!workspace.isReady ? (
@@ -32,10 +29,7 @@ const Setup: Component = () => {
               <Gliner />
 
               <div class="mb-16" />
-              <MQTTBroker />
-
-              {/* <div class="mb-16" />
-              <Ollama /> */}
+              <Ollama />
 
               <div class="mb-16" />
               <Anthropic />

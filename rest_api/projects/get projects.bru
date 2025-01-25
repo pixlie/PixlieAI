@@ -1,0 +1,15 @@
+meta {
+  name: get projects
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api}}/projects
+  body: none
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}

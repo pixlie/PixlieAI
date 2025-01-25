@@ -6,8 +6,6 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::{
-    engine::{Engine, Payload},
-    entity::web::Link,
     error::{PiError, PiResult},
     services::{EntityExtractionProvider, TextClassificationProvider},
 };
@@ -27,8 +25,8 @@ use std::{
 use tar::Archive;
 use ts_rs::TS;
 
+pub mod api;
 pub mod gliner;
-pub mod mqtt;
 pub mod python;
 
 #[derive(Deserialize, Serialize, TS)]
@@ -38,7 +36,6 @@ pub struct Settings {
     pub ollama_hosts: Option<Vec<String>>,
     pub ollama_port: Option<u16>,
     pub gpu_hosts: Option<Vec<String>>,
-    pub mqtt_broker_host: Option<String>,
     pub path_to_storage_dir: Option<String>,
     pub current_project: Option<String>,
 }
@@ -243,9 +240,6 @@ impl Settings {
         if updates.ollama_port.is_some() {
             self.ollama_port = updates.ollama_port.clone();
         }
-        if updates.mqtt_broker_host.is_some() {
-            self.mqtt_broker_host = updates.mqtt_broker_host.clone();
-        }
         if updates.path_to_storage_dir.is_some() {
             self.path_to_storage_dir = updates.path_to_storage_dir.clone();
         }
@@ -266,71 +260,4 @@ impl Settings {
             Err(err) => Err(PiError::FailedToWriteConfigFile(err.to_string())),
         }
     }
-}
-
-#[derive(Clone, Deserialize, Serialize, Eq, PartialEq)]
-pub enum RuleCondition {
-    IfContextIncludes(String),
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-pub struct Rule {
-    pub applies_to: String,
-    pub action: String,
-    pub conditions: Vec<RuleCondition>,
-}
-
-impl Rule {
-    pub fn new<S: Into<String>>(applies_to: S, action: S, conditions: Vec<RuleCondition>) -> Rule {
-        Rule {
-            applies_to: applies_to.into(),
-            action: action.into(),
-            conditions,
-        }
-    }
-}
-
-pub fn startup_funding_insights_app(engine: &mut Engine) {
-    let data_extraction_conditions: Vec<RuleCondition> =
-        ["Startup Funding", "Startup Investment", "Startup Product"]
-            .iter()
-            .map(|x| RuleCondition::IfContextIncludes(x.to_string()))
-            .collect();
-    let entity_extraction_conditions: Vec<RuleCondition> = [
-        "Company",
-        "Funding",
-        "PreviousFunding",
-        "TotalFunding",
-        "Valuation",
-        "FundingStage",
-        "Investor",
-        "Founder",
-    ]
-    .iter()
-    .map(|x| RuleCondition::IfContextIncludes(x.to_string()))
-    .collect();
-
-    let link_extract_rule = Rule::new(
-        "Link",
-        "Extract a link to be crawled later if the following conditions are met",
-        data_extraction_conditions.clone(),
-    );
-    let table_data_extract_rule = Rule::new(
-        "Table",
-        "Extract table data from the given table if the headings match the given conditions",
-        data_extraction_conditions.clone(),
-    );
-    let entity_extract_rule = Rule::new(
-        "Entity",
-        "Extract entities from the given text if the following conditions are met",
-        entity_extraction_conditions.clone(),
-    );
-    engine.add_node(Payload::Rule(link_extract_rule));
-    engine.add_node(Payload::Rule(table_data_extract_rule));
-    engine.add_node(Payload::Rule(entity_extract_rule));
-    engine.add_node(Payload::Link(Link {
-        url: "https://growthlist.co/funded-startups/".to_string(),
-        text: "List of funded startups for 2024".to_string(),
-        ..Default::default()
-    }));
 }

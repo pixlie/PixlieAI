@@ -135,7 +135,6 @@ impl WebPage {
                     }
                     parts.push(Payload::Link(Link {
                         url: url.to_string(),
-                        text: link_text,
                         ..Default::default()
                     }));
                 }
@@ -239,7 +238,6 @@ mod tests {
         info!("Path: {}", path.display());
         let link = Link {
             url: "https://pixlie.com/about".to_string(),
-            text: "Abount us".to_string(),
             ..Default::default()
         };
         let webpage = WebPage {
@@ -300,7 +298,6 @@ mod tests {
         info!("Path: {}", path.display());
         let link = Link {
             url: "https://growthlist.co/category/startups/".to_string(),
-            text: "Startups".to_string(),
             ..Default::default()
         };
         let webpage = WebPage {

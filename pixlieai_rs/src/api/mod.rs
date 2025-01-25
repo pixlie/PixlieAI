@@ -1,20 +1,14 @@
-use crate::{config::get_static_admin_dir, error::PiResult, CommsChannel};
+use crate::{config, engine, error::PiResult, projects, CommsChannel};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
+use actix_web::web::route;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http, rt, web, App, HttpServer, Responder,
 };
 use crossbeam_utils::atomic::AtomicCell;
-use engine::get_nodes_by_label;
 use log::info;
-use settings::{
-    check_mqtt_broker, check_settings_status, read_settings, request_setup_gliner, update_settings,
-};
 use std::path::PathBuf;
-
-pub mod engine;
-pub mod settings;
 
 const API_ROOT: &str = "/api";
 
@@ -35,7 +29,7 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
         api_ch,
         req_id: AtomicCell::new(0),
     });
-    let static_admin_dir = get_static_admin_dir()?;
+    let static_admin_dir = config::get_static_admin_dir()?;
     rt::System::new().block_on(
         HttpServer::new(move || {
             // Allow for localhost, ports 5173 (development)
@@ -47,7 +41,8 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
             let static_admin = Files::new("/", static_admin_dir.clone())
                 .index_file("index.html")
                 .default_handler(fn_service(|req: ServiceRequest| async {
-                    let mut static_admin_default = PathBuf::from(get_static_admin_dir()?.clone());
+                    let mut static_admin_default =
+                        PathBuf::from(config::get_static_admin_dir()?.clone());
                     static_admin_default.push("index.html");
                     let (req, _) = req.into_parts();
                     let file = NamedFile::open_async(static_admin_default.clone()).await?;
@@ -61,24 +56,30 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
                 .service(web::resource(API_ROOT).route(web::get().to(hello)))
                 .service(
                     web::resource(format!("{}/settings", API_ROOT))
-                        .route(web::get().to(read_settings))
-                        .route(web::put().to(update_settings)),
+                        .route(web::get().to(config::api::read_settings))
+                        .route(web::put().to(config::api::update_settings)),
                 )
                 .service(
                     web::resource(format!("{}/settings/status", API_ROOT))
-                        .route(web::get().to(check_settings_status)),
-                )
-                .service(
-                    web::resource(format!("{}/settings/check_mqtt_broker", API_ROOT))
-                        .route(web::get().to(check_mqtt_broker)),
+                        .route(web::get().to(config::api::check_settings_status)),
                 )
                 .service(
                     web::resource(format!("{}/settings/setup_gliner", API_ROOT))
-                        .route(web::post().to(request_setup_gliner)),
+                        .route(web::post().to(config::api::request_setup_gliner)),
+                )
+                .service(
+                    web::resource(format!("{}/engine/labels", API_ROOT))
+                        .route(web::get().to(engine::api::get_labels)),
                 )
                 .service(
                     web::resource(format!("{}/engine/nodes", API_ROOT))
-                        .route(web::get().to(get_nodes_by_label)),
+                        .route(web::get().to(engine::api::get_nodes_by_label))
+                        .route(web::post().to(engine::api::create_node)),
+                )
+                .service(
+                    web::resource(format!("{}/projects", API_ROOT))
+                        .route(web::get().to(projects::api::read_projects))
+                        .route(web::post().to(projects::api::create_project)),
                 )
                 // This is the admin UI and should be the last service
                 .service(static_admin)

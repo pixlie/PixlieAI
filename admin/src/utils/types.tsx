@@ -1,6 +1,8 @@
 import { JSX } from "solid-js";
 import { Settings } from "../api_types/Settings";
 import { SettingsStatus } from "../api_types/SettingsStatus";
+import { Node } from "../api_types/Node";
+import { Project } from "../api_types/Project";
 
 interface IProviderPropTypes {
   children: JSX.Element;
@@ -9,6 +11,15 @@ interface IProviderPropTypes {
 interface IWorkspace {
   settings?: Settings;
   settingsStatus?: SettingsStatus;
+  projects?: Array<Project>;
+
+  isReady: boolean;
+  isFetching: boolean;
+}
+
+interface IEngine {
+  nodes: { [nodeId: number]: Node };
+  nodeIdsByLabel: { [label: string]: Array<number> };
 
   isReady: boolean;
   isFetching: boolean;
@@ -30,4 +41,10 @@ interface IFormField {
   isEditable?: boolean;
 }
 
-export type { IProviderPropTypes, IWorkspace, IFormField, IFormFieldValue };
+export type {
+  IProviderPropTypes,
+  IWorkspace,
+  IFormField,
+  IFormFieldValue,
+  IEngine,
+};

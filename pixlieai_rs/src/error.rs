@@ -47,14 +47,17 @@ pub enum PiError {
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
 
-    #[error("Error from rumqttc: {0}")]
-    RumqttcError(#[from] rumqttc::v5::ClientError),
-
-    #[error("Error from rumqttc connection: {0}")]
-    RumqttcConnectionError(#[from] rumqttc::v5::ConnectionError),
-
     #[error("Error sending to crossbeam channel: {0}")]
     CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
+
+    #[error("Error from postcard: {0}")]
+    PostcardError(#[from] postcard::Error),
+
+    #[error("Error from rocksdb: {0}")]
+    RocksdbError(#[from] rocksdb::Error),
+
+    #[error("Error from Actix Web Blocking Error: {0}")]
+    ActixWebError(#[from] actix_web::error::BlockingError),
 }
 
 impl ResponseError for PiError {
@@ -71,10 +74,6 @@ impl ResponseError for PiError {
             // PiError::NotConfiguredProperly => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             // PiError::CouldNotClassifyText => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             // PiError::IOError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::RumqttcError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::RumqttcConnectionError(_) => {
-            //     actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
-            // }
             _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

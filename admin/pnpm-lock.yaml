@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@sentry/solid':
+        specifier: ^8.51.0
+        version: 8.51.0(@solidjs/router@0.15.1(solid-js@1.9.3))(solid-js@1.9.3)
       '@solidjs/router':
         specifier: ^0.15.1
         version: 0.15.1(solid-js@1.9.3)
@@ -33,6 +36,9 @@ importers:
       tailwindcss:
         specifier: ^3.4.15
         version: 3.4.15
+      typescript:
+        specifier: ^5.7.3
+        version: 5.7.3
       vite:
         specifier: ^5.4.10
         version: 5.4.11(@types/node@22.10.2)
@@ -395,6 +401,40 @@ packages:
     resolution: {integrity: sha512-3j4jx1TppORdTAoBJRd+/wJRGCPC0ETWkXOecJ6PPZLj6SptXkrXcNqdj0oclbKML6FkQltdz7bBA3rUSirZug==}
     cpu: [x64]
     os: [win32]
+
+  '@sentry-internal/browser-utils@8.51.0':
+    resolution: {integrity: sha512-r94yfRK17zNJER0hgQE4qOSy5pWzsnFcGTJQSqhSEKUcC4KK37qSfoPrPejFxtIqXhqlkd/dTWKvrMwXWcn0MQ==}
+    engines: {node: '>=14.18'}
+
+  '@sentry-internal/feedback@8.51.0':
+    resolution: {integrity: sha512-VgfxSZWLYUPKDnkt2zG+Oe5ccv8U3WPM6Mo4kfABIJT3Ai4VbZB7+vb2a4pm6lUCF9DeOPXHb5o9Tg17SHDAHw==}
+    engines: {node: '>=14.18'}
+
+  '@sentry-internal/replay-canvas@8.51.0':
+    resolution: {integrity: sha512-ERXIbwdULkdtIQnfkMLRVfpoGV2rClwySGRlTPepFKeLxlcXo9o09cPu+qbukiDnGK0cgEgRnrV961hMg21Bmw==}
+    engines: {node: '>=14.18'}
+
+  '@sentry-internal/replay@8.51.0':
+    resolution: {integrity: sha512-lkm7id3a2n3yMZeF5socCVQUeEeShNOGr7Wtsmb5RORacEnld0z+NfbMTilo1mDwiWBzI5OYBjm62eglm1HFsQ==}
+    engines: {node: '>=14.18'}
+
+  '@sentry/browser@8.51.0':
+    resolution: {integrity: sha512-1kbbyVfBBAx5Xyynp+lC5lLnAHo0qJ2r4mtmdT6koPjesvoOocEK0QQnouQBmdUbm3L0L/bPI1SgXjbeJyhzHQ==}
+    engines: {node: '>=14.18'}
+
+  '@sentry/core@8.51.0':
+    resolution: {integrity: sha512-Go0KxCYLw+OBIlLSv5YsYX+x9NW43fNVcyB6rhkSp2Q5Zme3tAE6KtZFvyu4SO7G/903wisW5Q6qV6UuK/ee4A==}
+    engines: {node: '>=14.18'}
+
+  '@sentry/solid@8.51.0':
+    resolution: {integrity: sha512-V0yi1ZBkEr5l08dCTL4f9oiqmtYefG//6bDx1yMeTf4N9rRSzzx9auHXJK3Otiu39QUX+hwo2xv658EWsx68kg==}
+    engines: {node: '>=14.18'}
+    peerDependencies:
+      '@solidjs/router': ^0.13.4
+      solid-js: ^1.8.4
+    peerDependenciesMeta:
+      '@solidjs/router':
+        optional: true
 
   '@solidjs/router@0.15.1':
     resolution: {integrity: sha512-lb5BRBqQqii/1dQCglx2K68xLkgu7QcrcajWKuuEx6FHTsK/hp5IgVhjy6RzPMLj+SFyrrRi/ldirCFNxtzh0Q==}
@@ -1120,6 +1160,11 @@ packages:
   ts-interface-checker@0.1.13:
     resolution: {integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==}
 
+  typescript@5.7.3:
+    resolution: {integrity: sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
@@ -1560,6 +1605,42 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.27.4':
     optional: true
+
+  '@sentry-internal/browser-utils@8.51.0':
+    dependencies:
+      '@sentry/core': 8.51.0
+
+  '@sentry-internal/feedback@8.51.0':
+    dependencies:
+      '@sentry/core': 8.51.0
+
+  '@sentry-internal/replay-canvas@8.51.0':
+    dependencies:
+      '@sentry-internal/replay': 8.51.0
+      '@sentry/core': 8.51.0
+
+  '@sentry-internal/replay@8.51.0':
+    dependencies:
+      '@sentry-internal/browser-utils': 8.51.0
+      '@sentry/core': 8.51.0
+
+  '@sentry/browser@8.51.0':
+    dependencies:
+      '@sentry-internal/browser-utils': 8.51.0
+      '@sentry-internal/feedback': 8.51.0
+      '@sentry-internal/replay': 8.51.0
+      '@sentry-internal/replay-canvas': 8.51.0
+      '@sentry/core': 8.51.0
+
+  '@sentry/core@8.51.0': {}
+
+  '@sentry/solid@8.51.0(@solidjs/router@0.15.1(solid-js@1.9.3))(solid-js@1.9.3)':
+    dependencies:
+      '@sentry/browser': 8.51.0
+      '@sentry/core': 8.51.0
+      solid-js: 1.9.3
+    optionalDependencies:
+      '@solidjs/router': 0.15.1(solid-js@1.9.3)
 
   '@solidjs/router@0.15.1(solid-js@1.9.3)':
     dependencies:
@@ -2296,6 +2377,8 @@ snapshots:
       punycode: 2.3.1
 
   ts-interface-checker@0.1.13: {}
+
+  typescript@5.7.3: {}
 
   undici-types@6.20.0:
     optional: true
