@@ -41,7 +41,7 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
     {
         // TODO: Try and infer if we need to execute the engine from the current state
         if engine.is_some() {
-            engine.as_mut().unwrap().execute();
+            // engine.as_mut().unwrap().execute();
         }
 
         match engine_ch.rx.try_recv() {

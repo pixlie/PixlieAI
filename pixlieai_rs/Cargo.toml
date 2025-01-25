@@ -30,6 +30,7 @@ reqwest = { version = "0.12.7", features = [
 ], default-features = false }
 rocksdb = { version = "0.22.0", default-features = false }
 scraper = { version = "0.20.0", default-features = false }
+sentry = "0.36.0"
 serde = { version = "1.0.210", features = [
     "derive",
     "rc",

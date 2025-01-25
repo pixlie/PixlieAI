@@ -2,9 +2,26 @@ use log::error;
 use pixlieai::{
     api::api_manager, config::check_cli_settings, engine::manager::engine_manager, CommsChannel,
 };
+use std::env::var;
 use std::thread;
 
 fn main() {
+    // Setup Sentry for error logging. The URL comes from environment variable
+    match var("SENTRY_URL") {
+        Ok(sentry_url) => {
+            if sentry_url.contains("sentry.io") {
+                let _sentry = sentry::init((
+                    sentry_url,
+                    sentry::ClientOptions {
+                        release: sentry::release_name!(),
+                        ..Default::default()
+                    },
+                ));
+            }
+        }
+        Err(_) => {}
+    }
+
     env_logger::init();
     match check_cli_settings() {
         Ok(_) => {}

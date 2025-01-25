@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@sentry/solid": "^8.51.0",
     "@solidjs/router": "^0.15.1",
     "marked": "^15.0.3",
     "prettier": "^3.4.2",
@@ -20,6 +21,7 @@
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
+    "typescript": "^5.7.3",
     "vite": "^5.4.10",
     "vite-plugin-solid": "^2.10.2",
     "vitest": "^2.1.8"

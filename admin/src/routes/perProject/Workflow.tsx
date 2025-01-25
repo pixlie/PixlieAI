@@ -6,8 +6,9 @@ import { useSearchParams } from "@solidjs/router";
 import NodeListItem from "../../widgets/node/ListItem.tsx";
 import TextInput from "../../widgets/interactable/TextInput.tsx";
 import { createStore } from "solid-js/store";
-import { Link } from "../../api_types/Link";
 import Button from "../../widgets/interactable/Button.tsx";
+import { NodeWrite } from "../../api_types/NodeWrite.ts";
+import { IFormFieldValue } from "../../utils/types.tsx";
 
 const labelTypes: string[] = ["Link", "TextClassification"];
 type LabelType = (typeof labelTypes)[number];
@@ -22,10 +23,10 @@ const LinkForm: Component = () => {
     url: "",
   });
 
-  const handleChange = (_, value: string) => {
+  const handleChange = (_: any, value: IFormFieldValue) => {
     setFormData((existing) => ({
       ...existing,
-      url: value,
+      url: value as string,
     }));
   };
 

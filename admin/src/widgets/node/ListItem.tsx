@@ -11,7 +11,6 @@ const NodePayload: Component<NodePayloadProps> = (props) => {
     <>
       {"Link" in props.payload && (
         <div class="grid grid-cols-3 items-center">
-          <div>{props.payload["Link"].text}</div>
           <div>{props.payload["Link"].url}</div>
           <div>
             {props.payload["Link"].is_fetched ? "Fetched" : "Not Fetched"}

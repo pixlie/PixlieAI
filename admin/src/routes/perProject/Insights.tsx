@@ -1,5 +1,4 @@
 import { createResource, Component } from "solid-js";
-import Screen from "../../layout/Screen";
 import Heading from "../../widgets/typography/Heading";
 
 interface IData {
