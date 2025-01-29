@@ -39,11 +39,10 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
     while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
         && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
     {
-        // TODO: Try and infer if we need to execute the engine from the current state
-        if engine.is_some() {
-            // engine.as_mut().unwrap().execute();
+        if let Some(engine) = engine.as_ref() {
+            // let engine = engine.clone();
+            engine.execute();
         }
-
         match engine_ch.rx.try_recv() {
             Ok(res) => match res {
                 PiEvent::SettingsUpdated => {
@@ -95,19 +94,11 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                         None => {}
                     };
                 }
-                _ => {
-                    debug!("Unhandled event");
-                }
+                _ => {}
             },
             Err(_) => {}
         }
     }
 
-    match engine {
-        Some(engine) => {
-            engine.save_to_disk();
-        }
-        None => {}
-    }
     Ok(())
 }

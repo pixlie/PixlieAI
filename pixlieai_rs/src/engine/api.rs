@@ -1,13 +1,15 @@
 use super::{Engine, Node, Payload};
-use crate::entity::web::Link;
+use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
 use crate::{CommsChannel, PiEvent};
 use actix_web::{web, Responder};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Deref;
 use strum::Display;
 use ts_rs::TS;
+use url::Url;
 
 pub struct EngineRequestMessage {
     pub request_id: u32,
@@ -41,7 +43,8 @@ pub enum EngineRequest {
 pub struct EngineApiData {
     pub nodes: Vec<Node>,
     pub labels: Vec<String>,
-    pub nodes_by_label: HashMap<String, Vec<Node>>,
+    #[ts(type = "{ [label: string]: Array<number> }")]
+    pub node_ids_by_label: HashMap<String, Vec<u32>>,
 }
 
 #[derive(Serialize, TS)]
@@ -202,17 +205,24 @@ pub fn handle_engine_api_request(
                 Some(node_ids) => {
                     let nodes: Vec<Node> = node_ids
                         .iter()
-                        .filter_map(|node_id| match engine.nodes.get(node_id) {
-                            Some(node) => match node.read() {
-                                Ok(node) => Some(node.clone()),
-                                Err(_) => None,
+                        .filter_map(|node_id| match engine.nodes.read() {
+                            Ok(nodes) => match nodes.get(node_id) {
+                                Some(node) => match node.read() {
+                                    Ok(node) => Some(node.clone()),
+                                    Err(_err) => None,
+                                },
+                                None => None,
                             },
-                            None => None,
+                            Err(_err) => None,
                         })
                         .collect();
 
                     EngineApiResponse::Results(EngineApiData {
-                        nodes_by_label: HashMap::from([(label, nodes)]),
+                        node_ids_by_label: HashMap::from([(
+                            label,
+                            nodes.iter().map(|x| *x.id).collect(),
+                        )]),
+                        nodes,
                         ..Default::default()
                     })
                 }
@@ -226,10 +236,32 @@ pub fn handle_engine_api_request(
         EngineRequest::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    engine.add_node(Payload::Link(Link {
-                        url: link_write.url,
-                        is_fetched: false,
-                    }));
+                    match Url::parse(&link_write.url) {
+                        Ok(parsed) => match parsed.domain() {
+                            Some(domain) => {
+                                let node_id = engine.add_node(Payload::Link(Link {
+                                    url: link_write.url,
+                                    is_fetched: false,
+                                }));
+                                engine.add_related_node(
+                                    &node_id,
+                                    Payload::Domain(Domain {
+                                        name: domain.to_string(),
+                                        is_allowed_to_crawl: true,
+                                        last_fetched_at: None,
+                                    }),
+                                );
+                            }
+                            None => {
+                                error!("Can not parse URL to get domain: {}", &link_write.url);
+                            }
+                        },
+                        Err(err) => match err {
+                            _ => {
+                                error!("Can not parse URL to get domain: {}", &link_write.url);
+                            }
+                        },
+                    };
                 }
             }
 

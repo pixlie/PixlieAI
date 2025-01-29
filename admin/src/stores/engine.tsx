@@ -56,13 +56,14 @@ const makeStore = () => {
               }),
               state.nodes,
             ),
-            // nodeIdsByLabel: {
-            //   ...state.nodeIdsByLabel,
-            //   [label]:
-            //     "NodeIdsByLabel" in engineResponse.data.query_type
-            //       ? engineResponse.data.query_type.NodeIdsByLabel[1]
-            //       : [],
-            // },
+            nodeIdsByLabel: {
+              ...state.nodeIdsByLabel,
+              [label]:
+                engineResponse.data.node_ids_by_label &&
+                label in engineResponse.data.node_ids_by_label
+                  ? engineResponse.data.node_ids_by_label[label]
+                  : [],
+            },
             isFetching: false,
             isReady: true,
           }));

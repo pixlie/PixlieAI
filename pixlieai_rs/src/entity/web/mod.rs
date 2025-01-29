@@ -8,6 +8,7 @@ use log::{error, info};
 use rand::seq::SliceRandom;
 use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant, SystemTime};
 use ts_rs::TS;
 use url::Url;
 
@@ -22,7 +23,13 @@ pub struct Link {
 
 #[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
 #[ts(export)]
-pub struct Domain(pub String);
+pub struct Domain {
+    pub name: String,
+    pub is_allowed_to_crawl: bool,
+    #[ts(skip)]
+    #[serde(skip)]
+    pub last_fetched_at: Option<Instant>,
+}
 
 impl NodeWorker for Domain {
     fn get_label() -> String {
@@ -38,27 +45,13 @@ impl NodeWorker for Link {
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
-            // info!("Link already fetched: {}", self.url);
             return None;
         }
-        // Get the domain for the URL
-        match Url::parse(&self.url) {
-            Ok(parsed) => match parsed.domain() {
-                Some(domain) => {
-                    engine.add_part_node(node_id, Payload::Domain(Domain(domain.to_string())));
-                }
-                None => {
-                    error!("Can not parse URL to get domain for link: {}", self.url);
-                    return None;
-                }
-            },
-            Err(err) => match err {
-                _ => {
-                    error!("Can not parse URL to get domain for link: {}", self.url);
-                    return None;
-                }
-            },
+
+        if !engine.can_fetch_within_domain(node_id, self) {
+            return None;
         }
+
         match get(&self.url) {
             Ok(response) => match response.text() {
                 Ok(contents) => {
@@ -97,54 +90,70 @@ pub struct WebPage {
 
 impl WebPage {
     fn get_link(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
-        let related_node_ids = engine
-            .nodes
-            .get(node_id)
-            .unwrap()
-            .read()
-            .unwrap()
-            .related_node_ids
-            .clone();
-        related_node_ids.iter().find_map(|node_id| {
-            match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
-                Payload::Link(ref link) => Some(link.clone()),
-                _ => None,
+        let related_node_ids = match engine.nodes.read() {
+            Ok(nodes) => match nodes.get(node_id) {
+                Some(node) => node.read().unwrap().related_node_ids.clone(),
+                None => vec![],
+            },
+            Err(_err) => {
+                vec![]
             }
-        })
+        };
+
+        related_node_ids
+            .iter()
+            .find_map(|node_id| match engine.nodes.read() {
+                Ok(nodes) => match nodes.get(node_id) {
+                    Some(node) => match node.read().unwrap().payload {
+                        Payload::Link(ref link) => Some(link.clone()),
+                        _ => None,
+                    },
+                    None => None,
+                },
+                Err(_err) => None,
+            })
     }
 
     fn get_content(&self, engine: &Engine, node_id: &NodeId) -> String {
-        let part_nodes = engine
-            .nodes
-            .get(node_id)
-            .unwrap()
-            .read()
-            .unwrap()
-            .part_node_ids
-            .clone();
+        let part_nodes = match engine.nodes.read() {
+            Ok(nodes) => match nodes.get(node_id) {
+                Some(node) => node.read().unwrap().part_node_ids.clone(),
+                None => vec![],
+            },
+            Err(_err) => {
+                vec![]
+            }
+        };
 
         part_nodes
             .iter()
-            .filter_map(
-                |nid| match engine.nodes.get(nid).unwrap().read().unwrap().payload {
-                    // Payload::Title(ref title) => Some(title.0.to_string()),
-                    Payload::Heading(ref heading) => {
-                        if heading.0.len() > 20 {
-                            Some(heading.0.to_string())
-                        } else {
-                            None
-                        }
-                    }
-                    Payload::Paragraph(ref paragraph) => {
-                        if paragraph.0.len() > 200 {
-                            Some(paragraph.0.to_string())
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
+            .filter_map(|nid| match engine.nodes.read() {
+                Ok(nodes) => match nodes.get(nid) {
+                    Some(node) => match node.read() {
+                        Ok(node) => match node.payload {
+                            // Payload::Title(ref title) => Some(title.0.to_string()),
+                            Payload::Heading(ref heading) => {
+                                if heading.0.len() > 20 {
+                                    Some(heading.0.to_string())
+                                } else {
+                                    None
+                                }
+                            }
+                            Payload::Paragraph(ref paragraph) => {
+                                if paragraph.0.len() > 200 {
+                                    Some(paragraph.0.to_string())
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        },
+                        Err(_err) => None,
+                    },
+                    None => None,
                 },
-            )
+                Err(_err) => None,
+            })
             .collect::<Vec<String>>()
             .join("\n")
     }
@@ -238,20 +247,28 @@ impl NodeWorker for WebPage {
             });
         } else if !self.is_extracted {
             // Get the related Label node and check that classification is not "Other"
-            let classification = engine
-                .nodes
-                .get(node_id)
-                .unwrap()
-                .read()
-                .unwrap()
-                .related_node_ids
-                .iter()
-                .find_map(|node_id| {
-                    match engine.nodes.get(node_id).unwrap().read().unwrap().payload {
-                        Payload::Label(ref label) => Some(label.clone()),
-                        _ => None,
-                    }
-                });
+            let classification = match engine.nodes.read() {
+                Ok(nodes) => match nodes.get(node_id) {
+                    Some(node) => node.read().unwrap().related_node_ids.iter().find_map(
+                        |node_id| match engine.nodes.read() {
+                            Ok(nodes) => match nodes.get(node_id) {
+                                Some(node) => match node.read() {
+                                    Ok(node) => match node.payload {
+                                        Payload::Label(ref label) => Some(label.clone()),
+                                        _ => None,
+                                    },
+                                    Err(_err) => None,
+                                },
+                                None => None,
+                            },
+                            Err(_err) => None,
+                        },
+                    ),
+                    None => None,
+                },
+                Err(_err) => None,
+            };
+
             if classification.is_some_and(|x| x != "Other") {
                 self.extract_entities(engine, node_id).unwrap();
                 return Some(WebPage {

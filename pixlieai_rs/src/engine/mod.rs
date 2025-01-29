@@ -85,11 +85,9 @@ pub trait NodeWorker {
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
     pub labels: RwLock<HashSet<String>>,
-    pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
+    pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
     nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
     storage_root: String,
     pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
-    // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
-    // pub execute_every: u8, // Number of seconds to wait before executing the engine
 }
