@@ -1,11 +1,11 @@
 meta {
-  name: get projects
+  name: get_settings_status
   type: http
-  seq: 1
+  seq: 2
 }
 
 get {
-  url: {{api}}/projects
+  url: {{api}}/settings/status
   body: none
   auth: none
 }

@@ -1,0 +1,21 @@
+meta {
+  name: create_project
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{api}}/projects
+  body: json
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}
+
+body:json {
+  {
+    "name": "Demo for Fundatia ADEPT"
+  }
+}
