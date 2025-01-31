@@ -4,10 +4,10 @@ const lightDefault = {
   tailwindClasses: {
     app: "bg-stone-100 text-stone-800",
 
-    sideBar: "bg-gray-500",
+    sideBar: "bg-gray-200",
     "sideBar.logo": "text-gray-800",
-    "sideBar.link": "text-gray-800 hover:text-white hover:bg-gray-700",
-    "sideBar.link.active": "text-white bg-gray-600",
+    "sideBar.link": "text-gray-800 hover:bg-gray-300",
+    "sideBar.link.active": "bg-gray-300",
 
     mainContent: "",
     heading: "text-gray-800",

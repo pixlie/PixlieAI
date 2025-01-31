@@ -8,7 +8,7 @@ import {
 } from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
-import {Project} from "../api_types/Project.ts";
+import { Project } from "../api_types/Project.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -59,7 +59,7 @@ const makeStore = () => {
         }
         setStore("settings", settings);
       },
-      
+
       fetchProjects: async () => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(`${pixlieAIAPIRoot}/api/projects`);
@@ -68,8 +68,7 @@ const makeStore = () => {
         }
         let projects: Array<Project> = await response.json();
         setStore("projects", projects);
-
-      }
+      },
     },
   ] as const; // `as const` forces tuple type inference
 };
