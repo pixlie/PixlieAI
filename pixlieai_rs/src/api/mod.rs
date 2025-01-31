@@ -75,11 +75,11 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
                         .route(web::post().to(config::api::request_setup_gliner)),
                 )
                 .service(
-                    web::resource(format!("{}/engine/labels", API_ROOT))
+                    web::resource(format!("{}/engine/{{project_id}}/labels", API_ROOT))
                         .route(web::get().to(engine::api::get_labels)),
                 )
                 .service(
-                    web::resource(format!("{}/engine/nodes", API_ROOT))
+                    web::resource(format!("{}/engine/{{project_id}}/nodes", API_ROOT))
                         .route(web::get().to(engine::api::get_nodes_by_label))
                         .route(web::post().to(engine::api::create_node)),
                 )

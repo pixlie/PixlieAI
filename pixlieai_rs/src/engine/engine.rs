@@ -1,4 +1,4 @@
-use super::{Engine, Node, NodeId, NodeWorker, Payload, PendingNode, RelationType};
+use super::{Node, NodeId, NodeWorker, Payload, PendingNode, RelationType};
 use crate::entity::web::{Domain, Link};
 use chrono::Utc;
 use log::{error, info};
@@ -15,33 +15,58 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+struct LastTick {
+    // ran_at: Option<Instant>,
+    nodes_added: usize,
+    nodes_updated: usize,
+}
+
+// The engine keeps track of all the data nodes and their relationships
+// All the entity labels are loaded in the engine
+// All data may not be loaded in the engine, some of them may be on disk
+pub struct Engine {
+    pub labels: RwLock<HashSet<String>>,
+    pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
+    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
+    last_node_id: Mutex<u32>,
+    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
+    last_tick: LastTick,
+}
+
+pub type LockedEngine = RwLock<Engine>;
+
 impl Engine {
-    pub fn new(storage_root: PathBuf) -> Engine {
+    fn new() -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
             nodes_to_write: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
-            storage_root: storage_root.to_str().unwrap().to_string(),
             node_ids_by_label: RwLock::new(HashMap::new()),
+            last_tick: LastTick {
+                // ran_at: None,
+                nodes_added: 0,
+                nodes_updated: 0,
+            },
         };
         engine
     }
 
-    pub fn new_with_project(storage_root: &String, project_name: &String) -> Engine {
-        let mut storage_dir = PathBuf::from(storage_root);
-        storage_dir.push(format!("{}.rocksdb", project_name));
-        let mut engine = Engine::new(storage_dir);
-        engine.load_from_disk();
+    pub fn open_project(storage_root: &String, project_id: &String) -> Engine {
+        let mut storage_path = PathBuf::from(storage_root);
+        storage_path.push(format!("{}.rocksdb", project_id));
+        let mut engine = Engine::new();
+        engine.load_from_disk(&storage_path.to_str().unwrap().to_string());
         engine
     }
 
-    pub fn execute(&self) {
+    pub fn tick(&self, storage_root: &String) -> (bool, bool) {
         let updated = self.process_nodes();
         let added = self.add_pending_nodes();
-        if updated || added {
-            self.save_to_disk();
+        if added || updated {
+            self.save_to_disk(storage_root);
         }
+        (added, updated)
     }
 
     pub fn process_nodes(&self) -> bool {
@@ -289,9 +314,9 @@ impl Engine {
         }
     }
 
-    pub fn save_to_disk(&self) {
+    pub fn save_to_disk(&self, storage_path: &String) {
         // We use RocksDB to store the graph
-        let db = DB::open_default(&self.storage_root).unwrap();
+        let db = DB::open_default(storage_path).unwrap();
         match self.nodes.read() {
             Ok(nodes) => {
                 for (node_id, node) in nodes.iter() {
@@ -321,8 +346,8 @@ impl Engine {
         }
     }
 
-    pub fn load_from_disk(&mut self) {
-        let db = DB::open_default(&self.storage_root).unwrap();
+    pub fn load_from_disk(&mut self, storage_path: &String) {
+        let db = DB::open_default(storage_path).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
         for item in iter {
             let (key, value) = match item {
@@ -445,6 +470,13 @@ impl Engine {
         }
 
         true
+    }
+
+    pub fn needs_to_tick(&self) -> bool {
+        if self.last_tick.nodes_added > 0 || self.last_tick.nodes_updated > 0 {
+            return true;
+        }
+        false
     }
 }
 

@@ -9,7 +9,7 @@ use crate::entity::ExtractedEntity;
 use serde::Serialize;
 
 pub mod anthropic;
-pub mod gliner;
+// pub mod gliner;
 pub mod ollama;
 
 pub enum EntityExtractionProvider {

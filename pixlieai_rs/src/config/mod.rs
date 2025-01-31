@@ -37,7 +37,6 @@ pub struct Settings {
     pub ollama_port: Option<u16>,
     pub gpu_hosts: Option<Vec<String>>,
     pub path_to_storage_dir: Option<String>,
-    pub current_project: Option<String>,
 }
 
 #[derive(Serialize, TS)]
@@ -242,9 +241,6 @@ impl Settings {
         }
         if updates.path_to_storage_dir.is_some() {
             self.path_to_storage_dir = updates.path_to_storage_dir.clone();
-        }
-        if updates.current_project.is_some() {
-            self.current_project = updates.current_project.clone();
         }
     }
 

@@ -1,4 +1,5 @@
 use super::{Engine, Node, Payload};
+use crate::engine::LockedEngine;
 use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
 use crate::{CommsChannel, PiEvent};
@@ -13,6 +14,7 @@ use url::Url;
 
 pub struct EngineRequestMessage {
     pub request_id: u32,
+    pub project_id: String,
     pub payload: EngineRequest,
 }
 
@@ -66,7 +68,10 @@ pub struct NodesByLabelParams {
     label: String,
 }
 
-pub async fn get_labels(api_state: web::Data<ApiState>) -> PiResult<impl Responder> {
+pub async fn get_labels(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
     debug!("Label request for get_labels");
     let request_id = api_state.req_id.fetch_add(1);
     api_state
@@ -74,6 +79,7 @@ pub async fn get_labels(api_state: web::Data<ApiState>) -> PiResult<impl Respond
         .tx
         .send(PiEvent::EngineRequest(EngineRequestMessage {
             request_id: request_id.clone(),
+            project_id: project_id.into_inner(),
             payload: EngineRequest::GetLabels,
         }))?;
 
@@ -102,6 +108,7 @@ pub async fn get_labels(api_state: web::Data<ApiState>) -> PiResult<impl Respond
 }
 
 pub async fn get_nodes_by_label(
+    project_id: web::Path<String>,
     params: web::Query<NodesByLabelParams>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
@@ -112,6 +119,7 @@ pub async fn get_nodes_by_label(
         .tx
         .send(PiEvent::EngineRequest(EngineRequestMessage {
             request_id: request_id.clone(),
+            project_id: project_id.into_inner(),
             payload: EngineRequest::GetNodesWithLabel(params.label.clone()),
         }))?;
 
@@ -140,6 +148,7 @@ pub async fn get_nodes_by_label(
 }
 
 pub async fn create_node(
+    project_id: web::Path<String>,
     node_write: web::Json<NodeWrite>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
@@ -153,6 +162,7 @@ pub async fn create_node(
         .tx
         .send(PiEvent::EngineRequest(EngineRequestMessage {
             request_id: request_id.clone(),
+            project_id: project_id.into_inner(),
             payload: EngineRequest::CreateNode(node_write.into_inner()),
         }))?;
 
@@ -182,76 +192,89 @@ pub async fn create_node(
 
 pub fn handle_engine_api_request(
     request: EngineRequestMessage,
-    engine: &mut Engine,
+    engine: &LockedEngine,
     api_ch: CommsChannel,
 ) -> PiResult<()> {
     debug!("Got an engine API request");
     let response: EngineApiResponse = match request.payload {
-        EngineRequest::GetLabels => match engine.node_ids_by_label.read() {
-            Ok(node_ids_by_label) => {
-                let labels = node_ids_by_label.keys().cloned().collect();
-                EngineApiResponse::Results(EngineApiData {
-                    labels,
-                    ..Default::default()
-                })
-            }
-            Err(err) => {
-                error!("Error reading nodes_by_label: {}", err);
-                EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
-            }
-        },
-        EngineRequest::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
-            Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
-                Some(node_ids) => {
-                    let nodes: Vec<Node> = node_ids
-                        .iter()
-                        .filter_map(|node_id| match engine.nodes.read() {
-                            Ok(nodes) => match nodes.get(node_id) {
-                                Some(node) => match node.read() {
-                                    Ok(node) => Some(node.clone()),
-                                    Err(_err) => None,
-                                },
-                                None => None,
-                            },
-                            Err(_err) => None,
-                        })
-                        .collect();
-
+        EngineRequest::GetLabels => match engine.read() {
+            Ok(engine) => match engine.node_ids_by_label.read() {
+                Ok(node_ids_by_label) => {
+                    let labels = node_ids_by_label.keys().cloned().collect();
                     EngineApiResponse::Results(EngineApiData {
-                        node_ids_by_label: HashMap::from([(
-                            label,
-                            nodes.iter().map(|x| *x.id).collect(),
-                        )]),
-                        nodes,
+                        labels,
                         ..Default::default()
                     })
                 }
-                None => EngineApiResponse::Error(format!("No node IDs found for label {}", label)),
+                Err(err) => {
+                    error!("Error reading nodes_by_label: {}", err);
+                    EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
+                }
             },
-            Err(err) => {
-                error!("Error reading nodes_by_label: {}", err);
-                EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
-            }
+            Err(_err) => EngineApiResponse::Error("Could not read engine".to_string()),
+        },
+        EngineRequest::GetNodesWithLabel(label) => match engine.read() {
+            Ok(engine) => match engine.node_ids_by_label.read() {
+                Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
+                    Some(node_ids) => {
+                        let nodes: Vec<Node> = node_ids
+                            .iter()
+                            .filter_map(|node_id| match engine.nodes.read() {
+                                Ok(nodes) => match nodes.get(node_id) {
+                                    Some(node) => match node.read() {
+                                        Ok(node) => Some(node.clone()),
+                                        Err(_err) => None,
+                                    },
+                                    None => None,
+                                },
+                                Err(_err) => None,
+                            })
+                            .collect();
+
+                        EngineApiResponse::Results(EngineApiData {
+                            node_ids_by_label: HashMap::from([(
+                                label,
+                                nodes.iter().map(|x| *x.id).collect(),
+                            )]),
+                            nodes,
+                            ..Default::default()
+                        })
+                    }
+                    None => {
+                        EngineApiResponse::Error(format!("No node IDs found for label {}", label))
+                    }
+                },
+                Err(err) => {
+                    error!("Error reading nodes_by_label: {}", err);
+                    EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
+                }
+            },
+            Err(_err) => EngineApiResponse::Error("Could not read engine".to_string()),
         },
         EngineRequest::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
                     match Url::parse(&link_write.url) {
                         Ok(parsed) => match parsed.domain() {
-                            Some(domain) => {
-                                let node_id = engine.add_node(Payload::Link(Link {
-                                    url: link_write.url,
-                                    is_fetched: false,
-                                }));
-                                engine.add_related_node(
-                                    &node_id,
-                                    Payload::Domain(Domain {
-                                        name: domain.to_string(),
-                                        is_allowed_to_crawl: true,
-                                        last_fetched_at: None,
-                                    }),
-                                );
-                            }
+                            Some(domain) => match engine.write() {
+                                Ok(engine) => {
+                                    let node_id = engine.add_node(Payload::Link(Link {
+                                        url: link_write.url,
+                                        is_fetched: false,
+                                    }));
+                                    engine.add_related_node(
+                                        &node_id,
+                                        Payload::Domain(Domain {
+                                            name: domain.to_string(),
+                                            is_allowed_to_crawl: true,
+                                            last_fetched_at: None,
+                                        }),
+                                    );
+                                }
+                                Err(_err) => {
+                                    error!("Could not write to engine");
+                                }
+                            },
                             None => {
                                 error!("Can not parse URL to get domain: {}", &link_write.url);
                             }

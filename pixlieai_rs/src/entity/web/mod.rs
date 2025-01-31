@@ -2,7 +2,7 @@ use crate::{
     config::Settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
     error::PiResult,
-    services::{anthropic, gliner, ollama, EntityExtractionProvider, TextClassificationProvider},
+    services::{anthropic, ollama, EntityExtractionProvider, TextClassificationProvider},
 };
 use log::{error, info};
 use rand::seq::SliceRandom;
@@ -199,29 +199,29 @@ impl WebPage {
         let settings = Settings::get_cli_settings()?;
         let content = self.get_content(engine, node_id);
         let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_EXTRACTION_LABELS).unwrap();
-        let _entities = match settings.get_entity_extraction_provider()? {
-            EntityExtractionProvider::Gliner => {
-                // Use GLiNER
-                gliner::extract_entities(content, &labels)
-            }
-            EntityExtractionProvider::Ollama => {
-                // Use Ollama
-                ollama::extract_entities(
-                    content,
-                    &labels,
-                    settings
-                        .ollama_hosts
-                        .unwrap()
-                        .choose(&mut rand::thread_rng())
-                        .unwrap(),
-                    8080,
-                )
-            }
-            EntityExtractionProvider::Anthropic => {
-                // Use Anthropic
-                anthropic::extract_entities(content, &labels, &settings.anthropic_api_key.unwrap())
-            }
-        }?;
+        // let _entities = match settings.get_entity_extraction_provider()? {
+        //     EntityExtractionProvider::Gliner => {
+        //         // Use GLiNER
+        //         gliner::extract_entities(content, &labels)
+        //     }
+        //     EntityExtractionProvider::Ollama => {
+        //         // Use Ollama
+        //         ollama::extract_entities(
+        //             content,
+        //             &labels,
+        //             settings
+        //                 .ollama_hosts
+        //                 .unwrap()
+        //                 .choose(&mut rand::thread_rng())
+        //                 .unwrap(),
+        //             8080,
+        //         )
+        //     }
+        //     EntityExtractionProvider::Anthropic => {
+        //         // Use Anthropic
+        //         anthropic::extract_entities(content, &labels, &settings.anthropic_api_key.unwrap())
+        //     }
+        // }?;
         Ok(())
     }
 }

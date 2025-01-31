@@ -1,10 +1,12 @@
 use super::{api::handle_engine_api_request, Engine};
+use crate::engine::engine::LockedEngine;
 use crate::{
     config::{gliner::setup_gliner, Settings},
     error::PiResult,
     CommsChannel, PiEvent,
 };
-use log::debug;
+use log::{debug, error};
+use std::sync::RwLock;
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
@@ -15,12 +17,14 @@ use std::{
 #[derive(PartialEq, Eq, Hash)]
 pub enum JobType {
     SetupGliner,
+    // EngineTick(String), // Only one per project
 }
 
 pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()> {
-    let settings: Settings = Settings::get_cli_settings()?;
-    let mut engine: Option<Engine> = None;
+    // The engine manager runs the engine for each open project that needs processing or API response
     let mut jobs: HashMap<JobType, thread::JoinHandle<()>> = HashMap::new();
+    // Engines for each project, key being the project ID
+    let mut engines: HashMap<String, LockedEngine> = HashMap::new();
 
     // We loop until we receive a SIGTERM or SIGINT signals
     let is_sig_term = Arc::new(AtomicBool::new(false));
@@ -28,43 +32,40 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&is_sig_term))?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&is_sig_int))?;
 
-    if settings.path_to_storage_dir.is_some() && settings.current_project.is_some() {
-        engine = {
-            Some(Engine::new_with_project(
-                &settings.path_to_storage_dir.unwrap(),
-                &settings.current_project.unwrap(),
-            ))
-        };
-    }
     while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
         && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
     {
-        if let Some(engine) = engine.as_ref() {
-            // let engine = engine.clone();
-            engine.execute();
+        for project_id in engines.keys() {
+            let engine = engines.get(project_id).unwrap();
+            match engine.read() {
+                Ok(engine) => {
+                    if engine.needs_to_tick() {
+                        debug!("Ticking engine for project {}", project_id);
+                        // let engine = engine.clone();
+                        engine.tick(&project_id);
+                    }
+                }
+                Err(_err) => {}
+            }
         }
+
         match engine_ch.rx.try_recv() {
             Ok(res) => match res {
                 PiEvent::SettingsUpdated => {
-                    let new_settings: Settings = Settings::get_cli_settings()?;
-                    if new_settings.path_to_storage_dir.is_some()
-                        && new_settings.current_project.is_some()
-                    {
-                        debug!("Settings changed, reloading engine");
-                        engine = Some(Engine::new_with_project(
-                            new_settings.path_to_storage_dir.as_ref().unwrap(),
-                            new_settings.current_project.as_ref().unwrap(),
-                        ));
-                    } else {
-                        match engine {
-                            Some(engine) => {
-                                engine.save_to_disk();
+                    let settings: Settings = Settings::get_cli_settings()?;
+                    debug!("Settings changed, reloading engine");
+                    // Reload each engine
+                    for (project_id, engine) in engines.iter() {
+                        match engine.write() {
+                            Ok(mut engine) => {
+                                *engine = Engine::open_project(
+                                    settings.path_to_storage_dir.as_ref().unwrap(),
+                                    project_id,
+                                );
                             }
-                            None => {}
+                            Err(_err) => {}
                         }
-                        engine = None;
                     }
-                    // settings = new_settings;
                 }
                 PiEvent::SetupGliner => {
                     // Run setup_gliner only if it is not already running
@@ -85,13 +86,26 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                     }
                 }
                 PiEvent::EngineRequest(api_request) => {
-                    debug!("Got an API request for the engine");
-                    match engine {
-                        Some(ref mut engine) => {
+                    debug!("Got an API request for project {}", api_request.project_id);
+                    match engines.get(&api_request.project_id) {
+                        Some(engine) => {
                             let api_ch1 = api_ch.clone();
-                            handle_engine_api_request(api_request, engine, api_ch1).unwrap();
+                            handle_engine_api_request(api_request, engine, api_ch1)?;
                         }
-                        None => {}
+                        None => {
+                            // Project is not loaded, let's load it into an engine
+                            {
+                                let settings: Settings = Settings::get_cli_settings()?;
+                                let engine = RwLock::new(Engine::open_project(
+                                    settings.path_to_storage_dir.as_ref().unwrap(),
+                                    &api_request.project_id,
+                                ));
+                                engines.insert(api_request.project_id.clone(), engine);
+                            }
+                            let api_ch1 = api_ch.clone();
+                            let engine = engines.get(&api_request.project_id).unwrap();
+                            handle_engine_api_request(api_request, &engine, api_ch1)?;
+                        }
                     };
                 }
                 _ => {}

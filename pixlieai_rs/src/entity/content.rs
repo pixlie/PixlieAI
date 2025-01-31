@@ -31,7 +31,20 @@ pub struct OrderedPoints(pub Vec<String>);
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub enum TableCellType {
+pub struct LossyLocation {
+    pub latitude: Option<f32>,
+    pub longitude: Option<f32>,
+    pub address_line_1: String,
+    pub address_line_2: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub postal_code: Option<String>,
+    pub country: String,
+}
+
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub enum TypedData {
     SmallInteger(i8),
     Integer(i32),
     Float(f32),
@@ -43,13 +56,19 @@ pub enum TableCellType {
     Email(String),
     Link(String),
     Currency(String),
-    Place(String),
-    Country(String),
+    Place(LossyLocation),
 }
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub struct TableRow(pub Vec<TableCellType>);
+pub enum CellData {
+    TypedData(TypedData),
+    NamedEntity(String, String),
+}
+
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct TableRow(pub Vec<CellData>);
 
 // Headings are part of Table node
 // Has part nodes to TableRow(s)

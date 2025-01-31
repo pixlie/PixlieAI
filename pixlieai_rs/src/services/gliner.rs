@@ -23,8 +23,6 @@ pub struct GlinerEntity {
 }
 
 pub fn extract_entities(text: String, labels: &Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
-    // We use MQTT to call the Python code that uses GLiNER to extract entities
-    let mqtt_topic = "extract_named_entities_gliner";
     let random_id = rand::random::<u32>();
 
     //  This is where we initiate a request with GLiNER using MQTT
@@ -34,7 +32,7 @@ pub fn extract_entities(text: String, labels: &Vec<String>) -> PiResult<Vec<Extr
         thread::spawn(move || extract_entities_sender(text, &labels, random_id));
     };
 
-    let mut extracted: Vec<ExtractedEntity> = vec![];
+    // let mut extracted: Vec<ExtractedEntity> = vec![];
     // This is where we listen for responses from GLiNER using MQTT
     // let mut mqtt_options = MqttOptions::new(
     //     format!("{}_receiver_{}", mqtt_topic, random_id),
@@ -93,7 +91,7 @@ pub fn extract_entities(text: String, labels: &Vec<String>) -> PiResult<Vec<Extr
     //     };
     // }
 
-    Ok(extracted)
+    Ok(vec![])
 }
 
 fn extract_entities_sender(text: String, labels: &Vec<String>, random_id: u32) {

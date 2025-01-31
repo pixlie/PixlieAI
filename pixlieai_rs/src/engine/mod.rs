@@ -12,11 +12,7 @@ use crate::entity::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::RwLock,
-};
+use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 
@@ -25,9 +21,14 @@ pub mod engine;
 pub mod manager;
 pub mod setup;
 
+use crate::entity::content::TypedData;
+pub use engine::Engine;
+pub use engine::LockedEngine;
+
 #[derive(Clone, Display, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub enum Payload {
+    // StepPrompt(String),
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
@@ -40,6 +41,7 @@ pub enum Payload {
     Table(Table),
     TableRow(TableRow),
     Label(String),
+    TypedData(TypedData),
     NamedEntity(String, String), // label, text
 }
 
@@ -78,16 +80,4 @@ pub trait NodeWorker {
     {
         None
     }
-}
-
-// The engine keeps track of all the data nodes and their relationships
-// All the entity labels are loaded in the engine
-// All data may not be loaded in the engine, some of them may be on disk
-pub struct Engine {
-    pub labels: RwLock<HashSet<String>>,
-    pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
-    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
-    last_node_id: Mutex<u32>,
-    storage_root: String,
-    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
 }
