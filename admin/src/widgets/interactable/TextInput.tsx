@@ -48,33 +48,26 @@ const TextInput: Component<IFormField> = (props) => {
   //   );
   // };
 
-  return (
-    <>
-      {!!props.label && (
-        <label
-          class={`block text-sm font-medium leading-6 mb-1 ${getColors()["input.label"]}`}
-        >
-          {props.label}
-        </label>
-      )}
-      <input
-        name={props.name}
-        type={inputType}
-        required={props.isRequired || undefined}
-        class={`block w-full rounded-md px-2 py-1.5 border font-content ${getColors()["input"]}`}
-        placeholder={props.placeholder || undefined}
-        value={props.value !== undefined ? props.value : ""}
-        onChange={handleChange}
-        onFocus={props.onFocus}
-        disabled={!props.isEditable}
-      />
-
-      {/* {props.contentType === "Text" &&
+  {
+    /* {props.contentType === "Text" &&
       "textType" in props.contentSpec &&
       props.contentSpec.textType === "Link" ? (
         <LinkOptions />
-      ) : null} */}
-    </>
+      ) : null} */
+  }
+
+  return (
+    <input
+      name={props.name}
+      type={inputType}
+      required={props.isRequired || undefined}
+      class={`block w-full rounded-md px-2 py-1.5 border font-content m-0 ${getColors()["input"]}`}
+      placeholder={props.placeholder || undefined}
+      value={props.value !== undefined ? props.value : ""}
+      onChange={handleChange}
+      onFocus={props.onFocus}
+      disabled={!props.isEditable}
+    />
   );
 };
 

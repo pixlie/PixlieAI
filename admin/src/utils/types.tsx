@@ -27,10 +27,10 @@ interface IEngine {
 
 type IFormFieldValue = string | number | Array<string> | undefined;
 
+type DisplayAs = "Drawer" | "MainContent";
+
 interface IFormField {
   name: string;
-  label?: string | null;
-  description?: string | null;
   placeholder?: string | null;
   size?: "xs" | "sm" | "base" | "lg";
   displayBlock?: boolean;
@@ -47,4 +47,5 @@ export type {
   IFormField,
   IFormFieldValue,
   IEngine,
+  DisplayAs,
 };
