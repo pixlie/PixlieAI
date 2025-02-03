@@ -4,18 +4,23 @@ import ProjectListItem from "../../widgets/projects/ProjectListItem";
 import Heading from "../../widgets/typography/Heading";
 import ProjectForm from "../../widgets/projects/ProjectForm.tsx";
 import Button from "../../widgets/interactable/Button";
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 
 const ProjectList: Component = () => {
   const [workspace, { fetchProjects }] = useWorkspace();
   const location = useLocation();
+  const navigate = useNavigate();
 
   onMount(() => {
     fetchProjects().then((_) => {});
   });
 
   const handleClose = () => {
-    location.hash = "";
+    if (location.search.length > 0) {
+      navigate(`${location.pathname}?${location.search}`);
+    } else {
+      navigate(location.pathname);
+    }
   };
 
   return (

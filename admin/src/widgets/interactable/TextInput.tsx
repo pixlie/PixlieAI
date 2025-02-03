@@ -1,23 +1,11 @@
 import { Component, JSX } from "solid-js";
 import { IFormField } from "../../utils/types";
-// import { ContentType } from "../../api_types/ContentType";
 import { useUIClasses } from "../../stores/UIClasses";
 
 const TextInput: Component<IFormField> = (props) => {
   const [_, { getColors }] = useUIClasses();
-  // if (props.contentType !== ("Text" as ContentType)) {
-  //   return null;
-  // }
 
   let inputType: string = "text";
-  // if (!!props.contentSpec.textType) {
-  //   const textType = props.contentSpec.textType;
-  //   if (textType === "Email") {
-  //     inputType = "email";
-  //   } else if (textType === "Password") {
-  //     inputType = "password";
-  //   }
-  // }
 
   const handleChange: JSX.ChangeEventHandler<HTMLInputElement, Event> = (
     event,
@@ -26,35 +14,6 @@ const TextInput: Component<IFormField> = (props) => {
       props.onChange(props.name, event.currentTarget.value);
     }
   };
-
-  // const LinkOptions: Component = () => {
-  //   return (
-  //     <>
-  //       {props.value !== undefined && typeof props.value === "string" ? (
-  //         <div class="font-thin">
-  //           Click to{" "}
-  //           <a
-  //             href={props.value}
-  //             class="font-medium text-blue-500 underline"
-  //             rel="noreferrer"
-  //             target="_blank"
-  //           >
-  //             open URL in default browser
-  //           </a>{" "}
-  //           or right click link to copy
-  //         </div>
-  //       ) : null}
-  //     </>
-  //   );
-  // };
-
-  {
-    /* {props.contentType === "Text" &&
-      "textType" in props.contentSpec &&
-      props.contentSpec.textType === "Link" ? (
-        <LinkOptions />
-      ) : null} */
-  }
 
   return (
     <input

@@ -1,14 +1,15 @@
 import { Component, For } from "solid-js";
 import SidebarLink from "./SidebarLink";
-import { perProjectRoutes } from "../../routes/routeList";
+import { globalRoutes, perProjectRoutes } from "../../routes/routeList";
 import { useUIClasses } from "../../stores/UIClasses";
 import { useWorkspace } from "../../stores/workspace";
-import { useLocation } from "@solidjs/router";
+import { useLocation, useParams } from "@solidjs/router";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [workspace] = useWorkspace();
   const location = useLocation();
+  const params = useParams();
 
   return (
     <div
@@ -37,14 +38,25 @@ const Sidebar: Component = () => {
           {workspace.isReady &&
           workspace.settingsStatus?.type === "Complete" ? (
             <>
-              {!!workspace.settings?.currentProject ? (
+              <For each={globalRoutes}>
+                {(item) => (
+                  <SidebarLink
+                    label={item.label}
+                    href={item.href}
+                    isActive={location.pathname === item.href}
+                  />
+                )}
+              </For>
+              <span class="block my-3" />
+
+              {!!params.projectId ? (
                 <For each={perProjectRoutes}>
                   {(item) => (
                     <SidebarLink
                       label={item.label}
-                      href={`/p/${workspace.settings?.currentProject}${item.href}`}
+                      href={`/p/${params.projectId}${item.href}`}
                       isActive={location.pathname.startsWith(
-                        `/p/${workspace.settings?.currentProject}${item.href}`,
+                        `/p/${params.projectId}${item.href}`,
                       )}
                     />
                   )}

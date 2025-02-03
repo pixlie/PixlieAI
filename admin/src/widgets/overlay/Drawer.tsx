@@ -23,7 +23,7 @@ const Drawer: Component<IPropTypes> = (props) => {
       aria-modal="true"
     >
       {/*Background backdrop, show/hide based on slide-over state.*/}
-      <div class="fixed inset-0"></div>
+      <div class="fixed inset-0 bg-gray-500/75 transition-opacity"></div>
 
       <div class="fixed inset-0 overflow-hidden">
         <div class="absolute inset-0 overflow-hidden">

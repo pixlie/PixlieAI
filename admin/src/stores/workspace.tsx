@@ -9,6 +9,7 @@ import {
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
 import { Project } from "../api_types/Project.ts";
+import { ProjectCreate } from "../api_types/ProjectCreate.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -68,6 +69,21 @@ const makeStore = () => {
         }
         let projects: Array<Project> = await response.json();
         setStore("projects", projects);
+      },
+
+      createProject: async (project: ProjectCreate) => {
+        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+        let response = await fetch(`${pixlieAIAPIRoot}/api/projects`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(project),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to save settings");
+        }
+        return (await response.json()) as Project;
       },
     },
   ] as const; // `as const` forces tuple type inference

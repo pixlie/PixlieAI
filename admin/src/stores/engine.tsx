@@ -17,22 +17,6 @@ const makeStore = () => {
   return [
     store,
     {
-      setCurrentProject: async (projectId: string) => {
-        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            current_project: projectId,
-          }),
-        });
-        if (!response.ok) {
-          throw new Error("Failed to select project");
-        }
-      },
-
       fetchNodesByLabel: async (label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
@@ -76,15 +60,18 @@ const makeStore = () => {
         }
       },
 
-      insertNode: async (node: NodeWrite) => {
+      insertNode: async (projectId: string, node: NodeWrite) => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/engine/nodes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        let response = await fetch(
+          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(node),
           },
-          body: JSON.stringify(node),
-        });
+        );
         if (!response.ok) {
           throw new Error("Failed to insert node");
         }
