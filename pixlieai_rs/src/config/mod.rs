@@ -29,7 +29,7 @@ pub mod api;
 pub mod gliner;
 pub mod python;
 
-#[derive(Deserialize, Serialize, TS)]
+#[derive(Debug, Deserialize, Serialize, TS)]
 #[ts(export, rename_all = "camelCase")]
 pub struct Settings {
     pub anthropic_api_key: Option<String>,

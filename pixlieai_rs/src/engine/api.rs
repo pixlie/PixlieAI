@@ -148,12 +148,12 @@ pub async fn get_nodes_by_label(
 
 pub async fn create_node(
     project_id: web::Path<String>,
-    node_write: web::Json<NodeWrite>,
+    node: web::Json<NodeWrite>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
     debug!(
         "Create node request for node with label: {}",
-        node_write.to_string()
+        node.to_string()
     );
     let request_id = api_state.req_id.fetch_add(1);
     api_state
@@ -162,7 +162,7 @@ pub async fn create_node(
         .send(PiEvent::EngineRequest(EngineRequestMessage {
             request_id: request_id.clone(),
             project_id: project_id.into_inner(),
-            payload: EngineRequest::CreateNode(node_write.into_inner()),
+            payload: EngineRequest::CreateNode(node.into_inner()),
         }))?;
 
     debug!("Waiting for response for request {}", request_id);

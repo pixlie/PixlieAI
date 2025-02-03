@@ -1,3 +1,4 @@
+use crate::error::PiError;
 use crate::{config::Settings, error::PiResult};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
@@ -12,19 +13,19 @@ pub trait CrudItem {
 }
 
 pub trait Crud {
-    type Item: Serialize + DeserializeOwned + CrudItem;
+    type Item: Clone + Serialize + DeserializeOwned + CrudItem;
 
     fn get_collection_name() -> String;
 
-    fn create(item: Self::Item) -> PiResult<Vec<Self::Item>> {
+    fn create(item: Self::Item) -> PiResult<Self::Item> {
         let mut items = Self::read_list()?;
-        items.push(item);
+        items.push(item.clone());
         let mut path = PathBuf::from(&Settings::get_cli_settings()?.path_to_storage_dir.unwrap());
         path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
-        let db = DB::open_default(path).unwrap();
-        let project_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
-        match to_allocvec(&project_ids) {
-            Ok(payload) => match db.put(format!("{}ids", Self::get_collection_name()), payload) {
+        let db = DB::open_default(path)?;
+        let item_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
+        match to_allocvec(&item_ids) {
+            Ok(payload) => match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
                 Ok(_) => {}
                 Err(err) => {
                     error!("Error writing project IDs: {}", err);
@@ -35,26 +36,24 @@ pub trait Crud {
                 error!("Error serializing project IDs: {}", err);
                 return Err(err.into());
             }
-        }
-        for item in &items {
-            match to_allocvec(&item) {
-                Ok(payload) => match db.put(
-                    format!("{}{}", Self::get_collection_name(), item.get_id()),
-                    payload,
-                ) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Error writing project {}: {}", item.get_id(), err);
-                        return Err(err.into());
-                    }
-                },
+        };
+        match to_allocvec(&item) {
+            Ok(payload) => match db.put(
+                format!("{}/{}", Self::get_collection_name(), item.get_id()),
+                payload,
+            ) {
+                Ok(_) => {}
                 Err(err) => {
-                    error!("Error serializing project {}: {}", item.get_id(), err);
+                    error!("Error writing project {}: {}", item.get_id(), err);
                     return Err(err.into());
                 }
+            },
+            Err(err) => {
+                error!("Error serializing project {}: {}", item.get_id(), err);
+                return Err(err.into());
             }
         }
-        Ok(items)
+        Ok(item)
     }
 
     fn read_list() -> PiResult<Vec<Self::Item>> {
@@ -62,7 +61,7 @@ pub trait Crud {
         let mut path = PathBuf::from(&settings.path_to_storage_dir.unwrap());
         path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
         let db = DB::open_default(path).unwrap();
-        match db.get(format!("{}ids", Self::get_collection_name())) {
+        match db.get(format!("{}/ids", Self::get_collection_name())) {
             Ok(project_ids) => match project_ids {
                 Some(project_ids) => {
                     let mut items: Vec<Self::Item> = vec![];
@@ -74,7 +73,7 @@ pub trait Crud {
                         }
                     };
                     for item_id in item_ids {
-                        match db.get(format!("{}{}", Self::get_collection_name(), item_id)) {
+                        match db.get(format!("{}/{}", Self::get_collection_name(), item_id)) {
                             Ok(item) => match item {
                                 Some(item) => {
                                     let item = match from_bytes(&item) {
@@ -106,7 +105,29 @@ pub trait Crud {
         }
     }
 
-    // fn read(&self, id: &str) -> Result<T, String>;
+    fn read(&self, id: &str) -> PiResult<Self::Item> {
+        let settings = Settings::get_cli_settings()?;
+        let mut path = PathBuf::from(&settings.path_to_storage_dir.unwrap());
+        path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
+        let db = DB::open_default(path)?;
+        match db.get(format!("{}/{}", Self::get_collection_name(), id)) {
+            Ok(item) => match item {
+                Some(item) => match from_bytes(&item) {
+                    Ok(item) => Ok(item),
+                    Err(err) => {
+                        error!("Error deserializing project {}: {}", id, err);
+                        return Err(err.into());
+                    }
+                },
+                None => {
+                    error!("Item with ID {} not found", id);
+                    Err(PiError::CrudError("Item not found".to_string()))
+                }
+            },
+            Err(err) => Err(err.into()),
+        }
+    }
+
     // fn update(&self, id: &str, item: T) -> Result<(), String>;
     // fn delete(&self, id: &str) -> Result<(), String>;
 }

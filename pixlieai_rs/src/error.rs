@@ -26,7 +26,7 @@ pub enum PiError {
     #[error("Config error: {0}")]
     SettingsError(#[from] config::ConfigError),
 
-    #[error("Failed to write config file")]
+    #[error("Failed to write config file: {0}")]
     FailedToWriteConfigFile(String),
 
     #[error("API key not configured")]
@@ -58,6 +58,9 @@ pub enum PiError {
 
     #[error("Error from Actix Web Blocking Error: {0}")]
     ActixWebError(#[from] actix_web::error::BlockingError),
+
+    #[error("Error in CRUD: {0}")]
+    CrudError(String),
 }
 
 impl ResponseError for PiError {

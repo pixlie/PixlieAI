@@ -22,7 +22,7 @@ pub mod engine;
 pub mod manager;
 pub mod setup;
 
-use crate::entity::content::TypedData;
+// use crate::entity::content::TypedData;
 pub use engine::Engine;
 pub use engine::LockedEngine;
 
@@ -42,7 +42,7 @@ pub enum Payload {
     Table(Table),
     TableRow(TableRow),
     Label(String),
-    TypedData(TypedData),
+    // TypedData(TypedData),
     NamedEntity(String, String), // label, text
 }
 
