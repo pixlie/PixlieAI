@@ -1,4 +1,4 @@
-use super::{Node, NodeId, NodeWorker, Payload, PendingNode, RelationType};
+use super::{CommonLabels, Label, Node, NodeId, NodeWorker, Payload, PendingNode};
 use crate::entity::web::{Domain, Link};
 use chrono::Utc;
 use log::{error, info};
@@ -25,7 +25,7 @@ struct LastTick {
 // All the entity labels are loaded in the engine
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    pub labels: RwLock<HashSet<String>>,
+    pub labels: RwLock<HashSet<Label>>,
     pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
     nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
@@ -142,12 +142,10 @@ impl Engine {
                         id.clone(),
                         RwLock::new(Node {
                             id: id.clone(),
-                            label: label.clone(),
                             payload,
 
-                            parent_id: None,
-                            part_node_ids: vec![],
-                            related_node_ids: vec![],
+                            labels: vec![],
+                            edges: HashMap::new(),
                             written_at: Utc::now(),
                         }),
                     );
@@ -177,36 +175,26 @@ impl Engine {
             } else {
                 self.add_node(pending_node.payload)
             };
-            // Add a relation edge or part edge from the parent node to the new node
+            // Add a connection edge from the parent node to the new node
             match self.nodes.read() {
-                Ok(nodes) => match nodes.get(&pending_node.creating_node_id) {
-                    Some(node) => match pending_node.related_type {
-                        RelationType::IsPart => {
-                            node.write().unwrap().part_node_ids.push(id.clone());
-                        }
-                        RelationType::IsRelated => {
-                            node.write().unwrap().related_node_ids.push(id.clone());
-                        }
-                    },
+                Ok(nodes) => match nodes.get(&pending_node.parent_node_id) {
+                    Some(node) => {
+                        node.write()
+                            .unwrap()
+                            .edges
+                            .entry(pending_node.relation_label)
+                            .and_modify(|existing| existing.push(id.clone()))
+                            .or_insert(vec![])
+                            .push(id.clone());
+                    }
                     None => {}
                 },
                 Err(_err) => {}
             }
-            // Add a relation edge from the new node to the parent node
+            // Add a connection edge from the new node to the parent node
             match self.nodes.read() {
                 Ok(nodes) => match nodes.get(&id) {
-                    Some(node) => match pending_node.related_type {
-                        // RelationType::IsPart => {
-                        //     node.write().unwrap().part_node_ids.push(pending_node.creating_node_id);
-                        // }
-                        RelationType::IsRelated => {
-                            node.write()
-                                .unwrap()
-                                .related_node_ids
-                                .push(pending_node.creating_node_id);
-                        }
-                        _ => {}
-                    },
+                    Some(_node) => {}
                     None => {}
                 },
                 Err(_err) => {}
@@ -219,19 +207,11 @@ impl Engine {
         count > 0
     }
 
-    pub fn add_part_node(&self, parent_id: &NodeId, payload: Payload) {
+    pub fn add_connection(&self, parent_id: &NodeId, payload: Payload, label: Label) {
         self.nodes_to_write.write().unwrap().push(PendingNode {
             payload,
-            creating_node_id: parent_id.clone(),
-            related_type: RelationType::IsPart,
-        });
-    }
-
-    pub fn add_related_node(&self, parent_id: &NodeId, payload: Payload) {
-        self.nodes_to_write.write().unwrap().push(PendingNode {
-            payload,
-            creating_node_id: parent_id.clone(),
-            related_type: RelationType::IsRelated,
+            parent_node_id: parent_id.clone(),
+            relation_label: label,
         });
     }
 
@@ -387,41 +367,30 @@ impl Engine {
 
     pub fn can_fetch_within_domain(&self, node_id: &NodeId, link: &Link) -> bool {
         // Get the related domain node for the URL from the engine
-        let (domain, domain_node_id) = match self.nodes.read() {
-            Ok(nodes) => match nodes.get(node_id) {
-                Some(node) => {
-                    match node.read().unwrap().related_node_ids.iter().find_map(
-                        |node_id| match self.nodes.read() {
-                            Ok(nodes) => match nodes.get(node_id) {
-                                Some(node) => match node.read() {
-                                    Ok(node) => match node.payload {
-                                        Payload::Domain(ref domain) => {
-                                            Some((domain.clone(), node_id.clone()))
-                                        }
-                                        _ => None,
-                                    },
-                                    Err(_err) => None,
-                                },
-                                None => None,
-                            },
-                            Err(_err) => None,
+        // TODO: Move this function to the Domain node
+        let (domain, domain_node_id): (Domain, NodeId) = {
+            let connected = self.get_node_ids_connected_with_label(
+                node_id.clone(),
+                CommonLabels::Related.to_string(),
+            );
+            let found: Option<(Domain, NodeId)> = match self.nodes.read() {
+                Ok(nodes) => connected
+                    .iter()
+                    .find_map(|node_id| match nodes.get(node_id) {
+                        Some(node) => match node.read().unwrap().payload {
+                            Payload::Domain(ref domain) => Some((domain.clone(), node_id.clone())),
+                            _ => None,
                         },
-                    ) {
-                        Some((domain, domain_node_id)) => (domain, domain_node_id),
-                        None => {
-                            error!("Can not find domain for link: {}", &link.url);
-                            return false;
-                        }
-                    }
-                }
+                        None => None,
+                    }),
+                Err(_err) => None,
+            };
+            match found {
+                Some(found) => found,
                 None => {
                     error!("Can not find domain for link: {}", &link.url);
                     return false;
                 }
-            },
-            Err(_err) => {
-                error!("Can not find domain for link: {}", &link.url);
-                return false;
             }
         };
 
@@ -477,6 +446,40 @@ impl Engine {
             return true;
         }
         false
+    }
+
+    pub fn get_node_ids_connected_with_label(
+        &self,
+        starting_node_id: NodeId,
+        label: Label,
+    ) -> Vec<NodeId> {
+        match self.nodes.read() {
+            Ok(nodes) => match nodes.get(&starting_node_id) {
+                Some(node) => match node.read().unwrap().edges.get(&label) {
+                    Some(node_ids) => node_ids.clone(),
+                    None => vec![],
+                },
+                None => vec![],
+            },
+            Err(_err) => vec![],
+        }
+    }
+
+    pub fn get_first_node_id_connected_with_label(
+        &self,
+        starting_node_id: NodeId,
+        label: Label,
+    ) -> Option<NodeId> {
+        match self.nodes.read() {
+            Ok(nodes) => match nodes.get(&starting_node_id) {
+                Some(node) => match node.read().unwrap().edges.get(&label) {
+                    Some(node_ids) => node_ids.first().cloned(),
+                    None => None,
+                },
+                None => None,
+            },
+            Err(_err) => None,
+        }
     }
 }
 

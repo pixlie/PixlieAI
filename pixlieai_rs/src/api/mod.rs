@@ -2,7 +2,6 @@ use crate::{config, engine, error::PiResult, projects, CommsChannel};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
-use actix_web::web::route;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http, rt, web, App, HttpServer, Responder,

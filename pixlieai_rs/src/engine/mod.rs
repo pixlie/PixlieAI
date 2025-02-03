@@ -12,6 +12,7 @@ use crate::entity::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
@@ -46,29 +47,37 @@ pub enum Payload {
 }
 
 pub type NodeId = Arc<u32>;
+pub type Label = String;
+
+#[derive(Display, TS)]
+#[ts(export)]
+pub enum CommonLabels {
+    Related,
+    Parent,
+    Child,
+}
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct Node {
     pub id: NodeId,
-    pub label: String,
-    pub payload: Payload,
+    pub labels: Vec<Label>, // A node can have multiple labels, like tags
+    pub payload: Payload,   // The payload label is the primary label of a node
 
-    pub parent_id: Option<NodeId>,
-    pub part_node_ids: Vec<NodeId>, // These nodes make up the parts of this node
-    pub related_node_ids: Vec<NodeId>, // Nodes that are related, but are not part of this node
+    pub edges: HashMap<Label, Vec<NodeId>>, // Nodes that are connected to this node
     pub written_at: DateTime<Utc>,
 }
 
-pub enum RelationType {
-    IsPart,
-    IsRelated,
+impl Node {
+    pub fn get_primary_label(&self) -> Label {
+        self.payload.to_string()
+    }
 }
 
 pub struct PendingNode {
     pub payload: Payload,
-    pub creating_node_id: NodeId,
-    pub related_type: RelationType,
+    pub parent_node_id: NodeId,
+    pub relation_label: Label,
 }
 
 pub trait NodeWorker {

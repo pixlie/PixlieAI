@@ -1,5 +1,5 @@
-use super::web::{Link, WebPage};
-use crate::engine::{Engine, NodeWorker, Payload};
+use super::web::Link;
+use crate::engine::{Engine, Payload};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -13,23 +13,23 @@ pub enum WorkflowArguments {
     Link(Link),
 }
 
-impl WorkflowProcess {
-    fn get_label(&self) -> String {
-        match self {
-            WorkflowProcess::Link => Link::get_label(),
-            WorkflowProcess::WebPage => WebPage::get_label(),
-        }
-    }
+// impl WorkflowProcess {
+//     fn get_label(&self) -> String {
+//         match self {
+//             WorkflowProcess::Link => Link::get_label(),
+//             WorkflowProcess::WebPage => WebPage::get_label(),
+//         }
+//     }
 
-    fn arguments_needed(&self) -> Vec<String> {
-        match self {
-            WorkflowProcess::Link => vec![Link::get_label()],
-            _ => vec![],
-        }
-    }
+//     fn arguments_needed(&self) -> Vec<String> {
+//         match self {
+//             WorkflowProcess::Link => vec![Link::get_label()],
+//             _ => vec![],
+//         }
+//     }
 
-    // fn check_arguments(&self) {}
-}
+//     // fn check_arguments(&self) {}
+// }
 
 // pub struct For {
 //     each: WorkflowProcess,

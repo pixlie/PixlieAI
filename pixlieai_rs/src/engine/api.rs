@@ -1,4 +1,4 @@
-use super::{Engine, Node, Payload};
+use super::{CommonLabels, Node, Payload};
 use crate::engine::LockedEngine;
 use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
@@ -7,7 +7,6 @@ use actix_web::{web, Responder};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Deref;
 use strum::Display;
 use ts_rs::TS;
 use url::Url;
@@ -262,13 +261,14 @@ pub fn handle_engine_api_request(
                                         url: link_write.url,
                                         is_fetched: false,
                                     }));
-                                    engine.add_related_node(
+                                    engine.add_connection(
                                         &node_id,
                                         Payload::Domain(Domain {
                                             name: domain.to_string(),
                                             is_allowed_to_crawl: true,
                                             last_fetched_at: None,
                                         }),
+                                        CommonLabels::Related.to_string(),
                                     );
                                 }
                                 Err(_err) => {

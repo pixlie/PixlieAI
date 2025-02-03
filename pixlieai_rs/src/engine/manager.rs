@@ -5,19 +5,17 @@ use crate::{
     error::PiResult,
     CommsChannel, PiEvent,
 };
-use log::{debug, error};
+use log::debug;
 use std::sync::RwLock;
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
-    thread::{self, sleep},
-    time::Duration,
+    thread::{self},
 };
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum JobType {
     SetupGliner,
-    // EngineTick(String), // Only one per project
 }
 
 pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()> {

@@ -26,6 +26,8 @@ pub struct Project {
 pub struct ProjectCreate {
     pub name: String,
     pub description: Option<String>,
+    pub starting_urls: Vec<String>,
+    pub webpage_keywords: Vec<String>,
 }
 
 impl Project {
