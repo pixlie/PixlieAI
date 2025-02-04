@@ -3,7 +3,7 @@ import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
 import NodeListItem from "../../widgets/node/ListItem";
 import Tabs from "../../widgets/navigation/Tab";
-import { useSearchParams } from "@solidjs/router";
+import { useParams, useSearchParams } from "@solidjs/router";
 
 const labelTypes: string[] = ["Domain", "Link"];
 type LabelType = (typeof labelTypes)[number];
@@ -11,6 +11,7 @@ type LabelType = (typeof labelTypes)[number];
 const Crawl: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
+  const params = useParams();
 
   const getSelectNodeIds = createMemo<number[]>(() =>
     !!searchParams.label &&
@@ -29,17 +30,21 @@ const Crawl: Component = () => {
 
   onMount(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Domain").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Domain").then((_) => {});
     }
   });
 
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Domain").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Domain").then((_) => {});
     }
   });
 

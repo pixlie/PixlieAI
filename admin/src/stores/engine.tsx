@@ -17,11 +17,11 @@ const makeStore = () => {
   return [
     store,
     {
-      fetchNodesByLabel: async (label: string) => {
+      fetchNodesByLabel: async (projectId: string, label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(
-          `${pixlieAIAPIRoot}/api/engine/nodes?` +
+          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
             new URLSearchParams({
               label,
             }).toString(),

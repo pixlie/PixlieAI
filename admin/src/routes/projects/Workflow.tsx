@@ -56,6 +56,7 @@ const LinkForm: Component = () => {
 const Workflow: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
+  const params = useParams();
 
   const getSelectNodeIds = createMemo<number[]>(() =>
     !!searchParams.label &&
@@ -74,17 +75,21 @@ const Workflow: Component = () => {
 
   onMount(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
     }
   });
 
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
     }
   });
 
