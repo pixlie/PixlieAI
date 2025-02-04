@@ -17,7 +17,7 @@ const NodePayload: Component<NodePayloadProps> = (props) => {
           </div>
         </div>
       )}
-      {"Domain" in props.payload && <div>{props.payload["Domain"]}</div>}
+      {"Domain" in props.payload && <div>{props.payload["Domain"].name}</div>}
       {"Title" in props.payload && (
         <div class="mb-2">{props.payload["Title"]}</div>
       )}
