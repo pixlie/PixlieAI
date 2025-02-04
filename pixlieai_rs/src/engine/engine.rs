@@ -1,4 +1,4 @@
-use super::{CommonLabels, Label, Node, NodeId, NodeWorker, Payload, PendingNode};
+use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeLabel, NodeWorker, Payload};
 use crate::entity::web::{Domain, Link};
 use chrono::Utc;
 use log::{error, info};
@@ -15,6 +15,23 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+struct PendingRootNode {
+    id: NodeId,
+    payload: Payload,
+}
+
+struct PendingRelatedNode {
+    id: NodeId,                          // New node ID
+    payload: Payload,                    // New node payload
+    parent_node_id: NodeId,              // Who is creating this node (parent)
+    edge_labels: (EdgeLabel, EdgeLabel), // From parent to child and back
+}
+
+enum PendingNode {
+    Root(PendingRootNode),
+    Related(PendingRelatedNode),
+}
+
 struct LastTick {
     // ran_at: Option<Instant>,
     nodes_added: usize,
@@ -25,9 +42,9 @@ struct LastTick {
 // All the entity labels are loaded in the engine
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    pub labels: RwLock<HashSet<Label>>,
+    pub labels: RwLock<HashSet<NodeLabel>>,
     pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
-    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
+    pending_nodes: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
     last_tick: LastTick,
@@ -40,7 +57,7 @@ impl Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
-            nodes_to_write: RwLock::new(vec![]),
+            pending_nodes: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             node_ids_by_label: RwLock::new(HashMap::new()),
             last_tick: LastTick {
@@ -117,14 +134,9 @@ impl Engine {
         count > 0
     }
 
-    pub fn add_node(&self, payload: Payload) -> NodeId {
+    fn save_node(&self, id: NodeId, payload: Payload) {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
-        let id = Arc::new({
-            let mut id = self.last_node_id.lock().unwrap();
-            *id += 1;
-            *id
-        });
         // Store the label in the engine
         {
             match self.labels.write() {
@@ -160,62 +172,128 @@ impl Engine {
                 .entry(label.clone())
                 .and_modify(|entries| entries.push(id.clone()))
                 .or_insert(vec![id.clone()]);
-        }
-        id
+        };
     }
 
-    pub fn add_pending_nodes(&self) -> bool {
+    fn add_pending_nodes(&self) -> bool {
         let mut count = 0;
         let mut nodes_to_write: Vec<PendingNode> =
-            self.nodes_to_write.write().unwrap().drain(..).collect();
+            self.pending_nodes.write().unwrap().drain(..).collect();
         while let Some(pending_node) = nodes_to_write.pop() {
-            let id = if let Some(existing_node_id) = self.find_existing(&pending_node.payload) {
-                // If the payload already exists in the graph, we simply add a relation edge
-                existing_node_id
-            } else {
-                self.add_node(pending_node.payload)
-            };
-            // Add a connection edge from the parent node to the new node
-            match self.nodes.read() {
-                Ok(nodes) => match nodes.get(&pending_node.parent_node_id) {
-                    Some(node) => {
-                        node.write()
-                            .unwrap()
-                            .edges
-                            .entry(pending_node.relation_label)
-                            .and_modify(|existing| existing.push(id.clone()))
-                            .or_insert(vec![])
-                            .push(id.clone());
+            match pending_node {
+                PendingNode::Root(pending_root_node) => {
+                    self.save_node(pending_root_node.id, pending_root_node.payload);
+                }
+                PendingNode::Related(pending_related_node) => {
+                    self.save_node(
+                        pending_related_node.id.clone(),
+                        pending_related_node.payload,
+                    );
+                    // Add a connection edge from the parent node to the new node
+                    match self.nodes.read() {
+                        Ok(nodes) => {
+                            match nodes.get(&pending_related_node.parent_node_id.clone()) {
+                                Some(node) => {
+                                    node.write()
+                                        .unwrap()
+                                        .edges
+                                        .entry(pending_related_node.edge_labels.0)
+                                        .and_modify(|existing| {
+                                            existing.push(pending_related_node.id.clone())
+                                        })
+                                        .or_insert(vec![])
+                                        .push(pending_related_node.id.clone());
+                                }
+                                None => {}
+                            }
+                        }
+                        Err(_err) => {}
                     }
-                    None => {}
-                },
-                Err(_err) => {}
+                    // Add a connection edge from the new node to the parent node
+                    match self.nodes.read() {
+                        Ok(nodes) => match nodes.get(&pending_related_node.id.clone()) {
+                            Some(node) => {
+                                node.write()
+                                    .unwrap()
+                                    .edges
+                                    .entry(pending_related_node.edge_labels.1)
+                                    .and_modify(|existing| {
+                                        existing.push(pending_related_node.parent_node_id.clone())
+                                    })
+                                    .or_insert(vec![])
+                                    .push(pending_related_node.parent_node_id);
+                            }
+                            None => {}
+                        },
+                        Err(_err) => {}
+                    }
+                    count += 1;
+                }
             }
-            // Add a connection edge from the new node to the parent node
-            match self.nodes.read() {
-                Ok(nodes) => match nodes.get(&id) {
-                    Some(_node) => {}
-                    None => {}
-                },
-                Err(_err) => {}
-            }
-            count += 1;
         }
+
         if count > 0 {
             info!("Added {} nodes", count);
         }
         count > 0
     }
 
-    pub fn add_connection(&self, parent_id: &NodeId, payload: Payload, label: Label) {
-        self.nodes_to_write.write().unwrap().push(PendingNode {
-            payload,
-            parent_node_id: parent_id.clone(),
-            relation_label: label,
+    pub fn add_node(&self, payload: Payload) -> NodeId {
+        if let Some(existing_node_id) = self.find_existing(&payload) {
+            // If there is the same payload saved in the graph, we do not add a new node
+            return existing_node_id;
+        }
+        if let Some(existing_node_id) = self.find_pending(&payload) {
+            // If there is a pending node with the same payload, we do not add a new node
+            return existing_node_id;
+        }
+        let id = Arc::new({
+            let mut id = self.last_node_id.lock().unwrap();
+            *id += 1;
+            *id
         });
+        self.pending_nodes
+            .write()
+            .unwrap()
+            .push(PendingNode::Root(PendingRootNode {
+                id: id.clone(),
+                payload,
+            }));
+        id
     }
 
-    fn find_existing(&self, payload: &Payload) -> Option<Arc<u32>> {
+    pub fn add_connection(
+        &self,
+        parent_id: &NodeId,
+        payload: Payload,
+        edge_labels: (EdgeLabel, EdgeLabel),
+    ) -> NodeId {
+        if let Some(existing_node_id) = self.find_existing(&payload) {
+            // If there is the same payload saved in the graph, we do not add a new node
+            return existing_node_id;
+        }
+        if let Some(existing_node_id) = self.find_pending(&payload) {
+            // If there is a pending node with the same payload, we do not add a new node
+            return existing_node_id;
+        }
+        let id = Arc::new({
+            let mut id = self.last_node_id.lock().unwrap();
+            *id += 1;
+            *id
+        });
+        self.pending_nodes
+            .write()
+            .unwrap()
+            .push(PendingNode::Related(PendingRelatedNode {
+                id: id.clone(),
+                payload,
+                parent_node_id: parent_id.clone(),
+                edge_labels,
+            }));
+        id
+    }
+
+    fn find_existing(&self, payload: &Payload) -> Option<NodeId> {
         // For certain node payloads, check if there is a node with the same payload
         match payload {
             Payload::Domain(ref domain) => {
@@ -294,7 +372,11 @@ impl Engine {
         }
     }
 
-    pub fn save_to_disk(&self, storage_path: &String) {
+    fn find_pending(&self, _payload: &Payload) -> Option<Arc<u32>> {
+        None
+    }
+
+    fn save_to_disk(&self, storage_path: &String) {
         // We use RocksDB to store the graph
         let db = DB::open_default(storage_path).unwrap();
         match self.nodes.read() {
@@ -326,7 +408,7 @@ impl Engine {
         }
     }
 
-    pub fn load_from_disk(&mut self, storage_path: &String) {
+    fn load_from_disk(&mut self, storage_path: &String) {
         let db = DB::open_default(storage_path).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
         for item in iter {
@@ -371,7 +453,7 @@ impl Engine {
         let (domain, domain_node_id): (Domain, NodeId) = {
             let connected = self.get_node_ids_connected_with_label(
                 node_id.clone(),
-                CommonLabels::Related.to_string(),
+                CommonEdgeLabels::Related.to_string(),
             );
             let found: Option<(Domain, NodeId)> = match self.nodes.read() {
                 Ok(nodes) => connected
@@ -445,13 +527,23 @@ impl Engine {
         if self.last_tick.nodes_added > 0 || self.last_tick.nodes_updated > 0 {
             return true;
         }
+        match self.pending_nodes.read(){
+            Ok(nodes) => {
+                if nodes.len() > 0 {
+                    return true;
+                }
+            }
+            Err(_err) => {
+                error!("Error reading pending nodes");
+            }
+        }
         false
     }
 
     pub fn get_node_ids_connected_with_label(
         &self,
         starting_node_id: NodeId,
-        label: Label,
+        label: NodeLabel,
     ) -> Vec<NodeId> {
         match self.nodes.read() {
             Ok(nodes) => match nodes.get(&starting_node_id) {
@@ -468,7 +560,7 @@ impl Engine {
     pub fn get_first_node_id_connected_with_label(
         &self,
         starting_node_id: NodeId,
-        label: Label,
+        label: NodeLabel,
     ) -> Option<NodeId> {
         match self.nodes.read() {
             Ok(nodes) => match nodes.get(&starting_node_id) {

@@ -1,5 +1,5 @@
 use super::{Link, WebPage};
-use crate::engine::{CommonLabels, Engine, NodeId, Payload};
+use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
 use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
 use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
 use log::error;
@@ -223,7 +223,7 @@ impl WebPage {
         let current_link = current_link.unwrap();
         let parts = self.scrape_helper(&current_link);
         for part in parts {
-            engine.add_connection(node_id, part, CommonLabels::Child.to_string());
+            engine.add_connection(node_id, part, (CommonEdgeLabels::Child.to_string(), CommonEdgeLabels::Parent.to_string()));
         }
     }
 }

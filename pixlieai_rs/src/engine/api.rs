@@ -1,4 +1,4 @@
-use super::{CommonLabels, Node, Payload};
+use super::{CommonEdgeLabels, Node, Payload};
 use crate::engine::LockedEngine;
 use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
@@ -268,7 +268,7 @@ pub fn handle_engine_api_request(
                                             is_allowed_to_crawl: true,
                                             last_fetched_at: None,
                                         }),
-                                        CommonLabels::Related.to_string(),
+                                        (CommonEdgeLabels::Related.to_string(), CommonEdgeLabels::Related.to_string()),
                                     );
                                 }
                                 Err(_err) => {

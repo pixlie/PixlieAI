@@ -1,4 +1,4 @@
-use crate::engine::CommonLabels;
+use crate::engine::CommonEdgeLabels;
 use crate::{
     config::Settings,
     engine::{Engine, NodeId, NodeWorker, Payload},
@@ -61,7 +61,7 @@ impl NodeWorker for Link {
                             contents,
                             ..Default::default()
                         }),
-                        CommonLabels::Related.to_string(),
+                        (CommonEdgeLabels::Related.to_string(), CommonEdgeLabels::Related.to_string()),
                     );
                     return Some(Link {
                         is_fetched: true,
@@ -91,8 +91,10 @@ pub struct WebPage {
 
 impl WebPage {
     fn get_link(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
-        let related_node_ids = engine
-            .get_node_ids_connected_with_label(node_id.clone(), CommonLabels::Related.to_string());
+        let related_node_ids = engine.get_node_ids_connected_with_label(
+            node_id.clone(),
+            CommonEdgeLabels::Related.to_string(),
+        );
 
         related_node_ids
             .iter()
@@ -109,8 +111,10 @@ impl WebPage {
     }
 
     fn get_content(&self, engine: &Engine, node_id: &NodeId) -> String {
-        let part_node_ids = engine
-            .get_node_ids_connected_with_label(node_id.clone(), CommonLabels::Child.to_string());
+        let part_node_ids = engine.get_node_ids_connected_with_label(
+            node_id.clone(),
+            CommonEdgeLabels::Child.to_string(),
+        );
 
         part_node_ids
             .iter()

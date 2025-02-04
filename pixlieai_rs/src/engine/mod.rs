@@ -47,11 +47,12 @@ pub enum Payload {
 }
 
 pub type NodeId = Arc<u32>;
-pub type Label = String;
+pub type NodeLabel = String;
+pub type EdgeLabel = String;
 
 #[derive(Display, TS)]
 #[ts(export)]
-pub enum CommonLabels {
+pub enum CommonEdgeLabels {
     Related,
     Parent,
     Child,
@@ -61,23 +62,11 @@ pub enum CommonLabels {
 #[ts(export)]
 pub struct Node {
     pub id: NodeId,
-    pub labels: Vec<Label>, // A node can have multiple labels, like tags
-    pub payload: Payload,   // The payload label is the primary label of a node
-
-    pub edges: HashMap<Label, Vec<NodeId>>, // Nodes that are connected to this node
-    pub written_at: DateTime<Utc>,
-}
-
-impl Node {
-    pub fn get_primary_label(&self) -> Label {
-        self.payload.to_string()
-    }
-}
-
-pub struct PendingNode {
+    pub labels: Vec<EdgeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
-    pub parent_node_id: NodeId,
-    pub relation_label: Label,
+
+    pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
+    pub written_at: DateTime<Utc>,
 }
 
 pub trait NodeWorker {

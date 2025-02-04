@@ -5,7 +5,7 @@ use crate::{
     error::PiResult,
     CommsChannel, PiEvent,
 };
-use log::debug;
+use log::{debug, error};
 use std::sync::RwLock;
 use std::{
     collections::HashMap,
@@ -43,7 +43,9 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                         engine.tick(&project_id);
                     }
                 }
-                Err(_err) => {}
+                Err(_err) => {
+                    error!("Error reading engine for project {}", project_id);
+                }
             }
         }
 
@@ -93,6 +95,10 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                         None => {
                             // Project is not loaded, let's load it into an engine
                             {
+                                debug!(
+                                    "Project {} is not loaded, loading it",
+                                    api_request.project_id
+                                );
                                 let settings: Settings = Settings::get_cli_settings()?;
                                 let engine = RwLock::new(Engine::open_project(
                                     settings.path_to_storage_dir.as_ref().unwrap(),
