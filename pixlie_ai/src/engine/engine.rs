@@ -129,7 +129,7 @@ impl Engine {
     fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
-        // Store the label in the engine
+        // Store the label from the type of Payload in the engine
         {
             match self.labels.write() {
                 Ok(mut labels) => {
@@ -138,6 +138,18 @@ impl Engine {
                 Err(_err) => {}
             }
         };
+        // Store the other given labels in the engine
+        for label in labels.iter() {
+            // Store the label in the engine
+            {
+                match self.labels.write() {
+                    Ok(mut labels) => {
+                        labels.insert(label.clone());
+                    }
+                    Err(_err) => {}
+                }
+            };
+        }
         // Store the node in the engine
         {
             match self.nodes.write() {
@@ -148,7 +160,7 @@ impl Engine {
                             id: id.clone(),
                             payload,
 
-                            labels,
+                            labels: labels.clone(),
                             edges: HashMap::new(),
                             written_at: Utc::now(),
                         }),
@@ -157,13 +169,19 @@ impl Engine {
                 Err(_err) => {}
             }
         }
-        // Store the node in nodes_by_label_id
+        // Store the node in nodes_by_label_id for the label from Payload and given labels
         {
             let mut nodes_by_label = self.node_ids_by_label.write().unwrap();
             nodes_by_label
                 .entry(label.clone())
                 .and_modify(|entries| entries.push(id.clone()))
                 .or_insert(vec![id.clone()]);
+            for label in labels.iter() {
+                nodes_by_label
+                    .entry(label.clone())
+                    .and_modify(|entries| entries.push(id.clone()))
+                    .or_insert(vec![id.clone()]);
+            }
         };
     }
 
