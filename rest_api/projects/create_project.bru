@@ -1,15 +1,21 @@
 meta {
-  name: get projects
+  name: create_project
   type: http
-  seq: 1
+  seq: 2
 }
 
-get {
+post {
   url: {{api}}/projects
-  body: none
+  body: json
   auth: none
 }
 
 headers {
   User-Agent: insomnia/10.1.1
+}
+
+body:json {
+  {
+    "name": "Demo Project"
+  }
 }

@@ -1,7 +1,7 @@
 use super::Settings;
 use crate::{api::ApiState, PiEvent};
 use actix_web::{error::ErrorInternalServerError, web, Responder, Result};
-use log::error;
+use log::{debug, error};
 
 pub async fn read_settings() -> Result<impl Responder> {
     let mut settings = Settings::get_cli_settings()?;
@@ -14,8 +14,8 @@ pub async fn read_settings() -> Result<impl Responder> {
 }
 
 pub async fn check_settings_status() -> Result<impl Responder> {
-    let settings = Settings::get_cli_settings().unwrap();
-    Ok(web::Json(settings.get_settings_status().unwrap()))
+    let settings = Settings::get_cli_settings()?;
+    Ok(web::Json(settings.get_settings_status()?))
 }
 
 pub async fn update_settings(
@@ -26,9 +26,7 @@ pub async fn update_settings(
     match Settings::get_cli_settings() {
         Ok(mut settings) => {
             settings.merge_updates(&updates);
-            if updates.current_project.is_none() {
-                settings.current_project = None
-            }
+            debug!("Settings updated: {:?}", settings);
             match settings.write_to_config_file() {
                 Ok(_) => {
                     api_state

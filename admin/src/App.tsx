@@ -14,12 +14,13 @@ const AppInner: Component<AppInnerProps> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   return (
-    <div class={`relative isolate flex min-h-svh w-full ${getColors().app}`}>
-      <Loader />
-      <Sidebar />
+    <Loader>
+      <div class={`relative isolate flex min-h-svh w-full ${getColors().app}`}>
+        <Sidebar />
 
-      <div class="ml-48 px-6 flex-1">{props.children}</div>
-    </div>
+        <div class="ml-48 px-6 flex-1 ">{props.children}</div>
+      </div>
+    </Loader>
   );
 };
 

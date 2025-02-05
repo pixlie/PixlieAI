@@ -15,9 +15,9 @@ const Button: Component<IPropTypes> = (props) => {
   const getSizeClass = createMemo(() => {
     switch (props.size) {
       case "sm":
-        return "px-2.5 py-1.5 text-sm font-thin";
+        return "px-2.5 py-1.5 text-sm font-semibold";
       case "lg":
-        return "px-6 py-3 text-xl font-bold";
+        return "px-6 py-3 text-xl font-normal";
       case "base":
       default:
         return "px-4 py-2 text-base font-normal";

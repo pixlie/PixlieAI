@@ -12,11 +12,8 @@ use crate::entity::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::RwLock,
-};
+use std::collections::HashMap;
+use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 
@@ -25,9 +22,14 @@ pub mod engine;
 pub mod manager;
 pub mod setup;
 
+// use crate::entity::content::TypedData;
+pub use engine::Engine;
+pub use engine::LockedEngine;
+
 #[derive(Clone, Display, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub enum Payload {
+    // StepPrompt(String),
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
@@ -40,33 +42,31 @@ pub enum Payload {
     Table(Table),
     TableRow(TableRow),
     Label(String),
+    // TypedData(TypedData),
     NamedEntity(String, String), // label, text
 }
 
 pub type NodeId = Arc<u32>;
+pub type NodeLabel = String;
+pub type EdgeLabel = String;
+
+#[derive(Display, TS)]
+#[ts(export)]
+pub enum CommonEdgeLabels {
+    Related,
+    Parent,
+    Child,
+}
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct Node {
     pub id: NodeId,
-    pub label: String,
+    pub labels: Vec<EdgeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
-    pub parent_id: Option<NodeId>,
-    pub part_node_ids: Vec<NodeId>, // These nodes make up the parts of this node
-    pub related_node_ids: Vec<NodeId>, // Nodes that are related, but are not part of this node
+    pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
     pub written_at: DateTime<Utc>,
-}
-
-pub enum RelationType {
-    IsPart,
-    IsRelated,
-}
-
-pub struct PendingNode {
-    pub payload: Payload,
-    pub creating_node_id: NodeId,
-    pub related_type: RelationType,
 }
 
 pub trait NodeWorker {
@@ -78,18 +78,4 @@ pub trait NodeWorker {
     {
         None
     }
-}
-
-// The engine keeps track of all the data nodes and their relationships
-// All the entity labels are loaded in the engine
-// All data may not be loaded in the engine, some of them may be on disk
-pub struct Engine {
-    pub labels: RwLock<HashSet<String>>,
-    pub nodes: HashMap<NodeId, RwLock<Node>>, // All nodes that are in the engine
-    nodes_to_write: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
-    last_node_id: Mutex<u32>,
-    storage_root: String,
-    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
-    // pub entity_type_last_run: RwLock<HashMap<String, DateTime<Utc>>>,
-    // pub execute_every: u8, // Number of seconds to wait before executing the engine
 }

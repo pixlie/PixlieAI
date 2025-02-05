@@ -2,12 +2,12 @@ import { Component } from "solid-js";
 import { Route } from "@solidjs/router";
 import Setup from "./settings/Setup";
 import SettingsContainer from "./Settings";
-import Workflow from "./perProject/Workflow";
-import Insights from "./perProject/Insights";
-import Graph from "./perProject/Graph";
-import Crawl from "./perProject/Crawl";
-import ProjectList from "../widgets/projects/ProjectList";
-import PerProjectWrapper from "./perProject";
+import Workflow from "./projects/Workflow";
+import Insights from "./projects/Insights";
+import Graph from "./projects/Graph";
+import Crawl from "./projects/Crawl";
+import ProjectList from "./projects/ProjectList";
+import PerProjectWrapper from "./projects/PerProject";
 
 const Routes: Component = () => {
   return (

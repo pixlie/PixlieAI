@@ -3,10 +3,8 @@ import type { Payload } from "./Payload";
 
 export type Node = {
   id: number;
-  label: string;
+  labels: Array<string>;
   payload: Payload;
-  parent_id: number | null;
-  part_node_ids: Array<number>;
-  related_node_ids: Array<number>;
+  edges: { [key in string]?: Array<number> };
   written_at: string;
 };

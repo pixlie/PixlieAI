@@ -4,7 +4,7 @@ use ts_rs::TS;
 
 pub mod api;
 
-#[derive(Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub enum ProjectOwner {
     Myself,
@@ -12,7 +12,7 @@ pub enum ProjectOwner {
     Organization(String),
 }
 
-#[derive(Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct Project {
     pub uuid: String,

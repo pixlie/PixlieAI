@@ -6,5 +6,4 @@ export type Settings = {
   ollamaPort: number | null;
   gpuHosts: Array<string> | null;
   pathToStorageDir: string | null;
-  currentProject: string | null;
 };

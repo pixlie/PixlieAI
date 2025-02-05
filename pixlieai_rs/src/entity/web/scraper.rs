@@ -1,7 +1,7 @@
 use super::{Link, WebPage};
-use crate::engine::{Engine, NodeId, Payload};
-use crate::entity::content::{BulletPoints, OrderedPoints};
-use crate::entity::content::{Heading, Paragraph, TableCellType, TableRow, Title};
+use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
+use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
+use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
 use log::error;
 use scraper::Html;
 use url::Url;
@@ -165,11 +165,11 @@ impl WebPage {
                                 for table_body in table_child.descendent_elements() {
                                     match table_body.value().name() {
                                         "tr" => {
-                                            let mut row: Vec<TableCellType> = vec![];
+                                            let mut row: Vec<TypedData> = vec![];
                                             for table_cell in table_body.descendent_elements() {
                                                 match table_cell.value().name() {
                                                     "td" => {
-                                                        row.push(TableCellType::String(
+                                                        row.push(TypedData::String(
                                                             table_cell
                                                                 .text()
                                                                 .map(|x| x.to_string())
@@ -182,7 +182,11 @@ impl WebPage {
                                                     _ => {}
                                                 }
                                             }
-                                            body.push(TableRow(row));
+                                            body.push(TableRow(
+                                                row.into_iter()
+                                                    .map(|x| CellData::TypedData(x))
+                                                    .collect(),
+                                            ));
                                         }
                                         _ => {}
                                     }
@@ -219,7 +223,7 @@ impl WebPage {
         let current_link = current_link.unwrap();
         let parts = self.scrape_helper(&current_link);
         for part in parts {
-            engine.add_part_node(node_id, part);
+            engine.add_connection(node_id, part, (CommonEdgeLabels::Child.to_string(), CommonEdgeLabels::Parent.to_string()));
         }
     }
 }

@@ -4,5 +4,5 @@ import type { Node } from "./Node";
 export type EngineApiData = {
   nodes: Array<Node>;
   labels: Array<string>;
-  nodes_by_label: { [key in string]?: Array<Node> };
+  node_ids_by_label: { [label: string]: Array<number> };
 };

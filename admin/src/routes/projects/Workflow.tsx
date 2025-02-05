@@ -2,7 +2,7 @@ import { Component, createEffect, createMemo, onMount } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine.tsx";
-import { useSearchParams } from "@solidjs/router";
+import { useParams, useSearchParams } from "@solidjs/router";
 import NodeListItem from "../../widgets/node/ListItem.tsx";
 import TextInput from "../../widgets/interactable/TextInput.tsx";
 import { createStore } from "solid-js/store";
@@ -19,6 +19,7 @@ interface ILinkFormData {
 
 const LinkForm: Component = () => {
   const [_, { insertNode }] = useEngine();
+  const params = useParams();
   const [formData, setFormData] = createStore<ILinkFormData>({
     url: "",
   });
@@ -31,7 +32,7 @@ const LinkForm: Component = () => {
   };
 
   const handleSubmit = async () => {
-    insertNode({
+    insertNode(params.projectId, {
       Link: formData,
     } as NodeWrite).then((_) => {});
   };
@@ -55,6 +56,7 @@ const LinkForm: Component = () => {
 const Workflow: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
+  const params = useParams();
 
   const getSelectNodeIds = createMemo<number[]>(() =>
     !!searchParams.label &&
@@ -73,17 +75,21 @@ const Workflow: Component = () => {
 
   onMount(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
     }
   });
 
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType).then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
+        (_) => {},
+      );
     } else {
-      fetchNodesByLabel("Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
     }
   });
 

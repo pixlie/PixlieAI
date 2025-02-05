@@ -17,27 +17,11 @@ const makeStore = () => {
   return [
     store,
     {
-      setCurrentProject: async (projectId: string) => {
-        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            current_project: projectId,
-          }),
-        });
-        if (!response.ok) {
-          throw new Error("Failed to select project");
-        }
-      },
-
-      fetchNodesByLabel: async (label: string) => {
+      fetchNodesByLabel: async (projectId: string, label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
         let response = await fetch(
-          `${pixlieAIAPIRoot}/api/engine/nodes?` +
+          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
             new URLSearchParams({
               label,
             }).toString(),
@@ -56,13 +40,14 @@ const makeStore = () => {
               }),
               state.nodes,
             ),
-            // nodeIdsByLabel: {
-            //   ...state.nodeIdsByLabel,
-            //   [label]:
-            //     "NodeIdsByLabel" in engineResponse.data.query_type
-            //       ? engineResponse.data.query_type.NodeIdsByLabel[1]
-            //       : [],
-            // },
+            nodeIdsByLabel: {
+              ...state.nodeIdsByLabel,
+              [label]:
+                engineResponse.data.node_ids_by_label &&
+                label in engineResponse.data.node_ids_by_label
+                  ? engineResponse.data.node_ids_by_label[label]
+                  : [],
+            },
             isFetching: false,
             isReady: true,
           }));
@@ -75,15 +60,18 @@ const makeStore = () => {
         }
       },
 
-      insertNode: async (node: NodeWrite) => {
+      insertNode: async (projectId: string, node: NodeWrite) => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/engine/nodes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        let response = await fetch(
+          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(node),
           },
-          body: JSON.stringify(node),
-        });
+        );
         if (!response.ok) {
           throw new Error("Failed to insert node");
         }

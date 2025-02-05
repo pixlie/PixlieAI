@@ -18,7 +18,7 @@ const Setup: Component = () => {
     <div class="max-w-screen-sm">
       <Markdown text={help} />
 
-      {!!workspace.isReady ? (
+      {workspace.isReady ? (
         <>
           <div class="mb-16" />
           <StorageDir />

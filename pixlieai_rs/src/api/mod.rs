@@ -1,7 +1,7 @@
 use crate::{config, engine, error::PiResult, projects, CommsChannel};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
-use actix_web::web::route;
+use actix_web::http::header::HeaderName;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http, rt, web, App, HttpServer, Responder,
@@ -36,7 +36,13 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
             let cors = Cors::default()
                 .allowed_origin("http://localhost:5173")
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-                .allowed_headers(vec![http::header::ACCEPT, http::header::CONTENT_TYPE]);
+                .allowed_headers(vec![
+                    http::header::ACCEPT,
+                    http::header::CONTENT_TYPE,
+                    // https://docs.sentry.io/platforms/javascript/tracing/trace-propagation/dealing-with-cors-issues/
+                    HeaderName::from_bytes(b"Baggage").unwrap(),
+                    HeaderName::from_bytes(b"Sentry-Trace").unwrap(),
+                ]);
 
             let static_admin = Files::new("/", static_admin_dir.clone())
                 .index_file("index.html")
@@ -68,11 +74,11 @@ pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()
                         .route(web::post().to(config::api::request_setup_gliner)),
                 )
                 .service(
-                    web::resource(format!("{}/engine/labels", API_ROOT))
+                    web::resource(format!("{}/engine/{{project_id}}/labels", API_ROOT))
                         .route(web::get().to(engine::api::get_labels)),
                 )
                 .service(
-                    web::resource(format!("{}/engine/nodes", API_ROOT))
+                    web::resource(format!("{}/engine/{{project_id}}/nodes", API_ROOT))
                         .route(web::get().to(engine::api::get_nodes_by_label))
                         .route(web::post().to(engine::api::create_node)),
                 )

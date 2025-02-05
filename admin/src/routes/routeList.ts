@@ -4,6 +4,13 @@ interface Route {
   href: string;
 }
 
+const globalRoutes = [
+  {
+    label: "Projects",
+    href: "/p",
+  },
+];
+
 const perProjectRoutes = [
   {
     label: "Workflow",
@@ -24,4 +31,4 @@ const perProjectRoutes = [
 ];
 
 export type { Route };
-export { perProjectRoutes };
+export { globalRoutes, perProjectRoutes };
