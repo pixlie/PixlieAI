@@ -57,8 +57,4 @@ uuid = { version = "1.12.0", default-features = false, features = ["v4"] }
 
 [[bin]]
 name = "cli"
-path = "src/bin/cli.rs"
-
-[[bin]]
-name = "try_engine"
-path = "src/bin/try_engine.rs"
+path = "src/bin/pixlie.rs"
