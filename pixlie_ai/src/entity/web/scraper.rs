@@ -223,7 +223,7 @@ impl WebPage {
         let current_link = current_link.unwrap();
         let parts = self.scrape_helper(&current_link);
         for part in parts {
-            engine.add_connection(node_id, part, (CommonEdgeLabels::Child.to_string(), CommonEdgeLabels::Parent.to_string()));
+            engine.add_connection(node_id, part, vec![], (CommonEdgeLabels::Child.to_string(), CommonEdgeLabels::Parent.to_string()));
         }
     }
 }

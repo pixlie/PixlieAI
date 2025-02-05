@@ -50,8 +50,12 @@ pub type NodeId = Arc<u32>;
 pub type NodeLabel = String;
 pub type EdgeLabel = String;
 
-#[derive(Display, TS)]
-#[ts(export)]
+#[derive(Display)]
+pub enum CommonNodeLabels {
+    AddedByUser,
+}
+
+#[derive(Display)]
 pub enum CommonEdgeLabels {
     Related,
     Parent,

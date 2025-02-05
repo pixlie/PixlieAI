@@ -1,4 +1,4 @@
-use super::{CommonEdgeLabels, Node, Payload};
+use super::{CommonEdgeLabels, CommonNodeLabels, Node, Payload};
 use crate::engine::LockedEngine;
 use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
@@ -257,10 +257,13 @@ pub fn handle_engine_api_request(
                         Ok(parsed) => match parsed.domain() {
                             Some(domain) => match engine.write() {
                                 Ok(engine) => {
-                                    let node_id = engine.add_node(Payload::Link(Link {
-                                        url: link_write.url,
-                                        is_fetched: false,
-                                    }));
+                                    let node_id = engine.add_node(
+                                        Payload::Link(Link {
+                                            url: link_write.url,
+                                            is_fetched: false,
+                                        }),
+                                        Vec::from([CommonNodeLabels::AddedByUser.to_string()]),
+                                    );
                                     engine.add_connection(
                                         &node_id,
                                         Payload::Domain(Domain {
@@ -268,7 +271,11 @@ pub fn handle_engine_api_request(
                                             is_allowed_to_crawl: true,
                                             last_fetched_at: None,
                                         }),
-                                        (CommonEdgeLabels::Related.to_string(), CommonEdgeLabels::Related.to_string()),
+                                        vec![],
+                                        (
+                                            CommonEdgeLabels::Related.to_string(),
+                                            CommonEdgeLabels::Related.to_string(),
+                                        ),
                                     );
                                 }
                                 Err(_err) => {

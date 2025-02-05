@@ -18,11 +18,13 @@ use std::{
 struct PendingRootNode {
     id: NodeId,
     payload: Payload,
+    labels: Vec<NodeLabel>,
 }
 
 struct PendingRelatedNode {
-    id: NodeId,                          // New node ID
-    payload: Payload,                    // New node payload
+    id: NodeId,       // New node ID
+    payload: Payload, // New node payload
+    labels: Vec<NodeLabel>,
     parent_node_id: NodeId,              // Who is creating this node (parent)
     edge_labels: (EdgeLabel, EdgeLabel), // From parent to child and back
 }
@@ -30,12 +32,6 @@ struct PendingRelatedNode {
 enum PendingNode {
     Root(PendingRootNode),
     Related(PendingRelatedNode),
-}
-
-struct LastTick {
-    // ran_at: Option<Instant>,
-    nodes_added: usize,
-    nodes_updated: usize,
 }
 
 // The engine keeps track of all the data nodes and their relationships
@@ -46,25 +42,21 @@ pub struct Engine {
     pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
     pending_nodes: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
     last_node_id: Mutex<u32>,
-    pub node_ids_by_label: RwLock<HashMap<String, Vec<NodeId>>>,
-    last_tick: LastTick,
+    pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
+    project_path_on_disk: PathBuf,
 }
 
 pub type LockedEngine = RwLock<Engine>;
 
 impl Engine {
-    fn new() -> Engine {
+    fn new(storage_root: PathBuf) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
             pending_nodes: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             node_ids_by_label: RwLock::new(HashMap::new()),
-            last_tick: LastTick {
-                // ran_at: None,
-                nodes_added: 0,
-                nodes_updated: 0,
-            },
+            project_path_on_disk: storage_root,
         };
         engine
     }
@@ -72,21 +64,21 @@ impl Engine {
     pub fn open_project(storage_root: &String, project_id: &String) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
-        let mut engine = Engine::new();
-        engine.load_from_disk(&storage_path.to_str().unwrap().to_string());
+        let mut engine = Engine::new(storage_path.clone());
+        engine.load_from_disk();
         engine
     }
 
-    pub fn tick(&self, storage_root: &String) -> (bool, bool) {
+    pub fn tick(&self) -> (bool, bool) {
         let updated = self.process_nodes();
         let added = self.add_pending_nodes();
         if added || updated {
-            self.save_to_disk(storage_root);
+            self.save_to_disk();
         }
         (added, updated)
     }
 
-    pub fn process_nodes(&self) -> bool {
+    fn process_nodes(&self) -> bool {
         let updates: Vec<(NodeId, Option<Payload>)> = match self.nodes.read() {
             Ok(nodes) => nodes
                 .iter()
@@ -134,7 +126,7 @@ impl Engine {
         count > 0
     }
 
-    fn save_node(&self, id: NodeId, payload: Payload) {
+    fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
         // Store the label in the engine
@@ -156,7 +148,7 @@ impl Engine {
                             id: id.clone(),
                             payload,
 
-                            labels: vec![],
+                            labels,
                             edges: HashMap::new(),
                             written_at: Utc::now(),
                         }),
@@ -182,12 +174,17 @@ impl Engine {
         while let Some(pending_node) = nodes_to_write.pop() {
             match pending_node {
                 PendingNode::Root(pending_root_node) => {
-                    self.save_node(pending_root_node.id, pending_root_node.payload);
+                    self.save_node(
+                        pending_root_node.id,
+                        pending_root_node.payload,
+                        pending_root_node.labels,
+                    );
                 }
                 PendingNode::Related(pending_related_node) => {
                     self.save_node(
                         pending_related_node.id.clone(),
                         pending_related_node.payload,
+                        pending_related_node.labels,
                     );
                     // Add a connection edge from the parent node to the new node
                     match self.nodes.read() {
@@ -238,7 +235,7 @@ impl Engine {
         count > 0
     }
 
-    pub fn add_node(&self, payload: Payload) -> NodeId {
+    pub fn add_node(&self, payload: Payload, labels: Vec<NodeLabel>) -> NodeId {
         if let Some(existing_node_id) = self.find_existing(&payload) {
             // If there is the same payload saved in the graph, we do not add a new node
             return existing_node_id;
@@ -258,6 +255,7 @@ impl Engine {
             .push(PendingNode::Root(PendingRootNode {
                 id: id.clone(),
                 payload,
+                labels,
             }));
         id
     }
@@ -266,6 +264,7 @@ impl Engine {
         &self,
         parent_id: &NodeId,
         payload: Payload,
+        labels: Vec<NodeLabel>,
         edge_labels: (EdgeLabel, EdgeLabel),
     ) -> NodeId {
         if let Some(existing_node_id) = self.find_existing(&payload) {
@@ -287,6 +286,7 @@ impl Engine {
             .push(PendingNode::Related(PendingRelatedNode {
                 id: id.clone(),
                 payload,
+                labels,
                 parent_node_id: parent_id.clone(),
                 edge_labels,
             }));
@@ -376,9 +376,9 @@ impl Engine {
         None
     }
 
-    fn save_to_disk(&self, storage_path: &String) {
+    fn save_to_disk(&self) {
         // We use RocksDB to store the graph
-        let db = DB::open_default(storage_path).unwrap();
+        let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
         match self.nodes.read() {
             Ok(nodes) => {
                 for (node_id, node) in nodes.iter() {
@@ -408,8 +408,8 @@ impl Engine {
         }
     }
 
-    fn load_from_disk(&mut self, storage_path: &String) {
-        let db = DB::open_default(storage_path).unwrap();
+    fn load_from_disk(&mut self) {
+        let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
         for item in iter {
             let (key, value) = match item {
@@ -524,10 +524,7 @@ impl Engine {
     }
 
     pub fn needs_to_tick(&self) -> bool {
-        if self.last_tick.nodes_added > 0 || self.last_tick.nodes_updated > 0 {
-            return true;
-        }
-        match self.pending_nodes.read(){
+        match self.pending_nodes.read() {
             Ok(nodes) => {
                 if nodes.len() > 0 {
                     return true;

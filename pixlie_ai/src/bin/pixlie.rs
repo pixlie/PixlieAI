@@ -1,5 +1,5 @@
 use log::error;
-use pixlieai::{
+use pixlie_ai::{
     api::api_manager, config::check_cli_settings, engine::manager::engine_manager, CommsChannel,
 };
 use std::env::var;

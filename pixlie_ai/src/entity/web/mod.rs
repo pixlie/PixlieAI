@@ -61,7 +61,11 @@ impl NodeWorker for Link {
                             contents,
                             ..Default::default()
                         }),
-                        (CommonEdgeLabels::Related.to_string(), CommonEdgeLabels::Related.to_string()),
+                        vec![],
+                        (
+                            CommonEdgeLabels::Related.to_string(),
+                            CommonEdgeLabels::Related.to_string(),
+                        ),
                     );
                     return Some(Link {
                         is_fetched: true,
