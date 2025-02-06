@@ -257,21 +257,23 @@ pub fn handle_engine_api_request(
                         Ok(parsed) => match parsed.domain() {
                             Some(domain) => match engine.write() {
                                 Ok(engine) => {
-                                    let node_id = engine.add_node(
+                                    let link_node_id = engine.add_node(
                                         Payload::Link(Link {
                                             url: link_write.url,
                                             is_fetched: false,
                                         }),
-                                        Vec::from([CommonNodeLabels::AddedByUser.to_string()]),
+                                        vec![CommonNodeLabels::AddedByUser.to_string()],
                                     );
-                                    engine.add_connection(
-                                        &node_id,
+                                    let domain_node_id = engine.add_node(
                                         Payload::Domain(Domain {
                                             name: domain.to_string(),
                                             is_allowed_to_crawl: true,
                                             last_fetched_at: None,
                                         }),
-                                        vec![],
+                                        vec![CommonNodeLabels::AddedByUser.to_string()],
+                                    );
+                                    engine.add_connection(
+                                        (link_node_id, domain_node_id),
                                         (
                                             CommonEdgeLabels::Related.to_string(),
                                             CommonEdgeLabels::Related.to_string(),

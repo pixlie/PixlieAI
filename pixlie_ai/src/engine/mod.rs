@@ -60,6 +60,8 @@ pub enum CommonEdgeLabels {
     Related,
     Parent,
     Child,
+    Content,
+    Path,
 }
 
 #[derive(Clone, Deserialize, Serialize, TS)]

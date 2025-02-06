@@ -5,7 +5,7 @@ use crate::{
     error::PiResult,
     services::{anthropic, ollama, TextClassificationProvider},
 };
-use log::{error, info};
+use log::{debug, error, info};
 use rand::seq::SliceRandom;
 use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
@@ -43,6 +43,7 @@ impl NodeWorker for Link {
     }
 
     fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
+        debug!("Processing Link node: {}", self.url);
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
             return None;
@@ -51,20 +52,24 @@ impl NodeWorker for Link {
         if !engine.can_fetch_within_domain(node_id, self) {
             return None;
         }
+        debug!("Domain for link {} is allowed to crawl", self.url);
 
         match get(&self.url) {
             Ok(response) => match response.text() {
                 Ok(contents) => {
-                    engine.add_connection(
-                        node_id,
+                    debug!("Fetched HTML from {}", self.url);
+                    let content_node_id = engine.add_node(
                         Payload::FileHTML(WebPage {
                             contents,
                             ..Default::default()
                         }),
                         vec![],
+                    );
+                    engine.add_connection(
+                        (node_id.clone(), content_node_id),
                         (
-                            CommonEdgeLabels::Related.to_string(),
-                            CommonEdgeLabels::Related.to_string(),
+                            CommonEdgeLabels::Content.to_string(),
+                            CommonEdgeLabels::Path.to_string(),
                         ),
                     );
                     return Some(Link {

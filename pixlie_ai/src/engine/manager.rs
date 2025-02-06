@@ -39,7 +39,6 @@ pub fn engine_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult
                 Ok(engine) => {
                     if engine.needs_to_tick() {
                         debug!("Ticking engine for project {}", project_id);
-                        // let engine = engine.clone();
                         engine.tick();
                     }
                 }

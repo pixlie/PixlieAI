@@ -1,7 +1,7 @@
 use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeLabel, NodeWorker, Payload};
 use crate::entity::web::{Domain, Link};
 use chrono::Utc;
-use log::{error, info};
+use log::{debug, error, info};
 use postcard::{from_bytes, to_allocvec};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rocksdb::DB;
@@ -15,23 +15,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-struct PendingRootNode {
+struct PendingNode {
     id: NodeId,
     payload: Payload,
     labels: Vec<NodeLabel>,
 }
 
-struct PendingRelatedNode {
-    id: NodeId,       // New node ID
-    payload: Payload, // New node payload
-    labels: Vec<NodeLabel>,
-    parent_node_id: NodeId,              // Who is creating this node (parent)
+struct PendingEdge {
+    node_ids: (NodeId, NodeId),          // Parent and child node IDs
     edge_labels: (EdgeLabel, EdgeLabel), // From parent to child and back
-}
-
-enum PendingNode {
-    Root(PendingRootNode),
-    Related(PendingRelatedNode),
 }
 
 // The engine keeps track of all the data nodes and their relationships
@@ -40,7 +32,8 @@ enum PendingNode {
 pub struct Engine {
     pub labels: RwLock<HashSet<NodeLabel>>,
     pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
-    pending_nodes: RwLock<Vec<PendingNode>>, // Nodes pending to be written at the end of nodes.iter_mut()
+    pending_nodes: RwLock<Vec<PendingNode>>,          // Nodes pending to be written
+    pending_edges: RwLock<Vec<PendingEdge>>,          // Edges pending to be written
     last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
     project_path_on_disk: PathBuf,
@@ -54,6 +47,7 @@ impl Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
             pending_nodes: RwLock::new(vec![]),
+            pending_edges: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             node_ids_by_label: RwLock::new(HashMap::new()),
             project_path_on_disk: storage_root,
@@ -69,13 +63,14 @@ impl Engine {
         engine
     }
 
-    pub fn tick(&self) -> (bool, bool) {
+    pub fn tick(&self) -> bool {
+        let added_nodes = self.add_pending_nodes();
+        let added_edges = self.add_pending_edges();
         let updated = self.process_nodes();
-        let added = self.add_pending_nodes();
-        if added || updated {
+        if added_nodes || added_edges || updated {
             self.save_to_disk();
         }
-        (added, updated)
+        added_nodes || added_edges || updated
     }
 
     fn process_nodes(&self) -> bool {
@@ -126,7 +121,13 @@ impl Engine {
         count > 0
     }
 
-    fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) {
+    fn save_node(
+        &self,
+        id: NodeId,
+        payload: Payload,
+        labels: Vec<NodeLabel>,
+        edges: HashMap<EdgeLabel, Vec<NodeId>>,
+    ) {
         // Get new ID after incrementing existing node ID
         let label = payload.to_string();
         // Store the label from the type of Payload in the engine
@@ -161,7 +162,7 @@ impl Engine {
                             payload,
 
                             labels: labels.clone(),
-                            edges: HashMap::new(),
+                            edges,
                             written_at: Utc::now(),
                         }),
                     );
@@ -186,71 +187,115 @@ impl Engine {
     }
 
     fn add_pending_nodes(&self) -> bool {
-        let mut count = 0;
+        let mut count_nodes = 0;
         let mut nodes_to_write: Vec<PendingNode> =
             self.pending_nodes.write().unwrap().drain(..).collect();
         while let Some(pending_node) = nodes_to_write.pop() {
-            match pending_node {
-                PendingNode::Root(pending_root_node) => {
-                    self.save_node(
-                        pending_root_node.id,
-                        pending_root_node.payload,
-                        pending_root_node.labels,
-                    );
-                }
-                PendingNode::Related(pending_related_node) => {
-                    self.save_node(
-                        pending_related_node.id.clone(),
-                        pending_related_node.payload,
-                        pending_related_node.labels,
-                    );
-                    // Add a connection edge from the parent node to the new node
-                    match self.nodes.read() {
-                        Ok(nodes) => {
-                            match nodes.get(&pending_related_node.parent_node_id.clone()) {
-                                Some(node) => {
-                                    node.write()
-                                        .unwrap()
-                                        .edges
-                                        .entry(pending_related_node.edge_labels.0)
-                                        .and_modify(|existing| {
-                                            existing.push(pending_related_node.id.clone())
-                                        })
-                                        .or_insert(vec![])
-                                        .push(pending_related_node.id.clone());
-                                }
-                                None => {}
-                            }
-                        }
-                        Err(_err) => {}
-                    }
-                    // Add a connection edge from the new node to the parent node
-                    match self.nodes.read() {
-                        Ok(nodes) => match nodes.get(&pending_related_node.id.clone()) {
-                            Some(node) => {
-                                node.write()
-                                    .unwrap()
-                                    .edges
-                                    .entry(pending_related_node.edge_labels.1)
-                                    .and_modify(|existing| {
-                                        existing.push(pending_related_node.parent_node_id.clone())
-                                    })
-                                    .or_insert(vec![])
-                                    .push(pending_related_node.parent_node_id);
-                            }
-                            None => {}
-                        },
-                        Err(_err) => {}
-                    }
-                    count += 1;
-                }
-            }
+            self.save_node(
+                pending_node.id,
+                pending_node.payload,
+                pending_node.labels,
+                HashMap::new(),
+            );
+            count_nodes += 1;
         }
 
-        if count > 0 {
-            info!("Added {} nodes", count);
+        if count_nodes > 0 {
+            info!("Added {} nodes", count_nodes);
         }
-        count > 0
+        count_nodes > 0
+    }
+
+    fn add_pending_edges(&self) -> bool {
+        let mut count_edges = 0;
+        let mut edges_to_write: Vec<PendingEdge> =
+            self.pending_edges.write().unwrap().drain(..).collect();
+        match self.nodes.read() {
+            Ok(nodes) => {
+                while let Some(pending_edge) = edges_to_write.pop() {
+                    // Add a connection edge from the parent node to the new node
+                    match nodes.get(&pending_edge.node_ids.0.clone()) {
+                        Some(node) => match node.write() {
+                            Ok(mut node) => {
+                                node.edges
+                                    .entry(pending_edge.edge_labels.0.clone())
+                                    .and_modify(|existing| {
+                                        existing.push(pending_edge.node_ids.1.clone())
+                                    })
+                                    .or_insert(vec![pending_edge.node_ids.1.clone()]);
+                                count_edges += 1;
+                                debug!(
+                                    "Added {} edge from node {} to node {}",
+                                    pending_edge.edge_labels.0,
+                                    pending_edge.node_ids.0,
+                                    pending_edge.node_ids.1
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to add {} edge from node {} to node {}: {}",
+                                    pending_edge.edge_labels.0,
+                                    pending_edge.node_ids.0,
+                                    pending_edge.node_ids.1,
+                                    e
+                                );
+                            }
+                        },
+                        None => {
+                            error!(
+                                "Failed to add {} edge from node {} to node {}",
+                                pending_edge.edge_labels.0,
+                                pending_edge.node_ids.0,
+                                pending_edge.node_ids.1,
+                            );
+                        }
+                    };
+                    // Add a connection edge from the new node to the parent node
+                    match nodes.get(&pending_edge.node_ids.1.clone()) {
+                        Some(node) => match node.write() {
+                            Ok(mut node) => {
+                                node.edges
+                                    .entry(pending_edge.edge_labels.1.clone())
+                                    .and_modify(|existing| {
+                                        existing.push(pending_edge.node_ids.0.clone())
+                                    })
+                                    .or_insert(vec![pending_edge.node_ids.0.clone()]);
+                                count_edges += 1;
+                                debug!(
+                                    "Added {} edge from node {} to node {}",
+                                    pending_edge.edge_labels.1,
+                                    pending_edge.node_ids.1,
+                                    pending_edge.node_ids.0
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to add {} edge from node {} to node {}: {}",
+                                    pending_edge.edge_labels.1,
+                                    pending_edge.node_ids.1,
+                                    pending_edge.node_ids.0,
+                                    e
+                                );
+                            }
+                        },
+                        None => {
+                            error!(
+                                "Failed to add {} edge from node {} to node {}",
+                                pending_edge.edge_labels.1,
+                                pending_edge.node_ids.1,
+                                pending_edge.node_ids.0,
+                            );
+                        }
+                    }
+                }
+            }
+            Err(_err) => {}
+        }
+
+        if count_edges > 0 {
+            info!("Added {} edges", count_edges);
+        }
+        count_edges > 0
     }
 
     pub fn add_node(&self, payload: Payload, labels: Vec<NodeLabel>) -> NodeId {
@@ -267,48 +312,26 @@ impl Engine {
             *id += 1;
             *id
         });
-        self.pending_nodes
-            .write()
-            .unwrap()
-            .push(PendingNode::Root(PendingRootNode {
-                id: id.clone(),
-                payload,
-                labels,
-            }));
+        self.pending_nodes.write().unwrap().push(PendingNode {
+            id: id.clone(),
+            payload,
+            labels,
+        });
         id
     }
 
-    pub fn add_connection(
-        &self,
-        parent_id: &NodeId,
-        payload: Payload,
-        labels: Vec<NodeLabel>,
-        edge_labels: (EdgeLabel, EdgeLabel),
-    ) -> NodeId {
-        if let Some(existing_node_id) = self.find_existing(&payload) {
-            // If there is the same payload saved in the graph, we do not add a new node
-            return existing_node_id;
+    pub fn add_connection(&self, node_ids: (NodeId, NodeId), edge_labels: (EdgeLabel, EdgeLabel)) {
+        match self.pending_edges.write() {
+            Ok(mut pending_edges) => {
+                pending_edges.push(PendingEdge {
+                    node_ids,
+                    edge_labels,
+                });
+            }
+            Err(e) => {
+                error!("Failed to add pending edge: {}", e);
+            }
         }
-        if let Some(existing_node_id) = self.find_pending(&payload) {
-            // If there is a pending node with the same payload, we do not add a new node
-            return existing_node_id;
-        }
-        let id = Arc::new({
-            let mut id = self.last_node_id.lock().unwrap();
-            *id += 1;
-            *id
-        });
-        self.pending_nodes
-            .write()
-            .unwrap()
-            .push(PendingNode::Related(PendingRelatedNode {
-                id: id.clone(),
-                payload,
-                labels,
-                parent_node_id: parent_id.clone(),
-                edge_labels,
-            }));
-        id
     }
 
     fn find_existing(&self, payload: &Payload) -> Option<NodeId> {
@@ -468,10 +491,16 @@ impl Engine {
     pub fn can_fetch_within_domain(&self, node_id: &NodeId, link: &Link) -> bool {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
+        debug!("Checking if we can fetch within domain: {}", link.url);
         let (domain, domain_node_id): (Domain, NodeId) = {
             let connected = self.get_node_ids_connected_with_label(
                 node_id.clone(),
                 CommonEdgeLabels::Related.to_string(),
+            );
+            debug!(
+                "Found {} connected nodes with edge label {}",
+                connected.len(),
+                CommonEdgeLabels::Related.to_string()
             );
             let found: Option<(Domain, NodeId)> = match self.nodes.read() {
                 Ok(nodes) => connected
@@ -488,7 +517,7 @@ impl Engine {
             match found {
                 Some(found) => found,
                 None => {
-                    error!("Can not find domain for link: {}", &link.url);
+                    error!("Cannot find domain for link: {}", &link.url);
                     return false;
                 }
             }
@@ -515,8 +544,8 @@ impl Engine {
         }
 
         // Update the domain at the domain node id
-        match self.nodes.write() {
-            Ok(mut nodes) => match nodes.get_mut(&domain_node_id) {
+        match self.nodes.read() {
+            Ok(nodes) => match nodes.get(&domain_node_id) {
                 Some(node) => match node.write() {
                     Ok(mut node) => {
                         node.payload = Payload::Domain(Domain {
@@ -538,6 +567,7 @@ impl Engine {
             }
         }
 
+        debug!("Domain {} is allowed to crawl", domain.name);
         true
     }
 
