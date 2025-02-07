@@ -1,25 +1,19 @@
-use crate::engine::CommonEdgeLabels;
+use crate::engine::api::LinkWrite;
+use crate::engine::{CommonEdgeLabels, CommonNodeLabels, LockedEngine};
 use crate::{
     config::Settings,
-    engine::{Engine, NodeId, NodeWorker, Payload},
+    engine::{Engine, Node, NodeId, Payload},
     error::PiResult,
     services::{anthropic, ollama, TextClassificationProvider},
 };
 use log::{debug, error, info};
 use rand::seq::SliceRandom;
-use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use ts_rs::TS;
+use url::Url;
 
 pub mod scraper;
-
-// A link that should fetch
-#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
-pub struct Link {
-    pub url: String,
-    pub is_fetched: bool,
-}
 
 #[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
 #[ts(export)]
@@ -31,13 +25,67 @@ pub struct Domain {
     pub last_fetched_at: Option<Instant>,
 }
 
-impl NodeWorker for Domain {
+impl Node for Domain {
     fn get_label() -> String {
         "Domain".to_string()
     }
 }
 
-impl NodeWorker for Link {
+// A link that should fetch
+#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
+pub struct Link {
+    pub url: String,
+    pub is_fetched: bool,
+}
+
+impl Link {
+    pub fn add(url: &String, engine: &LockedEngine) -> PiResult<()> {
+        match Url::parse(url) {
+            Ok(parsed) => match parsed.domain() {
+                Some(domain) => match engine.write() {
+                    Ok(engine) => {
+                        let link_node_id = engine.add_node(
+                            Payload::Link(Link {
+                                url: url.to_string(),
+                                is_fetched: false,
+                            }),
+                            vec![CommonNodeLabels::AddedByUser.to_string()],
+                        );
+                        let domain_node_id = engine.add_node(
+                            Payload::Domain(Domain {
+                                name: domain.to_string(),
+                                is_allowed_to_crawl: true,
+                                last_fetched_at: None,
+                            }),
+                            vec![CommonNodeLabels::AddedByUser.to_string()],
+                        );
+                        engine.add_connection(
+                            (link_node_id, domain_node_id),
+                            (
+                                CommonEdgeLabels::Related.to_string(),
+                                CommonEdgeLabels::Related.to_string(),
+                            ),
+                        );
+                    }
+                    Err(_err) => {
+                        error!("Could not write to engine");
+                    }
+                },
+                None => {
+                    error!("Can not parse URL to get domain: {}", &url);
+                }
+            },
+            Err(err) => match err {
+                _ => {
+                    error!("Can not parse URL to get domain: {}", &url);
+                }
+            },
+        };
+        Ok(())
+    }
+}
+
+impl Node for Link {
     fn get_label() -> String {
         "Link".to_string()
     }
@@ -54,7 +102,18 @@ impl NodeWorker for Link {
         }
         debug!("Domain for link {} is allowed to crawl", self.url);
 
-        match get(&self.url) {
+        let client = match reqwest::blocking::Client::builder()
+            .user_agent("Pixlie AI")
+            .timeout(Duration::from_secs(10))
+            .build()
+        {
+            Ok(client) => client,
+            Err(err) => {
+                error!("Error building reqwest client: {}", err);
+                return None;
+            }
+        };
+        match client.get(&self.url).send() {
             Ok(response) => match response.text() {
                 Ok(contents) => {
                     debug!("Fetched HTML from {}", self.url);
@@ -100,10 +159,8 @@ pub struct WebPage {
 
 impl WebPage {
     fn get_link(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
-        let related_node_ids = engine.get_node_ids_connected_with_label(
-            node_id.clone(),
-            CommonEdgeLabels::Related.to_string(),
-        );
+        let related_node_ids = engine
+            .get_node_ids_connected_with_label(node_id.clone(), CommonEdgeLabels::Path.to_string());
 
         related_node_ids
             .iter()
@@ -226,7 +283,7 @@ impl WebPage {
     }
 }
 
-impl NodeWorker for WebPage {
+impl Node for WebPage {
     fn get_label() -> String {
         "WebPage".to_string()
     }

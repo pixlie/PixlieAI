@@ -1,4 +1,4 @@
-use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeLabel, NodeWorker, Payload};
+use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::web::{Domain, Link};
 use chrono::Utc;
 use log::{debug, error, info};
@@ -31,9 +31,9 @@ struct PendingEdge {
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
     pub labels: RwLock<HashSet<NodeLabel>>,
-    pub nodes: RwLock<HashMap<NodeId, RwLock<Node>>>, // All nodes that are in the engine
-    pending_nodes: RwLock<Vec<PendingNode>>,          // Nodes pending to be written
-    pending_edges: RwLock<Vec<PendingEdge>>,          // Edges pending to be written
+    pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
+    pending_nodes: RwLock<Vec<PendingNode>>,              // Nodes pending to be written
+    pending_edges: RwLock<Vec<PendingEdge>>,              // Edges pending to be written
     last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
     project_path_on_disk: PathBuf,
@@ -157,7 +157,7 @@ impl Engine {
                 Ok(mut nodes) => {
                     nodes.insert(
                         id.clone(),
-                        RwLock::new(Node {
+                        RwLock::new(NodeItem {
                             id: id.clone(),
                             payload,
 
@@ -461,14 +461,15 @@ impl Engine {
                 }
             };
             let node_id = Arc::new(read_le_u32(&mut &*key));
-            let node: Node = match from_bytes(&value) {
+            let node: NodeItem = match from_bytes(&value) {
                 Ok(node) => node,
                 Err(err) => {
                     error!("Error deserializing node: {}", err);
                     break;
                 }
             };
-            let label = node.payload.to_string().clone();
+            let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
+            labels.extend(node.labels.iter().cloned());
             {
                 match self.nodes.write() {
                     Ok(mut nodes) => {
@@ -478,13 +479,15 @@ impl Engine {
                 }
             }
 
-            // Store the node in nodes_by_label_id
-            self.node_ids_by_label
-                .write()
-                .unwrap()
-                .entry(label)
-                .and_modify(|entries| entries.push(node_id.clone()))
-                .or_insert(vec![node_id.clone()]);
+            for label in labels.into_iter() {
+                // Store the node in nodes_by_label_id
+                self.node_ids_by_label
+                    .write()
+                    .unwrap()
+                    .entry(label)
+                    .and_modify(|entries| entries.push(node_id.clone()))
+                    .or_insert(vec![node_id.clone()]);
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-use super::{CommonEdgeLabels, CommonNodeLabels, Node, Payload};
+use super::{CommonEdgeLabels, CommonNodeLabels, NodeItem, Payload};
 use crate::engine::LockedEngine;
 use crate::entity::web::{Domain, Link};
 use crate::{api::ApiState, error::PiResult};
@@ -42,7 +42,7 @@ pub enum EngineRequest {
 #[derive(Default, Serialize, TS)]
 #[ts(export)]
 pub struct EngineApiData {
-    pub nodes: Vec<Node>,
+    pub nodes: Vec<NodeItem>,
     pub labels: Vec<String>,
     #[ts(type = "{ [label: string]: Array<number> }")]
     pub node_ids_by_label: HashMap<String, Vec<u32>>,
@@ -216,7 +216,7 @@ pub fn handle_engine_api_request(
             Ok(engine) => match engine.node_ids_by_label.read() {
                 Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
                     Some(node_ids) => {
-                        let nodes: Vec<Node> = node_ids
+                        let nodes: Vec<NodeItem> = node_ids
                             .iter()
                             .filter_map(|node_id| match engine.nodes.read() {
                                 Ok(nodes) => match nodes.get(node_id) {
@@ -253,47 +253,7 @@ pub fn handle_engine_api_request(
         EngineRequest::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    match Url::parse(&link_write.url) {
-                        Ok(parsed) => match parsed.domain() {
-                            Some(domain) => match engine.write() {
-                                Ok(engine) => {
-                                    let link_node_id = engine.add_node(
-                                        Payload::Link(Link {
-                                            url: link_write.url,
-                                            is_fetched: false,
-                                        }),
-                                        vec![CommonNodeLabels::AddedByUser.to_string()],
-                                    );
-                                    let domain_node_id = engine.add_node(
-                                        Payload::Domain(Domain {
-                                            name: domain.to_string(),
-                                            is_allowed_to_crawl: true,
-                                            last_fetched_at: None,
-                                        }),
-                                        vec![CommonNodeLabels::AddedByUser.to_string()],
-                                    );
-                                    engine.add_connection(
-                                        (link_node_id, domain_node_id),
-                                        (
-                                            CommonEdgeLabels::Related.to_string(),
-                                            CommonEdgeLabels::Related.to_string(),
-                                        ),
-                                    );
-                                }
-                                Err(_err) => {
-                                    error!("Could not write to engine");
-                                }
-                            },
-                            None => {
-                                error!("Can not parse URL to get domain: {}", &link_write.url);
-                            }
-                        },
-                        Err(err) => match err {
-                            _ => {
-                                error!("Can not parse URL to get domain: {}", &link_write.url);
-                            }
-                        },
-                    };
+                    Link::add(&link_write.url, &engine)?;
                 }
             }
 

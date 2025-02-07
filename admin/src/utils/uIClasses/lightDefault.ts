@@ -17,6 +17,7 @@ const lightDefault = {
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     button: "bg-green-600 text-white",
+    link: "text-blue-600 hover:underline",
 
     tabs: "border-stone-300",
     "tabs.link":

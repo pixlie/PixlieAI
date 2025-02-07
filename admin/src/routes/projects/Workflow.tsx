@@ -10,7 +10,7 @@ import Button from "../../widgets/interactable/Button.tsx";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { IFormFieldValue } from "../../utils/types.tsx";
 
-const labelTypes: string[] = ["Link", "TextClassification"];
+const labelTypes: string[] = ["Link", "Domain"];
 type LabelType = (typeof labelTypes)[number];
 
 interface ILinkFormData {
@@ -108,7 +108,11 @@ const Workflow: Component = () => {
         </>
       )}
 
-      {searchParams.label === "Link" ? <LinkForm /> : null}
+      {searchParams.label === "Link" ? (
+        <div class="mt-6">
+          <LinkForm />
+        </div>
+      ) : null}
     </div>
   );
 };

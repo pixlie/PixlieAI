@@ -66,7 +66,7 @@ pub enum CommonEdgeLabels {
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub struct Node {
+pub struct NodeItem {
     pub id: NodeId,
     pub labels: Vec<EdgeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
@@ -75,7 +75,7 @@ pub struct Node {
     pub written_at: DateTime<Utc>,
 }
 
-pub trait NodeWorker {
+pub trait Node {
     fn get_label() -> String;
 
     fn process(&self, _engine: &Engine, _node_id: &NodeId) -> Option<Self>
