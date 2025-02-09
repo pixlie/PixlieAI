@@ -54,19 +54,36 @@ const LinkForm: Component = () => {
 };
 
 const Workflow: Component = () => {
-  const [engine, { fetchNodesByLabel }] = useEngine();
+  const [{ nodes, nodeIdsByLabel, isReady }, { fetchNodesByLabel }] =
+    useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
 
   const getSelectNodeIds = createMemo<number[]>(() =>
-    !!searchParams.label &&
-    (searchParams.label as LabelType) in engine.nodeIdsByLabel
-      ? engine.nodeIdsByLabel[searchParams.label as LabelType]
+    !!searchParams.label && (searchParams.label as LabelType) in nodeIdsByLabel
+      ? nodeIdsByLabel[searchParams.label as LabelType]
+      : [],
+  );
+
+  onMount(() => {
+    fetchNodesByLabel(params.projectId, "AddedByUser").then((_) => {});
+  });
+
+  // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
+  const getNodesInWorkflow = createMemo(() =>
+    isReady && "AddedByUser" in nodeIdsByLabel
+      ? nodeIdsByLabel["AddedByUser"].map((x) => {
+          if ("Link" in nodes[x].payload) {
+            return "Link";
+          } else if ("Domain" in nodes[x].payload) {
+            return "Domain";
+          }
+        })
       : [],
   );
 
   const getTabs = createMemo(() =>
-    labelTypes.map((l) => ({
+    getNodesInWorkflow().map((l) => ({
       label: `${l}(s)`,
       searchParamKey: "label",
       searchParamValue: l,
@@ -98,7 +115,7 @@ const Workflow: Component = () => {
       <Heading size={1}>Workflow</Heading>
 
       <Tabs tabs={getTabs()} />
-      {!engine.isReady ? (
+      {!isReady ? (
         <>Loading...</>
       ) : (
         <>

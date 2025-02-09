@@ -1,39 +1,18 @@
 import { Component } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { Payload } from "../../api_types/Payload";
-import { useUIClasses } from "../../stores/UIClasses.tsx";
+import LinkNode from "./LinkNode.tsx";
+import DomainNode from "./DomainNode.tsx";
 
 interface NodePayloadProps {
   payload: Payload;
 }
 
 const NodePayload: Component<NodePayloadProps> = (props) => {
-  const [_, { getColors }] = useUIClasses();
-
   return (
     <>
-      {"Link" in props.payload && (
-        <div class="grid grid-cols-3 items-center">
-          <div>
-            <a href={props.payload["Link"].url} class={getColors().link}>
-              {props.payload["Link"].url}
-            </a>
-          </div>
-          <div>
-            {props.payload["Link"].is_fetched ? "Fetched" : "Not Fetched"}
-          </div>
-        </div>
-      )}
-      {"Domain" in props.payload && (
-        <div>
-          <a
-            href={`https://${props.payload["Domain"].name}`}
-            class={getColors().link}
-          >
-            {props.payload["Domain"].name}
-          </a>
-        </div>
-      )}
+      {"Link" in props.payload && <LinkNode {...props.payload["Link"]} />}
+      {"Domain" in props.payload && <DomainNode {...props.payload["Domain"]} />}
       {"Title" in props.payload && (
         <div class="mb-2">{props.payload["Title"]}</div>
       )}
@@ -70,7 +49,7 @@ const NodeListItem: Component<NodeListItemProps> = (props) => {
 
   return (
     <>
-      {!!engine.isReady && props.nodeId in engine.nodes ? (
+      {engine.isReady && props.nodeId in engine.nodes ? (
         <NodePayload payload={engine.nodes[props.nodeId].payload} />
       ) : (
         <></>
