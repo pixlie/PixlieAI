@@ -1,37 +1,36 @@
-use super::{CommonEdgeLabels, CommonNodeLabels, NodeItem, Payload};
-use crate::engine::LockedEngine;
-use crate::entity::web::{Domain, Link};
+use super::{Engine, NodeItem};
+use crate::entity::web::Link;
+use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
-use crate::{CommsChannel, PiEvent};
 use actix_web::{web, Responder};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::Display;
 use ts_rs::TS;
-use url::Url;
 
-pub struct EngineRequestMessage {
+#[derive(Clone)]
+pub struct EngineRequest {
     pub request_id: u32,
     pub project_id: String,
-    pub payload: EngineRequest,
+    pub payload: EngineRequestPayload,
 }
 
-#[derive(Deserialize, TS)]
+#[derive(Clone, Deserialize, TS)]
 #[ts(export)]
 pub struct LinkWrite {
     pub url: String,
 }
 
-#[derive(Deserialize, Display, TS)]
+#[derive(Clone, Deserialize, Display, TS)]
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
 }
 
-#[derive(Deserialize, TS)]
+#[derive(Clone, Deserialize, TS)]
 #[ts(export)]
-pub enum EngineRequest {
+pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetRelatedNodes(u32),
@@ -39,27 +38,28 @@ pub enum EngineRequest {
     CreateNode(NodeWrite),
 }
 
-#[derive(Default, Serialize, TS)]
+#[derive(Clone, Default, Serialize, TS)]
 #[ts(export)]
-pub struct EngineApiData {
+pub struct EngineResponseResults {
     pub nodes: Vec<NodeItem>,
     pub labels: Vec<String>,
     #[ts(type = "{ [label: string]: Array<number> }")]
     pub node_ids_by_label: HashMap<String, Vec<u32>>,
 }
 
-#[derive(Serialize, TS)]
+#[derive(Clone, Serialize, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
-pub enum EngineApiResponse {
+pub enum EngineResponsePayload {
     Success,
-    Results(EngineApiData),
+    Results(EngineResponseResults),
     Error(String),
 }
 
-pub struct EngineResponseMessage {
+#[derive(Clone)]
+pub struct EngineResponse {
     pub request_id: u32,
-    pub payload: EngineApiResponse,
+    pub payload: EngineResponsePayload,
 }
 
 #[derive(Deserialize)]
@@ -73,34 +73,40 @@ pub async fn get_labels(
 ) -> PiResult<impl Responder> {
     debug!("Label request for get_labels");
     let request_id = api_state.req_id.fetch_add(1);
-    api_state
-        .engine_ch
-        .tx
-        .send(PiEvent::EngineRequest(EngineRequestMessage {
+    let project_id = project_id.into_inner();
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
             request_id: request_id.clone(),
-            project_id: project_id.into_inner(),
-            payload: EngineRequest::GetLabels,
-        }))?;
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::GetLabels,
+        },
+    ))?;
 
     debug!("Waiting for response for request {}", request_id);
-    let response_opt: Option<EngineApiResponse> = web::block(move || {
-        api_state.api_ch.rx.iter().find_map(|event| match event {
-            PiEvent::EngineResponse(response) => {
-                if response.request_id == request_id {
-                    Some(response.payload)
-                } else {
-                    None
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
                 }
-            }
-            _ => None,
-        })
-    })
-    .await?;
-    debug!("Got response for request {}", request_id);
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
 
+    debug!("Got response for request {}", request_id);
     match response_opt {
         Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineApiResponse::Error(
+        None => Ok(web::Json(EngineResponsePayload::Error(
             "Could not get a response".to_string(),
         ))),
     }
@@ -113,34 +119,40 @@ pub async fn get_nodes_by_label(
 ) -> PiResult<impl Responder> {
     debug!("Label request for get_nodes_by_label: {}", params.label);
     let request_id = api_state.req_id.fetch_add(1);
-    api_state
-        .engine_ch
-        .tx
-        .send(PiEvent::EngineRequest(EngineRequestMessage {
+    let project_id = project_id.into_inner();
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
             request_id: request_id.clone(),
-            project_id: project_id.into_inner(),
-            payload: EngineRequest::GetNodesWithLabel(params.label.clone()),
-        }))?;
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::GetNodesWithLabel(params.label.clone()),
+        },
+    ))?;
 
     debug!("Waiting for response for request {}", request_id);
-    let response_opt: Option<EngineApiResponse> = web::block(move || {
-        api_state.api_ch.rx.iter().find_map(|event| match event {
-            PiEvent::EngineResponse(response) => {
-                if response.request_id == request_id {
-                    Some(response.payload)
-                } else {
-                    None
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
                 }
-            }
-            _ => None,
-        })
-    })
-    .await?;
-    debug!("Got response for request {}", request_id);
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
 
+    debug!("Got response for request {}", request_id);
     match response_opt {
         Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineApiResponse::Error(
+        None => Ok(web::Json(EngineResponsePayload::Error(
             "Could not get a response".to_string(),
         ))),
     }
@@ -156,118 +168,119 @@ pub async fn create_node(
         node.to_string()
     );
     let request_id = api_state.req_id.fetch_add(1);
-    api_state
-        .engine_ch
-        .tx
-        .send(PiEvent::EngineRequest(EngineRequestMessage {
+    let project_id = project_id.into_inner();
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
             request_id: request_id.clone(),
-            project_id: project_id.into_inner(),
-            payload: EngineRequest::CreateNode(node.into_inner()),
-        }))?;
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::CreateNode(node.into_inner()),
+        },
+    ))?;
 
     debug!("Waiting for response for request {}", request_id);
-    let response_opt: Option<EngineApiResponse> = web::block(move || {
-        api_state.api_ch.rx.iter().find_map(|event| match event {
-            PiEvent::EngineResponse(response) => {
-                if response.request_id == request_id {
-                    Some(response.payload)
-                } else {
-                    None
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
                 }
-            }
-            _ => None,
-        })
-    })
-    .await?;
-    debug!("Got response for request {}", request_id);
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
 
+    debug!("Got response for request {}", request_id);
     match response_opt {
         Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineApiResponse::Error(
+        None => Ok(web::Json(EngineResponsePayload::Error(
             "Could not get a response".to_string(),
         ))),
     }
 }
 
 pub fn handle_engine_api_request(
-    request: EngineRequestMessage,
-    engine: &LockedEngine,
-    api_ch: CommsChannel,
+    request: EngineRequest,
+    engine: &Engine,
+    pi_channel_main_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
     debug!("Got an engine API request");
-    let response: EngineApiResponse = match request.payload {
-        EngineRequest::GetLabels => match engine.read() {
-            Ok(engine) => match engine.node_ids_by_label.read() {
-                Ok(node_ids_by_label) => {
-                    let labels = node_ids_by_label.keys().cloned().collect();
-                    EngineApiResponse::Results(EngineApiData {
-                        labels,
+    let response: EngineResponsePayload = match request.payload {
+        EngineRequestPayload::GetLabels => match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => {
+                let labels = node_ids_by_label.keys().cloned().collect();
+                EngineResponsePayload::Results(EngineResponseResults {
+                    labels,
+                    ..Default::default()
+                })
+            }
+            Err(err) => {
+                error!("Error reading nodes_by_label: {}", err);
+                EngineResponsePayload::Error(format!("Error reading nodes_by_label: {}", err))
+            }
+        },
+        EngineRequestPayload::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
+                Some(node_ids) => {
+                    let nodes: Vec<NodeItem> = node_ids
+                        .iter()
+                        .filter_map(|node_id| match engine.nodes.read() {
+                            Ok(nodes) => match nodes.get(node_id) {
+                                Some(node) => match node.read() {
+                                    Ok(node) => Some(node.clone()),
+                                    Err(_err) => None,
+                                },
+                                None => None,
+                            },
+                            Err(_err) => None,
+                        })
+                        .collect();
+
+                    EngineResponsePayload::Results(EngineResponseResults {
+                        node_ids_by_label: HashMap::from([(
+                            label,
+                            nodes.iter().map(|x| *x.id).collect(),
+                        )]),
+                        nodes,
                         ..Default::default()
                     })
                 }
-                Err(err) => {
-                    error!("Error reading nodes_by_label: {}", err);
-                    EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
+                None => {
+                    EngineResponsePayload::Error(format!("No node IDs found for label {}", label))
                 }
             },
-            Err(_err) => EngineApiResponse::Error("Could not read engine".to_string()),
+            Err(err) => {
+                error!("Error reading nodes_by_label: {}", err);
+                EngineResponsePayload::Error(format!("Error reading nodes_by_label: {}", err))
+            }
         },
-        EngineRequest::GetNodesWithLabel(label) => match engine.read() {
-            Ok(engine) => match engine.node_ids_by_label.read() {
-                Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
-                    Some(node_ids) => {
-                        let nodes: Vec<NodeItem> = node_ids
-                            .iter()
-                            .filter_map(|node_id| match engine.nodes.read() {
-                                Ok(nodes) => match nodes.get(node_id) {
-                                    Some(node) => match node.read() {
-                                        Ok(node) => Some(node.clone()),
-                                        Err(_err) => None,
-                                    },
-                                    None => None,
-                                },
-                                Err(_err) => None,
-                            })
-                            .collect();
-
-                        EngineApiResponse::Results(EngineApiData {
-                            node_ids_by_label: HashMap::from([(
-                                label,
-                                nodes.iter().map(|x| *x.id).collect(),
-                            )]),
-                            nodes,
-                            ..Default::default()
-                        })
-                    }
-                    None => {
-                        EngineApiResponse::Error(format!("No node IDs found for label {}", label))
-                    }
-                },
-                Err(err) => {
-                    error!("Error reading nodes_by_label: {}", err);
-                    EngineApiResponse::Error(format!("Error reading nodes_by_label: {}", err))
-                }
-            },
-            Err(_err) => EngineApiResponse::Error("Could not read engine".to_string()),
-        },
-        EngineRequest::CreateNode(node_write) => {
+        EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
                     Link::add(&link_write.url, &engine)?;
                 }
             }
 
-            EngineApiResponse::Success
+            EngineResponsePayload::Success
         }
-        _ => EngineApiResponse::Error("Could not understand request".to_string()),
+        _ => EngineResponsePayload::Error("Could not understand request".to_string()),
     };
 
-    api_ch
-        .tx
-        .send(PiEvent::EngineResponse(EngineResponseMessage {
+    pi_channel_main_tx.send(PiEvent::APIResponse(
+        request.project_id,
+        EngineResponse {
             request_id: request.request_id,
             payload: response,
-        }))?;
+        },
+    ))?;
 
     Ok(())
 }

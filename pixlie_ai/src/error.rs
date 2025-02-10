@@ -61,6 +61,9 @@ pub enum PiError {
 
     #[error("Error in CRUD: {0}")]
     CrudError(String),
+    
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }
 
 impl ResponseError for PiError {

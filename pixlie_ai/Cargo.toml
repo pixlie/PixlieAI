@@ -46,6 +46,7 @@ tar = { version = "0.4.43", default-features = false }
 test-log = { version = "0.2.16", default-features = false, features = ["log"] }
 texting_robots = { version = "0.2.2", default-features = false }
 thiserror = { version = "1.0.64", default-features = false }
+threadpool = { version = "1.8.1", default-features = false }
 tokio = { version = "1.41.0", default-features = false }
 toml = { version = "0.8.19", default-features = false }
 ts-rs = { version = "10.1.0", default-features = false, features = [

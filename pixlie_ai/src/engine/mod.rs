@@ -19,12 +19,11 @@ use ts_rs::TS;
 
 pub mod api;
 pub mod engine;
-pub mod manager;
 pub mod setup;
 
 // use crate::entity::content::TypedData;
+use crate::engine::api::{EngineRequest, EngineResponse};
 pub use engine::Engine;
-pub use engine::LockedEngine;
 
 #[derive(Clone, Display, Deserialize, Serialize, TS)]
 #[ts(export)]
@@ -84,4 +83,11 @@ pub trait Node {
     {
         None
     }
+}
+
+pub enum EngineWorkData {
+    APIRequest(EngineRequest),
+    APIResponse(EngineResponse),
+    FetchRequest,
+    FetchResponse,
 }

@@ -1,5 +1,7 @@
 use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
+use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::{Domain, Link};
+use crate::{PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
 use postcard::{from_bytes, to_allocvec};
@@ -36,13 +38,12 @@ pub struct Engine {
     pending_edges: RwLock<Vec<PendingEdge>>,              // Edges pending to be written
     last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
+    project_id: String,
     project_path_on_disk: PathBuf,
 }
 
-pub type LockedEngine = RwLock<Engine>;
-
 impl Engine {
-    fn new(storage_root: PathBuf) -> Engine {
+    fn new(project_id: String, storage_root: PathBuf) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
@@ -51,6 +52,7 @@ impl Engine {
             last_node_id: Mutex::new(0),
             node_ids_by_label: RwLock::new(HashMap::new()),
             project_path_on_disk: storage_root,
+            project_id,
         };
         engine
     }
@@ -58,19 +60,53 @@ impl Engine {
     pub fn open_project(storage_root: &String, project_id: &String) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
-        let mut engine = Engine::new(storage_path.clone());
+        let mut engine = Engine::new(project_id.clone(), storage_path.clone());
         engine.load_from_disk();
         engine
     }
 
-    pub fn tick(&self) -> bool {
-        let added_nodes = self.add_pending_nodes();
-        let added_edges = self.add_pending_edges();
-        let updated = self.process_nodes();
-        if added_nodes || added_edges || updated {
-            self.save_to_disk();
-        }
-        added_nodes || added_edges || updated
+    pub fn tick(&self, my_pi_channel: PiChannel, main_tx: crossbeam_channel::Sender<PiEvent>) {
+        // We block on the channel of this engine
+        match my_pi_channel.rx.recv() {
+            Ok(event) => match event {
+                PiEvent::APIRequest(project_id, request) => {
+                    if self.project_id == project_id {
+                        debug!("Got an API request for project {}", project_id);
+                        match handle_engine_api_request(request, self, main_tx.clone()) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error handling API request: {}", err);
+                            }
+                        }
+                    }
+                }
+                PiEvent::NeedsToTick => {
+                    let added_nodes = self.add_pending_nodes();
+                    let added_edges = self.add_pending_edges();
+                    let updated = self.process_nodes();
+                    if added_nodes || added_edges || updated {
+                        self.save_to_disk();
+                        // We have created or updated some nodes, we need to tick again
+                        match my_pi_channel.tx.send(PiEvent::NeedsToTick) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error sending PiEvent in Engine: {}", err);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Err(err) => {
+                error!("Error receiving PiEvent in Engine: {}", err);
+                return;
+            }
+        };
+
+        // We tell the main thread that we are done ticking
+        main_tx
+            .send(PiEvent::EngineTicked(self.project_id.clone()))
+            .unwrap();
     }
 
     fn process_nodes(&self) -> bool {

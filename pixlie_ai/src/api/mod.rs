@@ -1,4 +1,4 @@
-use crate::{config, engine, error::PiResult, projects, CommsChannel};
+use crate::{config, engine, error::PiResult, projects, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
@@ -13,20 +13,27 @@ use std::path::PathBuf;
 const API_ROOT: &str = "/api";
 
 pub struct ApiState {
-    pub engine_ch: CommsChannel,
-    pub api_ch: CommsChannel,
+    // Send the incoming API requests to the main thread
+    pub main_tx: crossbeam_channel::Sender<PiEvent>,
+    // Receive the API responses from the main thread
+    // Responses are broadcast to all API handlers
+    pub api_channel_tx: tokio::sync::broadcast::Sender<PiEvent>,
+    // Set a unique request ID for each API request
     pub req_id: AtomicCell<u32>,
 }
 
 async fn hello() -> impl Responder {
-    format!("Hello, world! I am the API of Pixlie AI.")
+    "Hello, world! I am the API of Pixlie AI."
 }
 
-pub fn api_manager(engine_ch: CommsChannel, api_ch: CommsChannel) -> PiResult<()> {
+pub fn api_manager(
+    main_tx: crossbeam_channel::Sender<PiEvent>,
+    api_channel_tx: tokio::sync::broadcast::Sender<PiEvent>,
+) -> PiResult<()> {
     info!("Starting Pixlie AI API");
     let api_state = web::Data::new(ApiState {
-        engine_ch,
-        api_ch,
+        main_tx,
+        api_channel_tx,
         req_id: AtomicCell::new(0),
     });
     let static_admin_dir = config::get_static_admin_dir()?;

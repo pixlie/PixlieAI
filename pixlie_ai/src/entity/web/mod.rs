@@ -1,8 +1,6 @@
-use crate::engine::api::LinkWrite;
-use crate::engine::{CommonEdgeLabels, CommonNodeLabels, LockedEngine};
 use crate::{
     config::Settings,
-    engine::{Engine, Node, NodeId, Payload},
+    engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload},
     error::PiResult,
     services::{anthropic, ollama, TextClassificationProvider},
 };
@@ -13,7 +11,8 @@ use std::time::{Duration, Instant};
 use ts_rs::TS;
 use url::Url;
 
-pub mod scraper;
+mod fetcher;
+mod scraper;
 
 #[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
 #[ts(export)]
@@ -39,38 +38,33 @@ pub struct Link {
 }
 
 impl Link {
-    pub fn add(url: &String, engine: &LockedEngine) -> PiResult<()> {
+    pub fn add(url: &String, engine: &Engine) -> PiResult<()> {
         match Url::parse(url) {
             Ok(parsed) => match parsed.domain() {
-                Some(domain) => match engine.write() {
-                    Ok(engine) => {
-                        let link_node_id = engine.add_node(
-                            Payload::Link(Link {
-                                url: url.to_string(),
-                                is_fetched: false,
-                            }),
-                            vec![CommonNodeLabels::AddedByUser.to_string()],
-                        );
-                        let domain_node_id = engine.add_node(
-                            Payload::Domain(Domain {
-                                name: domain.to_string(),
-                                is_allowed_to_crawl: true,
-                                last_fetched_at: None,
-                            }),
-                            vec![CommonNodeLabels::AddedByUser.to_string()],
-                        );
-                        engine.add_connection(
-                            (link_node_id, domain_node_id),
-                            (
-                                CommonEdgeLabels::Related.to_string(),
-                                CommonEdgeLabels::Related.to_string(),
-                            ),
-                        );
-                    }
-                    Err(_err) => {
-                        error!("Could not write to engine");
-                    }
-                },
+                Some(domain) => {
+                    let link_node_id = engine.add_node(
+                        Payload::Link(Link {
+                            url: url.to_string(),
+                            is_fetched: false,
+                        }),
+                        vec![CommonNodeLabels::AddedByUser.to_string()],
+                    );
+                    let domain_node_id = engine.add_node(
+                        Payload::Domain(Domain {
+                            name: domain.to_string(),
+                            is_allowed_to_crawl: true,
+                            last_fetched_at: None,
+                        }),
+                        vec![CommonNodeLabels::AddedByUser.to_string()],
+                    );
+                    engine.add_connection(
+                        (link_node_id, domain_node_id),
+                        (
+                            CommonEdgeLabels::Related.to_string(),
+                            CommonEdgeLabels::Related.to_string(),
+                        ),
+                    );
+                }
                 None => {
                     error!("Can not parse URL to get domain: {}", &url);
                 }

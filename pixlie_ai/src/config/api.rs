@@ -29,11 +29,7 @@ pub async fn update_settings(
             debug!("Settings updated: {:?}", settings);
             match settings.write_to_config_file() {
                 Ok(_) => {
-                    api_state
-                        .engine_ch
-                        .tx
-                        .send(PiEvent::SettingsUpdated)
-                        .unwrap();
+                    api_state.main_tx.send(PiEvent::SettingsUpdated).unwrap();
                     Ok(web::Json(settings))
                 }
                 Err(err) => {
@@ -50,6 +46,6 @@ pub async fn update_settings(
 }
 
 pub async fn request_setup_gliner(api_state: web::Data<ApiState>) -> Result<impl Responder> {
-    api_state.engine_ch.tx.send(PiEvent::SetupGliner).unwrap();
+    api_state.main_tx.send(PiEvent::SetupGliner).unwrap();
     Ok("OK")
 }
