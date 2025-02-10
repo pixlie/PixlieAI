@@ -1,4 +1,4 @@
-import { Component, createEffect, createMemo, onMount } from "solid-js";
+import { Component, createEffect, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
 import NodeListItem from "../../widgets/node/ListItem";
@@ -34,23 +34,9 @@ const Graph: Component = () => {
     })),
   );
 
-  onMount(() => {
-    if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Domain").then((_) => {});
-    }
-  });
-
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Domain").then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType);
     }
   });
 

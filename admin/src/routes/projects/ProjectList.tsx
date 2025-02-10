@@ -12,7 +12,7 @@ const ProjectList: Component = () => {
   const navigate = useNavigate();
 
   onMount(() => {
-    fetchProjects().then((_) => {});
+    fetchProjects();
   });
 
   const handleClose = () => {

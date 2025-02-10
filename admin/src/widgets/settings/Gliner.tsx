@@ -1,4 +1,4 @@
-import { Component, createResource } from "solid-js";
+import { Component } from "solid-js";
 import Heading from "../typography/Heading";
 import { useWorkspace } from "../../stores/workspace";
 import Markdown from "../typography/Markdown";
@@ -14,12 +14,9 @@ Gliner is a Python library that we use to extract semantics from the data.
 const Gliner: Component = () => {
   // We need a local Python virtual environment. We are our API if it can detect system Python and venv.
   const [workspace, { fetchSettingsStatus }] = useWorkspace();
-  const [_settings, { refetch }] = createResource(async () => {
-    await fetchSettingsStatus();
-  });
 
   onMount(() => {
-    refetch();
+    fetchSettingsStatus();
   });
 
   const handleSetupGliner = async () => {

@@ -9,6 +9,7 @@ import { createStore } from "solid-js/store";
 import Button from "../../widgets/interactable/Button.tsx";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { IFormFieldValue } from "../../utils/types.tsx";
+import { insertNode } from "../../utils/api.ts";
 
 const labelTypes: string[] = ["Link", "Domain"];
 type LabelType = (typeof labelTypes)[number];
@@ -18,7 +19,6 @@ interface ILinkFormData {
 }
 
 const LinkForm: Component = () => {
-  const [_, { insertNode }] = useEngine();
   const params = useParams();
   const [formData, setFormData] = createStore<ILinkFormData>({
     url: "",
@@ -34,7 +34,7 @@ const LinkForm: Component = () => {
   const handleSubmit = async () => {
     insertNode(params.projectId, {
       Link: formData,
-    } as NodeWrite).then((_) => {});
+    } as NodeWrite);
   };
 
   return (
@@ -54,28 +54,28 @@ const LinkForm: Component = () => {
 };
 
 const Workflow: Component = () => {
-  const [{ nodes, nodeIdsByLabel, isReady }, { fetchNodesByLabel }] =
-    useEngine();
+  const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
 
   const getSelectNodeIds = createMemo<number[]>(() =>
-    !!searchParams.label && (searchParams.label as LabelType) in nodeIdsByLabel
-      ? nodeIdsByLabel[searchParams.label as LabelType]
+    !!searchParams.label &&
+    (searchParams.label as LabelType) in engine.nodeIdsByLabel
+      ? engine.nodeIdsByLabel[searchParams.label as LabelType]
       : [],
   );
 
   onMount(() => {
-    fetchNodesByLabel(params.projectId, "AddedByUser").then((_) => {});
+    fetchNodesByLabel(params.projectId, "AddedByUser");
   });
 
   // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
   const getNodesInWorkflow = createMemo(() =>
-    isReady && "AddedByUser" in nodeIdsByLabel
-      ? nodeIdsByLabel["AddedByUser"].map((x) => {
-          if ("Link" in nodes[x].payload) {
+    engine.isReady && "AddedByUser" in engine.nodeIdsByLabel
+      ? engine.nodeIdsByLabel["AddedByUser"].map((x) => {
+          if ("Link" in engine.nodes[x].payload) {
             return "Link";
-          } else if ("Domain" in nodes[x].payload) {
+          } else if ("Domain" in engine.nodes[x].payload) {
             return "Domain";
           }
         })
@@ -90,23 +90,9 @@ const Workflow: Component = () => {
     })),
   );
 
-  onMount(() => {
-    if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
-    }
-  });
-
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType);
     }
   });
 
@@ -115,7 +101,7 @@ const Workflow: Component = () => {
       <Heading size={1}>Workflow</Heading>
 
       <Tabs tabs={getTabs()} />
-      {!isReady ? (
+      {!engine.isReady ? (
         <>Loading...</>
       ) : (
         <>

@@ -9,7 +9,6 @@ import {
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
 import { Project } from "../api_types/Project.ts";
-import { ProjectCreate } from "../api_types/ProjectCreate.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -20,70 +19,62 @@ const makeStore = () => {
   return [
     store,
     {
-      fetchSettings: async () => {
+      fetchSettings: () => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`);
-        if (!response.ok) {
-          console.error("Failed to fetch settings");
-        }
-        let settings: Settings = await response.json();
-        setStore((data) => ({
-          ...data,
-          isFetching: false,
-          isReady: true,
-          settings: camelCasedKeys(settings),
-        }));
+        fetch(`${pixlieAIAPIRoot}/api/settings`).then((response) => {
+          if (!response.ok) {
+            console.error("Failed to fetch settings");
+          }
+          response.json().then((settings: Settings) => {
+            setStore((data) => ({
+              ...data,
+              isFetching: false,
+              isReady: true,
+              settings: camelCasedKeys(settings),
+            }));
+          });
+        });
       },
 
-      fetchSettingsStatus: async () => {
+      fetchSettingsStatus: () => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/settings/status`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch settings status");
-        }
-        let settingsStatus = await response.json();
-        setStore("settingsStatus", settingsStatus as SettingsStatus);
+        fetch(`${pixlieAIAPIRoot}/api/settings/status`).then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch settings status");
+          }
+          response.json().then((settingsStatus: SettingsStatus) => {
+            setStore("settingsStatus", settingsStatus as SettingsStatus);
+          });
+        });
       },
 
-      saveSettings: async (settings: Partial<IWorkspace["settings"]>) => {
+      saveSettings: (settings: Partial<IWorkspace["settings"]>) => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/settings`, {
+        fetch(`${pixlieAIAPIRoot}/api/settings`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(snakeCasedKeys(settings)),
+        }).then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to save settings");
+          }
+          setStore("settings", settings);
         });
-        if (!response.ok) {
-          throw new Error("Failed to save settings");
-        }
-        setStore("settings", settings);
       },
 
-      fetchProjects: async () => {
+      fetchProjects: () => {
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/projects`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch projects");
-        }
-        let projects: Array<Project> = await response.json();
-        setStore("projects", projects);
-      },
-
-      createProject: async (project: ProjectCreate) => {
-        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(`${pixlieAIAPIRoot}/api/projects`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(project),
+        fetch(`${pixlieAIAPIRoot}/api/projects`).then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch projects");
+          }
+          response.json().then((projects: Array<Project>) => {
+            setStore("projects", projects);
+          });
         });
-        if (!response.ok) {
-          throw new Error("Failed to save settings");
-        }
-        return (await response.json()) as Project;
       },
     },
   ] as const; // `as const` forces tuple type inference

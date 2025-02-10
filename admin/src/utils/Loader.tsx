@@ -1,10 +1,4 @@
-import {
-  Component,
-  createEffect,
-  createResource,
-  JSX,
-  onMount,
-} from "solid-js";
+import { Component, createEffect, JSX, onMount } from "solid-js";
 import { useWorkspace } from "../stores/workspace";
 import { useLocation, useNavigate } from "@solidjs/router";
 
@@ -14,15 +8,12 @@ interface ILoaderProps {
 
 const Loader: Component<ILoaderProps> = (props) => {
   const [workspace, { fetchSettings, fetchSettingsStatus }] = useWorkspace();
-  const [_settings, { refetch }] = createResource(async () => {
-    await fetchSettings();
-    await fetchSettingsStatus();
-  });
   const navigate = useNavigate();
   const location = useLocation();
 
   onMount(() => {
-    refetch();
+    fetchSettings();
+    fetchSettingsStatus();
   });
 
   createEffect(() => {

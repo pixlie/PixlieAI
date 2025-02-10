@@ -6,11 +6,11 @@ import { DisplayAs, IFormFieldValue } from "../../utils/types.tsx";
 import Button from "../interactable/Button.tsx";
 import Label from "../interactable/Label.tsx";
 import Heading from "../typography/Heading.tsx";
-import { useWorkspace } from "../../stores/workspace.tsx";
-import { useEngine } from "../../stores/engine.tsx";
 import { ProjectCreate } from "../../api_types/ProjectCreate.ts";
 import { LinkWrite } from "../../api_types/LinkWrite.ts";
 import { useNavigate } from "@solidjs/router";
+import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
+import { Project } from "../../api_types/Project.ts";
 
 interface IPropTypes {
   displayAs: DisplayAs;
@@ -26,8 +26,6 @@ interface IProjectFormData {
 }
 
 const ProjectForm: Component<IPropTypes> = (props) => {
-  const [_w, { createProject }] = useWorkspace();
-  const [_e, { insertNode }] = useEngine();
   const navigate = useNavigate();
   const [formData, setFormData] = createSignal<IProjectFormData>({
     name: "",
@@ -47,23 +45,30 @@ const ProjectForm: Component<IPropTypes> = (props) => {
   };
 
   const handleFormSubmit = () => {
-    createProject({
-      name: formData().name,
-      description: formData().description,
-    } as ProjectCreate).then((item) => {
-      let promises = [];
-      for (const url of formData().startingURLs.split(/[\r\n]+/)) {
-        if (!url || url.length === 0) continue;
-        promises.push(
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/projects`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: formData().name,
+        description: formData().description,
+      } as ProjectCreate),
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to save settings");
+      }
+      response.json().then((item: Project) => {
+        for (const url of formData().startingURLs.split(/[\r\n]+/)) {
+          if (!url || url.length === 0) continue;
           insertNode(item.uuid, {
             Link: {
               url,
             } as LinkWrite,
-          }),
-        );
-      }
+          });
+        }
 
-      Promise.allSettled(promises).then(() => {
         navigate(`/p/${item.uuid}/workflow`);
       });
     });

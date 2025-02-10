@@ -3,7 +3,6 @@ import { createStore } from "solid-js/store";
 import { IEngine, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineApiResponse } from "../api_types/EngineApiResponse";
-import { NodeWrite } from "../api_types/NodeWrite.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngine>({
@@ -17,64 +16,54 @@ const makeStore = () => {
   return [
     store,
     {
-      fetchNodesByLabel: async (projectId: string, label: string) => {
+      fetchNodesByLabel: (projectId: string, label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(
+        fetch(
           `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
             new URLSearchParams({
               label,
             }).toString(),
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch nodes");
-        }
-        let engineResponse: EngineApiResponse = await response.json();
-        if (engineResponse.type === "Results") {
-          setStore((state: IEngine) => ({
-            ...state,
-            nodes: engineResponse.data.nodes.reduce(
-              (acc, item) => ({
-                ...acc,
-                [item.id]: item,
-              }),
-              state.nodes,
-            ),
-            nodeIdsByLabel: {
-              ...state.nodeIdsByLabel,
-              [label]:
-                engineResponse.data.node_ids_by_label &&
-                label in engineResponse.data.node_ids_by_label
-                  ? engineResponse.data.node_ids_by_label[label]
-                  : [],
-            },
-            isFetching: false,
-            isReady: true,
-          }));
-        } else {
-          setStore((data) => ({
-            ...data,
-            isFetching: false,
-            isReady: true,
-          }));
-        }
-      },
-
-      insertNode: async (projectId: string, node: NodeWrite) => {
-        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(
-          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`,
           {
-            method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(node),
           },
-        );
-        if (!response.ok) {
-          throw new Error("Failed to insert node");
-        }
+        ).then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch nodes");
+          }
+          response.json().then((engineResponse: EngineApiResponse) => {
+            if (engineResponse.type === "Results") {
+              setStore((existing: IEngine) => ({
+                ...existing,
+                nodes: engineResponse.data.nodes.reduce(
+                  (acc, item) => ({
+                    ...acc,
+                    [item.id]: item,
+                  }),
+                  existing.nodes,
+                ),
+                nodeIdsByLabel: {
+                  ...existing.nodeIdsByLabel,
+                  [label]:
+                    engineResponse.data.node_ids_by_label &&
+                    label in engineResponse.data.node_ids_by_label
+                      ? engineResponse.data.node_ids_by_label[label]
+                      : [],
+                },
+                isFetching: false,
+                isReady: true,
+              }));
+            } else {
+              setStore((data) => ({
+                ...data,
+                isFetching: false,
+                isReady: true,
+              }));
+            }
+          });
+        });
       },
     },
   ] as const; // `as const` forces tuple type inference

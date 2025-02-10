@@ -30,10 +30,10 @@ const Anthropic: Component = () => {
   };
 
   const handleSubmit = async () => {
-    await saveSettings({
+    saveSettings({
       ...formData,
     });
-    await fetchSettings();
+    fetchSettings();
   };
 
   return (
