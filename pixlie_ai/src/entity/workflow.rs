@@ -1,4 +1,4 @@
-use super::web::Link;
+use crate::entity::web::link::Link;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

@@ -103,3 +103,19 @@ pub fn api_manager(
     )?;
     Ok(())
 }
+
+// The receiver of the API channel is in async code, so we use an async channel for that
+// https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html#communicating-between-sync-and-async-code
+// We use a broadcast channel because we want to send the API request to all API handlers
+// The individual API handler checks if the response is for them
+pub struct APIChannel {
+    pub tx: tokio::sync::broadcast::Sender<PiEvent>,
+    pub rx: tokio::sync::broadcast::Receiver<PiEvent>,
+}
+
+impl APIChannel {
+    pub fn new() -> APIChannel {
+        let (tx, rx) = tokio::sync::broadcast::channel::<PiEvent>(100);
+        APIChannel { tx, rx }
+    }
+}

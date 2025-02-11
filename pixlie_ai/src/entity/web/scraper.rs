@@ -1,10 +1,11 @@
-use super::{Link, WebPage};
+use crate::entity::web::web_page::WebPage;
 use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
 use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
 use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
 use log::error;
 use scraper::Html;
 use url::Url;
+use crate::entity::web::link::Link;
 
 impl WebPage {
     fn scrape_helper(&self, current_link: &Link) -> Vec<Payload> {

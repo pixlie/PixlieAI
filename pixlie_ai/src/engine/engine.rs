@@ -1,6 +1,9 @@
 use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
-use crate::entity::web::{Domain, Link};
+use crate::entity::web::domain::Domain;
+use crate::entity::web::link::Link;
+use crate::error::{PiError, PiResult};
+use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
@@ -40,10 +43,11 @@ pub struct Engine {
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
     project_id: String,
     project_path_on_disk: PathBuf,
+    fetcher: Arc<Fetcher>,
 }
 
 impl Engine {
-    fn new(project_id: String, storage_root: PathBuf) -> Engine {
+    fn new(project_id: String, storage_root: PathBuf, fetcher: Arc<Fetcher>) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
@@ -53,14 +57,19 @@ impl Engine {
             node_ids_by_label: RwLock::new(HashMap::new()),
             project_path_on_disk: storage_root,
             project_id,
+            fetcher,
         };
         engine
     }
 
-    pub fn open_project(storage_root: &String, project_id: &String) -> Engine {
+    pub fn open_project(
+        storage_root: &String,
+        project_id: &String,
+        fetcher: Arc<Fetcher>,
+    ) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
-        let mut engine = Engine::new(project_id.clone(), storage_path.clone());
+        let mut engine = Engine::new(project_id.clone(), storage_path.clone(), fetcher);
         engine.load_from_disk();
         engine
     }
@@ -504,6 +513,7 @@ impl Engine {
                     break;
                 }
             };
+            // The first label if the type of the payload
             let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
             labels.extend(node.labels.iter().cloned());
             {
@@ -525,89 +535,6 @@ impl Engine {
                     .or_insert(vec![node_id.clone()]);
             }
         }
-    }
-
-    pub fn can_fetch_within_domain(&self, node_id: &NodeId, link: &Link) -> bool {
-        // Get the related domain node for the URL from the engine
-        // TODO: Move this function to the Domain node
-        debug!("Checking if we can fetch within domain: {}", link.url);
-        let (domain, domain_node_id): (Domain, NodeId) = {
-            let connected = self.get_node_ids_connected_with_label(
-                node_id.clone(),
-                CommonEdgeLabels::Related.to_string(),
-            );
-            debug!(
-                "Found {} connected nodes with edge label {}",
-                connected.len(),
-                CommonEdgeLabels::Related.to_string()
-            );
-            let found: Option<(Domain, NodeId)> = match self.nodes.read() {
-                Ok(nodes) => connected
-                    .iter()
-                    .find_map(|node_id| match nodes.get(node_id) {
-                        Some(node) => match node.read().unwrap().payload {
-                            Payload::Domain(ref domain) => Some((domain.clone(), node_id.clone())),
-                            _ => None,
-                        },
-                        None => None,
-                    }),
-                Err(_err) => None,
-            };
-            match found {
-                Some(found) => found,
-                None => {
-                    error!("Cannot find domain for link: {}", &link.url);
-                    return false;
-                }
-            }
-        };
-
-        if !domain.is_allowed_to_crawl {
-            error!("Domain is not allowed to crawl: {}", &domain.name);
-            return false;
-        }
-
-        // Check the last fetch time for this domain. We do not want to fetch too often.
-        match domain.last_fetched_at {
-            Some(start) => {
-                if start.elapsed().as_secs() > 2 {
-                    // We have fetched from this domain some time ago, we can fetch now
-                } else {
-                    // We have fetched from this domain very recently, we can not fetch now
-                    return false;
-                }
-            }
-            None => {
-                // We have not fetched from this domain before, we should fetch now
-            }
-        }
-
-        // Update the domain at the domain node id
-        match self.nodes.read() {
-            Ok(nodes) => match nodes.get(&domain_node_id) {
-                Some(node) => match node.write() {
-                    Ok(mut node) => {
-                        node.payload = Payload::Domain(Domain {
-                            name: domain.name.clone(),
-                            is_allowed_to_crawl: true,
-                            last_fetched_at: Some(Instant::now()),
-                        });
-                    }
-                    Err(_err) => {
-                        return false;
-                    }
-                },
-                None => {
-                    return false;
-                }
-            },
-            Err(_err) => {
-                return false;
-            }
-        }
-
-        debug!("Domain {} is allowed to crawl", domain.name);
-        true
     }
 
     pub fn needs_to_tick(&self) -> bool {
@@ -655,6 +582,17 @@ impl Engine {
                 None => None,
             },
             Err(_err) => None,
+        }
+    }
+
+    pub fn fetch_url(
+        &self,
+        link: &Link,
+        node_id: &NodeId,
+    ) -> PiResult<crossbeam_channel::Receiver<FetchEvent>> {
+        match Domain::can_fetch_within_domain(self, link, node_id) {
+            Ok(_) => Ok(self.fetcher.fetch(link.url.clone())?),
+            Err(err) => Err(err),
         }
     }
 }

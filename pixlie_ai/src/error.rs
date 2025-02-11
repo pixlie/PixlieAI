@@ -64,6 +64,9 @@ pub enum PiError {
     
     #[error("Internal error: {0}")]
     InternalError(String),
+    
+    #[error("Error in fetching external data: {0}")]
+    FetchError(String),
 }
 
 impl ResponseError for PiError {

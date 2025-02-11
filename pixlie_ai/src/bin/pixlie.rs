@@ -1,8 +1,10 @@
 use log::{debug, error};
 // use pixlie_ai::config::gliner::setup_gliner;
+use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::Settings;
 use pixlie_ai::engine::Engine;
-use pixlie_ai::{api::api_manager, config::check_cli_settings, APIChannel, PiChannel, PiEvent};
+use pixlie_ai::utils::fetcher::Fetcher;
+use pixlie_ai::{api::api_manager, config::check_cli_settings, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
 use std::sync::atomic::AtomicBool;
@@ -42,6 +44,8 @@ fn main() {
     {
         let main_channel = main_channel.clone();
         let api_channel_rx = api_channel.tx.clone();
+        // The receiver is in async code, so we use an async channel for that
+        // https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html#communicating-between-sync-and-async-code
         pool.execute(move || match api_manager(main_channel.tx, api_channel_rx) {
             Ok(_) => {}
             Err(err) => {
@@ -49,6 +53,9 @@ fn main() {
             }
         });
     }
+
+    let fetcher = Fetcher::new();
+    let arced_fetcher = Arc::new(fetcher);
 
     // Engines for each project, key being the project ID
     let mut projects: HashMap<String, PiChannel> = HashMap::new();
@@ -79,7 +86,7 @@ fn main() {
                 PiEvent::APIRequest(project_id, request) => {
                     match projects.contains_key(&project_id) {
                         true => {
-                            // Project is already loaded, let's send the API request to the engine
+                            // Project is already loaded, we will send the API request to the engine
                         }
                         false => {
                             // Project is not loaded, let's load it into an engine
@@ -99,15 +106,18 @@ fn main() {
                             projects.insert(project_id.clone(), my_pi_channel.clone());
                             let pi_channel_tx = pi_channel_main.clone().tx;
                             let project_id = project_id.clone();
+                            let arced_fetcher = arced_fetcher.clone();
                             pool.execute(move || {
                                 let engine = Engine::open_project(
                                     settings.path_to_storage_dir.as_ref().unwrap(),
                                     &project_id,
+                                    arced_fetcher,
                                 );
                                 engine.tick(my_pi_channel, pi_channel_tx);
                             });
                         }
                     };
+                    // Engine is loaded, we will pass the API request to the engine's own channel
                     match projects.get(&project_id) {
                         Some(my_pi_channel) => {
                             match my_pi_channel

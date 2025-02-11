@@ -7,7 +7,6 @@
 
 use crate::entity::{
     content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
-    web::{Domain, Link, WebPage},
     workflow::WorkflowStep,
 };
 use chrono::{DateTime, Utc};
@@ -23,6 +22,9 @@ pub mod setup;
 
 // use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
+use crate::entity::web::domain::Domain;
+use crate::entity::web::link::Link;
+use crate::entity::web::web_page::WebPage;
 pub use engine::Engine;
 
 #[derive(Clone, Display, Deserialize, Serialize, TS)]
@@ -67,7 +69,7 @@ pub enum CommonEdgeLabels {
 #[ts(export)]
 pub struct NodeItem {
     pub id: NodeId,
-    pub labels: Vec<EdgeLabel>, // A node can have multiple labels, like tags, indexed by relevance
+    pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
     pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node

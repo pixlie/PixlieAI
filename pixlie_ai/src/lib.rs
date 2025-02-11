@@ -30,18 +30,6 @@ impl PiChannel {
     }
 }
 
-pub struct APIChannel {
-    pub tx: tokio::sync::broadcast::Sender<PiEvent>,
-    pub rx: tokio::sync::broadcast::Receiver<PiEvent>,
-}
-
-impl APIChannel {
-    pub fn new() -> APIChannel {
-        let (tx, rx) = tokio::sync::broadcast::channel::<PiEvent>(100);
-        APIChannel { tx, rx }
-    }
-}
-
 #[derive(Clone)]
 pub enum PiEvent {
     NeedsToTick,
@@ -51,6 +39,4 @@ pub enum PiEvent {
     EngineTicked(String), // The engine has nothing else to do, so it gives up
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
-    FetchRequest(String),
-    FetchResponse(String),
 }

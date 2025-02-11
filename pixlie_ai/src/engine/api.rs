@@ -1,5 +1,5 @@
 use super::{Engine, NodeItem};
-use crate::entity::web::Link;
+use crate::entity::web::link::Link;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
