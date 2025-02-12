@@ -1,11 +1,12 @@
-use crate::entity::web::web_page::WebPage;
 use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
 use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
 use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
+use crate::entity::web::link::Link;
+use crate::entity::web::web_page::WebPage;
 use log::error;
 use scraper::Html;
+use std::sync::Arc;
 use url::Url;
-use crate::entity::web::link::Link;
 
 impl WebPage {
     fn scrape_helper(&self, current_link: &Link) -> Vec<Payload> {
@@ -214,9 +215,9 @@ impl WebPage {
         parts
     }
 
-    pub fn scrape(&self, engine: &Engine, node_id: &NodeId) {
+    pub fn scrape(&self, engine: Arc<&Engine>, node_id: &NodeId) {
         // Find the Link node that is the parent of this WebPage node
-        let current_link = self.get_link(engine, node_id);
+        let current_link = self.get_link(engine.clone(), node_id);
         if current_link.is_none() {
             error!("Cannot find parent Link node for WebPage node");
             return;

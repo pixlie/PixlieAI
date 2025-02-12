@@ -6,6 +6,7 @@ use crate::services::{anthropic, ollama, TextClassificationProvider};
 use log::info;
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use ts_rs::TS;
 
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
@@ -18,7 +19,7 @@ pub struct WebPage {
 }
 
 impl WebPage {
-    pub fn get_link(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
+    pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> Option<Link> {
         let related_node_ids = engine
             .get_node_ids_connected_with_label(node_id.clone(), CommonEdgeLabels::Path.to_string());
 
@@ -36,7 +37,7 @@ impl WebPage {
             })
     }
 
-    fn get_content(&self, engine: &Engine, node_id: &NodeId) -> String {
+    fn get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
         let part_node_ids = engine.get_node_ids_connected_with_label(
             node_id.clone(),
             CommonEdgeLabels::Child.to_string(),
@@ -75,7 +76,7 @@ impl WebPage {
             .join("\n")
     }
 
-    fn classify(&self, engine: &Engine, node_id: &NodeId) -> PiResult<()> {
+    fn classify(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
         // Classify the web page using Anthropic
         let settings = Settings::get_cli_settings()?;
         let content = self.get_content(engine, node_id);
@@ -148,20 +149,26 @@ impl Node for WebPage {
         "WebPage".to_string()
     }
 
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<WebPage> {
+    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) {
         // TODO: save the scraped nodes to graph only if webpage is classified as important to us
         if !self.is_scraped {
-            self.scrape(engine, node_id);
-            return Some(WebPage {
-                is_scraped: true,
-                ..self.clone()
-            });
+            self.scrape(engine.clone(), node_id);
+            engine.update_node(
+                &node_id,
+                Payload::FileHTML(WebPage {
+                    is_scraped: true,
+                    ..self.clone()
+                }),
+            );
         } else if !self.is_classified {
-            self.classify(engine, node_id).unwrap();
-            return Some(WebPage {
-                is_classified: true,
-                ..self.clone()
-            });
+            // self.classify(engine.clone(), node_id).unwrap();
+            engine.update_node(
+                &node_id,
+                Payload::FileHTML(WebPage {
+                    is_classified: true,
+                    ..self.clone()
+                }),
+            );
         } else if !self.is_extracted {
             // Get the related Label node and check that classification is not "Other"
             // let classification =
@@ -195,6 +202,5 @@ impl Node for WebPage {
             //     });
             // }
         }
-        None
     }
 }

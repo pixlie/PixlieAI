@@ -5,6 +5,8 @@ use crate::error::PiResult;
 use crate::utils::fetcher::FetchEvent;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::thread;
 use ts_rs::TS;
 use url::Url;
 
@@ -16,7 +18,7 @@ pub struct Link {
 }
 
 impl Link {
-    pub fn add(url: &String, engine: &Engine) -> PiResult<()> {
+    pub fn add(engine: &Engine, url: &String) -> PiResult<()> {
         match Url::parse(url) {
             Ok(parsed) => match parsed.domain() {
                 Some(domain) => {
@@ -44,7 +46,7 @@ impl Link {
                     );
                 }
                 None => {
-                    error!("Can not parse URL to get domain: {}", &url);
+                    error!("Can not parse URL {} to get domain", &url);
                 }
             },
             Err(err) => match err {
@@ -62,42 +64,61 @@ impl Node for Link {
         "Link".to_string()
     }
 
-    fn process(&self, engine: &Engine, node_id: &NodeId) -> Option<Link> {
-        debug!("Processing Link node: {}", self.url);
+    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
-            return None;
+            return;
         }
+        debug!("Processing Link node: {}", self.url);
 
-        match engine.fetch_url(self, node_id) {
-            Ok(rx) => match rx.recv() {
-                Ok(event) => match event {
-                    FetchEvent::FetchResponse(id, url, contents) => {
-                        debug!("Fetched HTML from {}", self.url);
-                        let content_node_id = engine.add_node(
-                            Payload::FileHTML(WebPage {
-                                contents,
-                                ..Default::default()
-                            }),
-                            vec![],
-                        );
-                        engine.add_connection(
-                            (node_id.clone(), content_node_id),
-                            (
-                                CommonEdgeLabels::Content.to_string(),
-                                CommonEdgeLabels::Path.to_string(),
-                            ),
-                        );
-                        Some(Link {
-                            is_fetched: true,
-                            ..self.clone()
-                        })
+        let node_id = node_id.clone();
+        let url = self.url.clone();
+        let link = self.clone();
+        let engine = engine.clone();
+
+        thread::scope(|scope| {
+            scope.spawn(|| {
+                match engine.fetch_url(url.clone(), &node_id) {
+                    Ok(rx) => match rx.recv() {
+                        Ok(event) => match event {
+                            FetchEvent::FetchResponse(_id, _url, contents) => {
+                                debug!("Fetched HTML from {}", url);
+                                let content_node_id = engine.add_node(
+                                    Payload::FileHTML(WebPage {
+                                        contents,
+                                        ..Default::default()
+                                    }),
+                                    vec![],
+                                );
+                                engine.add_connection(
+                                    (node_id.clone(), content_node_id),
+                                    (
+                                        CommonEdgeLabels::Content.to_string(),
+                                        CommonEdgeLabels::Path.to_string(),
+                                    ),
+                                );
+                                engine.update_node(
+                                    &node_id,
+                                    Payload::Link(Link {
+                                        is_fetched: true,
+                                        ..link
+                                    }),
+                                );
+                            }
+                            _ => {}
+                        },
+                        Err(_err) => {
+                            error!("Can not fetch HTML from {}", url);
+                        }
+                    },
+                    Err(_err) => {
+                        error!("Can not fetch HTML from {}", url);
                     }
-                    _ => None,
-                },
-                Err(_err) => None,
-            },
-            Err(_err) => None,
-        }
+                }
+            });
+        });
+
+        // Returning to the engine, the crawl will continue in the separate thread
+        debug!("Returning from Link node: {}", self.url);
     }
 }

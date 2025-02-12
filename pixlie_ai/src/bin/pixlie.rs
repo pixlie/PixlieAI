@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use std::env::var;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     // Setup Sentry for error logging. The URL comes from environment variable
@@ -36,126 +38,168 @@ fn main() {
         }
     }
     let pool = threadpool::Builder::new()
-        .thread_name("pixlie_ai_worker".to_string())
+        .thread_name("pixlie_ai_thread".to_string())
         .build();
 
+    // This channel is used by the CLI (this main function)
     let main_channel = PiChannel::new();
+    // Each engine has its own communication channel
+    let mut channels_per_project: HashMap<String, PiChannel> = HashMap::new();
+    // The API channel is used by the API server and the CLI
     let api_channel = APIChannel::new();
+    let main_channel_tx = main_channel.tx.clone();
     {
-        let main_channel = main_channel.clone();
         let api_channel_rx = api_channel.tx.clone();
         // The receiver is in async code, so we use an async channel for that
         // https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html#communicating-between-sync-and-async-code
-        pool.execute(move || match api_manager(main_channel.tx, api_channel_rx) {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Error with api manager: {}", err);
-            }
-        });
+        pool.execute(
+            move || match api_manager(main_channel_tx.clone(), api_channel_rx) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error with api manager: {}", err);
+                }
+            },
+        );
     }
 
     let fetcher = Fetcher::new();
     let arced_fetcher = Arc::new(fetcher);
 
-    // Engines for each project, key being the project ID
-    let mut projects: HashMap<String, PiChannel> = HashMap::new();
-
-    // We loop until we receive a SIGTERM or SIGINT signals
-    let is_sig_term = Arc::new(AtomicBool::new(false));
-    let is_sig_int = Arc::new(AtomicBool::new(false));
-    match signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&is_sig_term)) {
-        Ok(_) => {}
-        Err(err) => {
-            error!("Error registering SIGTERM: {}", err);
+    let main_channel_tx = main_channel.tx.clone();
+    pool.execute(move || {
+        // We monitor for SIGTERM or SIGINT signals and send an event to the main channel
+        let is_sig_term = Arc::new(AtomicBool::new(false));
+        let is_sig_int = Arc::new(AtomicBool::new(false));
+        match signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&is_sig_term)) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error registering SIGTERM: {}", err);
+            }
         }
-    }
-    match signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&is_sig_int)) {
-        Ok(_) => {}
-        Err(err) => {
-            error!("Error registering SIGINT: {}", err);
+        match signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&is_sig_int)) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error registering SIGINT: {}", err);
+            }
         }
-    }
 
-    while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
-        && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
-    {
-        let pi_channel_main = main_channel.clone();
-        match pi_channel_main.rx.try_recv() {
-            Ok(event) => match event {
-                PiEvent::SettingsUpdated => {}
-                PiEvent::APIRequest(project_id, request) => {
-                    match projects.contains_key(&project_id) {
-                        true => {
-                            // Project is already loaded, we will send the API request to the engine
-                        }
-                        false => {
-                            // Project is not loaded, let's load it into an engine
-                            debug!(
-                                "Received API request for project {} which is not loaded",
-                                project_id
+        while !is_sig_term.load(std::sync::atomic::Ordering::Relaxed)
+            && !is_sig_int.load(std::sync::atomic::Ordering::Relaxed)
+        {
+            // Do nothing till we receive a SIGTERM or SIGINT signal
+        }
+        match main_channel_tx.send(PiEvent::Shutdown) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error sending PiEvent::Shutdown: {}", err);
+            }
+        }
+    });
+
+    let main_channel_iter = main_channel.clone();
+    for event in main_channel_iter.rx.iter() {
+        match event {
+            PiEvent::SettingsUpdated => {}
+            PiEvent::APIRequest(project_id, request) => {
+                match channels_per_project.contains_key(&project_id) {
+                    true => {
+                        // Project is already loaded, we will send the API request to the engine
+                    }
+                    false => {
+                        // Project is not loaded, let's load it into an engine
+                        debug!(
+                            "Received API request for project {} which is not loaded",
+                            project_id
+                        );
+                        let settings: Settings = match Settings::get_cli_settings() {
+                            Ok(settings) => settings,
+                            Err(err) => {
+                                error!("Error reading settings: {}", err);
+                                continue;
+                            }
+                        };
+
+                        channels_per_project.insert(project_id.clone(), PiChannel::new());
+                        let my_pi_channel = match channels_per_project.get(&project_id) {
+                            Some(my_pi_channel) => my_pi_channel.clone(),
+                            None => {
+                                error!("Cannot find per engine channel for project {}", project_id);
+                                continue;
+                            }
+                        };
+                        let pi_channel_tx = main_channel_iter.clone().tx;
+                        let project_id = project_id.clone();
+                        let arced_fetcher = arced_fetcher.clone();
+                        pool.execute(move || {
+                            let engine = Engine::open_project(
+                                settings.path_to_storage_dir.as_ref().unwrap(),
+                                &project_id,
+                                arced_fetcher,
+                                my_pi_channel.clone(),
                             );
-                            let settings: Settings = match Settings::get_cli_settings() {
-                                Ok(settings) => settings,
-                                Err(err) => {
-                                    error!("Error reading settings: {}", err);
-                                    continue;
-                                }
-                            };
-
-                            let my_pi_channel = PiChannel::new();
-                            projects.insert(project_id.clone(), my_pi_channel.clone());
-                            let pi_channel_tx = pi_channel_main.clone().tx;
-                            let project_id = project_id.clone();
-                            let arced_fetcher = arced_fetcher.clone();
-                            pool.execute(move || {
-                                let engine = Engine::open_project(
-                                    settings.path_to_storage_dir.as_ref().unwrap(),
-                                    &project_id,
-                                    arced_fetcher,
-                                );
-                                engine.tick(my_pi_channel, pi_channel_tx);
-                            });
-                        }
-                    };
-                    // Engine is loaded, we will pass the API request to the engine's own channel
-                    match projects.get(&project_id) {
-                        Some(my_pi_channel) => {
-                            match my_pi_channel
-                                .tx
-                                .send(PiEvent::APIRequest(project_id.clone(), request))
-                            {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!("Error sending PiEvent in Engine: {}", err);
-                                }
+                            engine.run(pi_channel_tx);
+                        });
+                    }
+                };
+                // Engine is loaded, we will pass the API request to the engine's own channel
+                match channels_per_project.get(&project_id) {
+                    Some(my_pi_channel) => {
+                        match my_pi_channel
+                            .tx
+                            .send(PiEvent::APIRequest(project_id.clone(), request))
+                        {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error sending PiEvent in Engine: {}", err);
                             }
                         }
-                        None => {
-                            error!("Project {} is not loaded", project_id);
-                            continue;
-                        }
-                    };
-                }
-                PiEvent::APIResponse(project_id, response) => {
-                    // Pass on the response to the API broadcast channel
-                    match api_channel
-                        .tx
-                        .send(PiEvent::APIResponse(project_id, response))
-                    {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("Error sending PiEvent in API broadcast channel: {}", err);
-                        }
+                    }
+                    None => {
+                        error!("Project {} is not loaded", project_id);
+                        continue;
+                    }
+                };
+            }
+            PiEvent::APIResponse(project_id, response) => {
+                // Pass on the response to the API broadcast channel
+                match api_channel
+                    .tx
+                    .send(PiEvent::APIResponse(project_id, response))
+                {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error sending PiEvent in API broadcast channel: {}", err);
                     }
                 }
-                PiEvent::EngineTicked(project_id) => {
-                    projects.remove(&project_id);
-                }
-                _ => {}
-            },
-            Err(_) => {}
+            }
+            PiEvent::PostponeTick(project_id) => {
+                // The engine has requested to be called later
+                let channels_per_project = channels_per_project.clone();
+                pool.execute(move || {
+                    thread::sleep(Duration::from_millis(10));
+                    match channels_per_project.get(&project_id) {
+                        Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                            }
+                        },
+                        None => {
+                            error!("Project {} is not loaded", project_id);
+                        }
+                    }
+                });
+            }
+            PiEvent::EngineTicked(project_id) => {
+                channels_per_project.remove(&project_id);
+            }
+            PiEvent::Shutdown => {
+                break;
+            }
+            _ => {}
         }
     }
+    // }
 }
 
 // #[derive(PartialEq, Eq, Hash)]

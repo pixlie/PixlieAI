@@ -1,5 +1,4 @@
 use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
-use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -23,10 +22,10 @@ impl Node for Domain {
 }
 
 impl Domain {
-    pub fn can_fetch_within_domain(engine: &Engine, link: &Link, node_id: &NodeId) -> PiResult<()> {
+    pub fn can_fetch_within_domain(engine: &Engine, url: String, node_id: &NodeId) -> PiResult<()> {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
-        debug!("Checking if we can fetch within domain: {}", link.url);
+        debug!("Checking if we can fetch within domain: {}", url);
         let (domain, domain_node_id): (Domain, NodeId) = {
             let connected = engine.get_node_ids_connected_with_label(
                 node_id.clone(),
@@ -52,7 +51,7 @@ impl Domain {
             match found {
                 Some(found) => found,
                 None => {
-                    error!("Cannot find domain node for link: {}", &link.url);
+                    error!("Cannot find domain node for link: {}", url);
                     return Err(PiError::FetchError(
                         "Cannot find domain for link".to_string(),
                     ));
@@ -62,7 +61,9 @@ impl Domain {
 
         if !domain.is_allowed_to_crawl {
             error!("Domain is not allowed to crawl: {}", &domain.name);
-            return Err(PiError::FetchError("Domain is not allowed to crawl".to_string()));
+            return Err(PiError::FetchError(
+                "Domain is not allowed to crawl".to_string(),
+            ));
         }
 
         // Check the last fetch time for this domain. We do not want to fetch too often.
@@ -106,9 +107,7 @@ impl Domain {
                 }
             },
             Err(_err) => {
-                return Err(PiError::FetchError(
-                    "Error reading domain node".to_string(),
-                ));
+                return Err(PiError::FetchError("Error reading domain node".to_string()));
             }
         }
 

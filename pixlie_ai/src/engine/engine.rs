@@ -1,8 +1,7 @@
-use super::{CommonEdgeLabels, EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
+use super::{EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::domain::Domain;
-use crate::entity::web::link::Link;
-use crate::error::{PiError, PiResult};
+use crate::error::PiResult;
 use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
@@ -37,27 +36,38 @@ struct PendingEdge {
 pub struct Engine {
     pub labels: RwLock<HashSet<NodeLabel>>,
     pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
-    pending_nodes: RwLock<Vec<PendingNode>>,              // Nodes pending to be written
-    pending_edges: RwLock<Vec<PendingEdge>>,              // Edges pending to be written
+    pending_nodes_to_add: RwLock<Vec<PendingNode>>,       // Nodes pending to be added
+    pending_edges_to_add: RwLock<Vec<PendingEdge>>,       // Edges pending to be added
+    pending_nodes_to_update: RwLock<Vec<PendingNode>>,    // Nodes pending to be updated
     last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
     project_id: String,
     project_path_on_disk: PathBuf,
     fetcher: Arc<Fetcher>,
+    my_pi_channel: PiChannel,
+    last_tick_at: RwLock<Instant>,
 }
 
 impl Engine {
-    fn new(project_id: String, storage_root: PathBuf, fetcher: Arc<Fetcher>) -> Engine {
+    fn new(
+        project_id: String,
+        storage_root: PathBuf,
+        fetcher: Arc<Fetcher>,
+        my_pi_channel: PiChannel,
+    ) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
-            pending_nodes: RwLock::new(vec![]),
-            pending_edges: RwLock::new(vec![]),
+            pending_nodes_to_add: RwLock::new(vec![]),
+            pending_edges_to_add: RwLock::new(vec![]),
+            pending_nodes_to_update: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             node_ids_by_label: RwLock::new(HashMap::new()),
             project_path_on_disk: storage_root,
             project_id,
             fetcher,
+            my_pi_channel,
+            last_tick_at: RwLock::new(Instant::now()),
         };
         engine
     }
@@ -66,21 +76,51 @@ impl Engine {
         storage_root: &String,
         project_id: &String,
         fetcher: Arc<Fetcher>,
+        my_pi_channel: PiChannel,
     ) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
-        let mut engine = Engine::new(project_id.clone(), storage_path.clone(), fetcher);
+        let mut engine = Engine::new(
+            project_id.clone(),
+            storage_path.clone(),
+            fetcher,
+            my_pi_channel,
+        );
         engine.load_from_disk();
         engine
     }
 
-    pub fn tick(&self, my_pi_channel: PiChannel, main_tx: crossbeam_channel::Sender<PiEvent>) {
+    fn tick(&self) {
+        let added_nodes = self.add_pending_nodes();
+        let added_edges = self.add_pending_edges();
+        if added_nodes || added_edges {
+            self.save_to_disk();
+        }
+
+        self.process_nodes();
+        let updated = self.update_pending_nodes();
+        if updated {
+            self.save_to_disk();
+        }
+
+        if added_nodes || added_edges || updated {
+            // We have created or updated some nodes, we need to tick again
+            match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                }
+            }
+        }
+    }
+
+    pub fn run(&self, main_tx: crossbeam_channel::Sender<PiEvent>) {
         // We block on the channel of this engine
-        match my_pi_channel.rx.recv() {
-            Ok(event) => match event {
+        for event in self.my_pi_channel.rx.iter() {
+            match event {
                 PiEvent::APIRequest(project_id, request) => {
                     if self.project_id == project_id {
-                        debug!("Got an API request for project {}", project_id);
+                        debug!("API request {} for engine", project_id);
                         match handle_engine_api_request(request, self, main_tx.clone()) {
                             Ok(_) => {}
                             Err(err) => {
@@ -90,80 +130,71 @@ impl Engine {
                     }
                 }
                 PiEvent::NeedsToTick => {
-                    let added_nodes = self.add_pending_nodes();
-                    let added_edges = self.add_pending_edges();
-                    let updated = self.process_nodes();
-                    if added_nodes || added_edges || updated {
-                        self.save_to_disk();
-                        // We have created or updated some nodes, we need to tick again
-                        match my_pi_channel.tx.send(PiEvent::NeedsToTick) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                error!("Error sending PiEvent in Engine: {}", err);
+                    let has_ticked = false;
+                    match self.last_tick_at.read() {
+                        Ok(last_tick_at) => {
+                            if last_tick_at.elapsed().as_millis() > 10 {
+                                self.tick();
+                            } else {
+                                match main_tx.send(PiEvent::PostponeTick(self.project_id.clone())) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!("Error sending PiEvent::PostponeTick in Engine: {}", err);
+                                    }
+                                }
                             }
                         }
+                        Err(_err) => {
+                            error!("Error reading last_tick_at in Engine");
+                        }
+                    }
+                    if has_ticked {
+                        match self.last_tick_at.write() {
+                            Ok(mut last_tick_at) => {
+                                *last_tick_at = Instant::now();
+                            }
+                            Err(_err) => {
+                                error!("Error writing last_tick_at in Engine");
+                            }
+                        };
                     }
                 }
                 _ => {}
-            },
-            Err(err) => {
-                error!("Error receiving PiEvent in Engine: {}", err);
-                return;
             }
-        };
+        }
 
+        error!("Engine for project {} is done ticking", self.project_id);
         // We tell the main thread that we are done ticking
-        main_tx
-            .send(PiEvent::EngineTicked(self.project_id.clone()))
-            .unwrap();
+        match main_tx.send(PiEvent::EngineTicked(self.project_id.clone())) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error sending PiEvent::EngineTicked in Engine: {}", err);
+            }
+        }
     }
 
-    fn process_nodes(&self) -> bool {
-        let updates: Vec<(NodeId, Option<Payload>)> = match self.nodes.read() {
-            Ok(nodes) => nodes
-                .iter()
-                .map(|(node_id, node)| {
+    fn process_nodes(&self) {
+        let engine = Arc::new(self);
+        match self.nodes.read() {
+            Ok(nodes) => {
+                for (node_id, node) in nodes.iter() {
                     let node = node.read().unwrap();
                     let node_id = node_id.clone();
                     match node.payload {
                         Payload::Link(ref payload) => {
-                            let update = payload.process(self, &node_id);
-                            match update {
-                                Some(payload) => (node_id, Some(Payload::Link(payload))),
-                                None => (node_id, None),
-                            }
+                            payload.process(engine.clone(), &node_id);
                         }
                         Payload::FileHTML(ref payload) => {
-                            let update = payload.process(self, &node_id);
-                            match update {
-                                Some(payload) => (node_id, Some(Payload::FileHTML(payload))),
-                                None => (node_id, None),
-                            }
+                            payload.process(engine.clone(), &node_id);
                         }
-                        _ => (node_id, None),
+                        _ => {}
                     }
-                })
-                .collect(),
-            Err(_err) => vec![],
-        };
-
-        let count = updates.len();
-        for (node_id, update) in updates {
-            match update {
-                Some(update) => match self.nodes.read() {
-                    Ok(nodes) => match nodes.get(&node_id) {
-                        Some(node) => match node.write() {
-                            Ok(mut node) => node.payload = update,
-                            Err(_err) => {}
-                        },
-                        None => {}
-                    },
-                    Err(_err) => {}
-                },
-                None => {}
-            };
+                }
+            }
+            Err(_err) => {
+                error!("Error reading nodes");
+            }
         }
-        count > 0
     }
 
     fn save_node(
@@ -233,8 +264,12 @@ impl Engine {
 
     fn add_pending_nodes(&self) -> bool {
         let mut count_nodes = 0;
-        let mut nodes_to_write: Vec<PendingNode> =
-            self.pending_nodes.write().unwrap().drain(..).collect();
+        let mut nodes_to_write: Vec<PendingNode> = self
+            .pending_nodes_to_add
+            .write()
+            .unwrap()
+            .drain(..)
+            .collect();
         while let Some(pending_node) = nodes_to_write.pop() {
             self.save_node(
                 pending_node.id,
@@ -246,15 +281,19 @@ impl Engine {
         }
 
         if count_nodes > 0 {
-            info!("Added {} nodes", count_nodes);
+            info!("Added {} pending nodes to the graph", count_nodes);
         }
         count_nodes > 0
     }
 
     fn add_pending_edges(&self) -> bool {
         let mut count_edges = 0;
-        let mut edges_to_write: Vec<PendingEdge> =
-            self.pending_edges.write().unwrap().drain(..).collect();
+        let mut edges_to_write: Vec<PendingEdge> = self
+            .pending_edges_to_add
+            .write()
+            .unwrap()
+            .drain(..)
+            .collect();
         match self.nodes.read() {
             Ok(nodes) => {
                 while let Some(pending_edge) = edges_to_write.pop() {
@@ -338,9 +377,38 @@ impl Engine {
         }
 
         if count_edges > 0 {
-            info!("Added {} edges", count_edges);
+            info!("Added {} pending edges to the graph", count_edges);
         }
         count_edges > 0
+    }
+
+    fn update_pending_nodes(&self) -> bool {
+        let mut count_nodes = 0;
+        let mut nodes_to_write: Vec<PendingNode> = match self.pending_nodes_to_update.write() {
+            Ok(mut nodes) => nodes.drain(..).collect(),
+            Err(_err) => vec![],
+        };
+        match self.nodes.read() {
+            Ok(nodes) => {
+                while let Some(pending_node) = nodes_to_write.pop() {
+                    match nodes.get(&pending_node.id) {
+                        Some(node) => match node.write() {
+                            Ok(mut node) => {
+                                node.payload = pending_node.payload;
+                            }
+                            Err(_err) => {}
+                        },
+                        None => {}
+                    }
+                    count_nodes += 1;
+                }
+            }
+            Err(_err) => {}
+        }
+        if count_nodes > 0 {
+            info!("Updated {} pending nodes to the graph", count_nodes);
+        }
+        count_nodes > 0
     }
 
     pub fn add_node(&self, payload: Payload, labels: Vec<NodeLabel>) -> NodeId {
@@ -357,24 +425,64 @@ impl Engine {
             *id += 1;
             *id
         });
-        self.pending_nodes.write().unwrap().push(PendingNode {
-            id: id.clone(),
-            payload,
-            labels,
-        });
+        match self.pending_nodes_to_add.write() {
+            Ok(mut pending_nodes) => {
+                pending_nodes.push(PendingNode {
+                    id: id.clone(),
+                    payload,
+                    labels,
+                });
+                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Could not write to pending_nodes_to_add in Engine: {}", err);
+            }
+        }
         id
     }
 
     pub fn add_connection(&self, node_ids: (NodeId, NodeId), edge_labels: (EdgeLabel, EdgeLabel)) {
-        match self.pending_edges.write() {
+        match self.pending_edges_to_add.write() {
             Ok(mut pending_edges) => {
                 pending_edges.push(PendingEdge {
                     node_ids,
                     edge_labels,
                 });
+                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                    }
+                }
             }
             Err(e) => {
                 error!("Failed to add pending edge: {}", e);
+            }
+        }
+    }
+
+    pub fn update_node(&self, node_id: &NodeId, payload: Payload) {
+        match self.pending_nodes_to_update.write() {
+            Ok(mut pending_nodes) => {
+                pending_nodes.push(PendingNode {
+                    id: node_id.clone(),
+                    payload,
+                    labels: vec![],
+                });
+                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Error writing PendingNode in Engine: {}", err);
             }
         }
     }
@@ -538,7 +646,7 @@ impl Engine {
     }
 
     pub fn needs_to_tick(&self) -> bool {
-        match self.pending_nodes.read() {
+        match self.pending_nodes_to_add.read() {
             Ok(nodes) => {
                 if nodes.len() > 0 {
                     return true;
@@ -587,13 +695,11 @@ impl Engine {
 
     pub fn fetch_url(
         &self,
-        link: &Link,
+        url: String,
         node_id: &NodeId,
     ) -> PiResult<crossbeam_channel::Receiver<FetchEvent>> {
-        match Domain::can_fetch_within_domain(self, link, node_id) {
-            Ok(_) => Ok(self.fetcher.fetch(link.url.clone())?),
-            Err(err) => Err(err),
-        }
+        Domain::can_fetch_within_domain(self, url.clone(), node_id)?;
+        self.fetcher.fetch(url)
     }
 }
 

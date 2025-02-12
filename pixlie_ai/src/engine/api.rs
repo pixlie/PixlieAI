@@ -71,9 +71,12 @@ pub async fn get_labels(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
-    debug!("Label request for get_labels");
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to get all labels",
+        request_id, project_id
+    );
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
 
@@ -86,7 +89,6 @@ pub async fn get_labels(
         },
     ))?;
 
-    debug!("Waiting for response for request {}", request_id);
     let mut response_opt: Option<EngineResponsePayload> = None;
     while let None = response_opt {
         match rx.recv().await {
@@ -117,9 +119,12 @@ pub async fn get_nodes_by_label(
     params: web::Query<NodesByLabelParams>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
-    debug!("Label request for get_nodes_by_label: {}", params.label);
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to get nodes with label {}",
+        request_id, project_id, params.label
+    );
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
 
@@ -132,7 +137,6 @@ pub async fn get_nodes_by_label(
         },
     ))?;
 
-    debug!("Waiting for response for request {}", request_id);
     let mut response_opt: Option<EngineResponsePayload> = None;
     while let None = response_opt {
         match rx.recv().await {
@@ -163,12 +167,14 @@ pub async fn create_node(
     node: web::Json<NodeWrite>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
-    debug!(
-        "Create node request for node with label: {}",
-        node.to_string()
-    );
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to create node with label {}",
+        request_id,
+        project_id,
+        node.to_string()
+    );
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
 
@@ -212,7 +218,6 @@ pub fn handle_engine_api_request(
     engine: &Engine,
     pi_channel_main_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
-    debug!("Got an engine API request");
     let response: EngineResponsePayload = match request.payload {
         EngineRequestPayload::GetLabels => match engine.node_ids_by_label.read() {
             Ok(node_ids_by_label) => {
@@ -265,7 +270,7 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    Link::add(&link_write.url, &engine)?;
+                    Link::add(&engine, &link_write.url)?;
                 }
             }
 

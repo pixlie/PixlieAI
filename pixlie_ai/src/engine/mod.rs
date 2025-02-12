@@ -79,11 +79,10 @@ pub struct NodeItem {
 pub trait Node {
     fn get_label() -> String;
 
-    fn process(&self, _engine: &Engine, _node_id: &NodeId) -> Option<Self>
+    fn process(&self, _engine: Arc<&Engine>, _node_id: &NodeId)
     where
         Self: Sized,
     {
-        None
     }
 }
 

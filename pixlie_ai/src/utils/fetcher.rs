@@ -44,17 +44,20 @@ impl Fetcher {
             tx: fetcher_request_tx.clone(),
             rx: fetcher_response_rx.clone(),
         }));
+        let fetch_callers_tx: Arc<RwLock<HashMap<u32, crossbeam_channel::Sender<FetchEvent>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
         {
             let fetch_channel = fetch_channel.clone();
+            let fetch_callers_tx = fetch_callers_tx.clone();
             thread::spawn(move || {
-                response_manager(fetch_channel, Arc::new(RwLock::new(HashMap::new()))).unwrap();
+                response_manager(fetch_channel, fetch_callers_tx).unwrap();
             });
         }
 
         Self {
             fetch_id: AtomicU32::new(1),
             fetch_channel,
-            fetch_callers_tx: Arc::new(RwLock::new(HashMap::new())),
+            fetch_callers_tx,
         }
     }
 
@@ -72,7 +75,7 @@ impl Fetcher {
                 error!("Error writing to fetch caller rx: {}", err);
             }
         }
-        drop(fetch_caller_tx);
+        // drop(fetch_caller_tx);
         let tx = match self.fetch_channel.read() {
             Ok(ch) => ch.tx.clone(),
             Err(err) => {
@@ -103,47 +106,52 @@ fn fetcher_runtime(
     let rt = Runtime::new()?;
 
     rt.block_on(async {
-        while let Some(event) = fetch_rx.recv().await {
+        loop {
+            let event = fetch_rx.recv().await;
             match event {
-                FetchEvent::FetchRequest(id, url) => {
-                    match reqwest::Client::builder()
-                        .user_agent("Pixlie AI")
-                        .timeout(Duration::from_secs(10))
-                        .build() {
-                        Ok(client) => {
-                            let response = client.get(&url).send().await;
-                            match response {
-                                Ok(response) => {
-                                    if response.status().is_success() {
-                                        match response.text().await {
-                                            Ok(contents) => {
-                                                match fetch_tx.send(FetchEvent::FetchResponse(id, url, contents)) {
-                                                    Ok(_) => {}
-                                                    Err(err) => {
-                                                        error!("Error sending PiEvent in Fetch channel: {}", err);
+                Some(event) => match event {
+                    FetchEvent::None => {},
+                    FetchEvent::FetchRequest(id, url) => {
+                        match reqwest::Client::builder()
+                            .user_agent("Pixlie AI bot (https://pixlie.com)")
+                            .timeout(Duration::from_secs(10))
+                            .build() {
+                            Ok(client) => {
+                                let response = client.get(&url).send().await;
+                                match response {
+                                    Ok(response) => {
+                                        if response.status().is_success() {
+                                            match response.text().await {
+                                                Ok(contents) => {
+                                                    match fetch_tx.send(FetchEvent::FetchResponse(id, url, contents)) {
+                                                        Ok(_) => {}
+                                                        Err(err) => {
+                                                            error!("Error sending PiEvent in Fetch channel: {}", err);
+                                                        }
                                                     }
                                                 }
+                                                Err(err) => {
+                                                    error!("Error fetching URL: {}", err);
+                                                }
                                             }
-                                            Err(err) => {
-                                                error!("Error fetching URL: {}", err);
-                                            }
+                                        } else {
+                                            error!("Error fetching URL: {}", response.status());
                                         }
-                                    } else {
-                                        error!("Error fetching URL: {}", response.status());
+                                    }
+                                    Err(err) => {
+                                        error!("Error fetching URL: {}", err);
                                     }
                                 }
-                                Err(err) => {
-                                    error!("Error fetching URL: {}", err);
-                                }
                             }
-                        }
-                        Err(err) => {
-                            error!("Error building reqwest client: {}", err);
-                        },
-                    };
+                            Err(err) => {
+                                error!("Error building reqwest client: {}", err);
+                            },
+                        };
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
+                None => {}
+            };
         }
     });
     Ok(())
@@ -162,32 +170,30 @@ fn response_manager(
             ));
         }
     };
-    thread::spawn(move || {
-        // We reach the rx of the crossbeam channel and pass the response to the caller
-        match rx.recv() {
-            Ok(event) => match event {
-                FetchEvent::FetchResponse(id, url, contents) => match fetch_callers_tx.write() {
-                    Ok(mut callers_rx) => match callers_rx.remove(&id) {
-                        Some(tx) => match tx.send(FetchEvent::FetchResponse(id, url, contents)) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                error!("Error sending to caller rx: {}", err);
-                            }
-                        },
-                        None => {
-                            error!("Fetcher ID {} not found", id);
+    // We reach the rx of the crossbeam channel and pass the response to the caller
+    match rx.recv() {
+        Ok(event) => match event {
+            FetchEvent::FetchResponse(id, url, contents) => match fetch_callers_tx.write() {
+                Ok(mut callers_rx) => match callers_rx.remove(&id) {
+                    Some(tx) => match tx.send(FetchEvent::FetchResponse(id, url, contents)) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error sending to caller rx: {}", err);
                         }
                     },
-                    Err(err) => {
-                        error!("Error reading fetch caller rx: {}", err);
+                    None => {
+                        error!("Fetcher ID {} not found", id);
                     }
                 },
-                _ => {}
+                Err(err) => {
+                    error!("Error reading fetch caller rx: {}", err);
+                }
             },
-            Err(err) => {
-                error!("Error receiving from fetch channel: {}", err);
-            }
+            _ => {}
+        },
+        Err(err) => {
+            error!("Error receiving from fetch channel: {}", err);
         }
-    });
+    }
     Ok(())
 }
