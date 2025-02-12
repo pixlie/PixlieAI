@@ -18,7 +18,7 @@ pub struct Link {
 }
 
 impl Link {
-    pub fn add(engine: &Engine, url: &String) -> PiResult<()> {
+    pub fn add_manually(engine: &Engine, url: &String) -> PiResult<()> {
         match Url::parse(url) {
             Ok(parsed) => match parsed.domain() {
                 Some(domain) => {
@@ -77,43 +77,41 @@ impl Node for Link {
         let engine = engine.clone();
 
         thread::scope(|scope| {
-            scope.spawn(|| {
-                match engine.fetch_url(url.clone(), &node_id) {
-                    Ok(rx) => match rx.recv() {
-                        Ok(event) => match event {
-                            FetchEvent::FetchResponse(_id, _url, contents) => {
-                                debug!("Fetched HTML from {}", url);
-                                let content_node_id = engine.add_node(
-                                    Payload::FileHTML(WebPage {
-                                        contents,
-                                        ..Default::default()
-                                    }),
-                                    vec![],
-                                );
-                                engine.add_connection(
-                                    (node_id.clone(), content_node_id),
-                                    (
-                                        CommonEdgeLabels::Content.to_string(),
-                                        CommonEdgeLabels::Path.to_string(),
-                                    ),
-                                );
-                                engine.update_node(
-                                    &node_id,
-                                    Payload::Link(Link {
-                                        is_fetched: true,
-                                        ..link
-                                    }),
-                                );
-                            }
-                            _ => {}
-                        },
-                        Err(_err) => {
-                            error!("Can not fetch HTML from {}", url);
+            scope.spawn(|| match engine.fetch_url(url.clone(), &node_id) {
+                Ok(rx) => match rx.recv() {
+                    Ok(event) => match event {
+                        FetchEvent::FetchResponse(_id, _url, contents) => {
+                            debug!("Fetched HTML from {}", url);
+                            let content_node_id = engine.add_node(
+                                Payload::FileHTML(WebPage {
+                                    contents,
+                                    ..Default::default()
+                                }),
+                                vec![],
+                            );
+                            engine.add_connection(
+                                (node_id.clone(), content_node_id),
+                                (
+                                    CommonEdgeLabels::Content.to_string(),
+                                    CommonEdgeLabels::Path.to_string(),
+                                ),
+                            );
+                            engine.update_node(
+                                &node_id,
+                                Payload::Link(Link {
+                                    is_fetched: true,
+                                    ..link
+                                }),
+                            );
                         }
+                        _ => {}
                     },
                     Err(_err) => {
                         error!("Can not fetch HTML from {}", url);
                     }
+                },
+                Err(_err) => {
+                    error!("Can not fetch HTML from {}", url);
                 }
             });
         });

@@ -33,11 +33,11 @@ impl PiChannel {
 #[derive(Clone)]
 pub enum PiEvent {
     NeedsToTick,
-    PostponeTick(String), // This is sent from engine to main thread
+    TickMeLater(String), // This is sent from engine to main thread
     SettingsUpdated,
     SetupGliner,
     FinishedSetupGliner,
-    EngineTicked(String), // The engine has nothing else to do, so it gives up
+    EngineRan(String), // The engine has nothing else to do, so it gives up
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
     Shutdown,

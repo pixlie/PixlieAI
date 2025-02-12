@@ -172,7 +172,7 @@ fn main() {
                     }
                 }
             }
-            PiEvent::PostponeTick(project_id) => {
+            PiEvent::TickMeLater(project_id) => {
                 // The engine has requested to be called later
                 let channels_per_project = channels_per_project.clone();
                 pool.execute(move || {
@@ -190,7 +190,7 @@ fn main() {
                     }
                 });
             }
-            PiEvent::EngineTicked(project_id) => {
+            PiEvent::EngineRan(project_id) => {
                 channels_per_project.remove(&project_id);
             }
             PiEvent::Shutdown => {

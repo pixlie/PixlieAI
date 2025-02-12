@@ -36,16 +36,19 @@ struct PendingEdge {
 pub struct Engine {
     pub labels: RwLock<HashSet<NodeLabel>>,
     pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
-    pending_nodes_to_add: RwLock<Vec<PendingNode>>,       // Nodes pending to be added
-    pending_edges_to_add: RwLock<Vec<PendingEdge>>,       // Edges pending to be added
-    pending_nodes_to_update: RwLock<Vec<PendingNode>>,    // Nodes pending to be updated
-    last_node_id: Mutex<u32>,
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
+
+    pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
+    pending_edges_to_add: RwLock<Vec<PendingEdge>>, // Edges pending to be added
+    pending_nodes_to_update: RwLock<Vec<PendingNode>>, // Nodes pending to be updated
+
+    last_node_id: Mutex<u32>,
     project_id: String,
     project_path_on_disk: PathBuf,
-    fetcher: Arc<Fetcher>,
-    my_pi_channel: PiChannel,
-    last_tick_at: RwLock<Instant>,
+    last_ticked_at: RwLock<Instant>,
+
+    fetcher: Arc<Fetcher>,    // Used to fetch URLs, managed by the main thread
+    my_pi_channel: PiChannel, // Used to communicate with the main thread
 }
 
 impl Engine {
@@ -58,16 +61,19 @@ impl Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
+            node_ids_by_label: RwLock::new(HashMap::new()),
+
             pending_nodes_to_add: RwLock::new(vec![]),
             pending_edges_to_add: RwLock::new(vec![]),
             pending_nodes_to_update: RwLock::new(vec![]),
+
             last_node_id: Mutex::new(0),
-            node_ids_by_label: RwLock::new(HashMap::new()),
-            project_path_on_disk: storage_root,
             project_id,
+            project_path_on_disk: storage_root,
+            last_ticked_at: RwLock::new(Instant::now()),
+
             fetcher,
             my_pi_channel,
-            last_tick_at: RwLock::new(Instant::now()),
         };
         engine
     }
@@ -130,31 +136,35 @@ impl Engine {
                     }
                 }
                 PiEvent::NeedsToTick => {
+                    debug!("*********************** NeedsToTick ************************");
                     let has_ticked = false;
-                    match self.last_tick_at.read() {
+                    match self.last_ticked_at.read() {
                         Ok(last_tick_at) => {
                             if last_tick_at.elapsed().as_millis() > 10 {
                                 self.tick();
                             } else {
-                                match main_tx.send(PiEvent::PostponeTick(self.project_id.clone())) {
+                                match main_tx.send(PiEvent::TickMeLater(self.project_id.clone())) {
                                     Ok(_) => {}
                                     Err(err) => {
-                                        error!("Error sending PiEvent::PostponeTick in Engine: {}", err);
+                                        error!(
+                                            "Error sending PiEvent::TickMeLater in Engine: {}",
+                                            err
+                                        );
                                     }
                                 }
                             }
                         }
                         Err(_err) => {
-                            error!("Error reading last_tick_at in Engine");
+                            error!("Error reading last_ticked_at in Engine");
                         }
                     }
                     if has_ticked {
-                        match self.last_tick_at.write() {
+                        match self.last_ticked_at.write() {
                             Ok(mut last_tick_at) => {
                                 *last_tick_at = Instant::now();
                             }
                             Err(_err) => {
-                                error!("Error writing last_tick_at in Engine");
+                                error!("Error writing last_ticked_at in Engine");
                             }
                         };
                     }
@@ -165,10 +175,10 @@ impl Engine {
 
         error!("Engine for project {} is done ticking", self.project_id);
         // We tell the main thread that we are done ticking
-        match main_tx.send(PiEvent::EngineTicked(self.project_id.clone())) {
+        match main_tx.send(PiEvent::EngineRan(self.project_id.clone())) {
             Ok(_) => {}
             Err(err) => {
-                error!("Error sending PiEvent::EngineTicked in Engine: {}", err);
+                error!("Error sending PiEvent::EngineRan in Engine: {}", err);
             }
         }
     }

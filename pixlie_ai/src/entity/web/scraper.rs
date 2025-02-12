@@ -1,6 +1,7 @@
 use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
 use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
 use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
+use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
 use log::error;
@@ -9,7 +10,7 @@ use std::sync::Arc;
 use url::Url;
 
 impl WebPage {
-    fn scrape_helper(&self, current_link: &Link) -> Vec<Payload> {
+    fn get_page_parts(&self, current_link: &Link) -> Vec<Payload> {
         let current_url = Url::parse(&current_link.url).unwrap();
         let current_domain = current_url.domain().unwrap();
         let mut parts: Vec<Payload> = vec![];
@@ -106,6 +107,7 @@ impl WebPage {
                         continue;
                     }
                     if url.starts_with("/") {
+                        // Links that are relative to this website
                         match current_url.join(&url) {
                             Ok(parsed) => url = parsed.to_string(),
                             Err(_) => match Url::parse(&url) {
@@ -114,31 +116,55 @@ impl WebPage {
                                         // Check if link is on the same domain as the current link
                                         if domain != current_domain {
                                             error!(
-                                                "Can not parse URL to get domain for link: {}",
+                                                "Cannot parse URL to get domain for link: {}",
                                                 url
                                             );
                                             continue;
                                         }
+                                        parts.push(Payload::Link(Link {
+                                            url: url.to_string(),
+                                            ..Default::default()
+                                        }));
                                     }
                                     None => {
-                                        error!("Can not parse URL to get domain for link: {}", url);
+                                        error!("Cannot parse URL to get domain for link: {}", url);
                                         continue;
                                     }
                                 },
                                 Err(err) => {
                                     error!(
-                                        "Can not parse URL to get domain for link: {}\n{}",
+                                        "Cannot parse URL to get domain for link: {}\n{}",
                                         url, err
                                     );
                                     continue;
                                 }
                             },
                         }
+                    } else {
+                        // Links that are full URLs, maybe within this domain
+                        match Url::parse(&url) {
+                            Ok(parsed) => match parsed.domain() {
+                                Some(domain) => {
+                                    parts.push(Payload::Link(Link {
+                                        url: url.to_string(),
+                                        ..Default::default()
+                                    }));
+                                    if domain != current_domain {
+                                        parts.push(Payload::Domain(Domain {
+                                            name: domain.to_string(),
+                                            ..Default::default()
+                                        }));
+                                    }
+                                }
+                                None => {
+                                    error!("Cannot parse URL to get domain for link: {}", url);
+                                }
+                            },
+                            Err(err) => {
+                                error!("Cannot parse URL to get domain for link: {}", url);
+                            }
+                        }
                     }
-                    parts.push(Payload::Link(Link {
-                        url: url.to_string(),
-                        ..Default::default()
-                    }));
                 }
                 "table" => {
                     let mut head: Vec<String> = vec![];
@@ -223,7 +249,7 @@ impl WebPage {
             return;
         }
         let current_link = current_link.unwrap();
-        let parts = self.scrape_helper(&current_link);
+        let parts = self.get_page_parts(&current_link);
         for part in parts {
             let part_id = engine.add_node(part, vec![]);
             engine.add_connection(
@@ -258,7 +284,7 @@ mod tests {
             ..Default::default()
         };
 
-        let parts = webpage.scrape_helper(&link);
+        let parts = webpage.get_page_parts(&link);
         // Check page title
         assert_eq!(
             parts
@@ -318,7 +344,7 @@ mod tests {
             ..Default::default()
         };
 
-        let parts = webpage.scrape_helper(&link);
+        let parts = webpage.get_page_parts(&link);
         // Check list item headings
         assert_eq!(
             parts

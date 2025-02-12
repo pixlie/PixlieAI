@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use ts_rs::TS;
 
-#[derive(Clone, Deserialize, Serialize, Eq, PartialEq, TS)]
+#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
 #[ts(export)]
 pub struct Domain {
     pub name: String,

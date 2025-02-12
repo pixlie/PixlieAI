@@ -270,7 +270,7 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    Link::add(&engine, &link_write.url)?;
+                    Link::add_manually(&engine, &link_write.url)?;
                 }
             }
 
