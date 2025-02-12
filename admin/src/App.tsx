@@ -4,7 +4,6 @@ import { WorkspaceProvider } from "./stores/workspace";
 import Loader from "./utils/Loader";
 import { UIClassesProvider, useUIClasses } from "./stores/UIClasses";
 import { RouteSectionProps } from "@solidjs/router";
-import { EngineProvider } from "./stores/engine.tsx";
 
 interface AppInnerProps {
   children: JSX.Element;
@@ -28,9 +27,7 @@ const App: Component<RouteSectionProps> = (props) => {
   return (
     <UIClassesProvider>
       <WorkspaceProvider>
-        <EngineProvider>
-          <AppInner children={props.children} />
-        </EngineProvider>
+        <AppInner children={props.children} />
       </WorkspaceProvider>
     </UIClassesProvider>
   );
