@@ -5,8 +5,10 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use crate::engine::{NodeId, NodeLabel};
 use crate::PiEvent;
 use actix_web::ResponseError;
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -59,14 +61,24 @@ pub enum PiError {
     #[error("Error from Actix Web Blocking Error: {0}")]
     ActixWebError(#[from] actix_web::error::BlockingError),
 
+    // #[error("Error reading guarded HashMap: {0}")]
+    // PoisonError(
+    //     #[from]
+    //     std::sync::PoisonError<
+    //         std::sync::RwLockReadGuard<'static, HashMap<NodeLabel, Vec<NodeId>>>,
+    //     >,
+    // ),
     #[error("Error in CRUD: {0}")]
     CrudError(String),
-    
+
     #[error("Internal error: {0}")]
     InternalError(String),
-    
+
     #[error("Error in fetching external data: {0}")]
     FetchError(String),
+
+    #[error("Error in graph reading or writing: {0}")]
+    GraphError(String),
 }
 
 impl ResponseError for PiError {

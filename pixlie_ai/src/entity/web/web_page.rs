@@ -1,9 +1,9 @@
 use crate::config::Settings;
 use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
-use crate::error::PiResult;
+use crate::error::{PiError, PiResult};
 use crate::services::{anthropic, ollama, TextClassificationProvider};
-use log::info;
+use log::{error, info};
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -19,29 +19,56 @@ pub struct WebPage {
 }
 
 impl WebPage {
-    pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> Option<Link> {
-        let related_node_ids = engine
-            .get_node_ids_connected_with_label(node_id.clone(), CommonEdgeLabels::Path.to_string());
+    pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
+        // Each WebPage node has a parent Link node, if not this is an error
+        let related_node_ids = match engine
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::Path.to_string())
+        {
+            Ok(related_node_ids) => related_node_ids,
+            Err(err) => {
+                error!("Error getting related node ids: {}", err);
+                return Err(PiError::InternalError(
+                    "Error getting related node ids".to_string(),
+                ));
+            }
+        };
 
-        related_node_ids
-            .iter()
-            .find_map(|node_id| match engine.nodes.read() {
-                Ok(nodes) => match nodes.get(node_id) {
-                    Some(node) => match node.read().unwrap().payload {
-                        Payload::Link(ref link) => Some(link.clone()),
-                        _ => None,
-                    },
-                    None => None,
-                },
-                Err(_err) => None,
-            })
+        match engine.nodes.read() {
+            Ok(nodes) => {
+                for node_id in related_node_ids {
+                    match nodes.get(&node_id) {
+                        Some(node) => match node.read() {
+                            Ok(node) => match node.payload {
+                                Payload::Link(ref link) => return Ok((link.clone(), node_id.clone())),
+                                _ => {}
+                            },
+                            Err(_) => {}
+                        },
+                        None => {}
+                    }
+                }
+                error!("Cannot find parent Link node for WebPage node");
+                Err(PiError::GraphError(
+                    "Cannot find parent Link node for WebPage node".to_string(),
+                ))
+            }
+            Err(err) => {
+                error!("Error reading nodes: {}", err);
+                Err(PiError::InternalError("Error reading nodes".to_string()))
+            }
+        }
     }
 
     fn get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
-        let part_node_ids = engine.get_node_ids_connected_with_label(
-            node_id.clone(),
-            CommonEdgeLabels::Child.to_string(),
-        );
+        let part_node_ids = match engine
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::Child.to_string())
+        {
+            Ok(part_node_ids) => part_node_ids,
+            Err(err) => {
+                error!("Error getting part node ids: {}", err);
+                return "".to_string();
+            }
+        };
 
         part_node_ids
             .iter()
@@ -149,10 +176,10 @@ impl Node for WebPage {
         "WebPage".to_string()
     }
 
-    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) {
+    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
         // TODO: save the scraped nodes to graph only if webpage is classified as important to us
         if !self.is_scraped {
-            self.scrape(engine.clone(), node_id);
+            self.scrape(engine.clone(), node_id)?;
             engine.update_node(
                 &node_id,
                 Payload::FileHTML(WebPage {
@@ -202,5 +229,6 @@ impl Node for WebPage {
             //     });
             // }
         }
+        Ok(())
     }
 }

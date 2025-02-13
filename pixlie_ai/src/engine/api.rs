@@ -6,6 +6,7 @@ use actix_web::{web, Responder};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 
@@ -218,6 +219,7 @@ pub fn handle_engine_api_request(
     engine: &Engine,
     pi_channel_main_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
+    let engine = Arc::new(engine);
     let response: EngineResponsePayload = match request.payload {
         EngineRequestPayload::GetLabels => match engine.node_ids_by_label.read() {
             Ok(node_ids_by_label) => {
@@ -270,10 +272,9 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    Link::add_manually(&engine, &link_write.url)?;
+                    Link::add_manually(engine.clone(), &link_write.url)?;
                 }
             }
-
             EngineResponsePayload::Success
         }
         _ => EngineResponsePayload::Error("Could not understand request".to_string()),

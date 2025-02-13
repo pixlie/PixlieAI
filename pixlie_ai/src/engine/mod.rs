@@ -25,6 +25,7 @@ use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
+use crate::error::PiResult;
 pub use engine::Engine;
 
 #[derive(Clone, Display, Deserialize, Serialize, TS)]
@@ -59,10 +60,15 @@ pub enum CommonNodeLabels {
 #[derive(Display)]
 pub enum CommonEdgeLabels {
     Related,
-    Parent,
+
+    Parent, // When one node is like a container of the other
     Child,
-    Content,
+
+    Content, // When one node is the content from a file path
     Path,
+
+    RootPath, // When one node is the root path of another (like domain and path or folder and file)
+    FullPath,
 }
 
 #[derive(Clone, Deserialize, Serialize, TS)]
@@ -79,10 +85,11 @@ pub struct NodeItem {
 pub trait Node {
     fn get_label() -> String;
 
-    fn process(&self, _engine: Arc<&Engine>, _node_id: &NodeId)
+    fn process(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<()>
     where
         Self: Sized,
     {
+        Ok(())
     }
 }
 

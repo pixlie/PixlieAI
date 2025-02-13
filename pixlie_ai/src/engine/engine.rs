@@ -1,7 +1,7 @@
 use super::{EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::domain::Domain;
-use crate::error::PiResult;
+use crate::error::{PiError, PiResult};
 use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
@@ -26,8 +26,8 @@ struct PendingNode {
 }
 
 struct PendingEdge {
-    node_ids: (NodeId, NodeId),          // Parent and child node IDs
-    edge_labels: (EdgeLabel, EdgeLabel), // From parent to child and back
+    node_ids: (NodeId, NodeId),          // First and second node IDs
+    edge_labels: (EdgeLabel, EdgeLabel), // From first to second and back
 }
 
 // The engine keeps track of all the data nodes and their relationships
@@ -136,7 +136,6 @@ impl Engine {
                     }
                 }
                 PiEvent::NeedsToTick => {
-                    debug!("*********************** NeedsToTick ************************");
                     let has_ticked = false;
                     match self.last_ticked_at.read() {
                         Ok(last_tick_at) => {
@@ -192,10 +191,20 @@ impl Engine {
                     let node_id = node_id.clone();
                     match node.payload {
                         Payload::Link(ref payload) => {
-                            payload.process(engine.clone(), &node_id);
+                            match payload.process(engine.clone(), &node_id) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("Error processing link: {}", err);
+                                }
+                            }
                         }
                         Payload::FileHTML(ref payload) => {
-                            payload.process(engine.clone(), &node_id);
+                            match payload.process(engine.clone(), &node_id) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("Error processing WebPage: {}", err);
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -580,6 +589,28 @@ impl Engine {
         None
     }
 
+    pub fn get_node_by_id(&self, node_id: &NodeId) -> PiResult<NodeItem> {
+        match self.nodes.read() {
+            Ok(nodes) => match nodes.get(node_id) {
+                Some(node) => match node.read() {
+                    Ok(node) => Ok(node.clone()),
+                    Err(err) => Err(PiError::InternalError(format!(
+                        "Error reading node: {}",
+                        err
+                    ))),
+                },
+                None => Err(PiError::GraphError(format!(
+                    "Node {} does not exist",
+                    node_id
+                ))),
+            },
+            Err(err) => Err(PiError::InternalError(format!(
+                "Error reading nodes: {}",
+                err
+            ))),
+        }
+    }
+
     fn save_to_disk(&self) {
         // We use RocksDB to store the graph
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
@@ -671,35 +702,50 @@ impl Engine {
 
     pub fn get_node_ids_connected_with_label(
         &self,
-        starting_node_id: NodeId,
-        label: NodeLabel,
-    ) -> Vec<NodeId> {
+        starting_node_id: &NodeId,
+        label: &NodeLabel,
+    ) -> PiResult<Vec<NodeId>> {
         match self.nodes.read() {
-            Ok(nodes) => match nodes.get(&starting_node_id) {
-                Some(node) => match node.read().unwrap().edges.get(&label) {
-                    Some(node_ids) => node_ids.clone(),
-                    None => vec![],
+            Ok(nodes) => match nodes.get(starting_node_id) {
+                Some(node) => match node.read() {
+                    Ok(node) => match node.edges.get(label) {
+                        Some(node_ids) => Ok(node_ids.clone()),
+                        None => Err(PiError::GraphError(format!(
+                            "Node {} does not have any edges with label {}",
+                            starting_node_id, label
+                        ))),
+                    },
+                    Err(err) => Err(PiError::InternalError(format!(
+                        "Could not read node {} from the engine: {}",
+                        starting_node_id, err
+                    ))),
                 },
-                None => vec![],
+                None => Err(PiError::GraphError(format!(
+                    "Node {} does not exist",
+                    starting_node_id
+                ))),
             },
-            Err(_err) => vec![],
+            Err(err) => Err(PiError::InternalError(format!(
+                "Could not read nodes from the engine: {}",
+                err
+            ))),
         }
     }
 
     pub fn get_first_node_id_connected_with_label(
         &self,
-        starting_node_id: NodeId,
-        label: NodeLabel,
-    ) -> Option<NodeId> {
-        match self.nodes.read() {
-            Ok(nodes) => match nodes.get(&starting_node_id) {
-                Some(node) => match node.read().unwrap().edges.get(&label) {
-                    Some(node_ids) => node_ids.first().cloned(),
-                    None => None,
-                },
-                None => None,
+        starting_node_id: &NodeId,
+        label: &NodeLabel,
+    ) -> PiResult<NodeId> {
+        match self.get_node_ids_connected_with_label(starting_node_id, label) {
+            Ok(node_ids) => match node_ids.first() {
+                Some(node_id) => Ok(node_id.clone()),
+                None => Err(PiError::GraphError(format!(
+                    "Node {} does not have any edges with label {}",
+                    starting_node_id, label
+                ))),
             },
-            Err(_err) => None,
+            Err(err) => Err(err),
         }
     }
 
@@ -708,7 +754,8 @@ impl Engine {
         url: String,
         node_id: &NodeId,
     ) -> PiResult<crossbeam_channel::Receiver<FetchEvent>> {
-        Domain::can_fetch_within_domain(self, url.clone(), node_id)?;
+        let engine = Arc::new(self);
+        Domain::can_fetch_within_domain(engine.clone(), &url, node_id)?;
         self.fetcher.fetch(url)
     }
 }
