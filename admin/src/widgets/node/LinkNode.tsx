@@ -9,8 +9,11 @@ const LinkNode: Component<ILinkProps> = (props) => {
 
   return (
     <div class="grid grid-cols-2 items-center">
-      <a href={props.url} class={getColors().link}>
-        {props.url}
+      <a
+        href={`${props.path}${!!props.query ? "?" + props.query : ""}`}
+        class={getColors().link}
+      >
+        {`${props.path}${!!props.query ? "?" + props.query : ""}`}
       </a>
       <span>{props.is_fetched ? "Fetched" : "Not Fetched"}</span>
     </div>

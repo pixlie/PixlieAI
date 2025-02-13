@@ -69,17 +69,24 @@ const Workflow: Component = () => {
     fetchNodesByLabel(params.projectId, "AddedByUser");
   });
 
+  type NodesInWorkflow = "Link" | "Domain";
   // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
-  const getNodesInWorkflow = createMemo(() =>
-    engine.isReady && "AddedByUser" in engine.nodeIdsByLabel
-      ? engine.nodeIdsByLabel["AddedByUser"].map((x) => {
-          if ("Link" in engine.nodes[x].payload) {
-            return "Link";
-          } else if ("Domain" in engine.nodes[x].payload) {
-            return "Domain";
-          }
-        })
-      : [],
+  const getNodesInWorkflow = createMemo(
+    (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
+      if (engine.isReady && "AddedByUser" in engine.nodeIdsByLabel) {
+        return engine.nodeIdsByLabel["AddedByUser"]
+          .map((x) => {
+            if ("Link" in engine.nodes[x].payload) {
+              return "Link";
+            } else if ("Domain" in engine.nodes[x].payload) {
+              return "Domain";
+            }
+          })
+          .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
+      }
+      return prev;
+    },
+    [],
   );
 
   const getTabs = createMemo(() =>
