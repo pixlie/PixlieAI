@@ -42,7 +42,7 @@ const Graph: Component = () => {
 
   return (
     <>
-      <Heading size={1}>Graph</Heading>
+      <Heading size={3}>Graph</Heading>
 
       <Tabs tabs={getTabs()} />
       {!engine.isReady ? (

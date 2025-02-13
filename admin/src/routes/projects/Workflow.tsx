@@ -104,8 +104,8 @@ const Workflow: Component = () => {
   });
 
   return (
-    <div class="max-w-screen-sm">
-      <Heading size={1}>Workflow</Heading>
+    <>
+      <Heading size={3}>Workflow</Heading>
 
       <Tabs tabs={getTabs()} />
       {!engine.isReady ? (
@@ -119,11 +119,11 @@ const Workflow: Component = () => {
       )}
 
       {searchParams.label === "Link" ? (
-        <div class="mt-6">
+        <div class="mt-6 max-w-screen-sm">
           <LinkForm />
         </div>
       ) : null}
-    </div>
+    </>
   );
 };
 

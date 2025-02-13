@@ -36,7 +36,7 @@ const Crawl: Component = () => {
 
   return (
     <>
-      <Heading size={1}>Crawl</Heading>
+      <Heading size={3}>Crawl</Heading>
 
       <Tabs tabs={getTabs()} />
       {!engine.isReady ? (

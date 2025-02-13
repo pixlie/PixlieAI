@@ -1,6 +1,9 @@
 import { Component, For } from "solid-js";
 import SidebarLink from "./SidebarLink";
-import { globalRoutes, perProjectRoutes } from "../../routes/routeList";
+import {
+  getGlobalRoutes,
+  getPerProjectRoutes,
+} from "../../routes/routeList.tsx";
 import { useUIClasses } from "../../stores/UIClasses";
 import { useWorkspace } from "../../stores/workspace";
 import { useLocation, useParams } from "@solidjs/router";
@@ -38,7 +41,7 @@ const Sidebar: Component = () => {
           {workspace.isReady &&
           workspace.settingsStatus?.type === "Complete" ? (
             <>
-              <For each={globalRoutes}>
+              <For each={getGlobalRoutes()}>
                 {(item) => (
                   <SidebarLink
                     label={item.label}
@@ -50,7 +53,7 @@ const Sidebar: Component = () => {
               <span class="block my-3" />
 
               {!!params.projectId ? (
-                <For each={perProjectRoutes}>
+                <For each={getPerProjectRoutes()}>
                   {(item) => (
                     <SidebarLink
                       label={item.label}
