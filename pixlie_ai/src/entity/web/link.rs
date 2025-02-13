@@ -60,8 +60,8 @@ impl Link {
                     engine.add_connection(
                         (domain_node_id, link_node_id.clone()),
                         (
-                            CommonEdgeLabels::FullPath.to_string(),
-                            CommonEdgeLabels::RootPath.to_string(),
+                            CommonEdgeLabels::SubPathOf.to_string(),
+                            CommonEdgeLabels::RootPathOf.to_string(),
                         ),
                     );
                     Ok(link_node_id)
@@ -129,8 +129,8 @@ impl Node for Link {
                             engine.add_connection(
                                 (node_id.clone(), content_node_id),
                                 (
-                                    CommonEdgeLabels::Content.to_string(),
-                                    CommonEdgeLabels::Path.to_string(),
+                                    CommonEdgeLabels::ContentOf.to_string(),
+                                    CommonEdgeLabels::PathOf.to_string(),
                                 ),
                             );
                             engine.update_node(

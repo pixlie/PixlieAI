@@ -79,7 +79,7 @@ impl Domain {
             FindDomainOf::Node(node_id) => {
                 let connected = engine.get_node_ids_connected_with_label(
                     &node_id,
-                    &CommonEdgeLabels::RootPath.to_string(),
+                    &CommonEdgeLabels::RootPathOf.to_string(),
                 )?;
                 match engine.nodes.read() {
                     Ok(nodes) => {

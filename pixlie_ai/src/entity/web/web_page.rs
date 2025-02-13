@@ -22,7 +22,7 @@ impl WebPage {
     pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
         // Each WebPage node has a parent Link node, if not this is an error
         let related_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::Path.to_string())
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::PathOf.to_string())
         {
             Ok(related_node_ids) => related_node_ids,
             Err(err) => {
@@ -39,7 +39,9 @@ impl WebPage {
                     match nodes.get(&node_id) {
                         Some(node) => match node.read() {
                             Ok(node) => match node.payload {
-                                Payload::Link(ref link) => return Ok((link.clone(), node_id.clone())),
+                                Payload::Link(ref link) => {
+                                    return Ok((link.clone(), node_id.clone()))
+                                }
                                 _ => {}
                             },
                             Err(_) => {}
@@ -61,7 +63,7 @@ impl WebPage {
 
     fn get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
         let part_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::Child.to_string())
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ChildOf.to_string())
         {
             Ok(part_node_ids) => part_node_ids,
             Err(err) => {

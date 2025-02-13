@@ -59,16 +59,16 @@ pub enum CommonNodeLabels {
 
 #[derive(Display)]
 pub enum CommonEdgeLabels {
-    Related,
+    RelatedTo,
 
-    Parent, // When one node is like a container of the other
-    Child,
+    ParentOf, // When one node is like a container of the other
+    ChildOf,
 
-    Content, // When one node is the content from a file path
-    Path,
+    ContentOf, // When one node is the content from a file path
+    PathOf,
 
-    RootPath, // When one node is the root path of another (like domain and path or folder and file)
-    FullPath,
+    RootPathOf, // When one node is the root path of another (like domain and path or folder and file)
+    SubPathOf,
 }
 
 #[derive(Clone, Deserialize, Serialize, TS)]
