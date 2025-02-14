@@ -6,12 +6,11 @@ import {
 } from "../../routes/routeList.tsx";
 import { useUIClasses } from "../../stores/UIClasses";
 import { useWorkspace } from "../../stores/workspace";
-import { useLocation, useParams } from "@solidjs/router";
+import { useParams } from "@solidjs/router";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [workspace] = useWorkspace();
-  const location = useLocation();
   const params = useParams();
 
   return (
@@ -42,27 +41,13 @@ const Sidebar: Component = () => {
           workspace.settingsStatus?.type === "Complete" ? (
             <>
               <For each={getGlobalRoutes()}>
-                {(item) => (
-                  <SidebarLink
-                    label={item.label}
-                    href={item.href}
-                    isActive={location.pathname === item.href}
-                  />
-                )}
+                {(item) => <SidebarLink {...item} />}
               </For>
               <span class="block my-3" />
 
               {!!params.projectId ? (
                 <For each={getPerProjectRoutes()}>
-                  {(item) => (
-                    <SidebarLink
-                      label={item.label}
-                      href={`/p/${params.projectId}${item.href}`}
-                      isActive={location.pathname.startsWith(
-                        `/p/${params.projectId}${item.href}`,
-                      )}
-                    />
-                  )}
+                  {(item) => <SidebarLink {...item} />}
                 </For>
               ) : null}
             </>

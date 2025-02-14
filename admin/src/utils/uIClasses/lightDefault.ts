@@ -8,6 +8,8 @@ const lightDefault = {
     "sideBar.logo": "text-gray-800",
     "sideBar.link": "text-gray-800 hover:bg-gray-300",
     "sideBar.link.active": "bg-gray-300",
+    "sideBar.label": "text-gray-600",
+    "sideBar.label.active": "text-gray-800 border-gray-400",
 
     mainContent: "",
     heading: "text-gray-800",
