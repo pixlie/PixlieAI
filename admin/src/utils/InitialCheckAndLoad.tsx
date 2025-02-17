@@ -6,14 +6,16 @@ interface ILoaderProps {
   children: JSX.Element;
 }
 
-const Loader: Component<ILoaderProps> = (props) => {
-  const [workspace, { fetchSettings, fetchSettingsStatus }] = useWorkspace();
+const InitialCheckAndLoad: Component<ILoaderProps> = (props) => {
+  const [workspace, { fetchSettings, fetchSettingsStatus, fetchProjects }] =
+    useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
 
   onMount(() => {
     fetchSettings();
     fetchSettingsStatus();
+    fetchProjects();
   });
 
   createEffect(() => {
@@ -59,4 +61,4 @@ const Loader: Component<ILoaderProps> = (props) => {
   );
 };
 
-export default Loader;
+export default InitialCheckAndLoad;

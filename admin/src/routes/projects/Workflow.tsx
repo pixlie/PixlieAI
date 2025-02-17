@@ -10,6 +10,7 @@ import Button from "../../widgets/interactable/Button.tsx";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { IFormFieldValue } from "../../utils/types.tsx";
 import { insertNode } from "../../utils/api.ts";
+import Paragraph from "../../widgets/typography/Paragraph.tsx";
 
 const labelTypes: string[] = ["Link", "Domain"];
 type LabelType = (typeof labelTypes)[number];
@@ -106,6 +107,12 @@ const Workflow: Component = () => {
   return (
     <>
       <Heading size={3}>Workflow</Heading>
+      <div class="max-w-screen-sm mb-8">
+        <Paragraph>
+          Pixlie can monitor keywords on multiple URLs. If you add a URL from a
+          website, then Pixlie will crawl all URLs on that website.
+        </Paragraph>
+      </div>
 
       <Tabs tabs={getTabs()} />
       {!engine.isReady ? (

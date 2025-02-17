@@ -1,6 +1,6 @@
 import { Component } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
-import { IRoute } from "../../routes/routeList.tsx";
+import { IRoute } from "../../routes/RouteList.tsx";
 
 const SidebarLink: Component<IRoute> = (props) => {
   const [_, { getColors }] = useUIClasses();

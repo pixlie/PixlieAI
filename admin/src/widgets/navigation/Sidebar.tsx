@@ -1,17 +1,13 @@
-import { Component, For } from "solid-js";
+import { Component } from "solid-js";
 import SidebarLink from "./SidebarLink";
-import {
-  getGlobalRoutes,
-  getPerProjectRoutes,
-} from "../../routes/routeList.tsx";
+import { GlobalRoutes, PerProjectRoutes } from "../../routes/RouteList.tsx";
 import { useUIClasses } from "../../stores/UIClasses";
 import { useWorkspace } from "../../stores/workspace";
-import { useParams } from "@solidjs/router";
+import { A } from "@solidjs/router";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [workspace] = useWorkspace();
-  const params = useParams();
 
   return (
     <div
@@ -20,7 +16,7 @@ const Sidebar: Component = () => {
       }
     >
       <div class="flex items-center p-4">
-        <a
+        <A
           href="/p"
           class={
             "text-2xl font-medium flex gap-2 " + getColors()["sideBar.logo"]
@@ -32,7 +28,7 @@ const Sidebar: Component = () => {
             alt="Pixlie AI"
           />
           Pixlie AI
-        </a>
+        </A>
       </div>
 
       <div class="grow">
@@ -40,16 +36,10 @@ const Sidebar: Component = () => {
           {workspace.isReady &&
           workspace.settingsStatus?.type === "Complete" ? (
             <>
-              <For each={getGlobalRoutes()}>
-                {(item) => <SidebarLink {...item} />}
-              </For>
+              <GlobalRoutes />
               <span class="block my-3" />
 
-              {!!params.projectId ? (
-                <For each={getPerProjectRoutes()}>
-                  {(item) => <SidebarLink {...item} />}
-                </For>
-              ) : null}
+              <PerProjectRoutes />
             </>
           ) : (
             <SidebarLink label="Setup" href="/settings/setup" />
