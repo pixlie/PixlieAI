@@ -14,8 +14,22 @@ impl WebPage {
     pub fn scrape(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
         // Find the Link node that is the parent of this WebPage node
         let (current_link, current_link_node_id) = self.get_link(engine.clone(), node_id)?;
-        let domain = Domain::get(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
-        let full_url = format!("https://{}{}", domain.0.name, current_link.get_full_link());
+        let existing_domain =
+            Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
+        let (domain, domain_node_id) = match existing_domain {
+            Some(existing_domain) => existing_domain,
+            None => {
+                error!(
+                    "Cannot find domain node for URL {}",
+                    &current_link.get_full_link()
+                );
+                return Err(PiError::InternalError(format!(
+                    "Cannot find domain node for URL {}",
+                    &current_link.get_full_link()
+                )));
+            }
+        };
+        let full_url = format!("https://{}{}", domain.name, current_link.get_full_link());
         let current_url = match Url::parse(&full_url) {
             Ok(url) => url,
             Err(err) => {
@@ -169,8 +183,13 @@ impl WebPage {
                         // Links that are relative to this website, we build the full URL
                         match current_url.join(&url) {
                             Ok(parsed) => {
-                                match Link::add(engine.clone(), &parsed.to_string(), vec![], false)
-                                {
+                                match Link::add(
+                                    engine.clone(),
+                                    &parsed.to_string(),
+                                    vec![],
+                                    vec![],
+                                    false,
+                                ) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         error!("Error adding link: {}", err);
@@ -183,7 +202,7 @@ impl WebPage {
                         }
                     } else {
                         // Links that are full URLs
-                        match Link::add(engine.clone(), &url, vec![], false) {
+                        match Link::add(engine.clone(), &url, vec![], vec![], false) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error adding link: {}", err);

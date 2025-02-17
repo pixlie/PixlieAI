@@ -8,7 +8,7 @@ use std::time::Instant;
 use ts_rs::TS;
 use url::Url;
 
-#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
+#[derive(Clone, Default, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct Domain {
     pub name: String,
@@ -24,15 +24,18 @@ impl Node for Domain {
     }
 }
 
-pub enum FindDomainOf {
-    DomainName(String),
+pub enum FindDomainOf<'a> {
+    DomainName(&'a str),
     Node(NodeId),
 }
 
 impl Domain {
-    pub fn get(engine: Arc<&Engine>, data: FindDomainOf) -> PiResult<(Domain, NodeId)> {
+    pub fn find_existing(
+        engine: Arc<&Engine>,
+        data: FindDomainOf,
+    ) -> PiResult<Option<(Domain, NodeId)>> {
         match data {
-            FindDomainOf::DomainName(url) => match engine.node_ids_by_label.read() {
+            FindDomainOf::DomainName(domain_name) => match engine.node_ids_by_label.read() {
                 Ok(node_ids_by_label) => match node_ids_by_label.get(&Domain::get_label()) {
                     Some(domain_node_ids) => match engine.nodes.read() {
                         Ok(nodes) => {
@@ -41,25 +44,27 @@ impl Domain {
                                     Some(node) => match node.read() {
                                         Ok(node) => match node.payload {
                                             Payload::Domain(ref domain) => {
-                                                if domain.name == url {
-                                                    return Ok((domain.clone(), node_id.clone()));
+                                                if domain.name == domain_name {
+                                                    return Ok(Some((
+                                                        domain.clone(),
+                                                        node_id.clone(),
+                                                    )));
                                                 }
                                             }
                                             _ => {}
                                         },
                                         Err(err) => {
+                                            // TODO: Log these errors somewhere, they should not happen
                                             error!("Error reading node: {}", err);
                                         }
                                     },
                                     None => {
+                                        // TODO: Log these errors somewhere, they should not happen
                                         error!("Cannot find node {}", node_id);
                                     }
                                 }
                             }
-                            Err(PiError::GraphError(format!(
-                                "Cannot find domain node for {}",
-                                url
-                            )))
+                            Ok(None)
                         }
                         Err(err) => Err(PiError::InternalError(format!(
                             "Error reading nodes: {}",
@@ -68,7 +73,7 @@ impl Domain {
                     },
                     None => Err(PiError::GraphError(format!(
                         "Cannot find domain node for {}",
-                        url
+                        domain_name
                     ))),
                 },
                 Err(err) => Err(PiError::InternalError(format!(
@@ -88,7 +93,10 @@ impl Domain {
                                 Some(node) => match node.read() {
                                     Ok(node) => match node.payload {
                                         Payload::Domain(ref domain) => {
-                                            return Ok((domain.clone(), connected_node_id.clone()));
+                                            return Ok(Some((
+                                                domain.clone(),
+                                                connected_node_id.clone(),
+                                            )));
                                         }
                                         _ => {}
                                     },
@@ -140,8 +148,18 @@ impl Domain {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
         debug!("Checking if we can fetch within domain: {}", url);
-        let (domain, domain_node_id): (Domain, NodeId) =
-            Self::get(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
+        let existing_domain: Option<(Domain, NodeId)> =
+            Self::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
+        let (domain, domain_node_id) = match existing_domain {
+            Some(existing_domain) => existing_domain,
+            None => {
+                error!("Cannot find domain node for URL {}", url);
+                return Err(PiError::InternalError(format!(
+                    "Cannot find domain node for URL {}",
+                    url
+                )));
+            }
+        };
 
         if !domain.is_allowed_to_crawl {
             error!("Domain is not allowed to crawl: {}", &domain.name);

@@ -1,6 +1,7 @@
 use super::{EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
-use crate::entity::web::domain::Domain;
+use crate::entity::web::domain::{Domain, FindDomainOf};
+use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
@@ -508,79 +509,69 @@ impl Engine {
 
     fn find_existing(&self, payload: &Payload) -> Option<NodeId> {
         // For certain node payloads, check if there is a node with the same payload
+        let engine = Arc::new(self);
         match payload {
             Payload::Domain(ref domain) => {
-                // We do not want duplicate domains in the graph
-                match self.nodes.read() {
-                    Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-                        match other_node.1.read().unwrap().payload {
-                            Payload::Domain(ref other_domain) => {
-                                if domain == other_domain {
-                                    Some(other_node.0.clone())
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
+                let existing =
+                    match Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name)) {
+                        Ok(domain) => domain,
+                        Err(_err) => {
+                            return None;
                         }
-                    }),
-                    Err(_err) => None,
+                    };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
                 }
             }
             Payload::Link(ref link) => {
-                // We do not want duplicate links in the graph
-                match self.nodes.read() {
-                    Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-                        match other_node.1.read().unwrap().payload {
-                            Payload::Link(ref other_link) => {
-                                if link == other_link {
-                                    Some(other_node.0.clone())
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        }
-                    }),
-                    Err(_err) => None,
+                let existing = match Link::find_existing(engine, &link.get_full_link()) {
+                    Ok(link) => link,
+                    Err(_err) => {
+                        return None;
+                    }
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
                 }
             }
-            Payload::Label(ref label) => {
-                // We do not want duplicate labels in the graph
-                match self.nodes.read() {
-                    Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-                        match other_node.1.read().unwrap().payload {
-                            Payload::Label(ref other_label) => {
-                                if label == other_label {
-                                    Some(other_node.0.clone())
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        }
-                    }),
-                    Err(_err) => None,
-                }
-            }
-            Payload::NamedEntity(ref label, ref text) => {
-                // We do not want duplicate named entities in the graph
-                match self.nodes.read() {
-                    Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-                        match other_node.1.read().unwrap().payload {
-                            Payload::NamedEntity(ref other_label, ref other_text) => {
-                                if label == other_label && text == other_text {
-                                    Some(other_node.0.clone())
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        }
-                    }),
-                    Err(_err) => None,
-                }
-            }
+            // Payload::Label(ref label) => {
+            //     // We do not want duplicate labels in the graph
+            //     match self.nodes.read() {
+            //         Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
+            //             match other_node.1.read().unwrap().payload {
+            //                 Payload::Label(ref other_label) => {
+            //                     if label == other_label {
+            //                         Some(other_node.0.clone())
+            //                     } else {
+            //                         None
+            //                     }
+            //                 }
+            //                 _ => None,
+            //             }
+            //         }),
+            //         Err(_err) => None,
+            //     }
+            // }
+            // Payload::NamedEntity(ref label, ref text) => {
+            //     // We do not want duplicate named entities in the graph
+            //     match self.nodes.read() {
+            //         Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
+            //             match other_node.1.read().unwrap().payload {
+            //                 Payload::NamedEntity(ref other_label, ref other_text) => {
+            //                     if label == other_label && text == other_text {
+            //                         Some(other_node.0.clone())
+            //                     } else {
+            //                         None
+            //                     }
+            //                 }
+            //                 _ => None,
+            //             }
+            //         }),
+            //         Err(_err) => None,
+            //     }
+            // }
             _ => None,
         }
     }

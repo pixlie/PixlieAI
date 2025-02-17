@@ -48,6 +48,11 @@ pub enum Payload {
     NamedEntity(String, String), // label, text
 }
 
+pub enum FindNode<'a> {
+    Link(&'a str),
+    Domain(&'a str),
+}
+
 pub type NodeId = Arc<u32>;
 pub type NodeLabel = String;
 pub type EdgeLabel = String;

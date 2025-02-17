@@ -1,4 +1,4 @@
-use log::{debug, error};
+use log::{debug, error, info};
 // use pixlie_ai::config::gliner::setup_gliner;
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::Settings;
@@ -13,6 +13,8 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
+    env_logger::init();
+
     // Setup Sentry for error logging. The URL comes from environment variable
     match var("SENTRY_URL") {
         Ok(sentry_url) => {
@@ -24,12 +26,12 @@ fn main() {
                         ..Default::default()
                     },
                 ));
+                debug!("Sentry initialized for this CLI application, you can see errors at https://pixlie.sentry.io/issues/?project=4508832865648720");
             }
         }
         Err(_) => {}
     }
 
-    env_logger::init();
     match check_cli_settings() {
         Ok(_) => {}
         Err(err) => {

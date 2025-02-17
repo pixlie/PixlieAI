@@ -23,6 +23,7 @@ impl Link {
         engine: Arc<&Engine>,
         url: &String,
         extra_labels: Vec<NodeLabel>,
+        domain_extra_labels: Vec<NodeLabel>,
         is_domain_allowed_to_crawl: bool,
     ) -> PiResult<NodeId> {
         // When we add a link to the graph, we check:
@@ -34,17 +35,17 @@ impl Link {
         match Url::parse(url) {
             Ok(parsed) => match parsed.domain() {
                 Some(domain) => {
-                    let domain_node_id = match Domain::get(
+                    let domain_node_id = match Domain::find_existing(
                         engine.clone(),
-                        FindDomainOf::DomainName(domain.to_string()),
-                    ) {
-                        Ok((domain, domain_node_id)) => domain_node_id,
-                        Err(err) => {
-                            error!("Error getting domain node: {}", err);
+                        FindDomainOf::DomainName(domain),
+                    )? {
+                        Some((domain, domain_node_id)) => domain_node_id,
+                        None => {
+                            debug!("Existing domain node not found, adding new one");
                             Domain::add(
                                 engine.clone(),
                                 domain.to_string(),
-                                extra_labels.clone(),
+                                domain_extra_labels,
                                 is_domain_allowed_to_crawl,
                             )?
                         }
@@ -80,6 +81,7 @@ impl Link {
             engine.clone(),
             url,
             vec![CommonNodeLabels::AddedByUser.to_string()],
+            vec![],
             true,
         )
     }
@@ -91,6 +93,86 @@ impl Link {
             url.push_str(query);
         }
         url
+    }
+
+    pub(crate) fn find_existing(
+        engine: Arc<&Engine>,
+        url: &str,
+    ) -> PiResult<Option<(Link, NodeId)>> {
+        match Url::parse(url) {
+            // To find an existing link, we first find the existing domain node
+            Ok(parsed) => match parsed.domain() {
+                Some(domain) => {
+                    match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
+                        Some((_domain_node, _domain_node_id)) => {
+                            // We found an existing domain node, now we check if the link exists
+                            // We match link node by path and query
+                            let path = parsed.path().to_string();
+                            let query = parsed.query().map(|q| q.to_string());
+
+                            match engine.node_ids_by_label.read() {
+                                Ok(node_ids_by_label) => {
+                                    match node_ids_by_label.get(&Link::get_label().to_string()) {
+                                        Some(link_node_ids) => {
+                                            for node_id in link_node_ids {
+                                                match engine.get_node_by_id(node_id) {
+                                                    Ok(node) => match node.payload {
+                                                        Payload::Link(link) => {
+                                                            if link.path == path
+                                                                && link.query == query
+                                                            {
+                                                                return Ok(Some((
+                                                                    link.clone(),
+                                                                    node_id.clone(),
+                                                                )));
+                                                            }
+                                                        }
+                                                        _ => {}
+                                                    },
+                                                    Err(_) => {}
+                                                }
+                                            }
+                                            Ok(None)
+                                        }
+                                        None => {
+                                            error!("Could not read node_ids_by_label");
+                                            Err(PiError::InternalError(
+                                                "Could not read node_ids_by_label".to_string(),
+                                            ))
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    error!("Could not read node_ids_by_label: {}", err);
+                                    Err(PiError::InternalError(format!(
+                                        "Could not read node_ids_by_label: {}",
+                                        err
+                                    )))
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Cannot find exiting domain node for URL {}", url);
+                            Ok(None)
+                        }
+                    }
+                }
+                None => {
+                    error!("Cannot parse URL {} to get domain", url);
+                    Err(PiError::InternalError(format!(
+                        "Cannot parse URL {} to get domain",
+                        url
+                    )))
+                }
+            },
+            Err(err) => {
+                error!("Cannot parse URL {} to get domain: {}", url, err);
+                Err(PiError::InternalError(format!(
+                    "Cannot parse URL {} to get domain: {}",
+                    url, err
+                )))
+            }
+        }
     }
 }
 
@@ -107,8 +189,18 @@ impl Node for Link {
 
         let node_id = node_id.clone();
         let url = self.get_full_link();
-        let domain = Domain::get(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
-        let full_url = format!("https://{}{}", domain.0.name, url);
+        let (domain, _domain_node_id) =
+            match Domain::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))? {
+                Some((domain, domain_node_id)) => (domain, domain_node_id),
+                None => {
+                    error!("Cannot find domain for link node {}", node_id);
+                    return Err(PiError::InternalError(format!(
+                        "Cannot find domain node for link node {} with URL {}",
+                        node_id, url
+                    )));
+                }
+            };
+        let full_url = format!("https://{}{}", domain.name, url);
         let link = self.clone();
         let engine = engine.clone();
         debug!("Processing Link: {}", &full_url);
