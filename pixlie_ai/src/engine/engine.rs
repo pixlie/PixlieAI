@@ -50,6 +50,7 @@ pub struct Engine {
 
     fetcher: Arc<Fetcher>,    // Used to fetch URLs, managed by the main thread
     my_pi_channel: PiChannel, // Used to communicate with the main thread
+    main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 }
 
 impl Engine {
@@ -58,6 +59,7 @@ impl Engine {
         storage_root: PathBuf,
         fetcher: Arc<Fetcher>,
         my_pi_channel: PiChannel,
+        main_channel_tx: crossbeam_channel::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
@@ -75,6 +77,7 @@ impl Engine {
 
             fetcher,
             my_pi_channel,
+            main_channel_tx,
         };
         engine
     }
@@ -84,6 +87,7 @@ impl Engine {
         project_id: &String,
         fetcher: Arc<Fetcher>,
         my_pi_channel: PiChannel,
+        main_channel_tx: crossbeam_channel::Sender<PiEvent>,
     ) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
@@ -92,6 +96,7 @@ impl Engine {
             storage_path.clone(),
             fetcher,
             my_pi_channel,
+            main_channel_tx,
         );
         engine.load_from_disk();
         engine
@@ -112,23 +117,31 @@ impl Engine {
 
         if added_nodes || added_edges || updated {
             // We have created or updated some nodes, we need to tick again
-            match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                }
+            self.tick_me_later();
+        }
+    }
+
+    fn tick_me_later(&self) {
+        match self
+            .main_channel_tx
+            .send(PiEvent::TickMeLater(self.project_id.clone()))
+        {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
             }
         }
     }
 
-    pub fn run(&self, main_tx: crossbeam_channel::Sender<PiEvent>) {
+    pub fn run(&self) {
         // We block on the channel of this engine
         for event in self.my_pi_channel.rx.iter() {
             match event {
                 PiEvent::APIRequest(project_id, request) => {
                     if self.project_id == project_id {
                         debug!("API request {} for engine", project_id);
-                        match handle_engine_api_request(request, self, main_tx.clone()) {
+                        match handle_engine_api_request(request, self, self.main_channel_tx.clone())
+                        {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error handling API request: {}", err);
@@ -143,15 +156,7 @@ impl Engine {
                             if last_tick_at.elapsed().as_millis() > 10 {
                                 self.tick();
                             } else {
-                                match main_tx.send(PiEvent::TickMeLater(self.project_id.clone())) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        error!(
-                                            "Error sending PiEvent::TickMeLater in Engine: {}",
-                                            err
-                                        );
-                                    }
-                                }
+                                self.tick_me_later();
                             }
                         }
                         Err(_err) => {
@@ -175,7 +180,10 @@ impl Engine {
 
         error!("Engine for project {} is done ticking", self.project_id);
         // We tell the main thread that we are done ticking
-        match main_tx.send(PiEvent::EngineRan(self.project_id.clone())) {
+        match self
+            .main_channel_tx
+            .send(PiEvent::EngineRan(self.project_id.clone()))
+        {
             Ok(_) => {}
             Err(err) => {
                 error!("Error sending PiEvent::EngineRan in Engine: {}", err);
@@ -452,12 +460,7 @@ impl Engine {
                     payload,
                     labels,
                 });
-                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                    }
-                }
+                self.tick_me_later();
             }
             Err(err) => {
                 error!("Could not write to pending_nodes_to_add in Engine: {}", err);
@@ -473,12 +476,6 @@ impl Engine {
                     node_ids,
                     edge_labels,
                 });
-                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                    }
-                }
             }
             Err(e) => {
                 error!("Failed to add pending edge: {}", e);
@@ -494,12 +491,7 @@ impl Engine {
                     payload,
                     labels: vec![],
                 });
-                match self.my_pi_channel.tx.send(PiEvent::NeedsToTick) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                    }
-                }
+                self.tick_me_later();
             }
             Err(err) => {
                 error!("Error writing PendingNode in Engine: {}", err);
@@ -536,42 +528,6 @@ impl Engine {
                     None => None,
                 }
             }
-            // Payload::Label(ref label) => {
-            //     // We do not want duplicate labels in the graph
-            //     match self.nodes.read() {
-            //         Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-            //             match other_node.1.read().unwrap().payload {
-            //                 Payload::Label(ref other_label) => {
-            //                     if label == other_label {
-            //                         Some(other_node.0.clone())
-            //                     } else {
-            //                         None
-            //                     }
-            //                 }
-            //                 _ => None,
-            //             }
-            //         }),
-            //         Err(_err) => None,
-            //     }
-            // }
-            // Payload::NamedEntity(ref label, ref text) => {
-            //     // We do not want duplicate named entities in the graph
-            //     match self.nodes.read() {
-            //         Ok(nodes) => nodes.par_iter().find_map_any(|other_node| {
-            //             match other_node.1.read().unwrap().payload {
-            //                 Payload::NamedEntity(ref other_label, ref other_text) => {
-            //                     if label == other_label && text == other_text {
-            //                         Some(other_node.0.clone())
-            //                     } else {
-            //                         None
-            //                     }
-            //                 }
-            //                 _ => None,
-            //             }
-            //         }),
-            //         Err(_err) => None,
-            //     }
-            // }
             _ => None,
         }
     }
@@ -675,6 +631,7 @@ impl Engine {
                     .or_insert(vec![node_id.clone()]);
             }
         }
+        self.tick_me_later();
     }
 
     pub fn needs_to_tick(&self) -> bool {

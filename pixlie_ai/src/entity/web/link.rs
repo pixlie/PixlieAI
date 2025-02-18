@@ -24,6 +24,7 @@ impl Link {
         url: &String,
         extra_labels: Vec<NodeLabel>,
         domain_extra_labels: Vec<NodeLabel>,
+        should_add_new_domain: bool,
         is_domain_allowed_to_crawl: bool,
     ) -> PiResult<NodeId> {
         // When we add a link to the graph, we check:
@@ -38,16 +39,34 @@ impl Link {
                     let domain_node_id = match Domain::find_existing(
                         engine.clone(),
                         FindDomainOf::DomainName(domain),
-                    )? {
-                        Some((domain, domain_node_id)) => domain_node_id,
-                        None => {
-                            debug!("Existing domain node not found, adding new one");
-                            Domain::add(
-                                engine.clone(),
-                                domain.to_string(),
-                                domain_extra_labels,
-                                is_domain_allowed_to_crawl,
-                            )?
+                    ) {
+                        Ok(existing) => match existing {
+                            Some((domain, domain_node_id)) => domain_node_id,
+                            None => {
+                                debug!("Existing domain node not found, adding new one");
+                                Domain::add(
+                                    engine.clone(),
+                                    domain.to_string(),
+                                    domain_extra_labels,
+                                    is_domain_allowed_to_crawl,
+                                )?
+                            }
+                        },
+                        Err(err) => {
+                            if should_add_new_domain {
+                                Domain::add(
+                                    engine.clone(),
+                                    domain.to_string(),
+                                    domain_extra_labels,
+                                    is_domain_allowed_to_crawl,
+                                )?
+                            } else {
+                                error!("Error finding domain node: {}", err);
+                                return Err(PiError::InternalError(format!(
+                                    "Error finding domain node: {}",
+                                    err
+                                )));
+                            }
                         }
                     };
                     let link_node_id = engine.add_node(
@@ -61,8 +80,8 @@ impl Link {
                     engine.add_connection(
                         (domain_node_id, link_node_id.clone()),
                         (
-                            CommonEdgeLabels::SubPathOf.to_string(),
-                            CommonEdgeLabels::RootPathOf.to_string(),
+                            CommonEdgeLabels::OwnerOf.to_string(),
+                            CommonEdgeLabels::BelongsTo.to_string(),
                         ),
                     );
                     Ok(link_node_id)
@@ -82,6 +101,7 @@ impl Link {
             url,
             vec![CommonNodeLabels::AddedByUser.to_string()],
             vec![],
+            true,
             true,
         )
     }

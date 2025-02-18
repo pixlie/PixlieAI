@@ -1,4 +1,4 @@
-use log::{debug, error, info};
+use log::{debug, error};
 // use pixlie_ai::config::gliner::setup_gliner;
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::Settings;
@@ -138,8 +138,9 @@ fn main() {
                                 &project_id,
                                 arced_fetcher,
                                 my_pi_channel.clone(),
+                                pi_channel_tx,
                             );
-                            engine.run(pi_channel_tx);
+                            engine.run();
                         });
                     }
                 };
@@ -177,17 +178,23 @@ fn main() {
             PiEvent::TickMeLater(project_id) => {
                 // The engine has requested to be called later
                 let channels_per_project = channels_per_project.clone();
+                debug!("TickMeLater for engine for project {}", &project_id);
                 pool.execute(move || {
                     thread::sleep(Duration::from_millis(10));
                     match channels_per_project.get(&project_id) {
                         Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
-                            Ok(_) => {}
+                            Ok(_) => {
+                                debug!(
+                                    "Sent PiEvent::NeedsToTick to engine for project {}",
+                                    &project_id
+                                );
+                            }
                             Err(err) => {
                                 error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
                             }
                         },
                         None => {
-                            error!("Project {} is not loaded", project_id);
+                            error!("Project {} is not loaded", &project_id);
                         }
                     }
                 });

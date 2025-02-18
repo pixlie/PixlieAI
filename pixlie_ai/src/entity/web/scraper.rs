@@ -189,6 +189,7 @@ impl WebPage {
                                     vec![],
                                     vec![],
                                     false,
+                                    false,
                                 ) {
                                     Ok(_) => {}
                                     Err(err) => {
@@ -202,7 +203,7 @@ impl WebPage {
                         }
                     } else {
                         // Links that are full URLs
-                        match Link::add(engine.clone(), &url, vec![], vec![], false) {
+                        match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error adding link: {}", err);

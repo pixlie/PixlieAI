@@ -1,8 +1,15 @@
-use super::{Engine, NodeItem};
+use super::{EdgeLabel, Engine, NodeId, NodeItem, NodeLabel, Payload};
+use crate::entity::content::{
+    BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
+};
+use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::web_page::WebPage;
+use crate::entity::workflow::WorkflowStep;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
+use chrono::{DateTime, Utc};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,7 +49,7 @@ pub enum EngineRequestPayload {
 #[derive(Clone, Default, Serialize, TS)]
 #[ts(export)]
 pub struct EngineResponseResults {
-    pub nodes: Vec<NodeItem>,
+    pub nodes: Vec<APINodeItem>,
     pub labels: Vec<String>,
     #[ts(type = "{ [label: string]: Array<number> }")]
     pub node_ids_by_label: HashMap<String, Vec<u32>>,
@@ -55,6 +62,58 @@ pub enum EngineResponsePayload {
     Success,
     Results(EngineResponseResults),
     Error(String),
+}
+
+#[derive(Clone, Display, Deserialize, Serialize, TS)]
+#[serde(tag = "type", content = "data")]
+#[ts(export)]
+pub enum APIPayload {
+    // StepPrompt(String),
+    Step(WorkflowStep),
+    Domain(Domain),
+    Link(Link),
+    FileHTML(WebPage),
+    Title(Title),
+    Heading(Heading),
+    Paragraph(Paragraph),
+    BulletPoints(BulletPoints),
+    OrderedPoints(OrderedPoints),
+    Table(Table),
+    TableRow(TableRow),
+    Label(String),
+    // TypedData(TypedData),
+    NamedEntity(String, String), // label, text
+}
+
+impl APIPayload {
+    pub fn from_payload(payload: Payload) -> APIPayload {
+        match payload {
+            Payload::Step(step) => APIPayload::Step(step),
+            Payload::Domain(domain) => APIPayload::Domain(domain),
+            Payload::Link(link) => APIPayload::Link(link),
+            Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
+            Payload::Title(title) => APIPayload::Title(title),
+            Payload::Heading(heading) => APIPayload::Heading(heading),
+            Payload::Paragraph(paragraph) => APIPayload::Paragraph(paragraph),
+            Payload::BulletPoints(bullet_points) => APIPayload::BulletPoints(bullet_points),
+            Payload::OrderedPoints(ordered_points) => APIPayload::OrderedPoints(ordered_points),
+            Payload::Table(table) => APIPayload::Table(table),
+            Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
+            Payload::Label(label) => APIPayload::Label(label),
+            Payload::NamedEntity(label, text) => APIPayload::NamedEntity(label, text),
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct APINodeItem {
+    pub id: NodeId,
+    pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
+    pub payload: APIPayload,
+
+    pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
+    pub written_at: DateTime<Utc>,
 }
 
 #[derive(Clone)]
@@ -217,7 +276,7 @@ pub async fn create_node(
 pub fn handle_engine_api_request(
     request: EngineRequest,
     engine: &Engine,
-    pi_channel_main_tx: crossbeam_channel::Sender<PiEvent>,
+    main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
     let engine = Arc::new(engine);
     let response: EngineResponsePayload = match request.payload {
@@ -237,12 +296,18 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
             Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
                 Some(node_ids) => {
-                    let nodes: Vec<NodeItem> = node_ids
+                    let nodes: Vec<APINodeItem> = node_ids
                         .iter()
                         .filter_map(|node_id| match engine.nodes.read() {
                             Ok(nodes) => match nodes.get(node_id) {
                                 Some(node) => match node.read() {
-                                    Ok(node) => Some(node.clone()),
+                                    Ok(node) => Some(APINodeItem {
+                                        id: node_id.clone(),
+                                        labels: node.labels.clone(),
+                                        payload: APIPayload::from_payload(node.payload.clone()),
+                                        edges: node.edges.clone(),
+                                        written_at: node.written_at.clone(),
+                                    }),
                                     Err(_err) => None,
                                 },
                                 None => None,
@@ -280,7 +345,7 @@ pub fn handle_engine_api_request(
         _ => EngineResponsePayload::Error("Could not understand request".to_string()),
     };
 
-    pi_channel_main_tx.send(PiEvent::APIResponse(
+    main_channel_tx.send(PiEvent::APIResponse(
         request.project_id,
         EngineResponse {
             request_id: request.request_id,

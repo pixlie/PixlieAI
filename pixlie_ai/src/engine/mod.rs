@@ -28,8 +28,7 @@ use crate::entity::web::web_page::WebPage;
 use crate::error::PiResult;
 pub use engine::Engine;
 
-#[derive(Clone, Display, Deserialize, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
     // StepPrompt(String),
     Step(WorkflowStep),
@@ -57,12 +56,14 @@ pub type NodeId = Arc<u32>;
 pub type NodeLabel = String;
 pub type EdgeLabel = String;
 
-#[derive(Display)]
+#[derive(Display, TS)]
+#[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
 }
 
-#[derive(Display)]
+#[derive(Display, TS)]
+#[ts(export)]
 pub enum CommonEdgeLabels {
     RelatedTo,
 
@@ -72,12 +73,11 @@ pub enum CommonEdgeLabels {
     ContentOf, // When one node is the content from a file path
     PathOf,
 
-    RootPathOf, // When one node is the root path of another (like domain and path or folder and file)
-    SubPathOf,
+    OwnerOf, // When one node is the root path of another (like domain and path or folder and file)
+    BelongsTo,
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct NodeItem {
     pub id: NodeId,
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
