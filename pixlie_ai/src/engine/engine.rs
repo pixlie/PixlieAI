@@ -8,7 +8,6 @@ use crate::{PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
 use postcard::{from_bytes, to_allocvec};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rocksdb::DB;
 use std::time::Instant;
 use std::{

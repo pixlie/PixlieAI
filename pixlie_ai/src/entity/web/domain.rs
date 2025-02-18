@@ -2,11 +2,9 @@ use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, NodeLabel, Payload};
 use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use std::fmt::format;
 use std::sync::Arc;
 use std::time::Instant;
 use ts_rs::TS;
-use url::Url;
 
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
 #[ts(export)]
@@ -162,7 +160,7 @@ impl Domain {
         };
 
         if !domain.is_allowed_to_crawl {
-            error!("Domain is not allowed to crawl: {}", &domain.name);
+            debug!("Domain is not allowed to crawl: {}", &domain.name);
             return Err(PiError::FetchError(
                 "Domain is not allowed to crawl".to_string(),
             ));
@@ -175,6 +173,7 @@ impl Domain {
                     // We have fetched from this domain some time ago, we can fetch now
                 } else {
                     // We have fetched from this domain very recently, we can not fetch now
+                    debug!("Domain was recently fetched from, cannot fetch now");
                     return Err(PiError::FetchError(
                         "Domain was recently fetched from, cannot fetch now".to_string(),
                     ));

@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Engine, NodeId, NodeItem, NodeLabel, Payload};
+use super::{EdgeLabel, Engine, NodeId, NodeLabel, Payload};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
