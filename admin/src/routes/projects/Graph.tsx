@@ -1,7 +1,7 @@
 import { Component, createEffect, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
-import NodeListItem from "../../widgets/node/ListItem";
+import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
 import Tabs from "../../widgets/navigation/Tab";
 
@@ -40,20 +40,22 @@ const Graph: Component = () => {
     }
   });
 
+  const getNodeTypeFromSearchParam = createMemo(() => {
+    if (!!searchParams.label) {
+      return searchParams.label as LabelType;
+    }
+    return undefined;
+  });
+
   return (
     <>
       <Heading size={3}>Graph</Heading>
 
       <Tabs tabs={getTabs()} />
-      {!engine.isReady ? (
-        <>Loading...</>
-      ) : (
-        <>
-          {getSelectNodeIds().map((nodeId) => (
-            <NodeListItem nodeId={nodeId} />
-          ))}
-        </>
-      )}
+      <NodeGrid
+        nodeType={getNodeTypeFromSearchParam()}
+        source={getSelectNodeIds}
+      />
     </>
   );
 };

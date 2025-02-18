@@ -3,7 +3,7 @@ import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
-import NodeListItem from "../../widgets/node/ListItem.tsx";
+import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import TextInput from "../../widgets/interactable/TextInput.tsx";
 import { createStore } from "solid-js/store";
 import Button from "../../widgets/interactable/Button.tsx";
@@ -70,17 +70,15 @@ const Workflow: Component = () => {
     fetchNodesByLabel(params.projectId, "AddedByUser");
   });
 
-  type NodesInWorkflow = "Link" | "Domain";
+  type NodesInWorkflow = "Link";
   // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
   const getNodesInWorkflow = createMemo(
     (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
-      if (engine.isReady && "AddedByUser" in engine.nodeIdsByLabel) {
+      if ("AddedByUser" in engine.nodeIdsByLabel) {
         return engine.nodeIdsByLabel["AddedByUser"]
           .map((x) => {
-            if ("Link" in engine.nodes[x].payload) {
+            if (engine.nodes[x].payload.type === "Link") {
               return "Link";
-            } else if ("Domain" in engine.nodes[x].payload) {
-              return "Domain";
             }
           })
           .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
@@ -104,6 +102,13 @@ const Workflow: Component = () => {
     }
   });
 
+  const getNodeTypeFromSearchParam = createMemo(() => {
+    if (!!searchParams.label) {
+      return searchParams.label as LabelType;
+    }
+    return undefined;
+  });
+
   return (
     <>
       <Heading size={3}>Workflow</Heading>
@@ -115,15 +120,10 @@ const Workflow: Component = () => {
       </div>
 
       <Tabs tabs={getTabs()} />
-      {!engine.isReady ? (
-        <>Loading...</>
-      ) : (
-        <>
-          {getSelectNodeIds().map((nodeId) => (
-            <NodeListItem nodeId={nodeId} />
-          ))}
-        </>
-      )}
+      <NodeGrid
+        nodeType={getNodeTypeFromSearchParam()}
+        source={getSelectNodeIds}
+      />
 
       {searchParams.label === "Link" ? (
         <div class="mt-6 max-w-screen-sm">

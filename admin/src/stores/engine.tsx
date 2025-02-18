@@ -2,15 +2,13 @@ import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { IEngine, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
-import { EngineApiResponse } from "../api_types/EngineApiResponse";
+import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
+import { APINodeItem } from "../api_types/APINodeItem.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngine>({
     nodes: {},
     nodeIdsByLabel: {},
-
-    isReady: false,
-    isFetching: false,
   });
 
   return [
@@ -33,37 +31,54 @@ const makeStore = () => {
           if (!response.ok) {
             throw new Error("Failed to fetch nodes");
           }
-          response.json().then((engineResponse: EngineApiResponse) => {
-            if (engineResponse.type === "Results") {
+          response.json().then((responsePayload: EngineResponsePayload) => {
+            if (responsePayload.type === "Results") {
               setStore((existing: IEngine) => ({
                 ...existing,
-                nodes: engineResponse.data.nodes.reduce(
+                nodes: responsePayload.data.nodes.reduce(
                   (acc, item) => ({
                     ...acc,
-                    [item.id]: item,
+                    [item.id]: {
+                      ...item,
+                      isFetching: false,
+                    },
                   }),
                   existing.nodes,
                 ),
                 nodeIdsByLabel: {
                   ...existing.nodeIdsByLabel,
                   [label]:
-                    engineResponse.data.node_ids_by_label &&
-                    label in engineResponse.data.node_ids_by_label
-                      ? engineResponse.data.node_ids_by_label[label]
+                    responsePayload.data.node_ids_by_label &&
+                    label in responsePayload.data.node_ids_by_label
+                      ? responsePayload.data.node_ids_by_label[label]
                       : [],
                 },
-                isFetching: false,
-                isReady: true,
               }));
             } else {
               setStore((data) => ({
                 ...data,
-                isFetching: false,
-                isReady: true,
               }));
             }
           });
         });
+      },
+
+      getRelatedNodes(
+        nodeId: number,
+        relatedNodeType: string,
+      ): Array<APINodeItem> {
+        if (nodeId in store.nodes) {
+          if (
+            relatedNodeType in store.nodes[nodeId].edges &&
+            store.nodes[nodeId].edges[relatedNodeType]
+          ) {
+            return store.nodes[nodeId].edges[relatedNodeType].map(
+              (nId: number) => store.nodes[nId],
+            );
+          }
+          return [];
+        }
+        return [];
       },
     },
   ] as const; // `as const` forces tuple type inference

@@ -27,7 +27,6 @@ const PerProjectRoutes: Component = () => {
   const location = useLocation();
 
   const getProject = createMemo(() => {
-    console.log(params.projectId, workspace.isReady, workspace.projects);
     if (params.projectId && workspace.isReady && workspace.projects) {
       return workspace.projects.find(
         (project) => project.uuid === params.projectId,

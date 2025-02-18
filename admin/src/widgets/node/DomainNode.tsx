@@ -1,19 +1,43 @@
 import { Component } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { Domain } from "../../api_types/Domain.ts";
+import { useEngine } from "../../stores/engine.tsx";
 
-interface ILinkProps extends Domain {}
+interface IDomainPayloadProps {
+  payload: Domain;
+}
 
-const DomainNode: Component<ILinkProps> = (props) => {
+const Payload: Component<IDomainPayloadProps> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   return (
-    <div class="grid grid-cols-2 items-center">
-      <a href={`https://${props.name}`} class={getColors().link}>
-        {props.name}
+    <>
+      <a href={`https://${props.payload.name}`} class={getColors().link}>
+        {props.payload.name}
       </a>
-      <span>{props.is_allowed_to_crawl ? "Can crawl" : "Cannot crawl"}</span>
-    </div>
+      <span>
+        {props.payload.is_allowed_to_crawl ? "Can crawl" : "Cannot crawl"}
+      </span>
+    </>
+  );
+};
+
+interface IDomainNodeProps {
+  nodeId: number;
+}
+
+const DomainNode: Component<IDomainNodeProps> = (props) => {
+  const [engine] = useEngine();
+
+  return (
+    <>
+      {props.nodeId in engine.nodes &&
+        engine.nodes[props.nodeId].payload.type === "Domain" && (
+          <Payload
+            payload={engine.nodes[props.nodeId].payload.data as Domain}
+          />
+        )}
+    </>
   );
 };
 

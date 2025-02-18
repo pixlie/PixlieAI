@@ -11,17 +11,17 @@ import type { Title } from "./Title";
 import type { WebPage } from "./WebPage";
 import type { WorkflowStep } from "./WorkflowStep";
 
-export type Payload =
-  | { Step: WorkflowStep }
-  | { Domain: Domain }
-  | { Link: Link }
-  | { FileHTML: WebPage }
-  | { Title: Title }
-  | { Heading: Heading }
-  | { Paragraph: Paragraph }
-  | { BulletPoints: BulletPoints }
-  | { OrderedPoints: OrderedPoints }
-  | { Table: Table }
-  | { TableRow: TableRow }
-  | { Label: string }
-  | { NamedEntity: [string, string] };
+export type APIPayload =
+  | { type: "Step"; data: WorkflowStep }
+  | { type: "Domain"; data: Domain }
+  | { type: "Link"; data: Link }
+  | { type: "FileHTML"; data: WebPage }
+  | { type: "Title"; data: Title }
+  | { type: "Heading"; data: Heading }
+  | { type: "Paragraph"; data: Paragraph }
+  | { type: "BulletPoints"; data: BulletPoints }
+  | { type: "OrderedPoints"; data: OrderedPoints }
+  | { type: "Table"; data: Table }
+  | { type: "TableRow"; data: TableRow }
+  | { type: "Label"; data: string }
+  | { type: "NamedEntity"; data: [string, string] };
