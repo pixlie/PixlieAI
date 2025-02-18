@@ -1,0 +1,19 @@
+meta {
+  name: create_node
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{api}}/engine/{{project_id}}/nodes
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Link": {
+      "url": "https://www.workflow86.com/"
+    }
+  }
+}

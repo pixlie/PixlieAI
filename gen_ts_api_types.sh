@@ -1,5 +1,5 @@
 export TS_RS_EXPORT_DIR="../admin/src/api_types"
-cd pixlieai_rs && \
+cd pixlie_ai && \
     cargo test && \
     cd ..
 

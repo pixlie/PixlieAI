@@ -1,15 +1,13 @@
-import { Component, For } from "solid-js";
+import { Component } from "solid-js";
 import SidebarLink from "./SidebarLink";
-import { globalRoutes, perProjectRoutes } from "../../routes/routeList";
+import { GlobalRoutes, PerProjectRoutes } from "../../routes/RouteList.tsx";
 import { useUIClasses } from "../../stores/UIClasses";
 import { useWorkspace } from "../../stores/workspace";
-import { useLocation, useParams } from "@solidjs/router";
+import { A } from "@solidjs/router";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [workspace] = useWorkspace();
-  const location = useLocation();
-  const params = useParams();
 
   return (
     <div
@@ -18,7 +16,7 @@ const Sidebar: Component = () => {
       }
     >
       <div class="flex items-center p-4">
-        <a
+        <A
           href="/p"
           class={
             "text-2xl font-medium flex gap-2 " + getColors()["sideBar.logo"]
@@ -30,7 +28,7 @@ const Sidebar: Component = () => {
             alt="Pixlie AI"
           />
           Pixlie AI
-        </a>
+        </A>
       </div>
 
       <div class="grow">
@@ -38,30 +36,10 @@ const Sidebar: Component = () => {
           {workspace.isReady &&
           workspace.settingsStatus?.type === "Complete" ? (
             <>
-              <For each={globalRoutes}>
-                {(item) => (
-                  <SidebarLink
-                    label={item.label}
-                    href={item.href}
-                    isActive={location.pathname === item.href}
-                  />
-                )}
-              </For>
+              <GlobalRoutes />
               <span class="block my-3" />
 
-              {!!params.projectId ? (
-                <For each={perProjectRoutes}>
-                  {(item) => (
-                    <SidebarLink
-                      label={item.label}
-                      href={`/p/${params.projectId}${item.href}`}
-                      isActive={location.pathname.startsWith(
-                        `/p/${params.projectId}${item.href}`,
-                      )}
-                    />
-                  )}
-                </For>
-              ) : null}
+              <PerProjectRoutes />
             </>
           ) : (
             <SidebarLink label="Setup" href="/settings/setup" />

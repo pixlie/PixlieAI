@@ -1,8 +1,8 @@
 import { JSX } from "solid-js";
 import { Settings } from "../api_types/Settings";
 import { SettingsStatus } from "../api_types/SettingsStatus";
-import { Node } from "../api_types/Node";
 import { Project } from "../api_types/Project";
+import { APINodeItem } from "../api_types/APINodeItem.ts";
 
 interface IProviderPropTypes {
   children: JSX.Element;
@@ -17,12 +17,13 @@ interface IWorkspace {
   isFetching: boolean;
 }
 
-interface IEngine {
-  nodes: { [nodeId: number]: Node };
-  nodeIdsByLabel: { [label: string]: Array<number> };
-
-  isReady: boolean;
+interface INodeItem extends APINodeItem {
   isFetching: boolean;
+}
+
+interface IEngine {
+  nodes: { [nodeId: number]: INodeItem };
+  nodeIdsByLabel: { [label: string]: Array<number> };
 }
 
 type IFormFieldValue = string | number | Array<string> | undefined;
@@ -47,5 +48,6 @@ export type {
   IFormField,
   IFormFieldValue,
   IEngine,
+  INodeItem,
   DisplayAs,
 };

@@ -7,7 +7,7 @@ import Insights from "./projects/Insights";
 import Graph from "./projects/Graph";
 import Crawl from "./projects/Crawl";
 import ProjectList from "./projects/ProjectList";
-import PerProjectWrapper from "./projects/PerProject";
+import PerProjectWrapper from "./projects/PerProject.tsx";
 
 const Routes: Component = () => {
   return (

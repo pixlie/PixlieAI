@@ -8,6 +8,8 @@ const lightDefault = {
     "sideBar.logo": "text-gray-800",
     "sideBar.link": "text-gray-800 hover:bg-gray-300",
     "sideBar.link.active": "bg-gray-300",
+    "sideBar.label": "text-gray-600",
+    "sideBar.label.active": "text-gray-800 border-gray-400",
 
     mainContent: "",
     heading: "text-gray-800",
@@ -17,6 +19,7 @@ const lightDefault = {
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     button: "bg-green-600 text-white",
+    link: "text-blue-600 hover:underline",
 
     tabs: "border-stone-300",
     "tabs.link":

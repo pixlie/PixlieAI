@@ -34,10 +34,10 @@ const StorageDir: Component = () => {
   };
 
   const handleSubmit = async () => {
-    await saveSettings({
+    saveSettings({
       ...formData,
     });
-    await fetchSettings();
+    fetchSettings();
   };
 
   // The user has to set the storage directory

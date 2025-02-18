@@ -2,79 +2,83 @@ import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { IEngine, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
-import { EngineApiResponse } from "../api_types/EngineApiResponse";
-import { NodeWrite } from "../api_types/NodeWrite.ts";
+import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
+import { APINodeItem } from "../api_types/APINodeItem.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngine>({
     nodes: {},
     nodeIdsByLabel: {},
-
-    isReady: false,
-    isFetching: false,
   });
 
   return [
     store,
     {
-      fetchNodesByLabel: async (projectId: string, label: string) => {
+      fetchNodesByLabel: (projectId: string, label: string) => {
         setStore((data) => ({ ...data, isFetching: true, isReady: false }));
         let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(
+        fetch(
           `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
             new URLSearchParams({
               label,
             }).toString(),
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch nodes");
-        }
-        let engineResponse: EngineApiResponse = await response.json();
-        if (engineResponse.type === "Results") {
-          setStore((state: IEngine) => ({
-            ...state,
-            nodes: engineResponse.data.nodes.reduce(
-              (acc, item) => ({
-                ...acc,
-                [item.id]: item,
-              }),
-              state.nodes,
-            ),
-            nodeIdsByLabel: {
-              ...state.nodeIdsByLabel,
-              [label]:
-                engineResponse.data.node_ids_by_label &&
-                label in engineResponse.data.node_ids_by_label
-                  ? engineResponse.data.node_ids_by_label[label]
-                  : [],
-            },
-            isFetching: false,
-            isReady: true,
-          }));
-        } else {
-          setStore((data) => ({
-            ...data,
-            isFetching: false,
-            isReady: true,
-          }));
-        }
-      },
-
-      insertNode: async (projectId: string, node: NodeWrite) => {
-        let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-        let response = await fetch(
-          `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`,
           {
-            method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(node),
           },
-        );
-        if (!response.ok) {
-          throw new Error("Failed to insert node");
+        ).then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch nodes");
+          }
+          response.json().then((responsePayload: EngineResponsePayload) => {
+            if (responsePayload.type === "Results") {
+              setStore((existing: IEngine) => ({
+                ...existing,
+                nodes: responsePayload.data.nodes.reduce(
+                  (acc, item) => ({
+                    ...acc,
+                    [item.id]: {
+                      ...item,
+                      isFetching: false,
+                    },
+                  }),
+                  existing.nodes,
+                ),
+                nodeIdsByLabel: {
+                  ...existing.nodeIdsByLabel,
+                  [label]:
+                    responsePayload.data.node_ids_by_label &&
+                    label in responsePayload.data.node_ids_by_label
+                      ? responsePayload.data.node_ids_by_label[label]
+                      : [],
+                },
+              }));
+            } else {
+              setStore((data) => ({
+                ...data,
+              }));
+            }
+          });
+        });
+      },
+
+      getRelatedNodes(
+        nodeId: number,
+        relatedNodeType: string,
+      ): Array<APINodeItem> {
+        if (nodeId in store.nodes) {
+          if (
+            relatedNodeType in store.nodes[nodeId].edges &&
+            store.nodes[nodeId].edges[relatedNodeType]
+          ) {
+            return store.nodes[nodeId].edges[relatedNodeType].map(
+              (nId: number) => store.nodes[nId],
+            );
+          }
+          return [];
         }
+        return [];
       },
     },
   ] as const; // `as const` forces tuple type inference

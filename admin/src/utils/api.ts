@@ -1,3 +1,5 @@
+import { NodeWrite } from "../api_types/NodeWrite.ts";
+
 export const getPixlieAIAPIRoot = () => {
   let protocol = import.meta.env.VITE_PIXLIE_AI_API_PROTOCOL;
   let host = import.meta.env.VITE_PIXLIE_AI_API_HOST;
@@ -55,4 +57,19 @@ export const camelCasedKeys = (obj: any): any => {
       {},
     );
   }
+};
+
+export const insertNode = (projectId: string, node: NodeWrite) => {
+  let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+  fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(node),
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error("Failed to insert node");
+    }
+  });
 };

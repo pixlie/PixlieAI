@@ -3,14 +3,16 @@ import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
-import NodeListItem from "../../widgets/node/ListItem.tsx";
+import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import TextInput from "../../widgets/interactable/TextInput.tsx";
 import { createStore } from "solid-js/store";
 import Button from "../../widgets/interactable/Button.tsx";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { IFormFieldValue } from "../../utils/types.tsx";
+import { insertNode } from "../../utils/api.ts";
+import Paragraph from "../../widgets/typography/Paragraph.tsx";
 
-const labelTypes: string[] = ["Link", "TextClassification"];
+const labelTypes: string[] = ["Link", "Domain"];
 type LabelType = (typeof labelTypes)[number];
 
 interface ILinkFormData {
@@ -18,7 +20,6 @@ interface ILinkFormData {
 }
 
 const LinkForm: Component = () => {
-  const [_, { insertNode }] = useEngine();
   const params = useParams();
   const [formData, setFormData] = createStore<ILinkFormData>({
     url: "",
@@ -34,7 +35,7 @@ const LinkForm: Component = () => {
   const handleSubmit = async () => {
     insertNode(params.projectId, {
       Link: formData,
-    } as NodeWrite).then((_) => {});
+    } as NodeWrite);
   };
 
   return (
@@ -65,51 +66,71 @@ const Workflow: Component = () => {
       : [],
   );
 
+  onMount(() => {
+    fetchNodesByLabel(params.projectId, "AddedByUser");
+  });
+
+  type NodesInWorkflow = "Link";
+  // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
+  const getNodesInWorkflow = createMemo(
+    (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
+      if ("AddedByUser" in engine.nodeIdsByLabel) {
+        return engine.nodeIdsByLabel["AddedByUser"]
+          .map((x) => {
+            if (engine.nodes[x].payload.type === "Link") {
+              return "Link";
+            }
+          })
+          .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
+      }
+      return prev;
+    },
+    [],
+  );
+
   const getTabs = createMemo(() =>
-    labelTypes.map((l) => ({
+    getNodesInWorkflow().map((l) => ({
       label: `${l}(s)`,
       searchParamKey: "label",
       searchParamValue: l,
     })),
   );
 
-  onMount(() => {
+  createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType);
     }
   });
 
-  createEffect(() => {
+  const getNodeTypeFromSearchParam = createMemo(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType).then(
-        (_) => {},
-      );
-    } else {
-      fetchNodesByLabel(params.projectId, "Link").then((_) => {});
+      return searchParams.label as LabelType;
     }
+    return undefined;
   });
 
   return (
-    <div class="max-w-screen-sm">
-      <Heading size={1}>Workflow</Heading>
+    <>
+      <Heading size={3}>Workflow</Heading>
+      <div class="max-w-screen-sm mb-8">
+        <Paragraph>
+          Pixlie can monitor keywords on multiple URLs. If you add a URL from a
+          website, then Pixlie will crawl all URLs on that website.
+        </Paragraph>
+      </div>
 
       <Tabs tabs={getTabs()} />
-      {!engine.isReady ? (
-        <>Loading...</>
-      ) : (
-        <>
-          {getSelectNodeIds().map((nodeId) => (
-            <NodeListItem nodeId={nodeId} />
-          ))}
-        </>
-      )}
+      <NodeGrid
+        nodeType={getNodeTypeFromSearchParam()}
+        source={getSelectNodeIds}
+      />
 
-      {searchParams.label === "Link" ? <LinkForm /> : null}
-    </div>
+      {searchParams.label === "Link" ? (
+        <div class="mt-6 max-w-screen-sm">
+          <LinkForm />
+        </div>
+      ) : null}
+    </>
   );
 };
 

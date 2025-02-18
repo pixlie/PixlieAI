@@ -185,7 +185,7 @@ const Insights: Component = () => {
 
   return (
     <>
-      <Heading size={1}>Insights</Heading>
+      <Heading size={3}>Insights</Heading>
 
       {data()?.map(({ type, insight, items }) => (
         <div class="flex flex-col min-h-dvh w-full justify-center items-center gap-16 p-16">

@@ -1,0 +1,19 @@
+meta {
+  name: nodes_by_label
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api}}/engine/{{project_id}}/nodes?label=Link
+  body: none
+  auth: none
+}
+
+params:query {
+  label: Link
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}
