@@ -41,7 +41,7 @@ impl Link {
                         FindDomainOf::DomainName(domain),
                     ) {
                         Ok(existing) => match existing {
-                            Some((domain, domain_node_id)) => domain_node_id,
+                            Some((_domain, domain_node_id)) => domain_node_id,
                             None => {
                                 debug!("Existing domain node not found, adding new one");
                                 Domain::add(
@@ -213,7 +213,7 @@ impl Node for Link {
             match Domain::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))? {
                 Some((domain, domain_node_id)) => (domain, domain_node_id),
                 None => {
-                    error!("Cannot find domain for link node {}", node_id);
+                    error!("Cannot find domain node for link node {} with URL {}", node_id, url);
                     return Err(PiError::InternalError(format!(
                         "Cannot find domain node for link node {} with URL {}",
                         node_id, url

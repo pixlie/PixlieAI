@@ -2,27 +2,38 @@ import { Component, createMemo } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { useEngine } from "../../stores/engine.tsx";
 import { Link } from "../../api_types/Link.ts";
-import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { Domain } from "../../api_types/Domain.ts";
 
 interface ILinkPayloadProps {
+  id: number;
   payload: Link;
-  domain?: APINodeItem;
 }
 
 const Payload: Component<ILinkPayloadProps> = (props) => {
+  const [_engine, { getRelatedNodes }] = useEngine();
   const [_, { getColors }] = useUIClasses();
+
+  const getDomain = createMemo<Domain | undefined>(() => {
+    let relatedDomains = getRelatedNodes(props.id, "BelongsTo");
+    if (relatedDomains.length > 0) {
+      if (relatedDomains[0].payload.type === "Domain") {
+        return relatedDomains[0].payload.data as Domain;
+      }
+    }
+    return undefined;
+  });
 
   return (
     <>
-      {props.domain && props.domain.payload.type === "Domain" ? (
+      {!!getDomain() ? (
         <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-          {props.domain.payload["data"].name}
+          {getDomain()!.name}
         </span>
       ) : (
         <span></span>
       )}
       <a
-        href={`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+        href={`${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
         class={"text-sm text-nowrap " + getColors().link}
         target="_blank"
       >
@@ -38,22 +49,15 @@ interface ILinkNodeProps {
 }
 
 const LinkNode: Component<ILinkNodeProps> = (props) => {
-  const [engine, { getRelatedNodes }] = useEngine();
-
-  const getDomain = createMemo(() => {
-    let relatedDomains = getRelatedNodes(props.nodeId, "BelongsTo");
-    if (relatedDomains.length > 0) {
-      return relatedDomains[0];
-    }
-  });
+  const [engine] = useEngine();
 
   return (
     <>
       {props.nodeId in engine.nodes &&
       engine.nodes[props.nodeId].payload.type === "Link" ? (
         <Payload
+          id={props.nodeId}
           payload={engine.nodes[props.nodeId].payload.data as Link}
-          domain={getDomain()}
         />
       ) : null}
     </>

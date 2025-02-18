@@ -8,7 +8,6 @@ the project.
 - Linux, MacOS, or Windows (WSL2)
 - Git
 - Rust (we install with rustup)
-- Python (3.9 or above)
 - Node.js (we use LTS)
 - pnpm
 
@@ -39,7 +38,7 @@ The backend is a Rust app. It is in the `pixlie_ai` directory.
 Using a separate terminal, run the following commands to start the backend:
 
 ```bash
-cd pixlieai_rs
+cd pixlie_ai
 RUST_LOG=debug cargo run --bin cli
 ```
 

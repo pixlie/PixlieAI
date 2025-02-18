@@ -16,7 +16,7 @@ impl WebPage {
         let (current_link, current_link_node_id) = self.get_link(engine.clone(), node_id)?;
         let existing_domain =
             Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
-        let (domain, domain_node_id) = match existing_domain {
+        let (domain, _domain_node_id) = match existing_domain {
             Some(existing_domain) => existing_domain,
             None => {
                 error!(
@@ -170,7 +170,7 @@ impl WebPage {
                         continue;
                     }
 
-                    let mut url = format!("{}", child.value().attr("href").unwrap());
+                    let url = format!("{}", child.value().attr("href").unwrap());
                     // Skip links to anchors
                     if url.starts_with("#") {
                         continue;
