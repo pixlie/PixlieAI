@@ -17,6 +17,12 @@ Here is how it works:
 - A knowledge graph is created that holds semantic information about your data
 - Query the graph visually or programmatically
 
+Start a project: 
+![Start a Project](https://pixlie.com/images/PixlieAI-Start-Project.png)
+
+Crawl a website:
+![Crawl Workflow](https://pixlie.com/images/PixlieAI-Workflow-links.png)
+
 ## How can I use Pixlie AI?
 Pixlie AI is open source and is under active development. Our work is done in public, please star this repository, it means a lot to us.
 If you want to be notified when Pixlie AI is ready for use, please subscribe to our [insights newsletter](https://pixlie.com/insights).
