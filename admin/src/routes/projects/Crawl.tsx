@@ -1,6 +1,5 @@
 import { Component, createEffect, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
-import Heading from "../../widgets/typography/Heading";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import Tabs from "../../widgets/navigation/Tab";
 import { useParams, useSearchParams } from "@solidjs/router";
@@ -43,8 +42,6 @@ const Crawl: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Crawl</Heading>
-
       <Tabs tabs={getTabs()} />
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}

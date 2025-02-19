@@ -1,5 +1,4 @@
 import { Component, createEffect, createMemo, onMount } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
@@ -111,7 +110,6 @@ const Workflow: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Workflow</Heading>
       <div class="max-w-screen-sm mb-8">
         <Paragraph>
           Pixlie can monitor keywords on multiple URLs. If you add a URL from a
