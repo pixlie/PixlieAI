@@ -34,6 +34,10 @@ type IFormFieldValue = string | number | Array<string> | undefined;
 
 type DisplayAs = "Drawer" | "MainContent";
 
+interface INodeItemDisplayProps {
+  nodeId: number;
+}
+
 interface IFormField {
   name: string;
   placeholder?: string | null;
@@ -55,4 +59,5 @@ export type {
   IEngineStore,
   INodeItem,
   DisplayAs,
+  INodeItemDisplayProps,
 };

@@ -5,6 +5,7 @@ import type { Heading } from "./Heading";
 import type { Link } from "./Link";
 import type { OrderedPoints } from "./OrderedPoints";
 import type { Paragraph } from "./Paragraph";
+import type { SearchTerm } from "./SearchTerm";
 import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
 import type { Title } from "./Title";
@@ -24,4 +25,5 @@ export type APIPayload =
   | { type: "Table"; data: Table }
   | { type: "TableRow"; data: TableRow }
   | { type: "Label"; data: string }
-  | { type: "NamedEntity"; data: [string, string] };
+  | { type: "NamedEntity"; data: [string, string] }
+  | { type: "SearchTerm"; data: SearchTerm };

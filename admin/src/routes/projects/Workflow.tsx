@@ -3,56 +3,13 @@ import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine";
 import { useParams, useSearchParams } from "@solidjs/router";
-import NodeGrid from "../../widgets/node/NodeGrid.tsx";
-import TextInput from "../../widgets/interactable/TextInput.tsx";
-import { createStore } from "solid-js/store";
-import Button from "../../widgets/interactable/Button.tsx";
-import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import { IFormFieldValue } from "../../utils/types.tsx";
-import { insertNode } from "../../utils/api.ts";
-import Paragraph from "../../widgets/typography/Paragraph.tsx";
+import NodeGrid from "../../widgets/node/NodeGrid";
+import Paragraph from "../../widgets/typography/Paragraph";
+import LinkForm from "../../widgets/nodeForm/LinkForm";
+import SearchTermForm from "../../widgets/nodeForm/SearchTermForm";
 
-const labelTypes: string[] = ["Link", "SearchKeyword"];
+const labelTypes: string[] = ["Link", "SearchTerm"];
 type LabelType = (typeof labelTypes)[number];
-
-interface ILinkFormData {
-  url: string;
-}
-
-const LinkForm: Component = () => {
-  const params = useParams();
-  const [formData, setFormData] = createStore<ILinkFormData>({
-    url: "",
-  });
-
-  const handleChange = (_: any, value: IFormFieldValue) => {
-    setFormData((existing) => ({
-      ...existing,
-      url: value as string,
-    }));
-  };
-
-  const handleSubmit = async () => {
-    insertNode(params.projectId, {
-      Link: formData,
-    } as NodeWrite);
-  };
-
-  return (
-    <div class="flex flex-col gap-y-2">
-      <TextInput
-        name="url"
-        placeholder="https://"
-        isEditable
-        onChange={handleChange}
-        value={formData.url}
-      />
-      <div>
-        <Button label="Add a Link" onClick={handleSubmit} />
-      </div>
-    </div>
-  );
-};
 
 const Workflow: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
@@ -126,11 +83,16 @@ const Workflow: Component = () => {
         source={getSelectNodeIds}
       />
 
-      {searchParams.label === "Link" ? (
+      {searchParams.label === "Link" && (
         <div class="mt-6 max-w-screen-sm">
           <LinkForm />
         </div>
-      ) : null}
+      )}
+      {searchParams.label === "SearchTerm" && (
+        <div class="mt-6 max-w-screen-sm">
+          <SearchTermForm />
+        </div>
+      )}
     </>
   );
 };

@@ -4,6 +4,7 @@ import type { NodeWrite } from "./NodeWrite";
 export type EngineRequestPayload =
   | "GetLabels"
   | { GetNodesWithLabel: string }
+  | { GetNodesWithIds: Array<number> }
   | { GetRelatedNodes: number }
   | { GetPartNodes: number }
   | { CreateNode: NodeWrite };
