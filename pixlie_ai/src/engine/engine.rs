@@ -132,6 +132,20 @@ impl Engine {
         }
     }
 
+    fn exit(&self) {
+        debug!("Exiting engine for project {}", self.project_id);
+        // We tell the main thread that we are done ticking
+        match self
+            .main_channel_tx
+            .send(PiEvent::EngineExit(self.project_id.clone()))
+        {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error sending PiEvent::EngineRan in Engine: {}", err);
+            }
+        }
+    }
+
     pub fn run(&self) {
         // We block on the channel of this engine
         for event in self.my_pi_channel.rx.iter() {
@@ -176,18 +190,7 @@ impl Engine {
                 _ => {}
             }
         }
-
-        error!("Engine for project {} is done ticking", self.project_id);
-        // We tell the main thread that we are done ticking
-        match self
-            .main_channel_tx
-            .send(PiEvent::EngineRan(self.project_id.clone()))
-        {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Error sending PiEvent::EngineRan in Engine: {}", err);
-            }
-        }
+        self.exit();
     }
 
     fn process_nodes(&self) {
@@ -411,13 +414,14 @@ impl Engine {
 
     fn update_pending_nodes(&self) -> bool {
         let mut count_nodes = 0;
-        let mut nodes_to_write: Vec<PendingNode> = match self.pending_nodes_to_update.write() {
-            Ok(mut nodes) => nodes.drain(..).collect(),
-            Err(_err) => vec![],
-        };
+        let mut pending_nodes_to_update: Vec<PendingNode> =
+            match self.pending_nodes_to_update.write() {
+                Ok(mut pending_nodes_to_update) => pending_nodes_to_update.drain(..).collect(),
+                Err(_err) => vec![],
+            };
         match self.nodes.read() {
             Ok(nodes) => {
-                while let Some(pending_node) = nodes_to_write.pop() {
+                while let Some(pending_node) = pending_nodes_to_update.pop() {
                     match nodes.get(&pending_node.id) {
                         Some(node) => match node.write() {
                             Ok(mut node) => {
@@ -434,6 +438,7 @@ impl Engine {
         }
         if count_nodes > 0 {
             info!("Updated {} pending nodes to the graph", count_nodes);
+            self.tick_me_later();
         }
         count_nodes > 0
     }
@@ -618,6 +623,7 @@ impl Engine {
     fn load_from_disk(&mut self) {
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
+        let mut last_node_id: u32 = 0;
         for item in iter {
             let (key, value) = match item {
                 Ok(item) => item,
@@ -655,8 +661,18 @@ impl Engine {
                     .and_modify(|entries| entries.push(node_id.clone()))
                     .or_insert(vec![node_id.clone()]);
             }
+            last_node_id = *node_id;
         }
-        self.tick_me_later();
+        match self.last_node_id.lock() {
+            Ok(mut inner) => {
+                *inner = last_node_id;
+                self.tick_me_later();
+            }
+            Err(err) => {
+                error!("Error locking last_node_id: {}", err);
+                self.exit();
+            }
+        }
     }
 
     pub fn needs_to_tick(&self) -> bool {
@@ -724,12 +740,43 @@ impl Engine {
 
     pub fn fetch_url(
         &self,
-        url: String,
+        url: &str,
         node_id: &NodeId,
     ) -> PiResult<crossbeam_channel::Receiver<FetchEvent>> {
         let engine = Arc::new(self);
-        Domain::can_fetch_within_domain(engine.clone(), &url, node_id)?;
-        self.fetcher.fetch(url)
+        let (domain, domain_node_id) =
+            Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
+
+        // Update the domain at the domain node id
+        match engine.nodes.read() {
+            Ok(nodes) => match nodes.get(&domain_node_id) {
+                Some(node) => match node.write() {
+                    Ok(mut node) => {
+                        node.payload = Payload::Domain(Domain {
+                            name: domain.name.clone(),
+                            is_allowed_to_crawl: domain.is_allowed_to_crawl,
+                            last_fetched_at: Some(Instant::now()),
+                        });
+                    }
+                    Err(_err) => {
+                        return Err(PiError::FetchError(
+                            "Error writing to domain node".to_string(),
+                        ));
+                    }
+                },
+                None => {
+                    return Err(PiError::FetchError(
+                        "Cannot find domain node for link".to_string(),
+                    ));
+                }
+            },
+            Err(_err) => {
+                return Err(PiError::FetchError("Error reading domain node".to_string()));
+            }
+        }
+
+        let full_url = format!("https://{}{}", domain.name, url);
+        self.fetcher.fetch(full_url)
     }
 }
 

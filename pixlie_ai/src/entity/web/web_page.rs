@@ -3,7 +3,7 @@ use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::services::{anthropic, ollama, TextClassificationProvider};
-use log::{error, info};
+use log::{debug, error, info};
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

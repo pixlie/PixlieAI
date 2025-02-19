@@ -37,7 +37,7 @@ pub enum PiEvent {
     SettingsUpdated,
     SetupGliner,
     FinishedSetupGliner,
-    EngineRan(String), // The engine has nothing else to do, so it gives up
+    EngineExit(String), // The engine has nothing else to do, so it gives up
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
     Shutdown,

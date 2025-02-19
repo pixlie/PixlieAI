@@ -123,9 +123,9 @@ impl Domain {
 
     pub fn can_fetch_within_domain(
         engine: Arc<&Engine>,
-        url: &String,
+        url: &str,
         node_id: &NodeId,
-    ) -> PiResult<()> {
+    ) -> PiResult<(Domain, NodeId)> {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
         debug!("Checking if we can fetch within domain: {}", url);
@@ -167,35 +167,7 @@ impl Domain {
             }
         }
 
-        // Update the domain at the domain node id
-        match engine.nodes.read() {
-            Ok(nodes) => match nodes.get(&domain_node_id) {
-                Some(node) => match node.write() {
-                    Ok(mut node) => {
-                        node.payload = Payload::Domain(Domain {
-                            name: domain.name.clone(),
-                            is_allowed_to_crawl: true,
-                            last_fetched_at: Some(Instant::now()),
-                        });
-                    }
-                    Err(_err) => {
-                        return Err(PiError::FetchError(
-                            "Error writing to domain node".to_string(),
-                        ));
-                    }
-                },
-                None => {
-                    return Err(PiError::FetchError(
-                        "Cannot find domain node for link".to_string(),
-                    ));
-                }
-            },
-            Err(_err) => {
-                return Err(PiError::FetchError("Error reading domain node".to_string()));
-            }
-        }
-
         debug!("Domain {} is allowed to crawl", domain.name);
-        Ok(())
+        Ok((domain, domain_node_id))
     }
 }

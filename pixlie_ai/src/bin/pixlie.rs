@@ -199,7 +199,7 @@ fn main() {
                     }
                 });
             }
-            PiEvent::EngineRan(project_id) => {
+            PiEvent::EngineExit(project_id) => {
                 channels_per_project.remove(&project_id);
             }
             PiEvent::Shutdown => {
