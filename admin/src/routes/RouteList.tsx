@@ -16,6 +16,14 @@ const GlobalRoutes: Component = () => {
       label: "Projects",
       href: "/p",
     },
+    {
+      label: "Settings",
+      href: "/settings",
+    },
+    {
+      label: "Help",
+      href: "/help",
+    },
   ];
 
   return <For each={routes}>{(item) => <SidebarLink {...item} />}</For>;
