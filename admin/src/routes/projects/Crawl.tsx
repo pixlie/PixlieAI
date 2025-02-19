@@ -13,10 +13,18 @@ const Crawl: Component = () => {
   const [searchParams] = useSearchParams();
   const params = useParams();
 
+  const getProject = createMemo(() => {
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
+    }
+    return undefined;
+  });
+
   const getSelectNodeIds = createMemo<number[]>(() =>
+    getProject() &&
     !!searchParams.label &&
-    (searchParams.label as LabelType) in engine.nodeIdsByLabel
-      ? engine.nodeIdsByLabel[searchParams.label as LabelType]
+    (searchParams.label as LabelType) in getProject()!.nodeIdsByLabel
+      ? getProject()!.nodeIdsByLabel[searchParams.label as LabelType]
       : [],
   );
 

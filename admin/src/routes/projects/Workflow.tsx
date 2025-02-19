@@ -57,16 +57,26 @@ const LinkForm: Component = () => {
 const Workflow: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
-  // const params = useParams();
+  const params = useParams();
+
+  const getProject = createMemo(() => {
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
+    }
+    return undefined;
+  });
 
   const getSelectNodeIds = createMemo<number[]>(() => {
     if (
+      getProject() &&
       !!searchParams.label &&
-      (searchParams.label as LabelType) in engine.nodeIdsByLabel
+      (searchParams.label as LabelType) in getProject()!.nodeIdsByLabel
     ) {
       // Only select nodes that have AddedByUser label
-      return engine.nodeIdsByLabel[searchParams.label as LabelType].filter(
-        (nodeId) => engine.nodes[nodeId].labels.includes("AddedByUser"),
+      return getProject()!.nodeIdsByLabel[
+        searchParams.label as LabelType
+      ].filter((nodeId) =>
+        getProject()!.nodes[nodeId].labels.includes("AddedByUser"),
       );
     } else {
       return [];
@@ -74,7 +84,9 @@ const Workflow: Component = () => {
   });
 
   onMount(() => {
-    fetchNodesByLabel("AddedByUser");
+    if (params.projectId) {
+      fetchNodesByLabel(params.projectId, "AddedByUser");
+    }
   });
 
   const getTabs = createMemo(() =>
@@ -86,8 +98,8 @@ const Workflow: Component = () => {
   );
 
   createEffect(() => {
-    if (!!searchParams.label) {
-      fetchNodesByLabel(searchParams.label as LabelType);
+    if (params.projectId && !!searchParams.label) {
+      fetchNodesByLabel(params.projectId, searchParams.label as LabelType);
     }
   });
 

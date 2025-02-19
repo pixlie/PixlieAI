@@ -22,9 +22,12 @@ interface INodeItem extends APINodeItem {
 }
 
 interface IEngine {
-  projectId?: string;
   nodes: { [nodeId: number]: INodeItem };
   nodeIdsByLabel: { [label: string]: Array<number> };
+}
+
+interface IEngineStore {
+  projects: { [projectId: string]: IEngine };
 }
 
 type IFormFieldValue = string | number | Array<string> | undefined;
@@ -49,6 +52,7 @@ export type {
   IFormField,
   IFormFieldValue,
   IEngine,
+  IEngineStore,
   INodeItem,
   DisplayAs,
 };

@@ -1,7 +1,8 @@
-import { Component } from "solid-js";
+import { Component, createMemo } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { Domain } from "../../api_types/Domain.ts";
 import { useEngine } from "../../stores/engine.tsx";
+import { useParams } from "@solidjs/router";
 
 interface IDomainPayloadProps {
   payload: Domain;
@@ -28,13 +29,22 @@ interface IDomainNodeProps {
 
 const DomainNode: Component<IDomainNodeProps> = (props) => {
   const [engine] = useEngine();
+  const params = useParams();
+
+  const getProject = createMemo(() => {
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
+    }
+    return undefined;
+  });
 
   return (
     <>
-      {props.nodeId in engine.nodes &&
-        engine.nodes[props.nodeId].payload.type === "Domain" && (
+      {getProject() &&
+        props.nodeId in getProject()!.nodes &&
+        getProject()!.nodes[props.nodeId].payload.type === "Domain" && (
           <Payload
-            payload={engine.nodes[props.nodeId].payload.data as Domain}
+            payload={getProject()!.nodes[props.nodeId].payload.data as Domain}
           />
         )}
     </>
