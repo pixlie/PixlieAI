@@ -1,4 +1,4 @@
-// Copyright 2024 Pixlie Web Solutions Pvt. Ltd.
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd. (India)
 // Licensed under the GNU General Public License version 3.0;
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at

@@ -2,6 +2,7 @@ use super::{EdgeLabel, Engine, NodeId, NodeLabel, Payload};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
+use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
@@ -35,6 +36,7 @@ pub struct LinkWrite {
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
+    SavedSearchTerm(SearchTerm),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -85,6 +87,7 @@ pub enum APIPayload {
     Label(String),
     // TypedData(TypedData),
     NamedEntity(String, String), // label, text
+    SearchTerm(SearchTerm),
 }
 
 impl APIPayload {
@@ -103,6 +106,7 @@ impl APIPayload {
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
             Payload::Label(label) => APIPayload::Label(label),
             Payload::NamedEntity(label, text) => APIPayload::NamedEntity(label, text),
+            Payload::SearchTerm(search_term) => APIPayload::SearchTerm(search_term),
         }
     }
 }
@@ -409,6 +413,9 @@ pub fn handle_engine_api_request(
             match node_write {
                 NodeWrite::Link(link_write) => {
                     Link::add_manually(engine.clone(), &link_write.url)?;
+                }
+                NodeWrite::SavedSearchTerm(search_term) => {
+                    SearchTerm::add_manually(engine.clone(), &search_term.0)?;
                 }
             }
             EngineResponsePayload::Success

@@ -1,9 +1,16 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd. (India)
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use crate::config::Settings;
 use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::services::{anthropic, ollama, TextClassificationProvider};
-use log::{debug, error, info};
+use log::{error, info};
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
