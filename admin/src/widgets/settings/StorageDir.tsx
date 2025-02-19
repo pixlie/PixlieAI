@@ -9,7 +9,7 @@ import { IFormFieldValue } from "../../utils/types";
 
 const help = `
 The storage directory is where we store the graph data, some AI/ML model data, etc.
-[Gliner](https://github.com/gliner/gliner), which is one of the AI/ML tools, needs about 6 GB of space.
+<!--[Gliner](https://github.com/gliner/gliner), which is one of the AI/ML tools, needs about 6 GB of space.-->
 
 Please copy and paste the path to the directory where you want to store the data.
 `;

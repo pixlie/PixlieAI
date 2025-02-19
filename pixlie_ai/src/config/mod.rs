@@ -194,8 +194,6 @@ impl Settings {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
             } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            } else if !get_is_gliner_setup()? {
-                incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
         }
         if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
