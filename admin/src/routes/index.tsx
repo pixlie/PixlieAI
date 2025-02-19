@@ -8,6 +8,7 @@ import Graph from "./projects/Graph";
 import Crawl from "./projects/Crawl";
 import ProjectList from "./projects/ProjectList";
 import PerProjectWrapper from "./projects/PerProject.tsx";
+import Help from "./Help.tsx";
 
 const Routes: Component = () => {
   return (
@@ -27,6 +28,7 @@ const Routes: Component = () => {
           <Route path="" component={Setup} />
         </>
       </Route>
+      <Route path="/help" component={Help} />
     </>
   );
 };
