@@ -4,10 +4,10 @@ use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
-    http, rt, web, App, HttpServer, Responder,
+    http, middleware::Logger, rt, web, App, HttpServer, Responder
 };
 use crossbeam_utils::atomic::AtomicCell;
-use log::info;
+use log::{debug, info};
 use std::path::PathBuf;
 
 const API_ROOT: &str = "/api";
@@ -37,6 +37,8 @@ pub fn api_manager(
         req_id: AtomicCell::new(0),
     });
     let static_admin_dir = config::get_static_admin_dir()?;
+    let (_path_to_config_dir, path_to_config_file) = config::get_cli_settings_path()?;
+    debug!("CLI settings path {}", path_to_config_file.display());
     rt::System::new().block_on(
         HttpServer::new(move || {
             // Allow for localhost, ports 5173 (development)
@@ -65,6 +67,7 @@ pub fn api_manager(
 
             App::new()
                 .wrap(cors)
+                .wrap(Logger::new("%r: %s %b %T"))
                 .app_data(api_state.clone())
                 .service(web::resource(API_ROOT).route(web::get().to(hello)))
                 .service(
