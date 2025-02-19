@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Node, NodeId, NodeItem, NodeLabel, Payload};
+use super::{EdgeLabel, ExistingOrNewNodeId, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
@@ -438,19 +438,41 @@ impl Engine {
         count_nodes > 0
     }
 
-    pub fn add_node(&self, payload: Payload, labels: Vec<NodeLabel>) -> NodeId {
+    pub fn get_or_add_node(
+        &self,
+        payload: Payload,
+        labels: Vec<NodeLabel>,
+        should_add_new: bool,
+    ) -> PiResult<ExistingOrNewNodeId> {
         if let Some(existing_node_id) = self.find_existing(&payload) {
             // If there is the same payload saved in the graph, we do not add a new node
-            return existing_node_id;
+            return Ok(ExistingOrNewNodeId::Existing(existing_node_id));
         }
         if let Some(existing_node_id) = self.find_pending(&payload) {
             // If there is a pending node with the same payload, we do not add a new node
-            return existing_node_id;
+            return Ok(ExistingOrNewNodeId::Pending(existing_node_id));
         }
+        if !should_add_new {
+            error!("Could not find existing node and should not add new node");
+            return Err(PiError::InternalError(
+                "Could not find existing node and should not add new node".to_string(),
+            ));
+        }
+
         let id = Arc::new({
-            let mut id = self.last_node_id.lock().unwrap();
-            *id += 1;
-            *id
+            match self.last_node_id.lock() {
+                Ok(mut id) => {
+                    *id += 1;
+                    *id
+                }
+                Err(err) => {
+                    error!("Error locking last_node_id: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking last_node_id: {}",
+                        err
+                    )));
+                }
+            }
         });
         match self.pending_nodes_to_add.write() {
             Ok(mut pending_nodes) => {
@@ -463,9 +485,13 @@ impl Engine {
             }
             Err(err) => {
                 error!("Could not write to pending_nodes_to_add in Engine: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Could not write to pending_nodes_to_add in Engine: {}",
+                    err
+                )));
             }
         }
-        id
+        Ok(ExistingOrNewNodeId::New(id))
     }
 
     pub fn add_connection(&self, node_ids: (NodeId, NodeId), edge_labels: (EdgeLabel, EdgeLabel)) {

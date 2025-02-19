@@ -1,4 +1,4 @@
-use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, NodeLabel, Payload};
+use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -119,23 +119,6 @@ impl Domain {
                 }
             }
         }
-    }
-
-    pub fn add(
-        engine: Arc<&Engine>,
-        domain: String,
-        extra_labels: Vec<NodeLabel>,
-        is_allowed_to_crawl: bool,
-    ) -> PiResult<NodeId> {
-        let domain_node_id = engine.add_node(
-            Payload::Domain(Domain {
-                name: domain.to_string(),
-                is_allowed_to_crawl,
-                last_fetched_at: None,
-            }),
-            extra_labels,
-        );
-        Ok(domain_node_id)
     }
 
     pub fn can_fetch_within_domain(

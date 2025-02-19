@@ -86,7 +86,7 @@ pub fn api_manager(
                 )
                 .service(
                     web::resource(format!("{}/engine/{{project_id}}/nodes", API_ROOT))
-                        .route(web::get().to(engine::api::get_nodes_by_label))
+                        .route(web::get().to(engine::api::get_nodes))
                         .route(web::post().to(engine::api::create_node)),
                 )
                 .service(
