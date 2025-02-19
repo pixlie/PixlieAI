@@ -17,7 +17,7 @@ const AppInner: Component<AppInnerProps> = (props) => {
       <div class={`relative isolate flex min-h-svh w-full ${getColors().app}`}>
         <Sidebar />
 
-        <div class="ml-48 px-6 flex-1 ">{props.children}</div>
+        <div class="ml-48 p-6 flex-1 ">{props.children}</div>
       </div>
     </InitialCheckAndLoad>
   );
