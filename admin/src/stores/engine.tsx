@@ -1,6 +1,6 @@
 import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import { IEngine, IProviderPropTypes } from "../utils/types";
+import { IEngine, INodeItem, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
@@ -11,11 +11,17 @@ const makeStore = () => {
     nodeIdsByLabel: {},
   });
 
-  const fetchNodesByLabel = (projectId: string, label: string) => {
-    setStore((data) => ({ ...data, isFetching: true, isReady: false }));
+  const setProjectId = (projectId: string) => {
+    setStore((existing: IEngine) => ({
+      ...existing,
+      projectId,
+    }));
+  };
+
+  const fetchNodesByLabel = (label: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(
-      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
+      `${pixlieAIAPIRoot}/api/engine/${store.projectId}/nodes?` +
         new URLSearchParams({
           label,
         }).toString(),
@@ -51,9 +57,44 @@ const makeStore = () => {
                   : [],
             },
           }));
-        } else {
-          setStore((data) => ({
-            ...data,
+        }
+      });
+    });
+  };
+
+  const fetchNodesByIds = (ids: Array<number>) => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(
+      `${pixlieAIAPIRoot}/api/engine/${store.projectId}/nodes?` +
+        new URLSearchParams({
+          ids: ids.join(","),
+        }).toString(),
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    ).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch nodes");
+      }
+      response.json().then((responsePayload: EngineResponsePayload) => {
+        if (responsePayload.type === "Results") {
+          setStore((existing: IEngine) => ({
+            ...existing,
+            nodes: {
+              ...existing.nodes,
+              ...responsePayload.data.nodes.reduce(
+                (map: { [k: number]: INodeItem }, item) => ({
+                  ...map,
+                  [item.id]: {
+                    ...item,
+                    isFetching: false,
+                  },
+                }),
+                {},
+              ),
+            },
           }));
         }
       });
@@ -70,7 +111,7 @@ const makeStore = () => {
         store.nodes[nodeId].edges[relatedNodeType]
       ) {
         let nodes: Array<APINodeItem> = [];
-        let nodesToBeFetched = [];
+        let nodesToBeFetched: Array<number> = [];
         store.nodes[nodeId].edges[relatedNodeType]?.forEach((nId: number) => {
           if (nId in store.nodes) {
             nodes.push(store.nodes[nId]);
@@ -79,6 +120,7 @@ const makeStore = () => {
           }
         });
         if (nodesToBeFetched.length > 0) {
+          fetchNodesByIds(nodesToBeFetched);
         }
         return nodes;
       }
@@ -90,6 +132,7 @@ const makeStore = () => {
   return [
     store,
     {
+      setProjectId,
       fetchNodesByLabel,
       getRelatedNodes,
     },

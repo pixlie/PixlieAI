@@ -1,7 +1,7 @@
 import { Component, createEffect, createMemo, onMount } from "solid-js";
 import Heading from "../../widgets/typography/Heading";
 import Tabs from "../../widgets/navigation/Tab";
-import { useEngine } from "../../stores/engine.tsx";
+import { useEngine } from "../../stores/engine";
 import { useParams, useSearchParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import TextInput from "../../widgets/interactable/TextInput.tsx";
@@ -12,7 +12,7 @@ import { IFormFieldValue } from "../../utils/types.tsx";
 import { insertNode } from "../../utils/api.ts";
 import Paragraph from "../../widgets/typography/Paragraph.tsx";
 
-const labelTypes: string[] = ["Link", "Domain"];
+const labelTypes: string[] = ["Link", "SearchKeyword"];
 type LabelType = (typeof labelTypes)[number];
 
 interface ILinkFormData {
@@ -57,39 +57,28 @@ const LinkForm: Component = () => {
 const Workflow: Component = () => {
   const [engine, { fetchNodesByLabel }] = useEngine();
   const [searchParams] = useSearchParams();
-  const params = useParams();
+  // const params = useParams();
 
-  const getSelectNodeIds = createMemo<number[]>(() =>
-    !!searchParams.label &&
-    (searchParams.label as LabelType) in engine.nodeIdsByLabel
-      ? engine.nodeIdsByLabel[searchParams.label as LabelType]
-      : [],
-  );
-
-  onMount(() => {
-    fetchNodesByLabel(params.projectId, "AddedByUser");
+  const getSelectNodeIds = createMemo<number[]>(() => {
+    if (
+      !!searchParams.label &&
+      (searchParams.label as LabelType) in engine.nodeIdsByLabel
+    ) {
+      // Only select nodes that have AddedByUser label
+      return engine.nodeIdsByLabel[searchParams.label as LabelType].filter(
+        (nodeId) => engine.nodes[nodeId].labels.includes("AddedByUser"),
+      );
+    } else {
+      return [];
+    }
   });
 
-  type NodesInWorkflow = "Link";
-  // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
-  const getNodesInWorkflow = createMemo(
-    (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
-      if ("AddedByUser" in engine.nodeIdsByLabel) {
-        return engine.nodeIdsByLabel["AddedByUser"]
-          .map((x) => {
-            if (engine.nodes[x].payload.type === "Link") {
-              return "Link";
-            }
-          })
-          .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
-      }
-      return prev;
-    },
-    [],
-  );
+  onMount(() => {
+    fetchNodesByLabel("AddedByUser");
+  });
 
   const getTabs = createMemo(() =>
-    getNodesInWorkflow().map((l) => ({
+    labelTypes.map((l) => ({
       label: `${l}(s)`,
       searchParamKey: "label",
       searchParamValue: l,
@@ -98,7 +87,7 @@ const Workflow: Component = () => {
 
   createEffect(() => {
     if (!!searchParams.label) {
-      fetchNodesByLabel(params.projectId, searchParams.label as LabelType);
+      fetchNodesByLabel(searchParams.label as LabelType);
     }
   });
 
