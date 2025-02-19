@@ -1,7 +1,6 @@
 import { Component, onMount } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
 import ProjectListItem from "../../widgets/projects/ProjectListItem";
-import Heading from "../../widgets/typography/Heading";
 import ProjectForm from "../../widgets/projects/ProjectForm.tsx";
 import Button from "../../widgets/interactable/Button";
 import { useLocation, useNavigate } from "@solidjs/router";
@@ -25,7 +24,6 @@ const ProjectList: Component = () => {
 
   return (
     <div class="relative">
-      <Heading size={1}>Projects</Heading>
       {location.hash === "#createProject" && (
         <ProjectForm displayAs="Drawer" onClose={handleClose} />
       )}
