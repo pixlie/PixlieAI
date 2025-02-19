@@ -3,3 +3,4 @@ docs/
 .idea/
 pixlieai_rs/.idea/
 admin/.idea/
+rest_api/environments
