@@ -1,5 +1,4 @@
 import { Component } from "solid-js";
-import Gliner from "../../widgets/settings/Gliner";
 import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
@@ -25,9 +24,6 @@ const Setup: Component = () => {
 
           {!!workspace.settings?.pathToStorageDir ? (
             <>
-              <div class="mb-16" />
-              <Gliner />
-
               <div class="mb-16" />
               <Ollama />
 
