@@ -1,7 +1,7 @@
 import { RouteSectionProps } from "@solidjs/router";
 import { Component } from "solid-js";
 
-const Help: Component<RouteSectionProps> = () => (
+const Contact: Component<RouteSectionProps> = () => (
   <div class="h-dvh w-dvw">
     <p class="text-gray-700">
       {`Need help? Email `}
@@ -19,4 +19,4 @@ const Help: Component<RouteSectionProps> = () => (
   </div>
 );
 
-export default Help;
+export default Contact;
