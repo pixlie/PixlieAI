@@ -6,7 +6,8 @@ use crate::error::{PiError, PiResult};
 use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{debug, error, info, log_enabled};
+use log::Level::Debug;
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
 use std::time::Instant;
@@ -50,6 +51,9 @@ pub struct Engine {
     fetcher: Arc<Fetcher>,    // Used to fetch URLs, managed by the main thread
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
+
+    inspect: bool,
+    inspect_path: PathBuf,
 }
 
 impl Engine {
@@ -59,7 +63,19 @@ impl Engine {
         fetcher: Arc<Fetcher>,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
+        inspect: bool,
     ) -> Engine {
+        let inspect_path = storage_root.join("inspect");
+        if inspect {
+            match std::fs::remove_dir_all(&inspect_path) {
+                Ok(_) => {
+                    info!("Removed inspect directory at {}", inspect_path.display());
+                }
+                Err(err) => {
+                    error!("Error removing inspect directory: {}", err);
+                }
+            }
+        }
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
             nodes: RwLock::new(HashMap::new()),
@@ -77,6 +93,9 @@ impl Engine {
             fetcher,
             my_pi_channel,
             main_channel_tx,
+
+            inspect,
+            inspect_path: inspect_path,
         };
         engine
     }
@@ -96,6 +115,7 @@ impl Engine {
             fetcher,
             my_pi_channel,
             main_channel_tx,
+            log_enabled!(Debug),
         );
         engine.load_from_disk();
         engine
@@ -592,6 +612,26 @@ impl Engine {
     fn load_from_disk(&mut self) {
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
         let iter = db.iterator(rocksdb::IteratorMode::Start);
+        // if inspect is on, we create a CSV writer at inspect_path/nodes.csv
+        let mut nodes_writer: Option<csv::Writer<std::fs::File>> = None;
+        if self.inspect {
+
+            // If the inspect directory does not exist, create it
+            match std::fs::create_dir_all(&self.inspect_path) {
+                Ok(_) => {
+                    info!("Created inspect directory at {}", self.inspect_path.display());
+                }
+                Err(err) => {
+                    error!("Error creating inspect directory: {}", err);
+                }
+            }
+
+            let inspect_path = self.inspect_path.join("nodes.csv");
+            let file = std::fs::File::create(inspect_path).unwrap();
+            let mut writer = csv::Writer::from_writer(file);
+            writer.write_record(&["id", "payload_type", "payload", "labels", "edges"]).unwrap();
+            nodes_writer = Some(writer);
+        }
         for item in iter {
             let (key, value) = match item {
                 Ok(item) => item,
@@ -608,6 +648,39 @@ impl Engine {
                     break;
                 }
             };
+            if self.inspect {
+                let writer = nodes_writer.as_mut().unwrap();
+                let payload_value = match &node.payload {
+                    Payload::Link(link) => link.get_full_link(),
+                    Payload::Domain(domain) => domain.name.clone(),
+                    _ => "".to_string(),
+                };
+                let edges = node
+                    .edges
+                    .iter()
+                    .map(|(label, node_ids)| {
+                        format!(
+                            "{}({})",
+                            label,
+                            node_ids
+                                .iter()
+                                .map(|node_id| node_id.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(",");
+                writer
+                    .write_record(&[
+                        node_id.to_string(),
+                        node.payload.to_string(),
+                        payload_value,
+                        node.labels.join(", "),
+                        edges,
+                    ])
+                    .unwrap();
+            }
             // The first label if the type of the payload
             let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
             labels.extend(node.labels.iter().cloned());
