@@ -26,7 +26,7 @@ const SearchTermForm: Component = () => {
 
   const handleSubmit = async () => {
     insertNode(params.projectId, {
-      SavedSearchTerm: formData.term,
+      SearchTerm: formData.term,
     } as NodeWrite);
   };
 

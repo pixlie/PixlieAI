@@ -2,4 +2,4 @@
 import type { LinkWrite } from "./LinkWrite";
 import type { SearchTerm } from "./SearchTerm";
 
-export type NodeWrite = { Link: LinkWrite } | { SavedSearchTerm: SearchTerm };
+export type NodeWrite = { Link: LinkWrite } | { SearchTerm: SearchTerm };
