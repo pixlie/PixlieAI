@@ -29,7 +29,7 @@ const TabItem: Component<TabItemProps> = (props) => {
     <a
       onClick={handleClick}
       class={
-        "flex whitespace-nowrap px-4 py-2 rounded-t text-sm font-medium cursor-pointer " +
+        "flex whitespace-nowrap px-4 py-2 rounded-t text-sm font-medium cursor-pointer border " +
         getColors()["tabs.link"]
       }
     >
@@ -52,7 +52,7 @@ const Tabs: Component<TabProps> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   return (
-    <div class={"border-b mb-4 px-4 " + getColors()["tabs"]}>
+    <div class={"border-b px-4 " + getColors()["tabs"]}>
       <nav class="-mb-px flex space-x-4" aria-label="Tabs">
         {props.tabs.map((tab) => (
           <TabItem {...tab} />

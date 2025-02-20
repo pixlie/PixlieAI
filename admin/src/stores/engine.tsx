@@ -50,8 +50,8 @@ const makeStore = () => {
                 nodes: {
                   ...existing.projects[projectId].nodes,
                   ...responsePayload.data.nodes.reduce(
-                    (acc, item) => ({
-                      ...acc,
+                    (map: { [k: number]: INodeItem }, item) => ({
+                      ...map,
                       [item.id]: {
                         ...item,
                         isFetching: false,
@@ -152,12 +152,54 @@ const makeStore = () => {
     return [];
   };
 
+  const getQueryResults = async (projectId: string, nodeId: number) => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/query/${nodeId}`, {
+      headers: {
+        "Content-type": "application/json",
+      },
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch query results");
+      }
+
+      // Store nodes into the store. These will be a mix of different payload types
+      response.json().then((responsePayload: EngineResponsePayload) => {
+        if (responsePayload.type === "Results") {
+          setStore((existing: IEngineStore) => ({
+            ...existing,
+            projects: {
+              ...existing.projects,
+              [projectId]: {
+                ...existing.projects[projectId],
+                nodes: {
+                  ...existing.projects[projectId].nodes,
+                  ...responsePayload.data.nodes.reduce(
+                    (map: { [k: number]: INodeItem }, item) => ({
+                      ...map,
+                      [item.id]: {
+                        ...item,
+                        isFetching: false,
+                      },
+                    }),
+                    {},
+                  ),
+                },
+              },
+            },
+          }));
+        }
+      });
+    });
+  };
+
   return [
     store,
     {
       setProjectId,
       fetchNodesByLabel,
       getRelatedNodes,
+      getQueryResults,
     },
   ] as const; // `as const` forces tuple type inference
 };

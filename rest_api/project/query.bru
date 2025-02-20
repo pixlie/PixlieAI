@@ -1,0 +1,19 @@
+meta {
+  name: query
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api}}/engine/{{project_id}}/nodes?label=SearchTerm
+  body: none
+  auth: none
+}
+
+params:query {
+  label: SearchTerm
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}

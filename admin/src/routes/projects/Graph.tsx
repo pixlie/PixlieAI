@@ -11,6 +11,7 @@ const labelTypes: string[] = [
   "Heading",
   "BulletPoints",
   "OrderedPoints",
+  "SearchResults",
 ];
 type LabelType = (typeof labelTypes)[number];
 

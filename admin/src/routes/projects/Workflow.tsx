@@ -78,21 +78,23 @@ const Workflow: Component = () => {
       </div>
 
       <Tabs tabs={getTabs()} />
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-      />
+      <div class="px-4 py-4">
+        <NodeGrid
+          nodeType={getNodeTypeFromSearchParam()}
+          source={getSelectNodeIds}
+        />
 
-      {searchParams.label === "Link" && (
-        <div class="mt-6 max-w-screen-sm">
-          <LinkForm />
-        </div>
-      )}
-      {searchParams.label === "SearchTerm" && (
-        <div class="mt-6 max-w-screen-sm">
-          <SearchTermForm />
-        </div>
-      )}
+        {searchParams.label === "Link" && (
+          <div class="mt-6 max-w-screen-sm">
+            <LinkForm />
+          </div>
+        )}
+        {searchParams.label === "SearchTerm" && (
+          <div class="mt-6 max-w-screen-sm">
+            <SearchTermForm />
+          </div>
+        )}
+      </div>
     </>
   );
 };

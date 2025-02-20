@@ -21,9 +21,9 @@ const lightDefault = {
     button: "bg-green-600 text-white",
     link: "text-blue-600 hover:underline",
 
-    tabs: "border-stone-300",
+    tabs: "border-slate-300",
     "tabs.link":
-      "bg-stone-200 text-gray-500 hover:border-gray-200 hover:text-gray-700",
+      "text-gray-500 hover:text-gray-700 border-slate-300 border-b-stone-100",
   },
 };
 

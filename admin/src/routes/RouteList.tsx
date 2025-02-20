@@ -61,6 +61,13 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
+            label: "Query",
+            href: `/p/${params.projectId}/searchResults`,
+            isActive: location.pathname.startsWith(
+              `/p/${params.projectId}/searchResults`,
+            ),
+          },
+          {
             label: "Crawl",
             href: `/p/${params.projectId}/crawl`,
             isActive: location.pathname.startsWith(
