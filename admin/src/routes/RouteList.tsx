@@ -61,7 +61,7 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
-            label: "Query",
+            label: "Search results",
             href: `/p/${params.projectId}/searchResults`,
             isActive: location.pathname.startsWith(
               `/p/${params.projectId}/searchResults`,

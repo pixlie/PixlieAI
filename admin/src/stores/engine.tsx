@@ -152,7 +152,7 @@ const makeStore = () => {
     return [];
   };
 
-  const getQueryResults = async (projectId: string, nodeId: number) => {
+  const getQueryResults = (projectId: string, nodeId: number) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/query/${nodeId}`, {
       headers: {

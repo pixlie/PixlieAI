@@ -1,11 +1,11 @@
 import { Component, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
-// import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import { useParams } from "@solidjs/router";
+import SearchResult from "../../widgets/node/SearchResult.tsx";
 
 const SearchResults: Component = () => {
-  const [engine, { fetchNodesByLabel, getQueryResults }] = useEngine();
+  const [engine, { fetchNodesByLabel }] = useEngine();
   const params = useParams();
 
   const getProject = createMemo(() => {
@@ -16,8 +16,11 @@ const SearchResults: Component = () => {
   });
 
   onMount(() => {
-    // First, we fetch all the nodes with the label `SearchTerm`
-    // Then, we fetch query results for each of the nodes with label `SearchTerm`
+    if (!!getProject()) {
+      // First, we fetch all the nodes with the label `SearchTerm`
+      fetchNodesByLabel(params.projectId, "SearchTerm");
+      // Then, we fetch query results for each of the nodes with label `SearchTerm`
+    }
   });
 
   // We have to display each `SearchTerm` and then the results per `SearchTerm`
@@ -26,7 +29,15 @@ const SearchResults: Component = () => {
     <>
       <Heading size={3}>Search results</Heading>
 
-      {/*<NodeGrid />*/}
+      <div class="grid grid-cols-[auto_1fr] gap-2">
+        {!!getProject()
+          ? Object.values(getProject()!.nodes).map((node) => {
+              if (node.payload.type === "SearchTerm") {
+                return <SearchResult nodeId={node.id} />;
+              }
+            })
+          : null}
+      </div>
     </>
   );
 };
