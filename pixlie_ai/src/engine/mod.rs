@@ -26,7 +26,7 @@ use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
-use crate::error::PiResult;
+use crate::error::{PiError, PiResult};
 pub use engine::Engine;
 
 #[derive(Clone, Display, Deserialize, Serialize)]
@@ -96,7 +96,20 @@ pub trait Node {
     where
         Self: Sized,
     {
-        Ok(())
+        Err(PiError::NotAvailable(format!(
+            "Process on node {} is not available",
+            Self::get_label()
+        )))
+    }
+
+    fn query(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<Vec<NodeItem>>
+    where
+        Self: Sized,
+    {
+        Err(PiError::NotAvailable(format!(
+            "Query on node {} is not available",
+            Self::get_label()
+        )))
     }
 }
 

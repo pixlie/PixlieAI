@@ -90,6 +90,13 @@ pub fn api_manager(
                         .route(web::post().to(engine::api::create_node)),
                 )
                 .service(
+                    web::resource(format!(
+                        "{}/engine/{{project_id}}/query/{{node_id}}",
+                        API_ROOT
+                    ))
+                    .route(web::get().to(engine::api::query)),
+                )
+                .service(
                     web::resource(format!("{}/projects", API_ROOT))
                         .route(web::get().to(projects::api::read_projects))
                         .route(web::post().to(projects::api::create_project)),

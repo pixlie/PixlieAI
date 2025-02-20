@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Engine, NodeId, NodeLabel, Payload};
+use super::{EdgeLabel, Engine, Node, NodeId, NodeLabel, Payload};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
@@ -36,7 +36,7 @@ pub struct LinkWrite {
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
-    SavedSearchTerm(SearchTerm),
+    SearchTerm(SearchTerm),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -45,9 +45,8 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
-    GetRelatedNodes(u32),
-    GetPartNodes(u32),
     CreateNode(NodeWrite),
+    Query(u32), // Some nodes allow a "query", which can generate any number of nodes, like a search
 }
 
 #[derive(Clone, Default, Serialize, TS)]
@@ -319,6 +318,50 @@ pub async fn create_node(
     }
 }
 
+pub async fn query(
+    path: web::Path<(String, u32)>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let (project_id, node_id) = path.into_inner();
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::Query(node_id),
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
+}
+
 pub fn handle_engine_api_request(
     request: EngineRequest,
     engine: &Engine,
@@ -414,13 +457,60 @@ pub fn handle_engine_api_request(
                 NodeWrite::Link(link_write) => {
                     Link::add_manually(engine.clone(), &link_write.url)?;
                 }
-                NodeWrite::SavedSearchTerm(search_term) => {
+                NodeWrite::SearchTerm(search_term) => {
                     SearchTerm::add_manually(engine.clone(), &search_term.0)?;
                 }
             }
             EngineResponsePayload::Success
         }
-        _ => EngineResponsePayload::Error("Could not understand request".to_string()),
+        EngineRequestPayload::Query(node_id) => match engine.nodes.read() {
+            Ok(nodes) => match nodes.get(&node_id) {
+                Some(node) => match node.read() {
+                    Ok(node) => match node.payload {
+                        Payload::SearchTerm(ref search_term) => {
+                            let results = search_term.query(engine.clone(), &node_id.into())?;
+                            EngineResponsePayload::Results(EngineResponseResults {
+                                nodes: results
+                                    .iter()
+                                    .map(|x| APINodeItem {
+                                        id: x.id.clone(),
+                                        labels: x.labels.clone(),
+                                        payload: APIPayload::from_payload(x.payload.clone()),
+                                        edges: x.edges.clone(),
+                                        written_at: x.written_at.clone(),
+                                    })
+                                    .collect::<Vec<APINodeItem>>(),
+                                ..Default::default()
+                            })
+                        }
+                        _ => {
+                            return Err(PiError::InternalError(
+                                "Query only works on search terms".to_string(),
+                            ))
+                        }
+                    },
+                    Err(_err) => {
+                        return Err(PiError::InternalError(format!(
+                            "Error reading node {}",
+                            node_id
+                        )))
+                    }
+                },
+                None => {
+                    return Err(PiError::InternalError(format!(
+                        "Node {} not found",
+                        node_id
+                    )))
+                }
+            },
+            Err(err) => {
+                error!("Error reading nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error reading nodes: {}",
+                    err
+                )));
+            }
+        },
     };
 
     main_channel_tx.send(PiEvent::APIResponse(
