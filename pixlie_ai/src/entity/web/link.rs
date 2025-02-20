@@ -13,6 +13,7 @@ use url::Url;
 // A link that should fetch
 #[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
 pub struct Link {
+    pub domain: String,
     pub path: String, // Relative to the domain
     pub query: Option<String>,
     pub is_fetched: bool,
@@ -33,6 +34,8 @@ impl Link {
         // - if the query already exists
         // We do not store fragment
         // The link node only stores the path and query, domain is stored in the domain node
+        debug!("Adding link: {}", url);
+        debug!("Parsed URL: {:?}", Url::parse(url));
         match Url::parse(url) {
             Ok(parsed) => match parsed.domain() {
                 Some(domain) => {
@@ -54,6 +57,7 @@ impl Link {
                         },
                         Err(err) => {
                             if should_add_new_domain {
+                                debug!("Error finding domain node, adding new one: {}", err);
                                 Domain::add(
                                     engine.clone(),
                                     domain.to_string(),
@@ -96,6 +100,7 @@ impl Link {
     }
 
     pub fn add_manually(engine: Arc<&Engine>, url: &String) -> PiResult<NodeId> {
+        debug!("Adding link manually: {}", url);
         Self::add(
             engine.clone(),
             url,
@@ -104,6 +109,10 @@ impl Link {
             true,
             true,
         )
+    }
+
+    pub fn get_domain_string(&self) -> String {
+        self.domain.clone()
     }
 
     pub fn get_full_link(&self) -> String {
@@ -209,6 +218,7 @@ impl Node for Link {
 
         let node_id = node_id.clone();
         let url = self.get_full_link();
+        debug!("Processing Link: {}", url);
         let (domain, _domain_node_id) =
             match Domain::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))? {
                 Some((domain, domain_node_id)) => (domain, domain_node_id),

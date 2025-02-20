@@ -1,5 +1,5 @@
 use crate::error::{PiError, PiResult};
-use log::error;
+use log::{debug, error};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
@@ -124,7 +124,9 @@ fn fetcher_runtime(
                                             match response.text().await {
                                                 Ok(contents) => {
                                                     match fetch_tx.send(FetchEvent::FetchResponse(id, url, contents)) {
-                                                        Ok(_) => {}
+                                                        Ok(_) => {
+                                                            debug!("FetchResponse sent for ID {}", id);
+                                                        }
                                                         Err(err) => {
                                                             error!("Error sending PiEvent in Fetch channel: {}", err);
                                                         }

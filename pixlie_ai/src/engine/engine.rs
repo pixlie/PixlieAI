@@ -9,7 +9,8 @@ use chrono::Utc;
 use log::{debug, error, info};
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
-use std::time::Instant;
+use std::thread::sleep;
+use std::time::{self, Instant};
 use std::{
     collections::{HashMap, HashSet},
     sync::RwLock,
@@ -19,9 +20,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-struct PendingNode {
-    id: NodeId,
-    payload: Payload,
+// Originally completely private, but now public for testing
+// Needs to revert back to private after resolving the duplicate issue
+pub struct PendingNode {
+    pub id: NodeId,
+    pub payload: Payload,
     labels: Vec<NodeLabel>,
 }
 
@@ -38,7 +41,9 @@ pub struct Engine {
     pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
     pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
 
-    pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
+    // pending_nodes_to_add originally private, but now public for testing
+    // Needs to revert back to private after resolving the duplicate issue
+    pub pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
     pending_edges_to_add: RwLock<Vec<PendingEdge>>, // Edges pending to be added
     pending_nodes_to_update: RwLock<Vec<PendingNode>>, // Nodes pending to be updated
 
@@ -452,6 +457,9 @@ impl Engine {
             *id += 1;
             *id
         });
+        // Wait for 0.1 seconds before adding the node
+        debug!("Waiting for 0.2 seconds before adding node {} of type {}", id, payload.to_string());
+        sleep(time::Duration::from_millis(200));
         match self.pending_nodes_to_add.write() {
             Ok(mut pending_nodes) => {
                 pending_nodes.push(PendingNode {
@@ -505,8 +513,12 @@ impl Engine {
             Payload::Domain(ref domain) => {
                 let existing =
                     match Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name)) {
-                        Ok(domain) => domain,
+                        Ok(domain_node) => {
+                            debug!("Found existing domain node for domain {}", domain.name);
+                            domain_node
+                        },
                         Err(_err) => {
+                            debug!("Error finding existing domain node for domain {}", domain.name);
                             return None;
                         }
                     };
@@ -516,6 +528,9 @@ impl Engine {
                 }
             }
             Payload::Link(ref link) => {
+                // TODO: This needs to be made domain aware. It is the first check for a payload
+                // level match, but link.get_full_link() is not enough to determine if a link is
+                // unique. We need to check if the domain is unique as well.
                 let existing = match Link::find_existing(engine, &link.get_full_link()) {
                     Ok(link) => link,
                     Err(_err) => {
@@ -531,8 +546,35 @@ impl Engine {
         }
     }
 
-    fn find_pending(&self, _payload: &Payload) -> Option<Arc<u32>> {
-        None
+    fn find_pending(&self, payload: &Payload) -> Option<NodeId> {
+        // For certain node payloads, check if there is a pending node with the same payload
+        let engine = Arc::new(self);
+        match payload {
+            Payload::Domain(ref domain) => {
+                let existing = match Domain::find_pending(engine, FindDomainOf::DomainName(&domain.name)) {
+                    Ok(existing) => {
+                        debug!("Found pending domain node for domain {}", domain.name);
+                        existing
+                    },
+                    Err(_err) => None,
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
+                }
+            }
+            // Payload::Link(ref link) => {
+            //     let existing = match Link::find_pending(engine, &link.get_full_link()) {
+            //         Ok(existing) => existing,
+            //         Err(_err) => None,
+            //     };
+            //     match existing {
+            //         Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+            //         None => None,
+            //     }
+            // }
+            _ => None,
+        }
     }
 
     pub fn get_node_by_id(&self, node_id: &NodeId) -> PiResult<NodeItem> {

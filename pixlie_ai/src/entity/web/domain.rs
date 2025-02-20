@@ -121,6 +121,38 @@ impl Domain {
         }
     }
 
+    pub fn find_pending(engine: Arc<&Engine>, data: FindDomainOf) -> PiResult<Option<(Domain, NodeId)>> {
+        match data {
+            FindDomainOf::DomainName(domain_name) => match engine.pending_nodes_to_add.read() {
+                Ok(pending_nodes_to_add) => {
+                    for pending_node in pending_nodes_to_add.iter() {
+                        match pending_node.payload {
+                            Payload::Domain(ref domain) => {
+                                if domain.name == domain_name {
+                                    debug!("Found pending domain node: {}", domain_name);
+                                    return Ok(Some((
+                                        domain.clone(),
+                                        pending_node.id.clone(),
+                                    )));
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    Ok(None)
+                },
+                Err(err) => Err(PiError::InternalError(format!(
+                    "Error reading pending_nodes_to_add: {}",
+                    err
+                ))),
+            },
+            FindDomainOf::Node(_node_id) => {
+                Ok(None)
+            }
+        }
+    }
+        
+
     pub fn add(
         engine: Arc<&Engine>,
         domain: String,
