@@ -94,7 +94,7 @@ pub fn api_manager(
                         "{}/engine/{{project_id}}/query/{{node_id}}",
                         API_ROOT
                     ))
-                    .route(web::get().to(engine::api::query)),
+                    .route(web::get().to(engine::api::search_results)),
                 )
                 .service(
                     web::resource(format!("{}/projects", API_ROOT))

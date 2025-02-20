@@ -318,7 +318,7 @@ pub async fn create_node(
     }
 }
 
-pub async fn query(
+pub async fn search_results(
     path: web::Path<(String, u32)>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
