@@ -4,12 +4,7 @@ use actix_web::{error::ErrorInternalServerError, web, Responder, Result};
 use log::{debug, error};
 
 pub async fn read_settings() -> Result<impl Responder> {
-    let mut settings = Settings::get_cli_settings()?;
-    // If Anthropic API key is set, keep the first and last few chars and replace everything else with *
-    match settings.anthropic_api_key.as_mut() {
-        Some(x) => *x = format!("{}****{}", &x[0..3], &x[x.len() - 3..]),
-        None => {}
-    }
+    let settings = Settings::get_cli_settings()?;
     Ok(web::Json(settings))
 }
 

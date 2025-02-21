@@ -107,35 +107,35 @@ impl WebPage {
 
     fn classify(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
         // Classify the web page using Anthropic
-        let settings = Settings::get_cli_settings()?;
+        // let settings = Settings::get_cli_settings()?;
         let content = self.get_content(engine, node_id);
         if content.is_empty() {
             return Ok(());
         }
-        let labels: Vec<String> = vec![];
+        // let labels: Vec<String> = vec![];
 
-        let classification = match settings.get_text_classification_provider()? {
-            TextClassificationProvider::Ollama => {
-                // Use Ollama
-                ollama::classify(
-                    &content,
-                    &labels,
-                    settings
-                        .ollama_hosts
-                        .unwrap()
-                        .choose(&mut rand::thread_rng())
-                        .unwrap(),
-                    8080,
-                )?
-            }
-            TextClassificationProvider::Anthropic => {
-                // Use Anthropic
-                anthropic::classify(&content, &labels, &settings.anthropic_api_key.unwrap())?
-            }
-        };
+        // let classification = match settings.get_text_classification_provider()? {
+        //     TextClassificationProvider::Ollama => {
+        //         // Use Ollama
+        //         ollama::classify(
+        //             &content,
+        //             &labels,
+        //             settings
+        //                 .ollama_hosts
+        //                 .unwrap()
+        //                 .choose(&mut rand::thread_rng())
+        //                 .unwrap(),
+        //             8080,
+        //         )?
+        //     }
+        //     TextClassificationProvider::Anthropic => {
+        //         // Use Anthropic
+        //         anthropic::classify(&content, &labels, &settings.anthropic_api_key.unwrap())?
+        //     }
+        // };
         // Insert the classification into the engine
         // engine.add_related_node(node_id, Payload::Label(classification.clone()));
-        info!("Content: {}\n\nclassified as: {}", content, classification);
+        // info!("Content: {}\n\nclassified as: {}", content, classification);
 
         Ok(())
     }
