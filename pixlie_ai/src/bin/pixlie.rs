@@ -7,6 +7,7 @@ use pixlie_ai::utils::fetcher::Fetcher;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
+use std::process::exit;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::thread;
@@ -39,6 +40,14 @@ fn main() {
             return;
         }
     }
+    let settings: Settings = match Settings::get_cli_settings() {
+        Ok(settings) => settings,
+        Err(err) => {
+            error!("Error reading settings: {}", err);
+            exit(1);
+        }
+    };
+
     let pool = threadpool::Builder::new()
         .thread_name("pixlie_ai_thread".to_string())
         .build();
@@ -113,13 +122,6 @@ fn main() {
                             "Received API request for project {} which is not loaded",
                             project_id
                         );
-                        let settings: Settings = match Settings::get_cli_settings() {
-                            Ok(settings) => settings,
-                            Err(err) => {
-                                error!("Error reading settings: {}", err);
-                                continue;
-                            }
-                        };
 
                         channels_per_project.insert(project_id.clone(), PiChannel::new());
                         let my_pi_channel = match channels_per_project.get(&project_id) {
@@ -132,9 +134,16 @@ fn main() {
                         let pi_channel_tx = main_channel_iter.clone().tx;
                         let project_id = project_id.clone();
                         let arced_fetcher = arced_fetcher.clone();
+                        let path_to_storage_dir = match settings.path_to_storage_dir {
+                            Some(ref path) => path.clone(),
+                            None => {
+                                error!("Cannot find path to storage directory");
+                                continue;
+                            }
+                        };
                         pool.execute(move || {
                             let engine = Engine::open_project(
-                                settings.path_to_storage_dir.as_ref().unwrap(),
+                                &path_to_storage_dir,
                                 &project_id,
                                 arced_fetcher,
                                 my_pi_channel.clone(),

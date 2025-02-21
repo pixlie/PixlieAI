@@ -1,15 +1,13 @@
 import { NodeWrite } from "../api_types/NodeWrite.ts";
 
 export const getPixlieAIAPIRoot = () => {
-  let protocol = import.meta.env.VITE_PIXLIE_AI_API_PROTOCOL;
-  let host = import.meta.env.VITE_PIXLIE_AI_API_HOST;
-  let port = import.meta.env.VITE_PIXLIE_AI_API_PORT;
+  let api = import.meta.env.VITE_PIXLIE_AI_API;
 
-  if (!host || !port) {
-    throw new Error("Pixie AI host and port not set");
+  if (!api) {
+    throw new Error("Pixie AI API URL is not set");
   }
 
-  return `${protocol}://${host}:${port}`;
+  return api;
 };
 
 // The API sends and receives objects where the keys use snake_case names

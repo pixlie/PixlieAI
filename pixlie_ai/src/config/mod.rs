@@ -7,7 +7,7 @@
 
 use crate::{
     error::{PiError, PiResult},
-    services::{EntityExtractionProvider, TextClassificationProvider},
+    services::TextClassificationProvider,
 };
 use bytes::Buf;
 use config::Config;
@@ -32,22 +32,21 @@ pub mod python;
 #[derive(Debug, Deserialize, Serialize, TS)]
 #[ts(export, rename_all = "camelCase")]
 pub struct Settings {
-    pub anthropic_api_key: Option<String>,
-    pub ollama_hosts: Option<Vec<String>>,
-    pub ollama_port: Option<u16>,
-    pub gpu_hosts: Option<Vec<String>>,
     pub path_to_storage_dir: Option<String>,
+    // When hostname is set, we look for `Certs/<hostname>/` directory in the storage directory
+    pub hostname: Option<String>,
+}
+
+pub struct WithHostname {
+    pub hostname: String,
+    pub path_to_certificate: PathBuf,
+    pub path_to_key: PathBuf,
 }
 
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub enum SettingsIncompleteReason {
-    MissingLLMProvider,
     StorageDirNotConfigured,
-    PythonNotAvailable,
-    PythonVenvNotAvailable,
-    PythonPipNotAvailable,
-    GlinerNotSetup,
 }
 
 #[derive(Serialize, TS)]
@@ -59,12 +58,13 @@ pub enum SettingsStatus {
 }
 
 pub fn check_cli_settings() -> PiResult<()> {
-    let config_path = config_dir();
-    if config_path.is_none() {
-        error!("Can not detect the config directory of the current user");
-        return Err(PiError::CannotDetectConfigDirectory);
-    }
-    let mut config_path = config_path.unwrap();
+    let mut config_path = match config_dir() {
+        Some(config_path) => config_path,
+        None => {
+            error!("Can not detect the config directory of the current user");
+            return Err(PiError::CannotDetectConfigDirectory);
+        }
+    };
     config_path.push("pixlie_ai");
     if !config_path.exists() {
         // Create the `pixlie_ai` config directory since it does not exist
@@ -172,8 +172,7 @@ impl Settings {
                 let settings = Config::builder()
                     .add_source(config::File::with_name(config_path))
                     .build()?;
-                let mut settings = settings.try_deserialize::<Settings>()?;
-                settings.ollama_port = Some(settings.ollama_port.unwrap_or(8080));
+                let settings = settings.try_deserialize::<Settings>()?;
                 Ok(settings)
             }
             None => Err(PiError::CannotReadOrWriteConfigFile),
@@ -185,20 +184,6 @@ impl Settings {
         if self.path_to_storage_dir.is_none() {
             incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
         }
-        let python_status = check_system_python();
-        if python_status.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::PythonNotAvailable);
-        } else {
-            let python_status = python_status.unwrap();
-            if !python_status.venv {
-                incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
-            } else if !python_status.pip {
-                incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            }
-        }
-        if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::MissingLLMProvider);
-        }
         if incomplete_reasons.is_empty() {
             Ok(SettingsStatus::Complete)
         } else {
@@ -206,38 +191,12 @@ impl Settings {
         }
     }
 
-    pub fn get_entity_extraction_provider(&self) -> PiResult<EntityExtractionProvider> {
-        if let true = get_is_gliner_setup()? {
-            return Ok(EntityExtractionProvider::Gliner);
-        } else if let Some(_) = self.ollama_hosts {
-            return Ok(EntityExtractionProvider::Ollama);
-        } else if let Some(_) = self.anthropic_api_key {
-            return Ok(EntityExtractionProvider::Anthropic);
-        }
-        Err(PiError::NotConfiguredProperly)
-    }
-
-    pub fn get_text_classification_provider(&self) -> PiResult<TextClassificationProvider> {
-        if let Some(_) = self.ollama_hosts {
-            return Ok(TextClassificationProvider::Ollama);
-        } else if let Some(_) = self.anthropic_api_key {
-            return Ok(TextClassificationProvider::Anthropic);
-        }
-        Err(PiError::NotConfiguredProperly)
-    }
-
     pub fn merge_updates(&mut self, updates: &Settings) {
-        if updates.anthropic_api_key.is_some() {
-            self.anthropic_api_key = updates.anthropic_api_key.clone();
-        }
-        if updates.ollama_hosts.is_some() {
-            self.ollama_hosts = updates.ollama_hosts.clone();
-        }
-        if updates.ollama_port.is_some() {
-            self.ollama_port = updates.ollama_port.clone();
-        }
         if updates.path_to_storage_dir.is_some() {
             self.path_to_storage_dir = updates.path_to_storage_dir.clone();
+        }
+        if updates.hostname.is_some() {
+            self.hostname = updates.hostname.clone();
         }
     }
 
@@ -252,5 +211,31 @@ impl Settings {
             }
             Err(err) => Err(PiError::FailedToWriteConfigFile(err.to_string())),
         }
+    }
+
+    pub fn get_hostname(&self) -> PiResult<Option<WithHostname>> {
+        // Hostname is needed to run the API server on a specific hostname
+        // Since this is needed before we can configure anything else,
+        // we store hostname and certificates in user's config directory
+        // instead of the storage directory
+        let path_to_hostname_storage_dir: PathBuf = match self.hostname {
+            Some(ref hostname) => match config_dir() {
+                Some(config_path) => config_path.join("pixlie_ai").join(hostname),
+                None => {
+                    error!("Can not detect the config directory of the current user");
+                    return Err(PiError::InternalError(
+                        "Can not detect the config directory of the current user".to_string(),
+                    ));
+                }
+            },
+            None => {
+                return Ok(None);
+            }
+        };
+        Ok(Some(WithHostname {
+            hostname: self.hostname.clone().unwrap(),
+            path_to_certificate: path_to_hostname_storage_dir.join("Certificates/cert.pem"),
+            path_to_key: path_to_hostname_storage_dir.join("Certificates/key.pem"),
+        }))
     }
 }
