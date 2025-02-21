@@ -34,7 +34,7 @@ impl Node for SearchTerm {
                     match node.read() {
                         Ok(node) => match node.payload {
                             Payload::Title(ref title) => {
-                                if title.0.contains(&self.0) {
+                                if title.0.to_ascii_lowercase().contains(&self.0.to_lowercase()) {
                                     results.push(NodeItem {
                                         id: id.clone(),
                                         labels: node.labels.clone(),
@@ -45,7 +45,7 @@ impl Node for SearchTerm {
                                 }
                             }
                             Payload::Heading(ref heading) => {
-                                if heading.0.contains(&self.0) {
+                                if heading.0.to_lowercase().contains(&self.0.to_lowercase()) {
                                     results.push(NodeItem {
                                         id: id.clone(),
                                         labels: node.labels.clone(),
@@ -56,7 +56,7 @@ impl Node for SearchTerm {
                                 }
                             }
                             Payload::Paragraph(ref paragraph) => {
-                                if paragraph.0.contains(&self.0) {
+                                if paragraph.0.to_lowercase().contains(&self.0.to_lowercase()) {
                                     results.push(NodeItem {
                                         id: id.clone(),
                                         labels: node.labels.clone(),
