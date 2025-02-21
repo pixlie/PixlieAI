@@ -1,5 +1,4 @@
 import { createResource, Component } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
 
 interface IData {
   type: TypeChoices;
@@ -185,8 +184,6 @@ const Insights: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Insights</Heading>
-
       {data()?.map(({ type, insight, items }) => (
         <div class="flex flex-col min-h-dvh w-full justify-center items-center gap-16 p-16">
           <h2 class="flex flex-wrap font-semibold leading-tighter tracking-tighter text-center text-4xl">

@@ -9,15 +9,15 @@ interface IPropTypes {
 }
 
 const Drawer: Component<IPropTypes> = (props) => {
-  const handleClose = () => {
-    if (props.onClose) {
-      props.onClose();
-    }
-  };
+  // const handleClose = () => {
+  //   if (props.onClose) {
+  //     props.onClose();
+  //   }
+  // };
 
   return (
     <div
-      class="relative z-10"
+      class="relative z-50"
       aria-labelledby="slide-over-title"
       role="dialog"
       aria-modal="true"
@@ -27,7 +27,7 @@ const Drawer: Component<IPropTypes> = (props) => {
 
       <div class="fixed inset-0 overflow-hidden">
         <div class="absolute inset-0 overflow-hidden">
-          <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
+          <div class="pointer-events-none fixed w-full justify-center items-center inset-y-0 flex ">
             {/*Slide-over panel, show/hide based on slide-over state.*/}
 
             {/*Entering: "transform transition ease-in-out duration-500 sm:duration-700"*/}
@@ -36,10 +36,10 @@ const Drawer: Component<IPropTypes> = (props) => {
             {/*Leaving: "transform transition ease-in-out duration-500 sm:duration-700"*/}
             {/*  From: "translate-x-0"*/}
             {/*  To: "translate-x-full"*/}
-            <div class="pointer-events-auto w-screen max-w-md">
-              <div class="flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
+            <div class="pointer-events-auto w-1/2  flex m-6 justify-center items-center ">
+              <div class="flex h-full w-full flex-col divide-y divide-gray-200 rounded-md overflow-hidden bg-white shadow-xl">
                 <div class="h-0 flex-1 overflow-y-auto">
-                  <div class="bg-indigo-700 px-4 py-6 sm:px-6">
+                  <div class="bg-violet-800 px-4 py-6 sm:px-6">
                     <div class="flex items-center justify-between">
                       <h2
                         class="text-base font-semibold text-white"
@@ -48,15 +48,15 @@ const Drawer: Component<IPropTypes> = (props) => {
                         {props.title}
                       </h2>
                       <div class="ml-3 flex h-7 items-center">
-                        <button
+                        {/* <button
                           type="button"
-                          class="relative rounded-md bg-indigo-700 text-indigo-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white"
+                          class="relative rounded-md text-white"
                           onClick={handleClose}
                         >
                           <span class="absolute -inset-2.5"></span>
                           <span class="sr-only">Close panel</span>
                           <svg
-                            class="size-6"
+                            class="size-5"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke-width="1.5"
@@ -70,11 +70,11 @@ const Drawer: Component<IPropTypes> = (props) => {
                               d="M6 18 18 6M6 6l12 12"
                             />
                           </svg>
-                        </button>
+                        </button> */}
                       </div>
                     </div>
                     <div class="mt-1">
-                      <p class="text-sm text-indigo-300">{props.subtitle}</p>
+                      <p class="text-sm text-violet-300">{props.subtitle}</p>
                     </div>
                   </div>
                   <div class="flex flex-1 flex-col justify-between">

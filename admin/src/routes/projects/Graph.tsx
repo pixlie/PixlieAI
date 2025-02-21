@@ -1,9 +1,8 @@
 import { Component, createEffect, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
-import Heading from "../../widgets/typography/Heading";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
-import Tabs from "../../widgets/navigation/Tab";
+// import Tabs from "../../widgets/navigation/Tab";
 
 const labelTypes: string[] = [
   "Title",
@@ -35,13 +34,13 @@ const Graph: Component = () => {
       : [],
   );
 
-  const getTabs = createMemo(() =>
-    labelTypes.map((l) => ({
-      label: `${l}(s)`,
-      searchParamKey: "label",
-      searchParamValue: l,
-    })),
-  );
+  // const getTabs = createMemo(() =>
+  //   labelTypes.map((l) => ({
+  //     label: `${l}(s)`,
+  //     searchParamKey: "label",
+  //     searchParamValue: l,
+  //   })),
+  // );
 
   createEffect(() => {
     if (!!searchParams.label) {
@@ -58,9 +57,7 @@ const Graph: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Graph</Heading>
-
-      <Tabs tabs={getTabs()} />
+      {/* <Tabs tabs={getTabs()} /> */}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}

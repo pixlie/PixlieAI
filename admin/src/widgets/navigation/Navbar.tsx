@@ -1,0 +1,104 @@
+import { Component } from "solid-js";
+import { useUIClasses } from "../../stores/UIClasses";
+import DropDown from "./DropDown";
+
+const Navbar: Component = () => {
+  const [_, { getColors }] = useUIClasses();
+
+  return (
+    <div
+      class={
+        "fixed w-full h-20 inset-x-0 inset-y-0 z-50 border-b grid grid-cols-3 items-center px-6 gap-6 " +
+        getColors()["navBar"]
+      }
+    >
+      <div class="flex items-center gap-6">
+        <a
+          href="/p"
+          class={
+            "text-4xl font-bold flex items-center gap-6 " +
+            getColors()["navBar.logo"]
+          }
+        >
+          <img
+            class="h-auto w-8"
+            src="https://pixlie.com/images/logo.png"
+            alt="Pixlie AI"
+          />
+          Pixlie AI
+        </a>
+      </div>
+
+      <nav class="flex items-center justify-center">
+        {/* <Breadcrumb /> */}
+        {/* <Show
+          when={
+            workspace.isReady &&
+            workspace.settingsStatus?.type === "Complete" &&
+            !!params.projectId
+          }
+        >
+          <For each={[
+            {
+              label: "Workflow",
+              href: "/workflow",
+            },
+            {
+              label: "Graph",
+              href: "/graph",
+            },
+            {
+              label: "Crawl",
+              href: "/crawl",
+            },
+          ]}>
+            {(item) => (
+              <NavbarLink
+                label={item.label}
+                href={`/p/${params.projectId}${item.href}`}
+                isActive={location.pathname.startsWith(
+                  `/p/${params.projectId}${item.href}`
+                )}
+              />
+            )}
+          </For>
+        </Show> */}
+      </nav>
+
+      <nav class="flex items-center justify-end gap-6">
+        <a href="/help">
+          <svg
+            class="w-7 h-7"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </a>
+        <a href="/settings">
+          <svg
+            class="w-7 h-7"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </a>
+        <DropDown />
+      </nav>
+    </div>
+  );
+};
+
+export default Navbar;

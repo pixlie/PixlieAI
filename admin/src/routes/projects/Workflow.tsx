@@ -1,7 +1,6 @@
 import { Component, createEffect, createMemo, onMount } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
-import Tabs from "../../widgets/navigation/Tab";
-import { useEngine } from "../../stores/engine";
+// import Tabs from "../../widgets/navigation/Tab";
+import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import Paragraph from "../../widgets/typography/Paragraph";
@@ -46,13 +45,31 @@ const Workflow: Component = () => {
     }
   });
 
-  const getTabs = createMemo(() =>
-    labelTypes.map((l) => ({
-      label: `${l}(s)`,
-      searchParamKey: "label",
-      searchParamValue: l,
-    })),
-  );
+  // type NodesInWorkflow = "Link";
+  // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
+  // const getNodesInWorkflow = createMemo(
+  //   (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
+  //     if ("AddedByUser" in engine.nodeIdsByLabel) {
+  //       return engine.nodeIdsByLabel["AddedByUser"]
+  //         .map((x) => {
+  //           if (engine.nodes[x].payload.type === "Link") {
+  //             return "Link";
+  //           }
+  //         })
+  //         .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
+  //     }
+  //     return prev;
+  //   },
+  //   [],
+  // );
+
+  // const getTabs = createMemo(() =>
+  //   getNodesInWorkflow().map((l) => ({
+  //     label: `${l}(s)`,
+  //     searchParamKey: "label",
+  //     searchParamValue: l,
+  //   })),
+  // );
 
   createEffect(() => {
     if (params.projectId && !!searchParams.label) {
@@ -69,7 +86,6 @@ const Workflow: Component = () => {
 
   return (
     <>
-      <Heading size={3}>Workflow</Heading>
       <div class="max-w-screen-sm mb-8">
         <Paragraph>
           Pixlie can monitor keywords on multiple URLs. If you add a URL from a
@@ -77,12 +93,11 @@ const Workflow: Component = () => {
         </Paragraph>
       </div>
 
-      <Tabs tabs={getTabs()} />
-      <div class="px-4 py-4">
-        <NodeGrid
-          nodeType={getNodeTypeFromSearchParam()}
-          source={getSelectNodeIds}
-        />
+      {/* <Tabs tabs={getTabs()} /> */}
+      <NodeGrid
+        nodeType={getNodeTypeFromSearchParam()}
+        source={getSelectNodeIds}
+      />
 
         {searchParams.label === "Link" && (
           <div class="mt-6 max-w-screen-sm">
@@ -94,7 +109,6 @@ const Workflow: Component = () => {
             <SearchTermForm />
           </div>
         )}
-      </div>
     </>
   );
 };
