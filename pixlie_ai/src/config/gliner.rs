@@ -132,15 +132,16 @@ pub fn get_is_gliner_setup() -> PiResult<bool> {
     {
         Ok(output) => {
             if output.status.success() {
-                debug!(
-                    "Gliner pip freeze output: {}",
-                    String::from_utf8_lossy(&output.stdout)
-                );
                 // Check if gliner is installed
-                let output = String::from_utf8_lossy(&output.stdout).to_string();
-                if output.contains("gliner") {
+                if String::from_utf8_lossy(&output.stdout).to_string().contains("gliner") {
+                    info!("Gliner installation exists");
                     Ok(true)
                 } else {
+                    info!("Gliner installation does not exist");
+                    debug!(
+                        "Gliner pip freeze output: {}",
+                        String::from_utf8_lossy(&output.stdout)
+                    );
                     Ok(false)
                 }
             } else {

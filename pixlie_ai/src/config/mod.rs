@@ -116,7 +116,6 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
         let mut config_file = File::create(path_to_config_file.clone())?;
         config_file.write_all(b"")?;
     }
-    debug!("CLI settings path {}", path_to_config_file.display());
     Ok((path_to_config_dir, path_to_config_file))
 }
 
@@ -195,8 +194,6 @@ impl Settings {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonVenvNotAvailable);
             } else if !python_status.pip {
                 incomplete_reasons.push(SettingsIncompleteReason::PythonPipNotAvailable);
-            } else if !get_is_gliner_setup()? {
-                incomplete_reasons.push(SettingsIncompleteReason::GlinerNotSetup);
             }
         }
         if self.anthropic_api_key.is_none() && self.ollama_hosts.is_none() {
