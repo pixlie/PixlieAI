@@ -29,7 +29,7 @@ impl WebPage {
     pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
         // Each WebPage node has a parent Link node, if not this is an error
         let related_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::PathOf.to_string())
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ContentOf.to_string())
         {
             Ok(related_node_ids) => related_node_ids,
             Err(err) => {
