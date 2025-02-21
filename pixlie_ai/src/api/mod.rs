@@ -154,7 +154,9 @@ pub fn api_manager(
         req_id: AtomicCell::new(0),
     });
     let (_path_to_config_dir, path_to_config_file) = config::get_cli_settings_path()?;
+    info!("CLI settings path {}", path_to_config_file.display());
     let settings = Settings::get_cli_settings()?;
+    debug!("CLI settings {:?}", settings);
     let with_hostname = settings.get_hostname()?;
     debug!("CLI settings path {}", path_to_config_file.display());
     match with_hostname {
