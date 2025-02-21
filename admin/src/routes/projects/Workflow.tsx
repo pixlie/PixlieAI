@@ -1,5 +1,5 @@
 import { Component, createEffect, createMemo, onMount } from "solid-js";
-import Tabs from "../../widgets/navigation/Tab";
+// import Tabs from "../../widgets/navigation/Tab";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
@@ -69,31 +69,31 @@ const Workflow: Component = () => {
     fetchNodesByLabel(params.projectId, "AddedByUser");
   });
 
-  type NodesInWorkflow = "Link";
+  // type NodesInWorkflow = "Link";
   // Nodes that have the label "AddedByUser" are the nodes that are in the workflow
-  const getNodesInWorkflow = createMemo(
-    (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
-      if ("AddedByUser" in engine.nodeIdsByLabel) {
-        return engine.nodeIdsByLabel["AddedByUser"]
-          .map((x) => {
-            if (engine.nodes[x].payload.type === "Link") {
-              return "Link";
-            }
-          })
-          .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
-      }
-      return prev;
-    },
-    [],
-  );
+  // const getNodesInWorkflow = createMemo(
+  //   (prev: Array<NodesInWorkflow>): Array<NodesInWorkflow> => {
+  //     if ("AddedByUser" in engine.nodeIdsByLabel) {
+  //       return engine.nodeIdsByLabel["AddedByUser"]
+  //         .map((x) => {
+  //           if (engine.nodes[x].payload.type === "Link") {
+  //             return "Link";
+  //           }
+  //         })
+  //         .filter((x) => x !== undefined) as Array<NodesInWorkflow>;
+  //     }
+  //     return prev;
+  //   },
+  //   [],
+  // );
 
-  const getTabs = createMemo(() =>
-    getNodesInWorkflow().map((l) => ({
-      label: `${l}(s)`,
-      searchParamKey: "label",
-      searchParamValue: l,
-    })),
-  );
+  // const getTabs = createMemo(() =>
+  //   getNodesInWorkflow().map((l) => ({
+  //     label: `${l}(s)`,
+  //     searchParamKey: "label",
+  //     searchParamValue: l,
+  //   })),
+  // );
 
   createEffect(() => {
     if (!!searchParams.label) {

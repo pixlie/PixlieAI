@@ -9,11 +9,11 @@ interface IPropTypes {
 }
 
 const Drawer: Component<IPropTypes> = (props) => {
-  const handleClose = () => {
-    if (props.onClose) {
-      props.onClose();
-    }
-  };
+  // const handleClose = () => {
+  //   if (props.onClose) {
+  //     props.onClose();
+  //   }
+  // };
 
   return (
     <div

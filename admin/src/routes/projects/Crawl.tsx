@@ -1,7 +1,7 @@
 import { Component, createEffect, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
-import Tabs from "../../widgets/navigation/Tab";
+// import Tabs from "../../widgets/navigation/Tab";
 import { useParams, useSearchParams } from "@solidjs/router";
 
 const labelTypes: string[] = ["Domain", "Link"];
@@ -19,13 +19,13 @@ const Crawl: Component = () => {
       : [],
   );
 
-  const getTabs = createMemo(() =>
-    labelTypes.map((l) => ({
-      label: `${l}(s)`,
-      searchParamKey: "label",
-      searchParamValue: l,
-    })),
-  );
+  // const getTabs = createMemo(() =>
+  //   labelTypes.map((l) => ({
+  //     label: `${l}(s)`,
+  //     searchParamKey: "label",
+  //     searchParamValue: l,
+  //   })),
+  // );
 
   createEffect(() => {
     if (!!searchParams.label) {

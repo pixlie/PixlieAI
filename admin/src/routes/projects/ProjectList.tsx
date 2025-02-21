@@ -1,11 +1,11 @@
 import { Component, onMount } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
-import ProjectListItem from "../../widgets/projects/ProjectListItem";
+// import ProjectListItem from "../../widgets/projects/ProjectListItem";
 import ProjectForm from "../../widgets/projects/ProjectForm.tsx";
 import { useLocation, useNavigate } from "@solidjs/router";
 
 const ProjectList: Component = () => {
-  const [workspace, { fetchProjects }] = useWorkspace();
+  const [_, { fetchProjects }] = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
 

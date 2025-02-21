@@ -1,4 +1,4 @@
-import { Component, createMemo, For, Show, createSignal } from "solid-js";
+import { Component, createMemo, For, Show } from "solid-js";
 import { useWorkspace } from "../stores/workspace.tsx";
 import { useLocation, useParams } from "@solidjs/router";
 import SidebarLink from "../widgets/navigation/SidebarLink.tsx";
