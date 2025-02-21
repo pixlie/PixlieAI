@@ -169,13 +169,29 @@ impl Settings {
         let (_path_to_config_dir, path_to_config_file) = get_cli_settings_path()?;
         match path_to_config_file.to_str() {
             Some(config_path) => {
-                let settings = Config::builder()
+                let settings = match Config::builder()
                     .add_source(config::File::with_name(config_path))
-                    .build()?;
-                let settings = settings.try_deserialize::<Settings>()?;
+                    .build()
+                {
+                    Ok(settings) => settings,
+                    Err(err) => {
+                        error!("Error reading settings: {}", err);
+                        return Err(PiError::CannotReadOrWriteConfigFile);
+                    }
+                };
+                let settings = match settings.try_deserialize::<Settings>() {
+                    Ok(settings) => settings,
+                    Err(err) => {
+                        error!("Error deserializing settings: {}", err);
+                        return Err(PiError::CannotReadOrWriteConfigFile);
+                    }
+                };
                 Ok(settings)
             }
-            None => Err(PiError::CannotReadOrWriteConfigFile),
+            None => {
+                error!("Cannot find config file");
+                Err(PiError::CannotReadOrWriteConfigFile)
+            },
         }
     }
 
