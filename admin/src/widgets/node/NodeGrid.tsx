@@ -1,6 +1,8 @@
 import { Component, For } from "solid-js";
-import LinkNode from "./LinkNode.tsx";
-import DomainNode from "./DomainNode.tsx";
+import LinkNode from "./LinkNode";
+import DomainNode from "./DomainNode";
+import SearchTermNode from "./SearchTermNode";
+import ContentNode from "./ContentNode";
 
 // interface NodePayloadProps {
 //   id: number;
@@ -59,6 +61,22 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
                 {(nodeId) => <DomainNode nodeId={nodeId} />}
+              </For>
+            </div>
+          )}
+          {props.nodeType === "SearchTerm" && (
+            <div class="grid grid-cols-[1fr_auto] gap-2">
+              <For each={props.source()}>
+                {(nodeId) => <SearchTermNode nodeId={nodeId} />}
+              </For>
+            </div>
+          )}
+          {(props.nodeType === "Title" ||
+            props.nodeType === "Heading" ||
+            props.nodeType === "Paragraph") && (
+            <div class="grid grid-cols-1 gap-2">
+              <For each={props.source()}>
+                {(nodeId) => <ContentNode nodeId={nodeId} />}
               </For>
             </div>
           )}

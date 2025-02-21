@@ -26,9 +26,17 @@ interface IEngine {
   nodeIdsByLabel: { [label: string]: Array<number> };
 }
 
+interface IEngineStore {
+  projects: { [projectId: string]: IEngine };
+}
+
 type IFormFieldValue = string | number | Array<string> | undefined;
 
 type DisplayAs = "Drawer" | "MainContent";
+
+interface INodeItemDisplayProps {
+  nodeId: number;
+}
 
 interface IFormField {
   name: string;
@@ -48,6 +56,8 @@ export type {
   IFormField,
   IFormFieldValue,
   IEngine,
+  IEngineStore,
   INodeItem,
   DisplayAs,
+  INodeItemDisplayProps,
 };

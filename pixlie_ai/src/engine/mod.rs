@@ -22,10 +22,11 @@ pub mod setup;
 
 // use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
+use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
-use crate::error::PiResult;
+use crate::error::{PiError, PiResult};
 pub use engine::Engine;
 
 #[derive(Clone, Display, Deserialize, Serialize)]
@@ -45,6 +46,7 @@ pub enum Payload {
     Label(String),
     // TypedData(TypedData),
     NamedEntity(String, String), // label, text
+    SearchTerm(SearchTerm),
 }
 
 pub enum FindNode<'a> {
@@ -94,7 +96,20 @@ pub trait Node {
     where
         Self: Sized,
     {
-        Ok(())
+        Err(PiError::NotAvailable(format!(
+            "Process on node {} is not available",
+            Self::get_label()
+        )))
+    }
+
+    fn query(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<Vec<NodeItem>>
+    where
+        Self: Sized,
+    {
+        Err(PiError::NotAvailable(format!(
+            "Query on node {} is not available",
+            Self::get_label()
+        )))
     }
 }
 
@@ -103,4 +118,20 @@ pub enum EngineWorkData {
     APIResponse(EngineResponse),
     FetchRequest,
     FetchResponse,
+}
+
+pub enum ExistingOrNewNodeId {
+    Existing(NodeId),
+    Pending(NodeId),
+    New(NodeId),
+}
+
+impl ExistingOrNewNodeId {
+    pub fn get_node_id(&self) -> NodeId {
+        match self {
+            ExistingOrNewNodeId::Existing(id) => id.clone(),
+            ExistingOrNewNodeId::Pending(id) => id.clone(),
+            ExistingOrNewNodeId::New(id) => id.clone(),
+        }
+    }
 }

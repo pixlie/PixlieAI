@@ -1,4 +1,4 @@
-use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, NodeLabel, Payload};
+use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -121,28 +121,11 @@ impl Domain {
         }
     }
 
-    pub fn add(
-        engine: Arc<&Engine>,
-        domain: String,
-        extra_labels: Vec<NodeLabel>,
-        is_allowed_to_crawl: bool,
-    ) -> PiResult<NodeId> {
-        let domain_node_id = engine.add_node(
-            Payload::Domain(Domain {
-                name: domain.to_string(),
-                is_allowed_to_crawl,
-                last_fetched_at: None,
-            }),
-            extra_labels,
-        );
-        Ok(domain_node_id)
-    }
-
     pub fn can_fetch_within_domain(
         engine: Arc<&Engine>,
-        url: &String,
+        url: &str,
         node_id: &NodeId,
-    ) -> PiResult<()> {
+    ) -> PiResult<(Domain, NodeId)> {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
         debug!("Checking if we can fetch within domain: {}", url);
@@ -184,35 +167,7 @@ impl Domain {
             }
         }
 
-        // Update the domain at the domain node id
-        match engine.nodes.read() {
-            Ok(nodes) => match nodes.get(&domain_node_id) {
-                Some(node) => match node.write() {
-                    Ok(mut node) => {
-                        node.payload = Payload::Domain(Domain {
-                            name: domain.name.clone(),
-                            is_allowed_to_crawl: true,
-                            last_fetched_at: Some(Instant::now()),
-                        });
-                    }
-                    Err(_err) => {
-                        return Err(PiError::FetchError(
-                            "Error writing to domain node".to_string(),
-                        ));
-                    }
-                },
-                None => {
-                    return Err(PiError::FetchError(
-                        "Cannot find domain node for link".to_string(),
-                    ));
-                }
-            },
-            Err(_err) => {
-                return Err(PiError::FetchError("Error reading domain node".to_string()));
-            }
-        }
-
         debug!("Domain {} is allowed to crawl", domain.name);
-        Ok(())
+        Ok((domain, domain_node_id))
     }
 }

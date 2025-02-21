@@ -131,8 +131,14 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         )
         .service(
             web::resource(format!("{}/engine/{{project_id}}/nodes", API_ROOT))
-                .route(web::get().to(engine::api::get_nodes_by_label))
+                .route(web::get().to(engine::api::get_nodes))
                 .route(web::post().to(engine::api::create_node)),
+        )
+        .service(
+            web::resource(format!(
+                "{}/engine/{{project_id}}/query/{{node_id}}",
+                API_ROOT
+            )).route(web::get().to(engine::api::search_results)),
         )
         .service(
             web::resource(format!("{}/projects", API_ROOT))

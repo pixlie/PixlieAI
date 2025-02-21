@@ -77,6 +77,9 @@ pub enum PiError {
 
     #[error("Error in graph reading or writing: {0}")]
     GraphError(String),
+
+    #[error("Feature is not available: {0}")]
+    NotAvailable(String),
 }
 
 impl ResponseError for PiError {

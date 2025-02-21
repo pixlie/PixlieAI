@@ -1,26 +1,9 @@
-import { Component } from "solid-js";
+import { Component, createMemo } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { Domain } from "../../api_types/Domain.ts";
 import { useEngine } from "../../stores/engine.tsx";
-
-interface IDomainPayloadProps {
-  payload: Domain;
-}
-
-const Payload: Component<IDomainPayloadProps> = (props) => {
-  const [_, { getColors }] = useUIClasses();
-
-  return (
-    <>
-      <a href={`https://${props.payload.name}`} class={getColors().link}>
-        {props.payload.name}
-      </a>
-      <span>
-        {props.payload.is_allowed_to_crawl ? "Can crawl" : "Cannot crawl"}
-      </span>
-    </>
-  );
-};
+import { useParams } from "@solidjs/router";
+import { IEngine } from "../../utils/types.tsx";
 
 interface IDomainNodeProps {
   nodeId: number;
@@ -28,15 +11,35 @@ interface IDomainNodeProps {
 
 const DomainNode: Component<IDomainNodeProps> = (props) => {
   const [engine] = useEngine();
+  const params = useParams();
+  const [_, { getColors }] = useUIClasses();
+
+  const getProject = createMemo<IEngine | undefined>(() => {
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
+    }
+    return undefined;
+  });
+
+  const getPayload = createMemo<Domain | undefined>(() => {
+    if (getProject() && props.nodeId in getProject()!.nodes) {
+      return getProject()!.nodes[props.nodeId].payload.data as Domain;
+    }
+    return undefined;
+  });
 
   return (
     <>
-      {props.nodeId in engine.nodes &&
-        engine.nodes[props.nodeId].payload.type === "Domain" && (
-          <Payload
-            payload={engine.nodes[props.nodeId].payload.data as Domain}
-          />
-        )}
+      {!!getPayload() ? (
+        <>
+          <a href={`https://${getPayload()!.name}`} class={getColors().link}>
+            {getPayload()!.name}
+          </a>
+          <span>
+            {getPayload()!.is_allowed_to_crawl ? "Can crawl" : "Cannot crawl"}
+          </span>
+        </>
+      ) : null}
     </>
   );
 };

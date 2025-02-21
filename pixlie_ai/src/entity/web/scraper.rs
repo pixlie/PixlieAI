@@ -33,10 +33,11 @@ impl WebPage {
         let current_url = match Url::parse(&full_url) {
             Ok(url) => url,
             Err(err) => {
-                error!("Cannot parse URL to get domain for link: {}", err);
-                return Err(PiError::InternalError(
-                    "Cannot parse URL to get domain for link ****************".to_string(),
-                ));
+                error!("Cannot parse URL {} to get domain: {}", &full_url, err);
+                return Err(PiError::InternalError(format!(
+                    "Cannot parse URL {} to get domain: {}",
+                    &full_url, err
+                )));
             }
         };
 
@@ -45,17 +46,20 @@ impl WebPage {
         for child in start_node.descendent_elements() {
             match child.value().name() {
                 "title" => {
-                    let title_node_id = engine.add_node(
-                        Payload::Title(Title(
-                            child
-                                .text()
-                                .collect::<Vec<&str>>()
-                                .join("")
-                                .trim()
-                                .to_string(),
-                        )),
-                        vec![],
-                    );
+                    let title_node_id = engine
+                        .get_or_add_node(
+                            Payload::Title(Title(
+                                child
+                                    .text()
+                                    .collect::<Vec<&str>>()
+                                    .join("")
+                                    .trim()
+                                    .to_string(),
+                            )),
+                            vec![],
+                            true,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), title_node_id),
                         (
@@ -65,17 +69,20 @@ impl WebPage {
                     );
                 }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                    let heading_node_id = engine.add_node(
-                        Payload::Heading(Heading(
-                            child
-                                .text()
-                                .collect::<Vec<&str>>()
-                                .join("")
-                                .trim()
-                                .to_string(),
-                        )),
-                        vec![],
-                    );
+                    let heading_node_id = engine
+                        .get_or_add_node(
+                            Payload::Heading(Heading(
+                                child
+                                    .text()
+                                    .collect::<Vec<&str>>()
+                                    .join("")
+                                    .trim()
+                                    .to_string(),
+                            )),
+                            vec![],
+                            true,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), heading_node_id),
                         (
@@ -85,18 +92,21 @@ impl WebPage {
                     );
                 }
                 "p" => {
-                    let paragraph_node_id = engine.add_node(
-                        Payload::Paragraph(Paragraph(
-                            child
-                                .text()
-                                .map(|x| x.to_string())
-                                .collect::<Vec<String>>()
-                                .join("")
-                                .trim()
-                                .to_string(),
-                        )),
-                        vec![],
-                    );
+                    let paragraph_node_id = engine
+                        .get_or_add_node(
+                            Payload::Paragraph(Paragraph(
+                                child
+                                    .text()
+                                    .map(|x| x.to_string())
+                                    .collect::<Vec<String>>()
+                                    .join("")
+                                    .trim()
+                                    .to_string(),
+                            )),
+                            vec![],
+                            true,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), paragraph_node_id),
                         (
@@ -124,8 +134,13 @@ impl WebPage {
                             _ => {}
                         }
                     }
-                    let bullet_points_node_id =
-                        engine.add_node(Payload::BulletPoints(BulletPoints(bullet_points)), vec![]);
+                    let bullet_points_node_id = engine
+                        .get_or_add_node(
+                            Payload::BulletPoints(BulletPoints(bullet_points)),
+                            vec![],
+                            true,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), bullet_points_node_id),
                         (
@@ -153,10 +168,13 @@ impl WebPage {
                             _ => {}
                         }
                     }
-                    let ordered_points_node_id = engine.add_node(
-                        Payload::OrderedPoints(OrderedPoints(ordered_points)),
-                        vec![],
-                    );
+                    let ordered_points_node_id = engine
+                        .get_or_add_node(
+                            Payload::OrderedPoints(OrderedPoints(ordered_points)),
+                            vec![],
+                            true,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), ordered_points_node_id),
                         (

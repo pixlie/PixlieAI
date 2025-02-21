@@ -1,3 +1,10 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd. (India)
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use crate::config::Settings;
 use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
@@ -22,7 +29,7 @@ impl WebPage {
     pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
         // Each WebPage node has a parent Link node, if not this is an error
         let related_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::PathOf.to_string())
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ContentOf.to_string())
         {
             Ok(related_node_ids) => related_node_ids,
             Err(err) => {

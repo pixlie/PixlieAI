@@ -7,6 +7,7 @@ import Insights from "./projects/Insights";
 import Graph from "./projects/Graph";
 import Crawl from "./projects/Crawl";
 import ProjectList from "./projects/ProjectList";
+import SearchResults from "./projects/SearchResults";
 import PerProjectWrapper from "./projects/PerProject.tsx";
 import HelpContainer from "./help/HelpContainer.tsx";
 import Contact from "./help/Contact.tsx";
@@ -20,6 +21,7 @@ const Routes: Component = () => {
           <Route path="/workflow" component={Workflow} />
           <Route path="/insights" component={Insights} />
           <Route path="/graph" component={Graph} />
+          <Route path="/searchResults" component={SearchResults} />
           <Route path="/crawl" component={Crawl} />
         </Route>
       </Route>

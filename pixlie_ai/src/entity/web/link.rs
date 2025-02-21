@@ -1,4 +1,7 @@
-use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, NodeLabel, Payload};
+use crate::engine::{
+    CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId, Node, NodeId, NodeLabel,
+    Payload,
+};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
@@ -33,66 +36,42 @@ impl Link {
         // - if the query already exists
         // We do not store fragment
         // The link node only stores the path and query, domain is stored in the domain node
-        match Url::parse(url) {
-            Ok(parsed) => match parsed.domain() {
-                Some(domain) => {
-                    let domain_node_id = match Domain::find_existing(
-                        engine.clone(),
-                        FindDomainOf::DomainName(domain),
-                    ) {
-                        Ok(existing) => match existing {
-                            Some((_domain, domain_node_id)) => domain_node_id,
-                            None => {
-                                debug!("Existing domain node not found, adding new one");
-                                Domain::add(
-                                    engine.clone(),
-                                    domain.to_string(),
-                                    domain_extra_labels,
-                                    is_domain_allowed_to_crawl,
-                                )?
-                            }
-                        },
-                        Err(err) => {
-                            if should_add_new_domain {
-                                Domain::add(
-                                    engine.clone(),
-                                    domain.to_string(),
-                                    domain_extra_labels,
-                                    is_domain_allowed_to_crawl,
-                                )?
-                            } else {
-                                error!("Error finding domain node: {}", err);
-                                return Err(PiError::InternalError(format!(
-                                    "Error finding domain node: {}",
-                                    err
-                                )));
-                            }
-                        }
-                    };
-                    let link_node_id = engine.add_node(
-                        Payload::Link(Link {
-                            path: parsed.path().to_string(),
-                            query: parsed.query().map(|x| x.to_string()),
-                            ..Default::default()
-                        }),
-                        extra_labels,
-                    );
-                    engine.add_connection(
-                        (domain_node_id, link_node_id.clone()),
-                        (
-                            CommonEdgeLabels::OwnerOf.to_string(),
-                            CommonEdgeLabels::BelongsTo.to_string(),
-                        ),
-                    );
-                    Ok(link_node_id)
-                }
-                None => Err(PiError::InternalError(format!(
-                    "Cannot parse domain from URL: {}",
-                    url
-                ))),
-            },
-            Err(_) => Err(PiError::InternalError(format!("Cannot parse URL: {}", url))),
-        }
+        let parsed = Url::parse(url).map_err(|err| {
+            PiError::InternalError(format!("Cannot parse URL {} to get domain: {}", &url, err))
+        })?;
+        let domain = parsed.domain().ok_or_else(|| {
+            PiError::InternalError(format!("Cannot parse URL {} to get domain", &url))
+        })?;
+        let domain_node_id: NodeId = engine
+            .get_or_add_node(
+                Payload::Domain(Domain {
+                    name: domain.to_string(),
+                    is_allowed_to_crawl: is_domain_allowed_to_crawl,
+                    last_fetched_at: None,
+                }),
+                domain_extra_labels,
+                should_add_new_domain,
+            )?
+            .get_node_id();
+        let link_node_id = engine
+            .get_or_add_node(
+                Payload::Link(Link {
+                    path: parsed.path().to_string(),
+                    query: parsed.query().map(|x| x.to_string()),
+                    ..Default::default()
+                }),
+                extra_labels,
+                true,
+            )?
+            .get_node_id();
+        engine.add_connection(
+            (domain_node_id, link_node_id.clone()),
+            (
+                CommonEdgeLabels::OwnerOf.to_string(),
+                CommonEdgeLabels::BelongsTo.to_string(),
+            ),
+        );
+        Ok(link_node_id)
     }
 
     pub fn add_manually(engine: Arc<&Engine>, url: &String) -> PiResult<NodeId> {
@@ -207,37 +186,32 @@ impl Node for Link {
             return Ok(());
         }
 
-        let node_id = node_id.clone();
         let url = self.get_full_link();
-        let (domain, _domain_node_id) =
-            match Domain::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))? {
-                Some((domain, domain_node_id)) => (domain, domain_node_id),
-                None => {
-                    error!("Cannot find domain node for link node {} with URL {}", node_id, url);
-                    return Err(PiError::InternalError(format!(
-                        "Cannot find domain node for link node {} with URL {}",
-                        node_id, url
-                    )));
-                }
-            };
-        let full_url = format!("https://{}{}", domain.name, url);
         let link = self.clone();
-        let engine = engine.clone();
-        debug!("Processing Link: {}", &full_url);
-
         thread::scope(|scope| {
-            scope.spawn(|| match engine.fetch_url(full_url.clone(), &node_id) {
+            scope.spawn(|| match engine.fetch_url(&url, &node_id) {
                 Ok(rx) => match rx.recv() {
                     Ok(event) => match event {
                         FetchEvent::FetchResponse(_id, _url, contents) => {
-                            debug!("Fetched HTML from {}", &full_url);
-                            let content_node_id = engine.add_node(
+                            debug!("Fetched HTML from {}", &url);
+                            let content_node_id = match engine.get_or_add_node(
                                 Payload::FileHTML(WebPage {
                                     contents,
                                     ..Default::default()
                                 }),
                                 vec![],
-                            );
+                                true,
+                            ) {
+                                Ok(existing_or_new_node_id) => match existing_or_new_node_id {
+                                    ExistingOrNewNodeId::Existing(id) => id,
+                                    ExistingOrNewNodeId::Pending(id) => id,
+                                    ExistingOrNewNodeId::New(id) => id,
+                                },
+                                Err(err) => {
+                                    error!("Error adding node: {}", err);
+                                    return;
+                                }
+                            };
                             engine.add_connection(
                                 (node_id.clone(), content_node_id),
                                 (
@@ -256,11 +230,11 @@ impl Node for Link {
                         _ => {}
                     },
                     Err(_err) => {
-                        error!("Can not fetch HTML from {}", &full_url);
+                        error!("Can not fetch HTML from {}", &url);
                     }
                 },
                 Err(_err) => {
-                    error!("Can not fetch HTML from {}", &full_url);
+                    error!("Can not fetch HTML from {}", &url);
                 }
             });
         });

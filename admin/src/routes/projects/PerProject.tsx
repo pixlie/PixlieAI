@@ -1,9 +1,28 @@
-import { RouteSectionProps } from "@solidjs/router";
-import { Component } from "solid-js";
-import { EngineProvider } from "../../stores/engine.tsx";
+import { RouteSectionProps, useParams } from "@solidjs/router";
+import { Component, JSX, onMount } from "solid-js";
+import { EngineProvider, useEngine } from "../../stores/engine.tsx";
+
+interface IPerProjectInnerProps {
+  children: JSX.Element;
+}
+
+const PerProjectInner: Component<IPerProjectInnerProps> = (props) => {
+  const [_, { setProjectId }] = useEngine();
+  const params = useParams();
+
+  onMount(() => {
+    setProjectId(params.projectId);
+  });
+
+  return <>{props.children}</>;
+};
 
 const PerProjectWrapper: Component<RouteSectionProps> = (props) => {
-  return <EngineProvider>{props.children}</EngineProvider>;
+  return (
+    <EngineProvider>
+      <PerProjectInner>{props.children}</PerProjectInner>
+    </EngineProvider>
+  );
 };
 
 export default PerProjectWrapper;
