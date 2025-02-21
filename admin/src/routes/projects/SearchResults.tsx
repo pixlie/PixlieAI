@@ -29,7 +29,7 @@ const SearchResults: Component = () => {
     <>
       <Heading size={3}>Search results</Heading>
 
-      <div class="grid grid-cols-[auto_1fr] gap-2">
+      <div class="flex flex-col space-y-4">
         {!!getProject()
           ? Object.values(getProject()!.nodes).map((node) => {
               if (node.payload.type === "SearchTerm") {
