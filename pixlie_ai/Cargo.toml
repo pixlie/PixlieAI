@@ -21,7 +21,6 @@ postcard = { version = "1.0.10", default-features = false, features = [
     "alloc",
 ] }
 rand = { version = "0.8.5", default-features = false, features = ["std"] }
-rayon = { version = "1.10.0", default-features = false }
 reqwest = { version = "0.12.7", features = [
     "blocking",
     "default-tls",
@@ -37,14 +36,12 @@ serde = { version = "1.0.210", features = [
     "rc",
 ], default-features = false }
 serde_json = "1.0.128"
-serde_yaml = { version = "0.9.34", default-features = false }
 signal-hook = { version = "0.3.17", default-features = false }
 spider = { version = "2.10.6", default-features = false, features = [
     "default",
 ] }
 strum = { version = "0.26.3", features = ["derive"] }
 tar = { version = "0.4.43", default-features = false }
-test-log = { version = "0.2.16", default-features = false, features = ["log"] }
 texting_robots = { version = "0.2.2", default-features = false }
 thiserror = { version = "1.0.64", default-features = false }
 threadpool = { version = "1.8.1", default-features = false }

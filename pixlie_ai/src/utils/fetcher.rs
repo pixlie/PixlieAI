@@ -8,9 +8,10 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 
 pub enum FetchEvent {
-    None,
+    // None,
     FetchRequest(u32, String),
     FetchResponse(u32, String, String),
+    FetchError(u32, String),
 }
 
 // https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html#communicating-between-sync-and-async-code
@@ -110,12 +111,13 @@ fn fetcher_runtime(
             let event = fetch_rx.recv().await;
             match event {
                 Some(event) => match event {
-                    FetchEvent::None => {},
+                    // FetchEvent::None => {},
                     FetchEvent::FetchRequest(id, url) => {
-                        match reqwest::Client::builder()
+                        let fetch_response = match reqwest::Client::builder()
                             .user_agent("Pixlie AI bot (https://pixlie.com)")
-                            .timeout(Duration::from_secs(10))
-                            .build() {
+                            .timeout(Duration::from_secs(3))
+                            .build()
+                        {
                             Ok(client) => {
                                 let response = client.get(&url).send().await;
                                 match response {
@@ -123,33 +125,42 @@ fn fetcher_runtime(
                                         if response.status().is_success() {
                                             match response.text().await {
                                                 Ok(contents) => {
-                                                    match fetch_tx.send(FetchEvent::FetchResponse(id, url, contents)) {
-                                                        Ok(_) => {}
-                                                        Err(err) => {
-                                                            error!("Error sending PiEvent in Fetch channel: {}", err);
-                                                        }
-                                                    }
+                                                    FetchEvent::FetchResponse(id, url, contents)
                                                 }
                                                 Err(err) => {
                                                     error!("Error fetching URL: {}", err);
+                                                    FetchEvent::FetchError(id, err.to_string())
                                                 }
                                             }
                                         } else {
                                             error!("Error fetching URL: {}", response.status());
+                                            FetchEvent::FetchError(
+                                                id,
+                                                response.status().to_string(),
+                                            )
                                         }
                                     }
                                     Err(err) => {
                                         error!("Error fetching URL: {}", err);
+                                        FetchEvent::FetchError(id, err.to_string())
                                     }
                                 }
                             }
                             Err(err) => {
                                 error!("Error building reqwest client: {}", err);
-                            },
+                                FetchEvent::FetchError(id, err.to_string())
+                            }
                         };
+
+                        match fetch_tx.send(fetch_response) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error sending PiEvent in Fetch channel: {}", err);
+                            }
+                        }
                     }
                     _ => {}
-                }
+                },
                 None => {}
             };
         }
