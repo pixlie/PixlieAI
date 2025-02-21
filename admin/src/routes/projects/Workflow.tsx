@@ -117,7 +117,7 @@ const Workflow: Component = () => {
         </Paragraph>
       </div>
 
-      <Tabs tabs={getTabs()} />
+      {/* <Tabs tabs={getTabs()} /> */}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}

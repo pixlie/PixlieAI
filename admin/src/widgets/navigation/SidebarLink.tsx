@@ -11,9 +11,9 @@ const SidebarLink: Component<IRoute> = (props) => {
       {props.href ? (
         <A
           class={
-            "block rounded-md px-2 py-1.5 text-sm " +
+            "block rounded-md px-3 py-2 text-md w-full " +
             getColors()["sideBar.link"] +
-            (props.isActive ? " " + getColors()["sideBar.link.active"] : "")
+            (props.isActive ? " font-semibold" : "")
           }
           href={props.href}
         >
@@ -22,11 +22,9 @@ const SidebarLink: Component<IRoute> = (props) => {
       ) : (
         <div
           class={
-            "block rounded-md px-2 py-1.5 " +
+            "block rounded-md px-3 py-2 text-md w-full " +
             getColors()["sideBar.label"] +
-            (props.isActive
-              ? " font-bold " + getColors()["sideBar.label.active"]
-              : "")
+            (props.isActive ? " font-semibold" : "")
           }
         >
           {props.label}

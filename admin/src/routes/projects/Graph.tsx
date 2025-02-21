@@ -48,7 +48,7 @@ const Graph: Component = () => {
 
   return (
     <>
-      <Tabs tabs={getTabs()} />
+      {/* <Tabs tabs={getTabs()} /> */}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}

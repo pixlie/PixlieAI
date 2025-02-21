@@ -2,7 +2,6 @@ import { Component, onMount } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
 import ProjectListItem from "../../widgets/projects/ProjectListItem";
 import ProjectForm from "../../widgets/projects/ProjectForm.tsx";
-import Button from "../../widgets/interactable/Button";
 import { useLocation, useNavigate } from "@solidjs/router";
 
 const ProjectList: Component = () => {
@@ -19,19 +18,18 @@ const ProjectList: Component = () => {
       navigate(`${location.pathname}?${location.search}`);
     } else {
       navigate(location.pathname);
+      fetchProjects();
     }
   };
 
   return (
-    <div class="relative">
-      {location.hash === "#createProject" && (
-        <ProjectForm displayAs="Drawer" onClose={handleClose} />
-      )}
-      <div class="my-4">
-        <Button label="Create a project" href="#createProject" />
+    <>
+      <div class="relative">
+        {location.hash === "#createProject" && (
+          <ProjectForm displayAs="Drawer" onClose={handleClose} />
+        )}
       </div>
-
-      <div class="sm:grid sm:grid-cols-2 sm:gap-4 sm:divide-y-0">
+      {/* <div class="sm:grid sm:grid-cols-2 sm:gap-4 sm:divide-y-0">
         {workspace.isReady && !!workspace.projects ? (
           <>
             {workspace.projects.map((project) => (
@@ -39,8 +37,18 @@ const ProjectList: Component = () => {
             ))}
           </>
         ) : null}
+      </div> */}
+      <div class="h-full w-full flex overflow-hidden">
+        <img
+          src="https://pixlie.com/_astro/hero-image.DdgBYhys_WvsQV.webp"
+          alt="Pixlie AI"
+          height="100%"
+          style={{
+            "object-fit": "contain",
+          }}
+        />
       </div>
-    </div>
+    </>
   );
 };
 
