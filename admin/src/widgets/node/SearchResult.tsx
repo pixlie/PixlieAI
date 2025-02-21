@@ -1,6 +1,5 @@
 import {
   Component,
-  createEffect,
   createMemo,
   createSignal,
   For,
@@ -86,7 +85,7 @@ const SearchResultItems: Component<ISearchResultItemsProps> = (props) => {
             <Heading size={3}>{highlightText(result.payload.data, props.searchTerm)}</Heading>
           )}
           {result.payload.type === "Paragraph" && (
-            <Paragraph>{highlightText(result.payload.data, props.searchTerm)}</Paragraph>
+            <Paragraph>{result.payload.data}</Paragraph>
           )}
         </div>
       )}
