@@ -215,8 +215,8 @@ impl Node for Link {
                             engine.add_connection(
                                 (node_id.clone(), content_node_id),
                                 (
-                                    CommonEdgeLabels::ContentOf.to_string(),
                                     CommonEdgeLabels::PathOf.to_string(),
+                                    CommonEdgeLabels::ContentOf.to_string(),
                                 ),
                             );
                             engine.update_node(

@@ -63,8 +63,8 @@ impl WebPage {
                     engine.add_connection(
                         (node_id.clone(), title_node_id),
                         (
-                            CommonEdgeLabels::ChildOf.to_string(),
                             CommonEdgeLabels::ParentOf.to_string(),
+                            CommonEdgeLabels::ChildOf.to_string(),
                         ),
                     );
                 }
@@ -86,8 +86,8 @@ impl WebPage {
                     engine.add_connection(
                         (node_id.clone(), heading_node_id),
                         (
-                            CommonEdgeLabels::ChildOf.to_string(),
                             CommonEdgeLabels::ParentOf.to_string(),
+                            CommonEdgeLabels::ChildOf.to_string(),
                         ),
                     );
                 }
@@ -110,8 +110,8 @@ impl WebPage {
                     engine.add_connection(
                         (node_id.clone(), paragraph_node_id),
                         (
-                            CommonEdgeLabels::ChildOf.to_string(),
                             CommonEdgeLabels::ParentOf.to_string(),
+                            CommonEdgeLabels::ChildOf.to_string(),
                         ),
                     );
                 }
@@ -178,8 +178,8 @@ impl WebPage {
                     engine.add_connection(
                         (node_id.clone(), ordered_points_node_id),
                         (
-                            CommonEdgeLabels::ChildOf.to_string(),
                             CommonEdgeLabels::ParentOf.to_string(),
+                            CommonEdgeLabels::ChildOf.to_string(),
                         ),
                     );
                 }
