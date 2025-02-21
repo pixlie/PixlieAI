@@ -28,7 +28,7 @@ const Button: Component<IPropTypes> = (props) => {
     getSizeClass() +
     " rounded-md select-none cursor-pointer hover:shadow " +
     `${props.isBlock ? "w-full" : ""}` +
-    getColors()["button"];
+    (props.label === 'Cancel' ? "bg-red-500 text-white" : getColors()["button"]);
 
   if (!!props.href) {
     return (
