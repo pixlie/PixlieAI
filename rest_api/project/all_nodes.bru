@@ -1,0 +1,15 @@
+meta {
+  name: all_nodes
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api}}/engine/{{project_id}}/nodes
+  body: none
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}
