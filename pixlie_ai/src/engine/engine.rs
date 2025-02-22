@@ -3,7 +3,6 @@ use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::utils::fetcher::{FetchEvent, Fetcher};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
@@ -47,18 +46,18 @@ pub struct Engine {
     project_path_on_disk: PathBuf,
     last_ticked_at: RwLock<Instant>,
 
-    fetcher: Arc<Fetcher>,    // Used to fetch URLs, managed by the main thread
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
+    fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
 }
 
 impl Engine {
     fn new(
         project_id: String,
         storage_root: PathBuf,
-        fetcher: Arc<Fetcher>,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
+        fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
             labels: RwLock::new(HashSet::new()),
@@ -74,9 +73,9 @@ impl Engine {
             project_path_on_disk: storage_root,
             last_ticked_at: RwLock::new(Instant::now()),
 
-            fetcher,
             my_pi_channel,
             main_channel_tx,
+            fetcher_tx,
         };
         engine
     }
@@ -84,18 +83,18 @@ impl Engine {
     pub fn open_project(
         storage_root: &String,
         project_id: &String,
-        fetcher: Arc<Fetcher>,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
+        fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let mut storage_path = PathBuf::from(storage_root);
         storage_path.push(format!("{}.rocksdb", project_id));
         let mut engine = Engine::new(
             project_id.clone(),
             storage_path.clone(),
-            fetcher,
             my_pi_channel,
             main_channel_tx,
+            fetcher_tx,
         );
         engine.load_from_disk();
         engine
@@ -187,6 +186,31 @@ impl Engine {
                         };
                     }
                 }
+                PiEvent::FetchResponse(_project_id, node_id, url, contents) => {
+                    // Call the node that had needs this data
+                    match self.nodes.read() {
+                        Ok(nodes) => match nodes.get(&node_id) {
+                            Some(node) => match node.read() {
+                                Ok(node) => match node.payload {
+                                    Payload::Link(ref payload) => {
+                                        let engine = Arc::new(self);
+                                        let node_id = Arc::new(node_id.clone());
+                                        match payload.process(engine, &node_id, Some(contents)) {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                error!("Error processing link: {}", err);
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                },
+                                Err(_err) => {}
+                            },
+                            None => {}
+                        },
+                        Err(_err) => {}
+                    }
+                }
                 _ => {}
             }
         }
@@ -202,7 +226,7 @@ impl Engine {
                     let node_id = node_id.clone();
                     match node.payload {
                         Payload::Link(ref payload) => {
-                            match payload.process(engine.clone(), &node_id) {
+                            match payload.process(engine.clone(), &node_id, None) {
                                 Ok(_) => {}
                                 Err(err) => {
                                     error!("Error processing link: {}", err);
@@ -210,7 +234,7 @@ impl Engine {
                             }
                         }
                         Payload::FileHTML(ref payload) => {
-                            match payload.process(engine.clone(), &node_id) {
+                            match payload.process(engine.clone(), &node_id, None) {
                                 Ok(_) => {}
                                 Err(err) => {
                                     error!("Error processing WebPage: {}", err);
@@ -738,11 +762,7 @@ impl Engine {
         }
     }
 
-    pub fn fetch_url(
-        &self,
-        url: &str,
-        node_id: &NodeId,
-    ) -> PiResult<crossbeam_channel::Receiver<FetchEvent>> {
+    pub fn fetch_url(&self, url: &str, node_id: &NodeId) -> PiResult<()> {
         let engine = Arc::new(self);
         let (domain, domain_node_id) =
             Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
@@ -770,13 +790,30 @@ impl Engine {
                     ));
                 }
             },
-            Err(_err) => {
-                return Err(PiError::FetchError("Error reading domain node".to_string()));
+            Err(err) => {
+                return Err(PiError::FetchError(format!(
+                    "Error reading domain node: {}",
+                    err
+                )));
             }
         }
 
         let full_url = format!("https://{}{}", domain.name, url);
-        self.fetcher.fetch(full_url)
+        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
+            self.project_id.clone(),
+            node_id.as_ref().clone(),
+            full_url.clone(),
+        )) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error sending request to fetcher: {}", err);
+                return Err(PiError::FetchError(format!(
+                    "Error sending request to fetcher: {}",
+                    err
+                )));
+            }
+        }
+        Ok(())
     }
 }
 

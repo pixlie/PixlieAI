@@ -5,11 +5,10 @@ use crate::engine::{
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
-use crate::utils::fetcher::FetchEvent;
+use crate::ExternalData;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::thread;
 use ts_rs::TS;
 use url::Url;
 
@@ -180,65 +179,64 @@ impl Node for Link {
         "Link".to_string()
     }
 
-    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
+    fn process(
+        &self,
+        engine: Arc<&Engine>,
+        node_id: &NodeId,
+        data_from_previous_request: Option<ExternalData>,
+    ) -> PiResult<()> {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
             return Ok(());
         }
 
         let url = self.get_full_link();
-        let link = self.clone();
-        thread::scope(|scope| {
-            scope.spawn(|| match engine.fetch_url(&url, &node_id) {
-                Ok(rx) => match rx.recv() {
-                    Ok(event) => match event {
-                        FetchEvent::FetchResponse(_id, _url, contents) => {
-                            debug!("Fetched HTML from {}", &url);
-                            let content_node_id = match engine.get_or_add_node(
-                                Payload::FileHTML(WebPage {
-                                    contents,
-                                    ..Default::default()
-                                }),
-                                vec![],
-                                true,
-                            ) {
-                                Ok(existing_or_new_node_id) => match existing_or_new_node_id {
-                                    ExistingOrNewNodeId::Existing(id) => id,
-                                    ExistingOrNewNodeId::Pending(id) => id,
-                                    ExistingOrNewNodeId::New(id) => id,
-                                },
-                                Err(err) => {
-                                    error!("Error adding node: {}", err);
-                                    return;
-                                }
-                            };
-                            engine.add_connection(
-                                (node_id.clone(), content_node_id),
-                                (
-                                    CommonEdgeLabels::PathOf.to_string(),
-                                    CommonEdgeLabels::ContentOf.to_string(),
-                                ),
-                            );
-                            engine.update_node(
-                                &node_id,
-                                Payload::Link(Link {
-                                    is_fetched: true,
-                                    ..link
-                                }),
-                            );
-                        }
-                        _ => {}
+        match data_from_previous_request {
+            Some(ExternalData::Text(contents)) => {
+                // We have received the contents of the URL from the previous request
+                debug!("Fetched HTML from {}", &url);
+                let content_node_id = match engine.get_or_add_node(
+                    Payload::FileHTML(WebPage {
+                        contents,
+                        ..Default::default()
+                    }),
+                    vec![],
+                    true,
+                ) {
+                    Ok(existing_or_new_node_id) => match existing_or_new_node_id {
+                        ExistingOrNewNodeId::Existing(id) => id,
+                        ExistingOrNewNodeId::Pending(id) => id,
+                        ExistingOrNewNodeId::New(id) => id,
                     },
-                    Err(_err) => {
-                        error!("Can not fetch HTML from {}", &url);
+                    Err(err) => {
+                        error!("Error adding node: {}", err);
+                        return Err(err);
                     }
-                },
-                Err(_err) => {
-                    error!("Can not fetch HTML from {}", &url);
+                };
+                engine.add_connection(
+                    (node_id.clone(), content_node_id),
+                    (
+                        CommonEdgeLabels::PathOf.to_string(),
+                        CommonEdgeLabels::ContentOf.to_string(),
+                    ),
+                );
+                let link = self.clone();
+                engine.update_node(
+                    &node_id,
+                    Payload::Link(Link {
+                        is_fetched: true,
+                        ..link
+                    }),
+                );
+            }
+            None => match engine.fetch_url(&url, &node_id) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error fetching URL: {}", err);
+                    return Err(err);
                 }
-            });
-        });
-
+            },
+        }
         // Returning to the engine, the crawl will continue in the separate thread
         debug!("Returning from Link node: {}", self.path);
         Ok(())

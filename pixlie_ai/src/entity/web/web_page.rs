@@ -5,13 +5,12 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::config::Settings;
 use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::services::{anthropic, ollama, TextClassificationProvider};
-use log::{error, info};
-use rand::prelude::SliceRandom;
+// use crate::services::{anthropic, ollama, TextClassificationProvider};
+use crate::ExternalData;
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -185,7 +184,12 @@ impl Node for WebPage {
         "WebPage".to_string()
     }
 
-    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
+    fn process(
+        &self,
+        engine: Arc<&Engine>,
+        node_id: &NodeId,
+        _data_from_previous_request: Option<ExternalData>,
+    ) -> PiResult<()> {
         // TODO: save the scraped nodes to graph only if webpage is classified as important to us
         if !self.is_scraped {
             self.scrape(engine.clone(), node_id)?;

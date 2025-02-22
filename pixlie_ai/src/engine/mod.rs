@@ -27,6 +27,7 @@ use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
+use crate::ExternalData;
 pub use engine::Engine;
 
 #[derive(Clone, Display, Deserialize, Serialize)]
@@ -92,7 +93,12 @@ pub struct NodeItem {
 pub trait Node {
     fn get_label() -> String;
 
-    fn process(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<()>
+    fn process(
+        &self,
+        _engine: Arc<&Engine>,
+        _node_id: &NodeId,
+        _data_from_previous_request: Option<ExternalData>,
+    ) -> PiResult<()>
     where
         Self: Sized,
     {

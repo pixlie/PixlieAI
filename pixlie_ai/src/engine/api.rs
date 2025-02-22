@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Engine, Node, NodeId, NodeLabel, Payload};
+use super::{EdgeLabel, Engine, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
@@ -45,6 +45,7 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
+    GetAllNodes,
     CreateNode(NodeWrite),
     Query(u32), // Some nodes allow a "query", which can generate any number of nodes, like a search
 }
@@ -190,56 +191,60 @@ pub async fn get_nodes(
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
 
-    match &params.label {
-        Some(label) => {
-            debug!(
-                "API request {} for project {} to get nodes with label {}",
-                request_id, project_id, label
-            );
+    if let Some(label) = &params.label {
+        debug!(
+            "API request {} for project {} to get nodes with label {}",
+            request_id, project_id, label
+        );
 
-            api_state.main_tx.send(PiEvent::APIRequest(
-                project_id.clone(),
-                EngineRequest {
-                    request_id: request_id.clone(),
-                    project_id: project_id.clone(),
-                    payload: EngineRequestPayload::GetNodesWithLabel(label.clone()),
-                },
-            ))?;
+        api_state.main_tx.send(PiEvent::APIRequest(
+            project_id.clone(),
+            EngineRequest {
+                request_id: request_id.clone(),
+                project_id: project_id.clone(),
+                payload: EngineRequestPayload::GetNodesWithLabel(label.clone()),
+            },
+        ))?;
+    } else if let Some(ids) = &params.ids {
+        let u32_ids: Vec<u32> = ids
+            .split(",")
+            .map(|id| id.parse::<u32>().unwrap())
+            .collect();
+        if u32_ids.len() == 0 {
+            return Err(PiError::InternalError(format!(
+                "No IDs provided for API request {} for project {}",
+                request_id, project_id
+            )));
         }
-        None => match &params.ids {
-            Some(ids) => {
-                let u32_ids: Vec<u32> = ids
-                    .split(",")
-                    .map(|id| id.parse::<u32>().unwrap())
-                    .collect();
-                if u32_ids.len() == 0 {
-                    return Err(PiError::InternalError(format!(
-                        "No IDs provided for API request {} for project {}",
-                        request_id, project_id
-                    )));
-                }
-                debug!(
-                    "API request {} for project {} to get nodes with ids {:?}",
-                    request_id,
-                    project_id,
-                    ids.split(",").collect::<Vec<&str>>()
-                );
+        debug!(
+            "API request {} for project {} to get nodes with ids {:?}",
+            request_id,
+            project_id,
+            ids.split(",").collect::<Vec<&str>>()
+        );
 
-                api_state.main_tx.send(PiEvent::APIRequest(
-                    project_id.clone(),
-                    EngineRequest {
-                        request_id: request_id.clone(),
-                        project_id: project_id.clone(),
-                        payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
-                    },
-                ))?;
-            }
-            None => {
-                return Err(PiError::InternalError(
-                    "No label or ids provided".to_string(),
-                ))
-            }
-        },
+        api_state.main_tx.send(PiEvent::APIRequest(
+            project_id.clone(),
+            EngineRequest {
+                request_id: request_id.clone(),
+                project_id: project_id.clone(),
+                payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
+            },
+        ))?;
+    } else {
+        debug!(
+            "API request {} for project {} to get all nodes",
+            request_id, project_id
+        );
+
+        api_state.main_tx.send(PiEvent::APIRequest(
+            project_id.clone(),
+            EngineRequest {
+                request_id: request_id.clone(),
+                project_id: project_id.clone(),
+                payload: EngineRequestPayload::GetAllNodes,
+            },
+        ))?;
     }
 
     let mut response_opt: Option<EngineResponsePayload> = None;
@@ -385,7 +390,7 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
             Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
                 Some(node_ids) => {
-                    let nodes: Vec<APINodeItem> = node_ids
+                    let mut nodes: Vec<APINodeItem> = node_ids
                         .iter()
                         .filter_map(|node_id| match engine.nodes.read() {
                             Ok(nodes) => match nodes.get(node_id) {
@@ -404,6 +409,7 @@ pub fn handle_engine_api_request(
                             Err(_err) => None,
                         })
                         .collect();
+                    nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
                     EngineResponsePayload::Results(EngineResponseResults {
                         node_ids_by_label: HashMap::from([(
@@ -425,7 +431,7 @@ pub fn handle_engine_api_request(
         },
         EngineRequestPayload::GetNodesWithIds(node_ids) => match engine.nodes.read() {
             Ok(nodes) => {
-                let nodes = node_ids
+                let mut nodes = node_ids
                     .iter()
                     .filter_map(|id| match nodes.get(id) {
                         Some(node) => match node.read() {
@@ -441,6 +447,34 @@ pub fn handle_engine_api_request(
                         None => None,
                     })
                     .collect::<Vec<APINodeItem>>();
+                nodes.sort_by(|a, b| a.id.cmp(&b.id));
+
+                EngineResponsePayload::Results(EngineResponseResults {
+                    nodes,
+                    ..Default::default()
+                })
+            }
+            Err(err) => {
+                error!("Error reading nodes: {}", err);
+                EngineResponsePayload::Error(format!("Error reading nodes: {}", err))
+            }
+        },
+        EngineRequestPayload::GetAllNodes => match engine.nodes.read() {
+            Ok(nodes) => {
+                let mut nodes: Vec<APINodeItem> = nodes
+                    .iter()
+                    .filter_map(|(_node_id, node)| match node.read() {
+                        Ok(node) => Some(APINodeItem {
+                            id: node.id.clone(),
+                            labels: node.labels.clone(),
+                            payload: APIPayload::from_payload(node.payload.clone()),
+                            edges: node.edges.clone(),
+                            written_at: node.written_at.clone(),
+                        }),
+                        Err(_err) => None,
+                    })
+                    .collect::<Vec<APINodeItem>>();
+                nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
                 EngineResponsePayload::Results(EngineResponseResults {
                     nodes,
@@ -468,7 +502,10 @@ pub fn handle_engine_api_request(
                 Some(node) => match node.read() {
                     Ok(node) => match node.payload {
                         Payload::SearchTerm(ref search_term) => {
-                            let results = search_term.query(engine.clone(), &node_id.into())?;
+                            let mut results: Vec<NodeItem> =
+                                search_term.query(engine.clone(), &node_id.into())?;
+                            results.sort_by(|a, b| a.id.cmp(&b.id));
+
                             EngineResponsePayload::Results(EngineResponseResults {
                                 nodes: results
                                     .iter()

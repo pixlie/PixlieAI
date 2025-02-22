@@ -3,7 +3,7 @@ use log::{debug, error};
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::Settings;
 use pixlie_ai::engine::Engine;
-use pixlie_ai::utils::fetcher::Fetcher;
+use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
@@ -73,8 +73,12 @@ fn main() {
         );
     }
 
-    let fetcher = Fetcher::new();
-    let arced_fetcher = Arc::new(fetcher);
+    // https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html#communicating-between-sync-and-async-code
+    let (fetcher_tx, fetcher_rx) = tokio::sync::mpsc::channel::<PiEvent>(100);
+    let main_channel_tx = main_channel.tx.clone();
+    pool.execute(move || {
+        fetcher_runtime(fetcher_rx, main_channel_tx);
+    });
 
     let main_channel_tx = main_channel.tx.clone();
     pool.execute(move || {
@@ -133,7 +137,6 @@ fn main() {
                         };
                         let pi_channel_tx = main_channel_iter.clone().tx;
                         let project_id = project_id.clone();
-                        let arced_fetcher = arced_fetcher.clone();
                         let path_to_storage_dir = match settings.path_to_storage_dir {
                             Some(ref path) => path.clone(),
                             None => {
@@ -141,13 +144,14 @@ fn main() {
                                 continue;
                             }
                         };
+                        let fetcher_tx = fetcher_tx.clone();
                         pool.execute(move || {
                             let engine = Engine::open_project(
                                 &path_to_storage_dir,
                                 &project_id,
-                                arced_fetcher,
                                 my_pi_channel.clone(),
                                 pi_channel_tx,
+                                fetcher_tx,
                             );
                             engine.run();
                         });
@@ -210,6 +214,25 @@ fn main() {
             }
             PiEvent::EngineExit(project_id) => {
                 channels_per_project.remove(&project_id);
+            }
+            PiEvent::FetchResponse(project_id, node_id, url, contents) => {
+                // Pass on the response to the engine's channel
+                match channels_per_project.get(&project_id) {
+                    Some(channel) => match channel.tx.send(PiEvent::FetchResponse(
+                        project_id.clone(),
+                        node_id.clone(),
+                        url.clone(),
+                        contents.clone(),
+                    )) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error sending PiEvent in Engine: {}", err);
+                        }
+                    },
+                    None => {
+                        error!("Project {} is not loaded", &project_id);
+                    }
+                }
             }
             PiEvent::Shutdown => {
                 break;
