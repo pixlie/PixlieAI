@@ -17,11 +17,20 @@ Here is how it works:
 - A knowledge graph is created that holds semantic information about your data
 - Query the graph visually or programmatically
 
-Start a project: 
-![Start a Project](https://pixlie.com/images/PixlieAI-Start-Project.png)
+Choose a domain to crawl: 
+![Set your domain](https://pixlie.com/images/screenshots/pixlie-screenshot-website.png)
 
-Crawl a website:
-![Crawl Workflow](https://pixlie.com/images/PixlieAI-Workflow-links.png)
+Set your keywords:
+![Set your kewyords](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+
+See the domains on the website:
+![Website's domain](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+
+See the links on the website:
+![Website's outbound link](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+
+See the search results:
+![Search Reults](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
 
 ## How can I use Pixlie AI?
 Pixlie AI is open source and is under active development. Our work is done in public, please star this repository, it means a lot to us.
