@@ -38,7 +38,7 @@ pub struct WorkspaceCollection {}
 impl Crud for WorkspaceCollection {
     type Item = Workspace;
 
-    fn get_collection_name() -> String {
-        "project".to_string()
+    fn get_collection_name() -> &'static str {
+        "workspace"
     }
 }

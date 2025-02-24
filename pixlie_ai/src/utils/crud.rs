@@ -21,7 +21,7 @@ pub trait CrudItem {
 pub trait Crud {
     type Item: Clone + Serialize + DeserializeOwned + CrudItem;
 
-    fn get_collection_name() -> String;
+    fn get_collection_name() -> &'static str;
 
     fn create(item: Self::Item) -> PiResult<Self::Item> {
         let mut items = Self::read_list()?;

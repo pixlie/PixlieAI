@@ -50,7 +50,7 @@ pub struct ProjectCollection {}
 impl Crud for ProjectCollection {
     type Item = Project;
 
-    fn get_collection_name() -> String {
-        "project".to_string()
+    fn get_collection_name() -> &'static str {
+        "project"
     }
 }
