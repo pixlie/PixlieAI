@@ -16,6 +16,7 @@ pub mod error;
 pub mod projects;
 pub mod services;
 pub mod utils;
+pub mod workspace;
 
 #[derive(Clone)]
 pub struct PiChannel {

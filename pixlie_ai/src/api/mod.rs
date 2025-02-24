@@ -1,6 +1,6 @@
 use crate::config::{Settings, WithHostname};
 use crate::error::PiError;
-use crate::{config, engine, error::PiResult, projects, PiEvent};
+use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
@@ -138,12 +138,17 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
             web::resource(format!(
                 "{}/engine/{{project_id}}/query/{{node_id}}",
                 API_ROOT
-            )).route(web::get().to(engine::api::search_results)),
+            ))
+            .route(web::get().to(engine::api::search_results)),
         )
         .service(
             web::resource(format!("{}/projects", API_ROOT))
                 .route(web::get().to(projects::api::read_projects))
                 .route(web::post().to(projects::api::create_project)),
+        )
+        .service(
+            web::resource(format!("{}/workspace", API_ROOT))
+                .route(web::get().to(workspace::api::read_default_workspace)),
         )
         // This is the admin UI and should be the last service
         .service(static_admin);
