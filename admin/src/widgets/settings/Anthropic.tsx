@@ -15,9 +15,9 @@ interface IFormData {
 }
 
 const Anthropic: Component = () => {
-  const [workspace, { fetchSettings, saveSettings }] = useWorkspace();
+  const [workspace, { fetchSettings, saveWorkspace }] = useWorkspace();
   const [formData, setFormData] = createStore<IFormData>({
-    anthropicApiKey: workspace.settings?.anthropicApiKey || "",
+    anthropicApiKey: workspace.workspace?.anthropicApiKey || "",
   });
 
   const handleChange = (name: string, value: IFormFieldValue) => {
@@ -30,7 +30,7 @@ const Anthropic: Component = () => {
   };
 
   const handleSubmit = async () => {
-    saveSettings({
+    saveWorkspace({
       ...formData,
     });
     fetchSettings();

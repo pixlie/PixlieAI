@@ -8,7 +8,8 @@ import {
 } from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
-import { Project } from "../api_types/Project.ts";
+import { Project } from "../api_types/Project";
+import { Workspace } from "../api_types/Workspace";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -62,6 +63,22 @@ const makeStore = () => {
     });
   };
 
+  const saveWorkspace = (workspace: Partial<Workspace>) => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/workspace`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(snakeCasedKeys(workspace)),
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to save workspace");
+      }
+      setStore("workspace", workspace);
+    });
+  };
+
   const fetchProjects = () => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/projects`).then((response) => {
@@ -78,8 +95,9 @@ const makeStore = () => {
     store,
     {
       fetchSettings,
-      saveSettings,
       fetchSettingsStatus,
+      saveSettings,
+      saveWorkspace,
       fetchProjects,
     },
   ] as const; // `as const` forces tuple type inference
