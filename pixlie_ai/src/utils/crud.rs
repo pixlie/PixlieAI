@@ -8,6 +8,12 @@ use std::path::PathBuf;
 
 const PIXLIE_AI_DB: &str = "pixlie_ai";
 
+fn get_pixlie_ai_db() -> PiResult<DB> {
+    let mut path = PathBuf::from(&Settings::get_cli_settings()?.path_to_storage_dir.unwrap());
+    path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
+    Ok(DB::open_default(path)?)
+}
+
 pub trait CrudItem {
     fn get_id(&self) -> String;
 }
@@ -20,20 +26,19 @@ pub trait Crud {
     fn create(item: Self::Item) -> PiResult<Self::Item> {
         let mut items = Self::read_list()?;
         items.push(item.clone());
-        let mut path = PathBuf::from(&Settings::get_cli_settings()?.path_to_storage_dir.unwrap());
-        path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
-        let db = DB::open_default(path)?;
         let item_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
+
+        let db = get_pixlie_ai_db()?;
         match to_allocvec(&item_ids) {
             Ok(payload) => match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
                 Ok(_) => {}
                 Err(err) => {
-                    error!("Error writing project IDs: {}", err);
+                    error!("Error writing item IDs: {}", err);
                     return Err(err.into());
                 }
             },
             Err(err) => {
-                error!("Error serializing project IDs: {}", err);
+                error!("Error serializing item IDs: {}", err);
                 return Err(err.into());
             }
         };
@@ -44,31 +49,29 @@ pub trait Crud {
             ) {
                 Ok(_) => {}
                 Err(err) => {
-                    error!("Error writing project {}: {}", item.get_id(), err);
+                    error!("Error writing item {}: {}", item.get_id(), err);
                     return Err(err.into());
                 }
             },
             Err(err) => {
-                error!("Error serializing project {}: {}", item.get_id(), err);
+                error!("Error serializing item {}: {}", item.get_id(), err);
                 return Err(err.into());
             }
         }
+        db.flush()?;
         Ok(item)
     }
 
     fn read_list() -> PiResult<Vec<Self::Item>> {
-        let settings = Settings::get_cli_settings()?;
-        let mut path = PathBuf::from(&settings.path_to_storage_dir.unwrap());
-        path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
-        let db = DB::open_default(path).unwrap();
+        let db = get_pixlie_ai_db()?;
         match db.get(format!("{}/ids", Self::get_collection_name())) {
-            Ok(project_ids) => match project_ids {
-                Some(project_ids) => {
+            Ok(item_ids) => match item_ids {
+                Some(item_ids) => {
                     let mut items: Vec<Self::Item> = vec![];
-                    let item_ids: Vec<String> = match from_bytes(&project_ids) {
+                    let item_ids: Vec<String> = match from_bytes(&item_ids) {
                         Ok(item_ids) => item_ids,
                         Err(err) => {
-                            error!("Error deserializing project IDs: {}", err);
+                            error!("Error deserializing item IDs: {}", err);
                             return Err(err.into());
                         }
                     };
@@ -79,21 +82,18 @@ pub trait Crud {
                                     let item = match from_bytes(&item) {
                                         Ok(item) => item,
                                         Err(err) => {
-                                            error!(
-                                                "Error deserializing project {}: {}",
-                                                item_id, err
-                                            );
+                                            error!("Error deserializing item {}: {}", item_id, err);
                                             continue;
                                         }
                                     };
                                     items.push(item);
                                 }
                                 None => {
-                                    error!("Project {} not found", item_id);
+                                    error!("item {} not found", item_id);
                                 }
                             },
                             Err(err) => {
-                                error!("Error reading project {}: {}", item_id, err);
+                                error!("Error reading item {}: {}", item_id, err);
                             }
                         }
                     }
@@ -105,17 +105,14 @@ pub trait Crud {
         }
     }
 
-    fn read(&self, id: &str) -> PiResult<Self::Item> {
-        let settings = Settings::get_cli_settings()?;
-        let mut path = PathBuf::from(&settings.path_to_storage_dir.unwrap());
-        path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
-        let db = DB::open_default(path)?;
+    fn read_item(id: &str) -> PiResult<Self::Item> {
+        let db = get_pixlie_ai_db()?;
         match db.get(format!("{}/{}", Self::get_collection_name(), id)) {
             Ok(item) => match item {
                 Some(item) => match from_bytes(&item) {
                     Ok(item) => Ok(item),
                     Err(err) => {
-                        error!("Error deserializing project {}: {}", id, err);
+                        error!("Error deserializing item {}: {}", id, err);
                         return Err(err.into());
                     }
                 },
@@ -128,6 +125,25 @@ pub trait Crud {
         }
     }
 
-    // fn update(&self, id: &str, item: T) -> Result<(), String>;
+    fn update(uuid: &str, item: Self::Item) -> PiResult<String> {
+        let db = get_pixlie_ai_db()?;
+        match to_allocvec(&item) {
+            Ok(payload) => {
+                match db.put(format!("{}/{}", Self::get_collection_name(), uuid), payload) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error writing item {}: {}", item.get_id(), err);
+                        return Err(err.into());
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Error serializing item {}: {}", item.get_id(), err);
+                return Err(err.into());
+            }
+        }
+        Ok(item.get_id())
+    }
+
     // fn delete(&self, id: &str) -> Result<(), String>;
 }

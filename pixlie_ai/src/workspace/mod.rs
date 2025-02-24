@@ -19,6 +19,14 @@ pub struct Workspace {
     pub anthropic_api_key: Option<String>,
 }
 
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct WorkspaceUpdate {
+    pub name: Option<String>,        // Not used yet
+    pub description: Option<String>, // Not used yet
+    pub anthropic_api_key: Option<String>,
+}
+
 impl CrudItem for Workspace {
     fn get_id(&self) -> String {
         self.uuid.clone()

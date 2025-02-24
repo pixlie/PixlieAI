@@ -63,14 +63,37 @@ const makeStore = () => {
     });
   };
 
+  const fetchWorkspace = () => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/workspace`).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch workspace");
+      }
+      response.json().then((workspace: Workspace) => {
+        setStore((data) => ({
+          ...data,
+          isFetching: false,
+          isReady: true,
+          workspace: camelCasedKeys(workspace),
+        }));
+      });
+    });
+  };
+
   const saveWorkspace = (workspace: Partial<Workspace>) => {
+    if (!store.workspace) {
+      return;
+    }
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/workspace`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(snakeCasedKeys(workspace)),
+      body: JSON.stringify({
+        uuid: store.workspace!.uuid || "",
+        ...snakeCasedKeys(workspace),
+      }),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save workspace");
@@ -97,6 +120,7 @@ const makeStore = () => {
       fetchSettings,
       fetchSettingsStatus,
       saveSettings,
+      fetchWorkspace,
       saveWorkspace,
       fetchProjects,
     },
