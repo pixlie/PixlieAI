@@ -46,7 +46,6 @@ impl Link {
                 Payload::Domain(Domain {
                     name: domain.to_string(),
                     is_allowed_to_crawl: is_domain_allowed_to_crawl,
-                    last_fetched_at: None,
                 }),
                 domain_extra_labels,
                 should_add_new_domain,
@@ -237,8 +236,6 @@ impl Node for Link {
                 }
             },
         }
-        // Returning to the engine, the crawl will continue in the separate thread
-        debug!("Returning from Link node: {}", self.path);
         Ok(())
     }
 }

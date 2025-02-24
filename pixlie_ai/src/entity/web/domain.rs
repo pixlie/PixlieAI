@@ -11,9 +11,6 @@ use ts_rs::TS;
 pub struct Domain {
     pub name: String,
     pub is_allowed_to_crawl: bool,
-    #[ts(skip)]
-    #[serde(skip)]
-    pub last_fetched_at: Option<Instant>,
 }
 
 impl Node for Domain {
@@ -143,31 +140,12 @@ impl Domain {
         };
 
         if !domain.is_allowed_to_crawl {
-            debug!("Domain is not allowed to crawl: {}", &domain.name);
+            error!("Domain is not allowed to crawl: {}", &domain.name);
             return Err(PiError::FetchError(
                 "Domain is not allowed to crawl".to_string(),
             ));
         }
 
-        // Check the last fetch time for this domain. We do not want to fetch too often.
-        match domain.last_fetched_at {
-            Some(start) => {
-                if start.elapsed().as_secs() > 2 {
-                    // We have fetched from this domain some time ago, we can fetch now
-                } else {
-                    // We have fetched from this domain very recently, we can not fetch now
-                    debug!("Domain was recently fetched from, cannot fetch now");
-                    return Err(PiError::FetchError(
-                        "Domain was recently fetched from, cannot fetch now".to_string(),
-                    ));
-                }
-            }
-            None => {
-                // We have not fetched from this domain before, we should fetch now
-            }
-        }
-
-        debug!("Domain {} is allowed to crawl", domain.name);
         Ok((domain, domain_node_id))
     }
 }

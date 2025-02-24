@@ -767,6 +767,7 @@ impl Engine {
         let (domain, domain_node_id) =
             Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
 
+        debug!("Domain {} is allowed to crawl", &domain.name);
         // Update the domain at the domain node id
         match engine.nodes.read() {
             Ok(nodes) => match nodes.get(&domain_node_id) {
@@ -775,23 +776,23 @@ impl Engine {
                         node.payload = Payload::Domain(Domain {
                             name: domain.name.clone(),
                             is_allowed_to_crawl: domain.is_allowed_to_crawl,
-                            last_fetched_at: Some(Instant::now()),
                         });
+                        debug!("Set domain.last_fetched_at to now for {}", &domain.name);
                     }
                     Err(_err) => {
-                        return Err(PiError::FetchError(
+                        return Err(PiError::GraphError(
                             "Error writing to domain node".to_string(),
                         ));
                     }
                 },
                 None => {
-                    return Err(PiError::FetchError(
+                    return Err(PiError::GraphError(
                         "Cannot find domain node for link".to_string(),
                     ));
                 }
             },
             Err(err) => {
-                return Err(PiError::FetchError(format!(
+                return Err(PiError::GraphError(format!(
                     "Error reading domain node: {}",
                     err
                 )));
@@ -804,7 +805,9 @@ impl Engine {
             node_id.as_ref().clone(),
             full_url.clone(),
         )) {
-            Ok(_) => {}
+            Ok(_) => {
+                debug!("Sent fetch request for url {}", &full_url);
+            }
             Err(err) => {
                 error!("Error sending request to fetcher: {}", err);
                 return Err(PiError::FetchError(format!(
