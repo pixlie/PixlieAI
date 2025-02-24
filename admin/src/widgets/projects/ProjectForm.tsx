@@ -11,6 +11,7 @@ import { LinkWrite } from "../../api_types/LinkWrite.ts";
 import { useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
+import { NodeWrite } from "../../api_types/NodeWrite.ts";
 
 interface IPropTypes {
   displayAs: DisplayAs;
@@ -22,6 +23,7 @@ interface IProjectFormData {
   name: string;
   description: string;
   startingURLs: string; // One per line
+  topic: string;
   webpageKeywords: string; // One per line
 }
 
@@ -31,6 +33,7 @@ const ProjectForm: Component<IPropTypes> = (props) => {
     name: "",
     description: "",
     startingURLs: "",
+    topic: "",
     webpageKeywords: "",
   });
   const title = "Create a project";
@@ -69,6 +72,12 @@ const ProjectForm: Component<IPropTypes> = (props) => {
           });
         }
 
+        if (!!formData().topic) {
+          insertNode(item.uuid, {
+            Topic: formData().topic,
+          } as NodeWrite);
+        }
+
         navigate(`/p/${item.uuid}/workflow`);
       });
     });
@@ -78,18 +87,21 @@ const ProjectForm: Component<IPropTypes> = (props) => {
     return (
       <div class="space-y-8">
         <div>
-          <Label label="Project name" />
+          <Label label="Project name" for="createProjectName" />
           <TextInput
+            id="createProjectName"
             name="name"
             isEditable
             onChange={handleChange}
             value={formData().name}
+            autocomplete={false}
           />
         </div>
 
         <div>
-          <Label label={`Starting URLs (one per line)`} />
+          <Label label={`Starting URLs (one per line)`} for="createProjectStartingURLs" />
           <TextArea
+            id="createProjectStartingURLs"
             name="startingURLs"
             isEditable
             onChange={handleChange}
@@ -98,6 +110,18 @@ const ProjectForm: Component<IPropTypes> = (props) => {
         </div>
 
         <div>
+          <Label label="Topic to track" for="createProjectTopic" />
+          <TextInput
+            id="createProjectTopic"
+            name="topic"
+            isEditable
+            onChange={handleChange}
+            value={formData().topic}
+            autocomplete={false}
+          />
+        </div>
+
+        {/* <div>
           <Label label="Keywords of interest (one per line)" />
           <TextArea
             name="webpageKeywords"
@@ -105,7 +129,7 @@ const ProjectForm: Component<IPropTypes> = (props) => {
             onChange={handleChange}
             value={formData().webpageKeywords}
           />
-        </div>
+        </div> */}
       </div>
     );
   };

@@ -39,6 +39,7 @@ interface INodeItemDisplayProps {
 }
 
 interface IFormField {
+  id?: string;
   name: string;
   placeholder?: string | null;
   size?: "xs" | "sm" | "base" | "lg";
@@ -48,6 +49,7 @@ interface IFormField {
   onFocus?: () => void;
   isRequired?: boolean;
   isEditable?: boolean;
+  autocomplete?: boolean;
 }
 
 export type {

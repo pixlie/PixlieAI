@@ -23,6 +23,7 @@ pub mod setup;
 // use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
+use crate::entity::topic::Topic;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
@@ -47,6 +48,7 @@ pub enum Payload {
     // TypedData(TypedData),
     NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
+    Topic(Topic),
 }
 
 pub enum FindNode<'a> {

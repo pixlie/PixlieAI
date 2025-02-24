@@ -9,6 +9,7 @@ import type { SearchTerm } from "./SearchTerm";
 import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
 import type { Title } from "./Title";
+import type { Topic } from "./Topic";
 import type { WebPage } from "./WebPage";
 import type { WorkflowStep } from "./WorkflowStep";
 
@@ -26,4 +27,5 @@ export type APIPayload =
   | { type: "TableRow"; data: TableRow }
   | { type: "Label"; data: string }
   | { type: "NamedEntity"; data: [string, string] }
-  | { type: "SearchTerm"; data: SearchTerm };
+  | { type: "SearchTerm"; data: SearchTerm }
+  | { type: "Topic"; data: Topic };
