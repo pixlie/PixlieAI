@@ -20,10 +20,10 @@ pub async fn read_default_workspace() -> PiResult<impl Responder> {
 }
 
 pub async fn update_workspace(
-    id: web::Path<String>,
+    workspace_id: web::Path<String>,
     update: web::Json<WorkspaceUpdate>,
 ) -> PiResult<impl Responder> {
-    let item = WorkspaceCollection::read_item(&id)?;
+    let item = WorkspaceCollection::read_item(&workspace_id)?;
     let item_id = item.get_id();
     WorkspaceCollection::update(
         &item.get_id(),

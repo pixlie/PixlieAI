@@ -149,6 +149,9 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         .service(
             web::resource(format!("{}/workspace", API_ROOT))
                 .route(web::get().to(workspace::api::read_default_workspace))
+        )
+        .service(
+            web::resource(format!("{}/workspace/{{workspace_id}}", API_ROOT))
                 .route(web::put().to(workspace::api::update_workspace)),
         )
         // This is the admin UI and should be the last service
