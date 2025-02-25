@@ -193,7 +193,7 @@ fn main() {
                 let channels_per_project = channels_per_project.clone();
                 debug!("TickMeLater for engine for project {}", &project_id);
                 pool.execute(move || {
-                    thread::sleep(Duration::from_millis(50));
+                    thread::sleep(Duration::from_millis(2000));
                     match channels_per_project.get(&project_id) {
                         Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
                             Ok(_) => {

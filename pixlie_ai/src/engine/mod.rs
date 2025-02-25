@@ -133,7 +133,6 @@ pub enum EngineWorkData {
 
 pub enum ExistingOrNewNodeId {
     Existing(NodeId),
-    Pending(NodeId),
     New(NodeId),
 }
 
@@ -141,7 +140,6 @@ impl ExistingOrNewNodeId {
     pub fn get_node_id(&self) -> NodeId {
         match self {
             ExistingOrNewNodeId::Existing(id) => id.clone(),
-            ExistingOrNewNodeId::Pending(id) => id.clone(),
             ExistingOrNewNodeId::New(id) => id.clone(),
         }
     }

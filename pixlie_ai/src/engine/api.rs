@@ -118,7 +118,6 @@ pub struct APINodeItem {
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: APIPayload,
 
-    pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
     pub written_at: DateTime<Utc>,
 }
 
@@ -374,118 +373,91 @@ pub fn handle_engine_api_request(
 ) -> PiResult<()> {
     let engine = Arc::new(engine);
     let response: EngineResponsePayload = match request.payload {
-        EngineRequestPayload::GetLabels => match engine.node_ids_by_label.read() {
-            Ok(node_ids_by_label) => {
-                let labels = node_ids_by_label.keys().cloned().collect();
-                EngineResponsePayload::Results(EngineResponseResults {
-                    labels,
-                    ..Default::default()
+        EngineRequestPayload::GetLabels => {
+            let labels = engine.get_all_node_labels();
+            EngineResponsePayload::Results(EngineResponseResults {
+                labels: labels.iter().map(|x| x.to_string()).collect(),
+                ..Default::default()
+            })
+        }
+        EngineRequestPayload::GetNodesWithLabel(label) => {
+            let node_ids_with_label = engine.get_node_ids_with_label(&label);
+            let mut nodes: Vec<APINodeItem> = node_ids_with_label
+                .iter()
+                .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                    Some(arced_node) => Some(APINodeItem {
+                        id: **node_id,
+                        labels: arced_node.labels.clone(),
+                        payload: APIPayload::from_payload(arced_node.payload.clone()),
+                        written_at: arced_node.written_at.clone(),
+                    }),
+                    None => None,
                 })
-            }
-            Err(err) => {
-                error!("Error reading nodes_by_label: {}", err);
-                EngineResponsePayload::Error(format!("Error reading nodes_by_label: {}", err))
-            }
-        },
-        EngineRequestPayload::GetNodesWithLabel(label) => match engine.node_ids_by_label.read() {
-            Ok(node_ids_by_label) => match node_ids_by_label.get(&label) {
-                Some(node_ids) => {
-                    let mut nodes: Vec<APINodeItem> = node_ids
-                        .iter()
-                        .filter_map(|node_id| match engine.nodes.read() {
-                            Ok(nodes) => match nodes.get(node_id) {
-                                Some(node) => match node.read() {
-                                    Ok(node) => Some(APINodeItem {
-                                        id: node_id.clone(),
-                                        labels: node.labels.clone(),
-                                        payload: APIPayload::from_payload(node.payload.clone()),
-                                        edges: node.edges.clone(),
-                                        written_at: node.written_at.clone(),
-                                    }),
-                                    Err(_err) => None,
-                                },
-                                None => None,
-                            },
-                            Err(_err) => None,
-                        })
-                        .collect();
-                    nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-                    EngineResponsePayload::Results(EngineResponseResults {
-                        node_ids_by_label: HashMap::from([(
-                            label,
-                            nodes.iter().map(|x| *x.id).collect(),
-                        )]),
-                        nodes,
-                        ..Default::default()
-                    })
-                }
-                None => {
-                    EngineResponsePayload::Error(format!("No node IDs found for label {}", label))
-                }
-            },
-            Err(err) => {
-                error!("Error reading nodes_by_label: {}", err);
-                EngineResponsePayload::Error(format!("Error reading nodes_by_label: {}", err))
-            }
-        },
-        EngineRequestPayload::GetNodesWithIds(node_ids) => match engine.nodes.read() {
-            Ok(nodes) => {
-                let mut nodes = node_ids
-                    .iter()
-                    .filter_map(|id| match nodes.get(id) {
-                        Some(node) => match node.read() {
-                            Ok(node) => Some(APINodeItem {
-                                id: node.id.clone(),
-                                labels: node.labels.clone(),
-                                payload: APIPayload::from_payload(node.payload.clone()),
-                                edges: node.edges.clone(),
-                                written_at: node.written_at.clone(),
-                            }),
-                            Err(_err) => None,
-                        },
-                        None => None,
-                    })
-                    .collect::<Vec<APINodeItem>>();
-                nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-                EngineResponsePayload::Results(EngineResponseResults {
-                    nodes,
-                    ..Default::default()
-                })
-            }
-            Err(err) => {
-                error!("Error reading nodes: {}", err);
-                EngineResponsePayload::Error(format!("Error reading nodes: {}", err))
-            }
-        },
-        EngineRequestPayload::GetAllNodes => match engine.nodes.read() {
-            Ok(nodes) => {
-                let mut nodes: Vec<APINodeItem> = nodes
-                    .iter()
-                    .filter_map(|(_node_id, node)| match node.read() {
-                        Ok(node) => Some(APINodeItem {
-                            id: node.id.clone(),
-                            labels: node.labels.clone(),
-                            payload: APIPayload::from_payload(node.payload.clone()),
-                            edges: node.edges.clone(),
-                            written_at: node.written_at.clone(),
-                        }),
-                        Err(_err) => None,
-                    })
-                    .collect::<Vec<APINodeItem>>();
-                nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-                EngineResponsePayload::Results(EngineResponseResults {
-                    nodes,
-                    ..Default::default()
-                })
-            }
-            Err(err) => {
-                error!("Error reading nodes: {}", err);
-                EngineResponsePayload::Error(format!("Error reading nodes: {}", err))
-            }
-        },
+                .collect();
+            nodes.sort_by(|a, b| a.id.cmp(&b.id));
+            EngineResponsePayload::Results(EngineResponseResults {
+                node_ids_by_label: HashMap::from([(label, nodes.iter().map(|x| x.id).collect())]),
+                nodes,
+                ..Default::default()
+            })
+        }
+        // EngineRequestPayload::GetNodesWithIds(node_ids) => match engine.nodes.read() {
+        //     Ok(nodes) => {
+        //         let mut nodes = node_ids
+        //             .iter()
+        //             .filter_map(|id| match nodes.get(id) {
+        //                 Some(node) => match node.read() {
+        //                     Ok(node) => Some(APINodeItem {
+        //                         id: node.id.clone(),
+        //                         labels: node.labels.clone(),
+        //                         payload: APIPayload::from_payload(node.payload.clone()),
+        //                         edges: node.edges.clone(),
+        //                         written_at: node.written_at.clone(),
+        //                     }),
+        //                     Err(_err) => None,
+        //                 },
+        //                 None => None,
+        //             })
+        //             .collect::<Vec<APINodeItem>>();
+        //         nodes.sort_by(|a, b| a.id.cmp(&b.id));
+        // 
+        //         EngineResponsePayload::Results(EngineResponseResults {
+        //             nodes,
+        //             ..Default::default()
+        //         })
+        //     }
+        //     Err(err) => {
+        //         error!("Error reading nodes: {}", err);
+        //         EngineResponsePayload::Error(format!("Error reading nodes: {}", err))
+        //     }
+        // },
+        // EngineRequestPayload::GetAllNodes => match engine.nodes.read() {
+        //     Ok(nodes) => {
+        //         let mut nodes: Vec<APINodeItem> = nodes
+        //             .iter()
+        //             .filter_map(|(_node_id, node)| match node.read() {
+        //                 Ok(node) => Some(APINodeItem {
+        //                     id: node.id.clone(),
+        //                     labels: node.labels.clone(),
+        //                     payload: APIPayload::from_payload(node.payload.clone()),
+        //                     edges: node.edges.clone(),
+        //                     written_at: node.written_at.clone(),
+        //                 }),
+        //                 Err(_err) => None,
+        //             })
+        //             .collect::<Vec<APINodeItem>>();
+        //         nodes.sort_by(|a, b| a.id.cmp(&b.id));
+        // 
+        //         EngineResponsePayload::Results(EngineResponseResults {
+        //             nodes,
+        //             ..Default::default()
+        //         })
+        //     }
+        //     Err(err) => {
+        //         error!("Error reading nodes: {}", err);
+        //         EngineResponsePayload::Error(format!("Error reading nodes: {}", err))
+        //     }
+        // },
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
@@ -497,57 +469,62 @@ pub fn handle_engine_api_request(
             }
             EngineResponsePayload::Success
         }
-        EngineRequestPayload::Query(node_id) => match engine.nodes.read() {
-            Ok(nodes) => match nodes.get(&node_id) {
-                Some(node) => match node.read() {
-                    Ok(node) => match node.payload {
-                        Payload::SearchTerm(ref search_term) => {
-                            let mut results: Vec<NodeItem> =
-                                search_term.query(engine.clone(), &node_id.into())?;
-                            results.sort_by(|a, b| a.id.cmp(&b.id));
-
-                            EngineResponsePayload::Results(EngineResponseResults {
-                                nodes: results
-                                    .iter()
-                                    .map(|x| APINodeItem {
-                                        id: x.id.clone(),
-                                        labels: x.labels.clone(),
-                                        payload: APIPayload::from_payload(x.payload.clone()),
-                                        edges: x.edges.clone(),
-                                        written_at: x.written_at.clone(),
-                                    })
-                                    .collect::<Vec<APINodeItem>>(),
-                                ..Default::default()
-                            })
-                        }
-                        _ => {
-                            return Err(PiError::InternalError(
-                                "Query only works on search terms".to_string(),
-                            ))
-                        }
-                    },
-                    Err(_err) => {
-                        return Err(PiError::InternalError(format!(
-                            "Error reading node {}",
-                            node_id
-                        )))
-                    }
-                },
-                None => {
-                    return Err(PiError::InternalError(format!(
-                        "Node {} not found",
-                        node_id
-                    )))
-                }
-            },
-            Err(err) => {
-                error!("Error reading nodes: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error reading nodes: {}",
-                    err
-                )));
-            }
-        },
+        // EngineRequestPayload::Query(node_id) => match engine.nodes.read() {
+        //     Ok(nodes) => match nodes.get(&node_id) {
+        //         Some(node) => match node.read() {
+        //             Ok(node) => match node.payload {
+        //                 Payload::SearchTerm(ref search_term) => {
+        //                     let mut results: Vec<NodeItem> =
+        //                         search_term.query(engine.clone(), &node_id.into())?;
+        //                     results.sort_by(|a, b| a.id.cmp(&b.id));
+        // 
+        //                     EngineResponsePayload::Results(EngineResponseResults {
+        //                         nodes: results
+        //                             .iter()
+        //                             .map(|x| APINodeItem {
+        //                                 id: x.id.clone(),
+        //                                 labels: x.labels.clone(),
+        //                                 payload: APIPayload::from_payload(x.payload.clone()),
+        //                                 edges: x.edges.clone(),
+        //                                 written_at: x.written_at.clone(),
+        //                             })
+        //                             .collect::<Vec<APINodeItem>>(),
+        //                         ..Default::default()
+        //                     })
+        //                 }
+        //                 _ => {
+        //                     return Err(PiError::InternalError(
+        //                         "Query only works on search terms".to_string(),
+        //                     ))
+        //                 }
+        //             },
+        //             Err(_err) => {
+        //                 return Err(PiError::InternalError(format!(
+        //                     "Error reading node {}",
+        //                     node_id
+        //                 )))
+        //             }
+        //         },
+        //         None => {
+        //             return Err(PiError::InternalError(format!(
+        //                 "Node {} not found",
+        //                 node_id
+        //             )))
+        //         }
+        //     },
+        //     Err(err) => {
+        //         error!("Error reading nodes: {}", err);
+        //         return Err(PiError::InternalError(format!(
+        //             "Error reading nodes: {}",
+        //             err
+        //         )));
+        //     }
+        // },
+        _ => {
+            return Err(PiError::InternalError(
+                "EngineRequestPayload::Query is not implemented".to_string(),
+            ))
+        }
     };
 
     main_channel_tx.send(PiEvent::APIResponse(

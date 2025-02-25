@@ -27,43 +27,26 @@ pub struct WebPage {
 impl WebPage {
     pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
         // Each WebPage node has a parent Link node, if not this is an error
-        let related_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ContentOf.to_string())
-        {
-            Ok(related_node_ids) => related_node_ids,
-            Err(err) => {
-                error!("Error getting related node ids: {}", err);
-                return Err(PiError::InternalError(
-                    "Error getting related node ids".to_string(),
-                ));
+        let related_node_ids = engine
+            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ContentOf.to_string())?;
+        let first_related_node_id = related_node_ids.first().ok_or_else(|| {
+            PiError::InternalError("No related node ids found for WebPage node".to_string())
+        })?;
+
+        let node = match engine.get_node_by_id(first_related_node_id) {
+            Some(node) => node,
+            None => {
+                return Err(PiError::InternalError(format!(
+                    "Node with id {} not found",
+                    first_related_node_id
+                )))
             }
         };
-
-        match engine.nodes.read() {
-            Ok(nodes) => {
-                for node_id in related_node_ids {
-                    match nodes.get(&node_id) {
-                        Some(node) => match node.read() {
-                            Ok(node) => match node.payload {
-                                Payload::Link(ref link) => {
-                                    return Ok((link.clone(), node_id.clone()))
-                                }
-                                _ => {}
-                            },
-                            Err(_) => {}
-                        },
-                        None => {}
-                    }
-                }
-                error!("Cannot find parent Link node for WebPage node");
-                Err(PiError::GraphError(
-                    "Cannot find parent Link node for WebPage node".to_string(),
-                ))
-            }
-            Err(err) => {
-                error!("Error reading nodes: {}", err);
-                Err(PiError::InternalError("Error reading nodes".to_string()))
-            }
+        match node.payload {
+            Payload::Link(ref link) => return Ok((link.clone(), node_id.clone())),
+            _ => Err(PiError::GraphError(
+                "Cannot find parent Link node for WebPage node".to_string(),
+            )),
         }
     }
 
@@ -78,37 +61,29 @@ impl WebPage {
             }
         };
 
-        part_node_ids
-            .iter()
-            .filter_map(|nid| match engine.nodes.read() {
-                Ok(nodes) => match nodes.get(nid) {
-                    Some(node) => match node.read() {
-                        Ok(node) => match node.payload {
-                            // Payload::Title(ref title) => Some(title.0.to_string()),
-                            Payload::Heading(ref heading) => {
-                                if heading.0.len() > 20 {
-                                    Some(heading.0.to_string())
-                                } else {
-                                    None
-                                }
-                            }
-                            Payload::Paragraph(ref paragraph) => {
-                                if paragraph.0.len() > 200 {
-                                    Some(paragraph.0.to_string())
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        },
-                        Err(_err) => None,
-                    },
-                    None => None,
-                },
-                Err(_err) => None,
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
+        let mut content = String::new();
+        for node_id in part_node_ids {
+            let node = match engine.get_node_by_id(&node_id) {
+                Some(node) => node,
+                None => continue,
+            };
+
+            match node.payload {
+                // Payload::Title(ref title) => Some(title.0.to_string()),
+                Payload::Heading(ref heading) => {
+                    if heading.0.len() > 20 {
+                        content.push_str(&heading.0);
+                    }
+                }
+                Payload::Paragraph(ref paragraph) => {
+                    if paragraph.0.len() > 200 {
+                        content.push_str(&paragraph.0);
+                    }
+                }
+                _ => {}
+            }
+        }
+        content
     }
 
     fn classify(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
@@ -199,7 +174,7 @@ impl Node for WebPage {
                     is_scraped: true,
                     ..self.clone()
                 }),
-            );
+            )?;
         } else if !self.is_classified {
             // self.classify(engine.clone(), node_id).unwrap();
             engine.update_node(
@@ -208,7 +183,7 @@ impl Node for WebPage {
                     is_classified: true,
                     ..self.clone()
                 }),
-            );
+            )?;
         } else if !self.is_extracted {
             // Get the related Label node and check that classification is not "Other"
             // let classification =

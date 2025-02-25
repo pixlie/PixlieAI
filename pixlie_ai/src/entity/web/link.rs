@@ -1,6 +1,6 @@
 use crate::engine::{
-    CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId, Node, NodeId, NodeLabel,
-    Payload,
+    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
+    Node, NodeId, NodeLabel, Payload,
 };
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
@@ -68,7 +68,7 @@ impl Link {
                 CommonEdgeLabels::OwnerOf.to_string(),
                 CommonEdgeLabels::BelongsTo.to_string(),
             ),
-        );
+        )?;
         Ok(link_node_id)
     }
 
@@ -95,81 +95,82 @@ impl Link {
     pub(crate) fn find_existing(
         engine: Arc<&Engine>,
         url: &str,
-    ) -> PiResult<Option<(Link, NodeId)>> {
-        match Url::parse(url) {
-            // To find an existing link, we first find the existing domain node
-            Ok(parsed) => match parsed.domain() {
-                Some(domain) => {
-                    match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
-                        Some((_domain_node, _domain_node_id)) => {
-                            // We found an existing domain node, now we check if the link exists
-                            // We match link node by path and query
-                            let path = parsed.path().to_string();
-                            let query = parsed.query().map(|q| q.to_string());
-
-                            match engine.node_ids_by_label.read() {
-                                Ok(node_ids_by_label) => {
-                                    match node_ids_by_label.get(&Link::get_label().to_string()) {
-                                        Some(link_node_ids) => {
-                                            for node_id in link_node_ids {
-                                                match engine.get_node_by_id(node_id) {
-                                                    Ok(node) => match node.payload {
-                                                        Payload::Link(link) => {
-                                                            if link.path == path
-                                                                && link.query == query
-                                                            {
-                                                                return Ok(Some((
-                                                                    link.clone(),
-                                                                    node_id.clone(),
-                                                                )));
-                                                            }
-                                                        }
-                                                        _ => {}
-                                                    },
-                                                    Err(_) => {}
-                                                }
-                                            }
-                                            Ok(None)
-                                        }
-                                        None => {
-                                            error!("Could not read node_ids_by_label");
-                                            Err(PiError::InternalError(
-                                                "Could not read node_ids_by_label".to_string(),
-                                            ))
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    error!("Could not read node_ids_by_label: {}", err);
-                                    Err(PiError::InternalError(format!(
-                                        "Could not read node_ids_by_label: {}",
-                                        err
-                                    )))
-                                }
-                            }
-                        }
-                        None => {
-                            error!("Cannot find exiting domain node for URL {}", url);
-                            Ok(None)
-                        }
-                    }
-                }
-                None => {
-                    error!("Cannot parse URL {} to get domain", url);
-                    Err(PiError::InternalError(format!(
-                        "Cannot parse URL {} to get domain",
-                        url
-                    )))
-                }
-            },
-            Err(err) => {
-                error!("Cannot parse URL {} to get domain: {}", url, err);
-                Err(PiError::InternalError(format!(
-                    "Cannot parse URL {} to get domain: {}",
-                    url, err
-                )))
-            }
-        }
+    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
+        Ok(None)
+        // match Url::parse(url) {
+        //     // To find an existing link, we first find the existing domain node
+        //     Ok(parsed) => match parsed.domain() {
+        //         Some(domain) => {
+        //             match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
+        //                 Some((_domain_node, _domain_node_id)) => {
+        //                     // We found an existing domain node, now we check if the link exists
+        //                     // We match link node by path and query
+        //                     let path = parsed.path().to_string();
+        //                     let query = parsed.query().map(|q| q.to_string());
+        //
+        //                     match engine.node_ids_by_label.read() {
+        //                         Ok(node_ids_by_label) => {
+        //                             match node_ids_by_label.get(&Link::get_label().to_string()) {
+        //                                 Some(link_node_ids) => {
+        //                                     for node_id in link_node_ids {
+        //                                         match engine.get_node_by_id(node_id) {
+        //                                             Ok(node) => match node.payload {
+        //                                                 Payload::Link(link) => {
+        //                                                     if link.path == path
+        //                                                         && link.query == query
+        //                                                     {
+        //                                                         return Ok(Some((
+        //                                                             link.clone(),
+        //                                                             node_id.clone(),
+        //                                                         )));
+        //                                                     }
+        //                                                 }
+        //                                                 _ => {}
+        //                                             },
+        //                                             Err(_) => {}
+        //                                         }
+        //                                     }
+        //                                     Ok(None)
+        //                                 }
+        //                                 None => {
+        //                                     error!("Could not read node_ids_by_label");
+        //                                     Err(PiError::InternalError(
+        //                                         "Could not read node_ids_by_label".to_string(),
+        //                                     ))
+        //                                 }
+        //                             }
+        //                         }
+        //                         Err(err) => {
+        //                             error!("Could not read node_ids_by_label: {}", err);
+        //                             Err(PiError::InternalError(format!(
+        //                                 "Could not read node_ids_by_label: {}",
+        //                                 err
+        //                             )))
+        //                         }
+        //                     }
+        //                 }
+        //                 None => {
+        //                     error!("Cannot find exiting domain node for URL {}", url);
+        //                     Ok(None)
+        //                 }
+        //             }
+        //         }
+        //         None => {
+        //             error!("Cannot parse URL {} to get domain", url);
+        //             Err(PiError::InternalError(format!(
+        //                 "Cannot parse URL {} to get domain",
+        //                 url
+        //             )))
+        //         }
+        //     },
+        //     Err(err) => {
+        //         error!("Cannot parse URL {} to get domain: {}", url, err);
+        //         Err(PiError::InternalError(format!(
+        //             "Cannot parse URL {} to get domain: {}",
+        //             url, err
+        //         )))
+        //     }
+        // }
     }
 }
 
@@ -204,7 +205,6 @@ impl Node for Link {
                 ) {
                     Ok(existing_or_new_node_id) => match existing_or_new_node_id {
                         ExistingOrNewNodeId::Existing(id) => id,
-                        ExistingOrNewNodeId::Pending(id) => id,
                         ExistingOrNewNodeId::New(id) => id,
                     },
                     Err(err) => {
@@ -218,7 +218,7 @@ impl Node for Link {
                         CommonEdgeLabels::PathOf.to_string(),
                         CommonEdgeLabels::ContentOf.to_string(),
                     ),
-                );
+                )?;
                 let link = self.clone();
                 engine.update_node(
                     &node_id,
@@ -226,7 +226,7 @@ impl Node for Link {
                         is_fetched: true,
                         ..link
                     }),
-                );
+                )?;
             }
             None => match engine.fetch_url(&url, &node_id) {
                 Ok(_) => {}

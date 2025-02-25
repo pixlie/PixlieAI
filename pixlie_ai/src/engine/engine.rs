@@ -11,6 +11,7 @@ use chrono::Utc;
 use log::{debug, error, info};
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
+use std::ops::Deref;
 use std::time::Instant;
 use std::{
     collections::{HashMap, HashSet},
@@ -190,22 +191,9 @@ impl Engine {
     }
 
     fn tick(&self) {
-        // let added_nodes = self.add_pending_nodes();
-        // let added_edges = self.add_pending_edges();
-        // if added_nodes || added_edges {
-        //     self.save_to_disk();
-        // }
-
         self.process_nodes();
-        // let updated = self.update_pending_nodes();
-        // if updated {
         self.save_to_disk();
-        // }
-
-        // if added_nodes || added_edges || updated {
-        // We have created or updated some nodes, we need to tick again
         self.tick_me_later();
-        // }
     }
 
     fn tick_me_later(&self) {
@@ -322,7 +310,7 @@ impl Engine {
 
     fn process_nodes(&self) {
         let engine = Arc::new(self);
-        for (node_id, node) in self.iter_nodes() {
+        while let Some((node_id, node)) = self.iter_nodes() {
             match node.payload {
                 Payload::Link(ref payload) => {
                     match payload.process(engine.clone(), &node_id, None) {
@@ -435,12 +423,9 @@ impl Engine {
     ) -> PiResult<ExistingOrNewNodeId> {
         if let Some(existing_node_id) = self.find_existing(&payload) {
             // If there is the same payload saved in the graph, we do not add a new node
-            return Ok(ExistingOrNewNodeId::Existing(existing_node_id));
+            return Ok(ExistingOrNewNodeId::Existing(*existing_node_id));
         }
-        // if let Some(existing_node_id) = self.find_pending(&payload) {
-        //     // If there is a pending node with the same payload, we do not add a new node
-        //     return Ok(ExistingOrNewNodeId::Pending(existing_node_id));
-        // }
+
         if !should_add_new {
             error!("Could not find existing node and should not add new node");
             return Err(PiError::InternalError(
@@ -463,23 +448,7 @@ impl Engine {
                 }
             }
         };
-        // match self.pending_nodes_to_add.write() {
-        //     Ok(mut pending_nodes) => {
-        //         pending_nodes.push(PendingNode {
-        //             id: id.clone(),
-        //             payload,
-        //             labels,
-        //         });
-        //         self.tick_me_later();
-        //     }
-        //     Err(err) => {
-        //         error!("Could not write to pending_nodes_to_add in Engine: {}", err);
-        //         return Err(PiError::InternalError(format!(
-        //             "Could not write to pending_nodes_to_add in Engine: {}",
-        //             err
-        //         )));
-        //     }
-        // }
+
         match self.save_node(id, payload, labels) {
             Ok(_) => {}
             Err(err) => {
@@ -487,6 +456,7 @@ impl Engine {
                 return Err(err);
             }
         };
+        self.save_to_disk();
         Ok(ExistingOrNewNodeId::New(id))
     }
 
@@ -529,24 +499,11 @@ impl Engine {
                 )));
             }
         };
+        self.save_to_disk();
         Ok(())
     }
 
     pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
-        // match self.pending_nodes_to_update.write() {
-        //     Ok(mut pending_nodes) => {
-        //         pending_nodes.push(PendingNode {
-        //             id: node_id.clone(),
-        //             payload,
-        //             labels: vec![],
-        //         });
-        //         self.tick_me_later();
-        //     }
-        //     Err(err) => {
-        //         error!("Error writing PendingNode in Engine: {}", err);
-        //     }
-        // }
-
         match self.nodes.try_lock() {
             Ok(mut nodes) => match nodes.data.get_mut(node_id) {
                 Some(node) => {
@@ -567,10 +524,11 @@ impl Engine {
                 )));
             }
         };
+        self.save_to_disk();
         Ok(())
     }
 
-    fn find_existing(&self, payload: &Payload) -> Option<NodeId> {
+    fn find_existing(&self, payload: &Payload) -> Option<ArcedNodeId> {
         // For certain node payloads, check if there is a node with the same payload
         let engine = Arc::new(self);
         match payload {
@@ -606,6 +564,7 @@ impl Engine {
     fn save_to_disk(&self) {
         // We use RocksDB to store the graph
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
+        let mut all_node_ids: Vec<NodeId> = vec![];
         match self.nodes.lock() {
             Ok(nodes) => {
                 for (node_id, node) in nodes.data.iter() {
@@ -616,8 +575,10 @@ impl Engine {
                             break;
                         }
                     };
-                    match db.put(node_id.to_le_bytes(), bytes) {
-                        Ok(_) => {}
+                    match db.put(format!("node/{}", node_id), bytes) {
+                        Ok(_) => {
+                            all_node_ids.push(**node_id);
+                        }
                         Err(err) => {
                             error!("Error writing node: {}", err);
                             break;
@@ -629,35 +590,100 @@ impl Engine {
                 error!("Error locking nodes: {}", err);
             }
         }
+        match to_allocvec(&all_node_ids) {
+            Ok(all_node_ids) => {
+                db.put("node/ids", all_node_ids).unwrap();
+            }
+            Err(_) => {
+                error!("Error converting node_ids to Vec<u32>");
+            }
+        }
+        let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
+        match self.edges.lock() {
+            Ok(edges) => {
+                for (node_id, edges) in edges.data.iter() {
+                    match to_allocvec(edges) {
+                        Ok(edges) => match db.put(format!("edges/{}", node_id), edges) {
+                            Ok(_) => {
+                                all_node_ids_with_edges.push(**node_id);
+                            }
+                            Err(_) => {}
+                        },
+                        Err(_) => {
+                            error!("Error converting edges to Vec<u32>");
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Error locking edges: {}", err);
+            }
+        }
+        match to_allocvec(&all_node_ids_with_edges) {
+            Ok(all_node_ids_with_edges) => {
+                db.put("edges/ids_of_starting_nodes", all_node_ids_with_edges)
+                    .unwrap();
+            }
+            Err(err) => {
+                error!("Error converting node_ids_with_edges to Vec<u32>: {}", err);
+            }
+        };
     }
 
     fn load_from_disk(&mut self) {
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
-        let iter = db.iterator(rocksdb::IteratorMode::Start);
         let mut last_node_id: u32 = 0;
-        for item in iter {
-            let (key, value) = match item {
-                Ok(item) => item,
+        let all_node_ids: Vec<NodeId> = match db.get("node/ids") {
+            Ok(node_ids) => match node_ids {
+                Some(node_ids) => match from_bytes(&node_ids) {
+                    Ok(node_ids) => node_ids,
+                    Err(err) => {
+                        error!("Error deserializing node IDs: {}", err);
+                        self.exit();
+                        return;
+                    }
+                },
+                None => {
+                    vec![]
+                }
+            },
+            Err(err) => {
+                error!("Error reading node IDs: {}", err);
+                self.exit();
+                return;
+            }
+        };
+        for node_id in all_node_ids {
+            let node: NodeItem = match db.get(format!("node/{}", node_id)) {
+                Ok(node) => match node {
+                    Some(node) => match from_bytes(&node) {
+                        Ok(node) => node,
+                        Err(err) => {
+                            error!("Error deserializing node {}: {}", node_id, err);
+                            self.exit();
+                            return;
+                        }
+                    },
+                    None => {
+                        error!("Node {} not found", node_id);
+                        self.exit();
+                        return;
+                    }
+                },
                 Err(err) => {
-                    error!("Error iterating over RocksDB: {}", err);
-                    break;
+                    error!("Error reading node {}: {}", node_id, err);
+                    self.exit();
+                    return;
                 }
             };
-            let node_id = Arc::new(read_le_u32(&mut &*key));
-            let node: NodeItem = match from_bytes(&value) {
-                Ok(node) => node,
-                Err(err) => {
-                    error!("Error deserializing node: {}", err);
-                    break;
-                }
-            };
+            let arced_node_id = Arc::new(node_id);
             // The first label if the type of the payload
             let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
             labels.extend(node.labels.iter().cloned());
             let labels: Vec<ArcedNodeLabel> = labels.iter().map(|x| Arc::new(x.clone())).collect();
             match self.nodes.lock() {
                 Ok(mut nodes) => {
-                    nodes.data.insert(node_id.clone(), Arc::new(node));
+                    nodes.data.insert(arced_node_id.clone(), Arc::new(node));
                 }
                 Err(err) => {
                     error!("Error locking nodes: {}", err);
@@ -672,8 +698,8 @@ impl Engine {
                         node_ids_by_label
                             .data
                             .entry(label)
-                            .and_modify(|entries| entries.push(node_id.clone()))
-                            .or_insert(vec![node_id.clone()]);
+                            .and_modify(|entries| entries.push(arced_node_id.clone()))
+                            .or_insert(vec![arced_node_id.clone()]);
                     }
                 }
                 Err(err) => {
@@ -682,7 +708,7 @@ impl Engine {
                 }
             }
 
-            last_node_id = *node_id;
+            last_node_id = node_id;
         }
         match self.last_node_id.lock() {
             Ok(mut inner) => {
@@ -694,98 +720,109 @@ impl Engine {
                 self.exit();
             }
         }
+
+        let all_node_ids_with_edges: Vec<NodeId> = match db.get("edges/ids_of_starting_nodes") {
+            Ok(node_ids) => match node_ids {
+                Some(node_ids) => match from_bytes(&node_ids) {
+                    Ok(node_ids) => node_ids,
+                    Err(err) => {
+                        error!("Error deserializing node IDs: {}", err);
+                        self.exit();
+                        return;
+                    }
+                },
+                None => {
+                    vec![]
+                }
+            },
+            Err(err) => {
+                error!("Error reading node IDs: {}", err);
+                self.exit();
+                return;
+            }
+        };
+        for node_id in all_node_ids_with_edges {
+            let edges_for_node: Vec<(NodeId, EdgeLabel)> =
+                match db.get(format!("edges/{}", node_id)) {
+                    Ok(edges) => match edges {
+                        Some(edges) => match from_bytes(&edges) {
+                            Ok(edges) => edges,
+                            Err(err) => {
+                                error!("Error deserializing edges for node {}: {}", node_id, err);
+                                self.exit();
+                                return;
+                            }
+                        },
+                        None => {
+                            error!("Edges for node {} not found", node_id);
+                            self.exit();
+                            return;
+                        }
+                    },
+                    Err(err) => {
+                        error!("Error reading edges for node {}: {}", node_id, err);
+                        self.exit();
+                        return;
+                    }
+                };
+            let arced_node_id = Arc::new(node_id);
+            match self.edges.lock() {
+                Ok(mut edges) => {
+                    edges.data.insert(
+                        arced_node_id.clone(),
+                        edges_for_node
+                            .iter()
+                            .map(|(x_node_id, x_edge_label)| {
+                                (Arc::new(x_node_id.clone()), Arc::new(x_edge_label.clone()))
+                            })
+                            .collect::<Vec<(ArcedNodeId, ArcedEdgeLabel)>>(),
+                    );
+                }
+                Err(err) => {
+                    error!("Error locking edges: {}", err);
+                    self.exit();
+                    return;
+                }
+            }
+        }
     }
 
     pub fn get_node_ids_connected_with_label(
         &self,
         starting_node_id: &NodeId,
-        label: &NodeLabel,
-    ) -> PiResult<Vec<NodeId>> {
-        match self.nodes.read() {
-            Ok(nodes) => match nodes.get(starting_node_id) {
-                Some(node) => match node.read() {
-                    Ok(node) => match node.edges.get(label) {
-                        Some(node_ids) => Ok(node_ids.clone()),
-                        None => Err(PiError::GraphError(format!(
-                            "Node {} does not have any edges with label {}",
-                            starting_node_id, label
-                        ))),
-                    },
-                    Err(err) => Err(PiError::InternalError(format!(
-                        "Could not read node {} from the engine: {}",
-                        starting_node_id, err
-                    ))),
-                },
+        label: &EdgeLabel,
+    ) -> PiResult<Vec<ArcedNodeId>> {
+        match self.edges.try_lock() {
+            Ok(edges) => match edges.data.get(starting_node_id) {
+                Some(edges_from_node) => Ok(edges_from_node
+                    .iter()
+                    .filter_map(|(x_node_id, x_label)| {
+                        if **x_label == *label {
+                            Some(x_node_id.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()),
                 None => Err(PiError::GraphError(format!(
                     "Node {} does not exist",
                     starting_node_id
                 ))),
             },
-            Err(err) => Err(PiError::InternalError(format!(
-                "Could not read nodes from the engine: {}",
-                err
-            ))),
-        }
-    }
-
-    pub fn get_first_node_id_connected_with_label(
-        &self,
-        starting_node_id: &NodeId,
-        label: &NodeLabel,
-    ) -> PiResult<NodeId> {
-        match self.get_node_ids_connected_with_label(starting_node_id, label) {
-            Ok(node_ids) => match node_ids.first() {
-                Some(node_id) => Ok(node_id.clone()),
-                None => Err(PiError::GraphError(format!(
-                    "Node {} does not have any edges with label {}",
-                    starting_node_id, label
-                ))),
-            },
-            Err(err) => Err(err),
+            Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }
     }
 
     pub fn fetch_url(&self, url: &str, node_id: &NodeId) -> PiResult<()> {
         let engine = Arc::new(self);
-        let (domain, domain_node_id) =
+        let (domain, _domain_node_id) =
             Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
 
         debug!("Domain {} is allowed to crawl", &domain.name);
-        // Update the domain at the domain node id
-        match engine.nodes.read() {
-            Ok(nodes) => match nodes.get(&domain_node_id) {
-                Some(node) => match node.write() {
-                    Ok(mut node) => {
-                        node.payload = Payload::Domain(Domain {
-                            name: domain.name.clone(),
-                            is_allowed_to_crawl: domain.is_allowed_to_crawl,
-                        });
-                        debug!("Set domain.last_fetched_at to now for {}", &domain.name);
-                    }
-                    Err(_err) => {
-                        return Err(PiError::GraphError(
-                            "Error writing to domain node".to_string(),
-                        ));
-                    }
-                },
-                None => {
-                    return Err(PiError::GraphError(
-                        "Cannot find domain node for link".to_string(),
-                    ));
-                }
-            },
-            Err(err) => {
-                return Err(PiError::GraphError(format!(
-                    "Error reading domain node: {}",
-                    err
-                )));
-            }
-        }
-
         let full_url = format!("https://{}{}", domain.name, url);
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             self.project_id.clone(),
-            node_id,
+            *node_id,
             full_url.clone(),
         )) {
             Ok(_) => {
@@ -801,158 +838,30 @@ impl Engine {
         }
         Ok(())
     }
+
+    pub fn get_all_node_labels(&self) -> Vec<ArcedNodeLabel> {
+        match self.node_ids_by_label.try_lock() {
+            Ok(node_ids_by_label) => node_ids_by_label.data.keys().map(|x| x.clone()).collect(),
+            Err(err) => {
+                error!("Could not lock node_ids_by_label: {}", err);
+                vec![]
+            }
+        }
+    }
+
+    pub fn get_node_ids_with_label(&self, label: &NodeLabel) -> Vec<ArcedNodeId> {
+        match self.node_ids_by_label.try_lock() {
+            Ok(node_ids_by_label) => match node_ids_by_label.data.get(label) {
+                Some(node_ids) => node_ids.clone(),
+                None => vec![],
+            },
+            Err(err) => {
+                error!("Could not lock node_ids_by_label: {}", err);
+                vec![]
+            }
+        }
+    }
 }
-
-// fn add_pending_nodes(&self) -> bool {
-//     let mut count_nodes = 0;
-//     let mut nodes_to_write: Vec<PendingNode> = self
-//         .pending_nodes_to_add
-//         .write()
-//         .unwrap()
-//         .drain(..)
-//         .collect();
-//     while let Some(pending_node) = nodes_to_write.pop() {
-//         self.save_node(
-//             pending_node.id,
-//             pending_node.payload,
-//             pending_node.labels,
-//             HashMap::new(),
-//         );
-//         count_nodes += 1;
-//     }
-//
-//     if count_nodes > 0 {
-//         info!("Added {} pending nodes to the graph", count_nodes);
-//     }
-//     count_nodes > 0
-// }
-
-// fn add_pending_edges(&self) -> bool {
-//     let mut count_edges = 0;
-//     let mut edges_to_write: Vec<PendingEdge> = self
-//         .pending_edges_to_add
-//         .write()
-//         .unwrap()
-//         .drain(..)
-//         .collect();
-//     match self.nodes.read() {
-//         Ok(nodes) => {
-//             while let Some(pending_edge) = edges_to_write.pop() {
-//                 // Add a connection edge from the parent node to the new node
-//                 match nodes.get(&pending_edge.node_ids.0.clone()) {
-//                     Some(node) => match node.write() {
-//                         Ok(mut node) => {
-//                             node.edges
-//                                 .entry(pending_edge.edge_labels.0.clone())
-//                                 .and_modify(|existing| {
-//                                     existing.push(pending_edge.node_ids.1.clone())
-//                                 })
-//                                 .or_insert(vec![pending_edge.node_ids.1.clone()]);
-//                             count_edges += 1;
-//                             debug!(
-//                                 "Added {} edge from node {} to node {}",
-//                                 pending_edge.edge_labels.0,
-//                                 pending_edge.node_ids.0,
-//                                 pending_edge.node_ids.1
-//                             );
-//                         }
-//                         Err(e) => {
-//                             error!(
-//                                 "Failed to add {} edge from node {} to node {}: {}",
-//                                 pending_edge.edge_labels.0,
-//                                 pending_edge.node_ids.0,
-//                                 pending_edge.node_ids.1,
-//                                 e
-//                             );
-//                         }
-//                     },
-//                     None => {
-//                         error!(
-//                             "Failed to add {} edge from node {} to node {}",
-//                             pending_edge.edge_labels.0,
-//                             pending_edge.node_ids.0,
-//                             pending_edge.node_ids.1,
-//                         );
-//                     }
-//                 };
-//                 // Add a connection edge from the new node to the parent node
-//                 match nodes.get(&pending_edge.node_ids.1.clone()) {
-//                     Some(node) => match node.write() {
-//                         Ok(mut node) => {
-//                             node.edges
-//                                 .entry(pending_edge.edge_labels.1.clone())
-//                                 .and_modify(|existing| {
-//                                     existing.push(pending_edge.node_ids.0.clone())
-//                                 })
-//                                 .or_insert(vec![pending_edge.node_ids.0.clone()]);
-//                             count_edges += 1;
-//                             debug!(
-//                                 "Added {} edge from node {} to node {}",
-//                                 pending_edge.edge_labels.1,
-//                                 pending_edge.node_ids.1,
-//                                 pending_edge.node_ids.0
-//                             );
-//                         }
-//                         Err(e) => {
-//                             error!(
-//                                 "Failed to add {} edge from node {} to node {}: {}",
-//                                 pending_edge.edge_labels.1,
-//                                 pending_edge.node_ids.1,
-//                                 pending_edge.node_ids.0,
-//                                 e
-//                             );
-//                         }
-//                     },
-//                     None => {
-//                         error!(
-//                             "Failed to add {} edge from node {} to node {}",
-//                             pending_edge.edge_labels.1,
-//                             pending_edge.node_ids.1,
-//                             pending_edge.node_ids.0,
-//                         );
-//                     }
-//                 }
-//             }
-//         }
-//         Err(_err) => {}
-//     }
-//
-//     if count_edges > 0 {
-//         info!("Added {} pending edges to the graph", count_edges);
-//     }
-//     count_edges > 0
-// }
-
-// fn update_pending_nodes(&self) -> bool {
-//     let mut count_nodes = 0;
-//     let mut pending_nodes_to_update: Vec<PendingNode> =
-//         match self.pending_nodes_to_update.write() {
-//             Ok(mut pending_nodes_to_update) => pending_nodes_to_update.drain(..).collect(),
-//             Err(_err) => vec![],
-//         };
-//     match self.nodes.read() {
-//         Ok(nodes) => {
-//             while let Some(pending_node) = pending_nodes_to_update.pop() {
-//                 match nodes.get(&pending_node.id) {
-//                     Some(node) => match node.write() {
-//                         Ok(mut node) => {
-//                             node.payload = pending_node.payload;
-//                         }
-//                         Err(_err) => {}
-//                     },
-//                     None => {}
-//                 }
-//                 count_nodes += 1;
-//             }
-//         }
-//         Err(_err) => {}
-//     }
-//     if count_nodes > 0 {
-//         info!("Updated {} pending nodes to the graph", count_nodes);
-//         self.tick_me_later();
-//     }
-//     count_nodes > 0
-// }
 
 fn read_le_u32(input: &mut &[u8]) -> u32 {
     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());

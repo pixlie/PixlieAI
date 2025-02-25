@@ -1,4 +1,4 @@
-use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
+use crate::engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -27,92 +27,50 @@ pub enum FindDomainOf<'a> {
 impl Domain {
     pub fn find_existing(
         engine: Arc<&Engine>,
-        data: FindDomainOf,
-    ) -> PiResult<Option<(Domain, NodeId)>> {
-        match data {
-            FindDomainOf::DomainName(domain_name) => match engine.node_ids_by_label.read() {
-                Ok(node_ids_by_label) => match node_ids_by_label.get(&Domain::get_label()) {
-                    Some(domain_node_ids) => match engine.nodes.read() {
-                        Ok(nodes) => {
-                            for node_id in domain_node_ids {
-                                match nodes.get(node_id) {
-                                    Some(node) => match node.read() {
-                                        Ok(node) => match node.payload {
-                                            Payload::Domain(ref domain) => {
-                                                if domain.name == domain_name {
-                                                    return Ok(Some((
-                                                        domain.clone(),
-                                                        node_id.clone(),
-                                                    )));
-                                                }
-                                            }
-                                            _ => {}
-                                        },
-                                        Err(err) => {
-                                            // TODO: Log these errors somewhere, they should not happen
-                                            error!("Error reading node: {}", err);
-                                        }
-                                    },
-                                    None => {
-                                        // TODO: Log these errors somewhere, they should not happen
-                                        error!("Cannot find node {}", node_id);
-                                    }
+        find_type: FindDomainOf,
+    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
+        match find_type {
+            FindDomainOf::DomainName(domain_name) => {
+                let domain_node_ids = engine.get_node_ids_with_label(&Domain::get_label());
+                for node_id in domain_node_ids {
+                    match engine.get_node_by_id(&node_id) {
+                        Some(node) => match node.payload {
+                            Payload::Domain(ref domain) => {
+                                if domain.name == domain_name {
+                                    return Ok(Some((node, node_id)));
                                 }
                             }
-                            Ok(None)
-                        }
-                        Err(err) => Err(PiError::InternalError(format!(
-                            "Error reading nodes: {}",
-                            err
-                        ))),
-                    },
-                    None => Err(PiError::GraphError(format!(
-                        "Cannot find domain node for {}",
-                        domain_name
-                    ))),
-                },
-                Err(err) => Err(PiError::InternalError(format!(
-                    "Error reading node_ids_by_label: {}",
-                    err
-                ))),
-            },
+                            _ => {}
+                        },
+                        None => {}
+                    }
+                }
+                Ok(None)
+            }
             FindDomainOf::Node(node_id) => {
-                let connected = engine.get_node_ids_connected_with_label(
+                let belongs_to = engine.get_node_ids_connected_with_label(
                     &node_id,
                     &CommonEdgeLabels::BelongsTo.to_string(),
                 )?;
-                match engine.nodes.read() {
-                    Ok(nodes) => {
-                        for connected_node_id in connected {
-                            match nodes.get(&connected_node_id) {
-                                Some(node) => match node.read() {
-                                    Ok(node) => match node.payload {
-                                        Payload::Domain(ref domain) => {
-                                            return Ok(Some((
-                                                domain.clone(),
-                                                connected_node_id.clone(),
-                                            )));
-                                        }
-                                        _ => {}
-                                    },
-                                    Err(err) => {
-                                        error!("Error reading node: {}", err);
-                                    }
-                                },
-                                None => {
-                                    error!("Cannot find node {}", connected_node_id);
-                                }
-                            }
-                        }
-                        Err(PiError::GraphError(format!(
-                            "Cannot find domain node for node {}",
-                            node_id
+                let first_belongs_to = belongs_to.first().ok_or_else(|| {
+                    PiError::InternalError(
+                        "No connected node ids found for Domain node".to_string(),
+                    )
+                })?;
+                let node = match engine.get_node_by_id(first_belongs_to) {
+                    Some(node) => node,
+                    None => {
+                        return Err(PiError::InternalError(format!(
+                            "Node with id {} not found",
+                            first_belongs_to
                         )))
                     }
-                    Err(err) => Err(PiError::InternalError(format!(
-                        "Error reading nodes: {}",
-                        err
-                    ))),
+                };
+                match node.payload {
+                    Payload::Domain(ref domain) => Ok(Some((node, first_belongs_to.clone()))),
+                    _ => Err(PiError::GraphError(
+                        "Cannot find domain node for URL".to_string(),
+                    )),
                 }
             }
         }
@@ -126,7 +84,7 @@ impl Domain {
         // Get the related domain node for the URL from the engine
         // TODO: Move this function to the Domain node
         debug!("Checking if we can fetch within domain: {}", url);
-        let existing_domain: Option<(Domain, NodeId)> =
+        let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
             Self::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
         let (domain, domain_node_id) = match existing_domain {
             Some(existing_domain) => existing_domain,
@@ -139,13 +97,22 @@ impl Domain {
             }
         };
 
-        if !domain.is_allowed_to_crawl {
-            error!("Domain is not allowed to crawl: {}", &domain.name);
-            return Err(PiError::FetchError(
-                "Domain is not allowed to crawl".to_string(),
-            ));
+        match domain.payload {
+            Payload::Domain(ref payload) => {
+                if !payload.is_allowed_to_crawl {
+                    error!("Domain is not allowed to crawl: {}", &payload.name);
+                    return Err(PiError::FetchError(
+                        "Domain is not allowed to crawl".to_string(),
+                    ));
+                }
+                return Ok((payload.clone(), node_id.clone()));
+            }
+            _ => {}
         }
 
-        Ok((domain, domain_node_id))
+        Err(PiError::GraphError(format!(
+            "Cannot find domain node for URL {}",
+            url
+        )))
     }
 }
