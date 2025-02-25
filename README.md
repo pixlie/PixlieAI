@@ -24,13 +24,13 @@ Set your keywords:
 ![Set your kewyords](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
 
 See the domains on the website:
-![Website's domain](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+![Website's domain](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png)
 
 See the links on the website:
-![Website's outbound link](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+![Website's outbound link](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png)
 
 See the search results:
-![Search Reults](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+![Search Reults](https://pixlie.com/images/screenshots/pixlie-screenshot-search-results.png)
 
 ## How can I use Pixlie AI?
 Pixlie AI is open source and is under active development. Our work is done in public, please star this repository, it means a lot to us.

@@ -8,7 +8,8 @@ import {
 } from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
-import { Project } from "../api_types/Project.ts";
+import { Project } from "../api_types/Project";
+import { Workspace } from "../api_types/Workspace";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -62,6 +63,42 @@ const makeStore = () => {
     });
   };
 
+  const fetchWorkspace = () => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/workspace`).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch workspace");
+      }
+      response.json().then((workspace: Workspace) => {
+        setStore((data) => ({
+          ...data,
+          isFetching: false,
+          isReady: true,
+          workspace: camelCasedKeys(workspace),
+        }));
+      });
+    });
+  };
+
+  const saveWorkspace = (workspace: Partial<Workspace>) => {
+    if (!store.workspace || !store.workspace.uuid) {
+      return;
+    }
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/workspace/${store.workspace.uuid}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(snakeCasedKeys(workspace)),
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to save workspace");
+      }
+      setStore("workspace", workspace);
+    });
+  };
+
   const fetchProjects = () => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/projects`).then((response) => {
@@ -78,8 +115,10 @@ const makeStore = () => {
     store,
     {
       fetchSettings,
-      saveSettings,
       fetchSettingsStatus,
+      saveSettings,
+      fetchWorkspace,
+      saveWorkspace,
       fetchProjects,
     },
   ] as const; // `as const` forces tuple type inference
