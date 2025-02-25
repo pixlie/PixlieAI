@@ -1,4 +1,7 @@
-use super::{EdgeLabel, ExistingOrNewNodeId, Node, NodeId, NodeItem, NodeLabel, Payload};
+use super::{
+    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, EdgeLabel, ExistingOrNewNodeId,
+    Node, NodeId, NodeItem, NodeLabel, Payload,
+};
 use crate::engine::api::handle_engine_api_request;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
@@ -29,18 +32,101 @@ struct PendingEdge {
     edge_labels: (EdgeLabel, EdgeLabel), // From first to second and back
 }
 
+pub(crate) struct Labels {
+    data: HashSet<ArcedNodeLabel>,
+}
+
+pub(crate) struct Nodes {
+    data: HashMap<ArcedNodeId, ArcedNodeItem>,
+}
+
+impl Labels {
+    fn new() -> Labels {
+        Labels {
+            data: HashSet::new(),
+        }
+    }
+}
+
+impl Iterator for Labels {
+    type Item = ArcedNodeLabel;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.iter().next().map(|x| x.clone())
+    }
+}
+
+impl Nodes {
+    fn new() -> Nodes {
+        Nodes {
+            data: HashMap::new(),
+        }
+    }
+}
+
+impl Iterator for Nodes {
+    type Item = (ArcedNodeId, ArcedNodeItem);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
+    }
+}
+
+pub(crate) struct Edges {
+    data: HashMap<ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>>,
+}
+
+impl Edges {
+    fn new() -> Edges {
+        Edges {
+            data: HashMap::new(),
+        }
+    }
+}
+
+impl Iterator for Edges {
+    type Item = (ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
+    }
+}
+
+pub(crate) struct NodeIdsByLabel {
+    data: HashMap<ArcedNodeLabel, Vec<ArcedNodeId>>,
+}
+
+impl NodeIdsByLabel {
+    fn new() -> NodeIdsByLabel {
+        NodeIdsByLabel {
+            data: HashMap::new(),
+        }
+    }
+}
+
+impl Iterator for NodeIdsByLabel {
+    type Item = (ArcedNodeLabel, Vec<ArcedNodeId>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
+    }
+}
+
 // The engine keeps track of all the data nodes and their relationships
 // All the entity labels are loaded in the engine
 // All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    pub labels: RwLock<HashSet<NodeLabel>>,
-    pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
-    pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
+    // pub labels: RwLock<HashSet<NodeLabel>>,
+    // pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
+    // pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
+    labels: Mutex<Labels>,
+    nodes: Mutex<Nodes>, // All nodes that are in the engine
+    edges: Mutex<Edges>,
+    node_ids_by_label: Mutex<NodeIdsByLabel>,
 
-    pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
-    pending_edges_to_add: RwLock<Vec<PendingEdge>>, // Edges pending to be added
-    pending_nodes_to_update: RwLock<Vec<PendingNode>>, // Nodes pending to be updated
-
+    // pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
+    // pending_edges_to_add: RwLock<Vec<PendingEdge>>, // Edges pending to be added
+    // pending_nodes_to_update: RwLock<Vec<PendingNode>>, // Nodes pending to be updated
     last_node_id: Mutex<u32>,
     project_id: String,
     project_path_on_disk: PathBuf,
@@ -60,14 +146,17 @@ impl Engine {
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
-            labels: RwLock::new(HashSet::new()),
-            nodes: RwLock::new(HashMap::new()),
-            node_ids_by_label: RwLock::new(HashMap::new()),
+            // labels: RwLock::new(HashSet::new()),
+            // nodes: RwLock::new(HashMap::new()),
+            // node_ids_by_label: RwLock::new(HashMap::new()),
+            labels: Mutex::new(Labels::new()),
+            nodes: Mutex::new(Nodes::new()),
+            edges: Mutex::new(Edges::new()),
+            node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
 
-            pending_nodes_to_add: RwLock::new(vec![]),
-            pending_edges_to_add: RwLock::new(vec![]),
-            pending_nodes_to_update: RwLock::new(vec![]),
-
+            // pending_nodes_to_add: RwLock::new(vec![]),
+            // pending_edges_to_add: RwLock::new(vec![]),
+            // pending_nodes_to_update: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             project_id,
             project_path_on_disk: storage_root,
@@ -101,22 +190,22 @@ impl Engine {
     }
 
     fn tick(&self) {
-        let added_nodes = self.add_pending_nodes();
-        let added_edges = self.add_pending_edges();
-        if added_nodes || added_edges {
-            self.save_to_disk();
-        }
+        // let added_nodes = self.add_pending_nodes();
+        // let added_edges = self.add_pending_edges();
+        // if added_nodes || added_edges {
+        //     self.save_to_disk();
+        // }
 
         self.process_nodes();
-        let updated = self.update_pending_nodes();
-        if updated {
-            self.save_to_disk();
-        }
+        // let updated = self.update_pending_nodes();
+        // if updated {
+        self.save_to_disk();
+        // }
 
-        if added_nodes || added_edges || updated {
-            // We have created or updated some nodes, we need to tick again
-            self.tick_me_later();
-        }
+        // if added_nodes || added_edges || updated {
+        // We have created or updated some nodes, we need to tick again
+        self.tick_me_later();
+        // }
     }
 
     fn tick_me_later(&self) {
@@ -186,29 +275,23 @@ impl Engine {
                         };
                     }
                 }
-                PiEvent::FetchResponse(_project_id, node_id, url, contents) => {
+                PiEvent::FetchResponse(_project_id, node_id, _url, contents) => {
                     // Call the node that had needs this data
-                    match self.nodes.read() {
-                        Ok(nodes) => match nodes.get(&node_id) {
-                            Some(node) => match node.read() {
-                                Ok(node) => match node.payload {
-                                    Payload::Link(ref payload) => {
-                                        let engine = Arc::new(self);
-                                        let node_id = Arc::new(node_id.clone());
-                                        match payload.process(engine, &node_id, Some(contents)) {
-                                            Ok(_) => {}
-                                            Err(err) => {
-                                                error!("Error processing link: {}", err);
-                                            }
-                                        }
+                    match self.get_node_by_id(&node_id) {
+                        Some(node) => match node.payload {
+                            Payload::Link(ref payload) => {
+                                let engine = Arc::new(self);
+                                let node_id = Arc::new(node_id.clone());
+                                match payload.process(engine, &node_id, Some(contents)) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!("Error processing link: {}", err);
                                     }
-                                    _ => {}
-                                },
-                                Err(_err) => {}
-                            },
-                            None => {}
+                                }
+                            }
+                            _ => {}
                         },
-                        Err(_err) => {}
+                        None => {}
                     }
                 }
                 _ => {}
@@ -217,36 +300,47 @@ impl Engine {
         self.exit();
     }
 
+    pub fn iter_nodes(&self) -> Option<(ArcedNodeId, ArcedNodeItem)> {
+        match self.nodes.try_lock() {
+            Ok(mut nodes) => nodes.next(),
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                None
+            }
+        }
+    }
+
+    pub fn get_node_by_id(&self, node_id: &NodeId) -> Option<ArcedNodeItem> {
+        match self.nodes.try_lock() {
+            Ok(nodes) => nodes.data.get(node_id).map(|x| x.clone()),
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                None
+            }
+        }
+    }
+
     fn process_nodes(&self) {
         let engine = Arc::new(self);
-        match self.nodes.read() {
-            Ok(nodes) => {
-                for (node_id, node) in nodes.iter() {
-                    let node = node.read().unwrap();
-                    let node_id = node_id.clone();
-                    match node.payload {
-                        Payload::Link(ref payload) => {
-                            match payload.process(engine.clone(), &node_id, None) {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!("Error processing link: {}", err);
-                                }
-                            }
+        for (node_id, node) in self.iter_nodes() {
+            match node.payload {
+                Payload::Link(ref payload) => {
+                    match payload.process(engine.clone(), &node_id, None) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error processing link: {}", err);
                         }
-                        Payload::FileHTML(ref payload) => {
-                            match payload.process(engine.clone(), &node_id, None) {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!("Error processing WebPage: {}", err);
-                                }
-                            }
-                        }
-                        _ => {}
                     }
                 }
-            }
-            Err(_err) => {
-                error!("Error reading nodes");
+                Payload::FileHTML(ref payload) => {
+                    match payload.process(engine.clone(), &node_id, None) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error processing WebPage: {}", err);
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -255,216 +349,82 @@ impl Engine {
         &self,
         id: NodeId,
         payload: Payload,
-        labels: Vec<NodeLabel>,
-        edges: HashMap<EdgeLabel, Vec<NodeId>>,
-    ) {
+        given_labels: Vec<NodeLabel>,
+        // edges: HashMap<EdgeLabel, Vec<NodeId>>,
+    ) -> PiResult<()> {
         // Get new ID after incrementing existing node ID
-        let label = payload.to_string();
-        // Store the label from the type of Payload in the engine
-        {
-            match self.labels.write() {
-                Ok(mut labels) => {
-                    labels.insert(label.clone());
+        let primary_label = payload.to_string();
+        // Create a new vector of labels with the primary label and given labels, each Arced
+        let mut all_given_labels: Vec<ArcedNodeLabel> = given_labels
+            .iter()
+            .map(|x| Arc::new(x.clone()))
+            .collect::<Vec<ArcedNodeLabel>>();
+        all_given_labels.push(Arc::new(primary_label.clone()));
+        let arced_id = Arc::new(id);
+
+        // Store all labels in the engine
+        match self.labels.try_lock() {
+            Ok(mut labels) => {
+                for label in all_given_labels.iter() {
+                    labels.data.insert(label.clone());
                 }
-                Err(_err) => {}
+            }
+            Err(err) => {
+                error!("Error locking labels: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking labels: {}",
+                    err
+                )));
             }
         };
-        // Store the other given labels in the engine
-        for label in labels.iter() {
-            // Store the label in the engine
-            {
-                match self.labels.write() {
-                    Ok(mut labels) => {
-                        labels.insert(label.clone());
-                    }
-                    Err(_err) => {}
-                }
-            };
-        }
+
         // Store the node in the engine
         {
-            match self.nodes.write() {
+            match self.nodes.try_lock() {
                 Ok(mut nodes) => {
-                    nodes.insert(
-                        id.clone(),
-                        RwLock::new(NodeItem {
-                            id: id.clone(),
+                    nodes.data.insert(
+                        arced_id.clone(),
+                        Arc::new(NodeItem {
+                            id,
                             payload,
 
-                            labels: labels.clone(),
-                            edges,
+                            labels: given_labels.clone(),
+                            // edges: HashMap::new(),
                             written_at: Utc::now(),
                         }),
                     );
                 }
-                Err(_err) => {}
+                Err(err) => {
+                    error!("Error locking nodes: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking nodes: {}",
+                        err
+                    )));
+                }
             }
         }
         // Store the node in nodes_by_label_id for the label from Payload and given labels
         {
-            let mut nodes_by_label = self.node_ids_by_label.write().unwrap();
-            nodes_by_label
-                .entry(label.clone())
-                .and_modify(|entries| entries.push(id.clone()))
-                .or_insert(vec![id.clone()]);
-            for label in labels.iter() {
-                nodes_by_label
-                    .entry(label.clone())
-                    .and_modify(|entries| entries.push(id.clone()))
-                    .or_insert(vec![id.clone()]);
-            }
-        };
-    }
-
-    fn add_pending_nodes(&self) -> bool {
-        let mut count_nodes = 0;
-        let mut nodes_to_write: Vec<PendingNode> = self
-            .pending_nodes_to_add
-            .write()
-            .unwrap()
-            .drain(..)
-            .collect();
-        while let Some(pending_node) = nodes_to_write.pop() {
-            self.save_node(
-                pending_node.id,
-                pending_node.payload,
-                pending_node.labels,
-                HashMap::new(),
-            );
-            count_nodes += 1;
-        }
-
-        if count_nodes > 0 {
-            info!("Added {} pending nodes to the graph", count_nodes);
-        }
-        count_nodes > 0
-    }
-
-    fn add_pending_edges(&self) -> bool {
-        let mut count_edges = 0;
-        let mut edges_to_write: Vec<PendingEdge> = self
-            .pending_edges_to_add
-            .write()
-            .unwrap()
-            .drain(..)
-            .collect();
-        match self.nodes.read() {
-            Ok(nodes) => {
-                while let Some(pending_edge) = edges_to_write.pop() {
-                    // Add a connection edge from the parent node to the new node
-                    match nodes.get(&pending_edge.node_ids.0.clone()) {
-                        Some(node) => match node.write() {
-                            Ok(mut node) => {
-                                node.edges
-                                    .entry(pending_edge.edge_labels.0.clone())
-                                    .and_modify(|existing| {
-                                        existing.push(pending_edge.node_ids.1.clone())
-                                    })
-                                    .or_insert(vec![pending_edge.node_ids.1.clone()]);
-                                count_edges += 1;
-                                debug!(
-                                    "Added {} edge from node {} to node {}",
-                                    pending_edge.edge_labels.0,
-                                    pending_edge.node_ids.0,
-                                    pending_edge.node_ids.1
-                                );
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to add {} edge from node {} to node {}: {}",
-                                    pending_edge.edge_labels.0,
-                                    pending_edge.node_ids.0,
-                                    pending_edge.node_ids.1,
-                                    e
-                                );
-                            }
-                        },
-                        None => {
-                            error!(
-                                "Failed to add {} edge from node {} to node {}",
-                                pending_edge.edge_labels.0,
-                                pending_edge.node_ids.0,
-                                pending_edge.node_ids.1,
-                            );
-                        }
-                    };
-                    // Add a connection edge from the new node to the parent node
-                    match nodes.get(&pending_edge.node_ids.1.clone()) {
-                        Some(node) => match node.write() {
-                            Ok(mut node) => {
-                                node.edges
-                                    .entry(pending_edge.edge_labels.1.clone())
-                                    .and_modify(|existing| {
-                                        existing.push(pending_edge.node_ids.0.clone())
-                                    })
-                                    .or_insert(vec![pending_edge.node_ids.0.clone()]);
-                                count_edges += 1;
-                                debug!(
-                                    "Added {} edge from node {} to node {}",
-                                    pending_edge.edge_labels.1,
-                                    pending_edge.node_ids.1,
-                                    pending_edge.node_ids.0
-                                );
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to add {} edge from node {} to node {}: {}",
-                                    pending_edge.edge_labels.1,
-                                    pending_edge.node_ids.1,
-                                    pending_edge.node_ids.0,
-                                    e
-                                );
-                            }
-                        },
-                        None => {
-                            error!(
-                                "Failed to add {} edge from node {} to node {}",
-                                pending_edge.edge_labels.1,
-                                pending_edge.node_ids.1,
-                                pending_edge.node_ids.0,
-                            );
-                        }
+            match self.node_ids_by_label.try_lock() {
+                Ok(mut node_ids_by_label) => {
+                    for label in all_given_labels.iter() {
+                        node_ids_by_label
+                            .data
+                            .entry(label.clone())
+                            .and_modify(|entries| entries.push(arced_id.clone()))
+                            .or_insert(vec![arced_id.clone()]);
                     }
                 }
-            }
-            Err(_err) => {}
-        }
-
-        if count_edges > 0 {
-            info!("Added {} pending edges to the graph", count_edges);
-        }
-        count_edges > 0
-    }
-
-    fn update_pending_nodes(&self) -> bool {
-        let mut count_nodes = 0;
-        let mut pending_nodes_to_update: Vec<PendingNode> =
-            match self.pending_nodes_to_update.write() {
-                Ok(mut pending_nodes_to_update) => pending_nodes_to_update.drain(..).collect(),
-                Err(_err) => vec![],
+                Err(err) => {
+                    error!("Error locking node_ids_by_label: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking node_ids_by_label: {}",
+                        err
+                    )));
+                }
             };
-        match self.nodes.read() {
-            Ok(nodes) => {
-                while let Some(pending_node) = pending_nodes_to_update.pop() {
-                    match nodes.get(&pending_node.id) {
-                        Some(node) => match node.write() {
-                            Ok(mut node) => {
-                                node.payload = pending_node.payload;
-                            }
-                            Err(_err) => {}
-                        },
-                        None => {}
-                    }
-                    count_nodes += 1;
-                }
-            }
-            Err(_err) => {}
         }
-        if count_nodes > 0 {
-            info!("Updated {} pending nodes to the graph", count_nodes);
-            self.tick_me_later();
-        }
-        count_nodes > 0
+        Ok(())
     }
 
     pub fn get_or_add_node(
@@ -477,10 +437,10 @@ impl Engine {
             // If there is the same payload saved in the graph, we do not add a new node
             return Ok(ExistingOrNewNodeId::Existing(existing_node_id));
         }
-        if let Some(existing_node_id) = self.find_pending(&payload) {
-            // If there is a pending node with the same payload, we do not add a new node
-            return Ok(ExistingOrNewNodeId::Pending(existing_node_id));
-        }
+        // if let Some(existing_node_id) = self.find_pending(&payload) {
+        //     // If there is a pending node with the same payload, we do not add a new node
+        //     return Ok(ExistingOrNewNodeId::Pending(existing_node_id));
+        // }
         if !should_add_new {
             error!("Could not find existing node and should not add new node");
             return Err(PiError::InternalError(
@@ -488,7 +448,7 @@ impl Engine {
             ));
         }
 
-        let id = Arc::new({
+        let id = {
             match self.last_node_id.lock() {
                 Ok(mut id) => {
                     *id += 1;
@@ -502,55 +462,112 @@ impl Engine {
                     )));
                 }
             }
-        });
-        match self.pending_nodes_to_add.write() {
-            Ok(mut pending_nodes) => {
-                pending_nodes.push(PendingNode {
-                    id: id.clone(),
-                    payload,
-                    labels,
-                });
-                self.tick_me_later();
-            }
+        };
+        // match self.pending_nodes_to_add.write() {
+        //     Ok(mut pending_nodes) => {
+        //         pending_nodes.push(PendingNode {
+        //             id: id.clone(),
+        //             payload,
+        //             labels,
+        //         });
+        //         self.tick_me_later();
+        //     }
+        //     Err(err) => {
+        //         error!("Could not write to pending_nodes_to_add in Engine: {}", err);
+        //         return Err(PiError::InternalError(format!(
+        //             "Could not write to pending_nodes_to_add in Engine: {}",
+        //             err
+        //         )));
+        //     }
+        // }
+        match self.save_node(id, payload, labels) {
+            Ok(_) => {}
             Err(err) => {
-                error!("Could not write to pending_nodes_to_add in Engine: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Could not write to pending_nodes_to_add in Engine: {}",
-                    err
-                )));
+                error!("Error saving node: {}", err);
+                return Err(err);
             }
-        }
+        };
         Ok(ExistingOrNewNodeId::New(id))
     }
 
-    pub fn add_connection(&self, node_ids: (NodeId, NodeId), edge_labels: (EdgeLabel, EdgeLabel)) {
-        match self.pending_edges_to_add.write() {
-            Ok(mut pending_edges) => {
-                pending_edges.push(PendingEdge {
-                    node_ids,
-                    edge_labels,
-                });
-            }
-            Err(e) => {
-                error!("Failed to add pending edge: {}", e);
-            }
-        }
-    }
-
-    pub fn update_node(&self, node_id: &NodeId, payload: Payload) {
-        match self.pending_nodes_to_update.write() {
-            Ok(mut pending_nodes) => {
-                pending_nodes.push(PendingNode {
-                    id: node_id.clone(),
-                    payload,
-                    labels: vec![],
-                });
-                self.tick_me_later();
+    pub fn add_connection(
+        &self,
+        node_ids: (NodeId, NodeId),
+        edge_labels: (EdgeLabel, EdgeLabel),
+    ) -> PiResult<()> {
+        let arced_node_ids = (Arc::new(node_ids.0), Arc::new(node_ids.1));
+        let arced_edge_labels = (Arc::new(edge_labels.0), Arc::new(edge_labels.1));
+        // Add a connection edge from the parent node to the new node and vice versa
+        match self.edges.try_lock() {
+            Ok(mut edges) => {
+                edges.data.entry(arced_node_ids.0.clone()).or_insert(vec![]);
+                edges.data.entry(arced_node_ids.1.clone()).or_insert(vec![]);
+                edges
+                    .data
+                    .get_mut(&arced_node_ids.0)
+                    .unwrap()
+                    .push((arced_node_ids.1.clone(), arced_edge_labels.0.clone()));
+                debug!(
+                    "Added {} edge from node {} to node {}",
+                    arced_edge_labels.0, node_ids.0, node_ids.1
+                );
+                edges
+                    .data
+                    .get_mut(&arced_node_ids.1)
+                    .unwrap()
+                    .push((arced_node_ids.0.clone(), arced_edge_labels.1.clone()));
+                debug!(
+                    "Added {} edge from node {} to node {}",
+                    arced_edge_labels.1, node_ids.1, node_ids.0
+                );
             }
             Err(err) => {
-                error!("Error writing PendingNode in Engine: {}", err);
+                error!("Error locking edges: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking edges: {}",
+                    err
+                )));
             }
-        }
+        };
+        Ok(())
+    }
+
+    pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
+        // match self.pending_nodes_to_update.write() {
+        //     Ok(mut pending_nodes) => {
+        //         pending_nodes.push(PendingNode {
+        //             id: node_id.clone(),
+        //             payload,
+        //             labels: vec![],
+        //         });
+        //         self.tick_me_later();
+        //     }
+        //     Err(err) => {
+        //         error!("Error writing PendingNode in Engine: {}", err);
+        //     }
+        // }
+
+        match self.nodes.try_lock() {
+            Ok(mut nodes) => match nodes.data.get_mut(node_id) {
+                Some(node) => {
+                    *node = Arc::new(NodeItem {
+                        id: node_id.clone(),
+                        payload,
+                        labels: vec![],
+                        written_at: Utc::now(),
+                    });
+                }
+                None => {}
+            },
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )));
+            }
+        };
+        Ok(())
     }
 
     fn find_existing(&self, payload: &Payload) -> Option<NodeId> {
@@ -586,48 +603,16 @@ impl Engine {
         }
     }
 
-    fn find_pending(&self, _payload: &Payload) -> Option<Arc<u32>> {
-        None
-    }
-
-    pub fn get_node_by_id(&self, node_id: &NodeId) -> PiResult<NodeItem> {
-        match self.nodes.read() {
-            Ok(nodes) => match nodes.get(node_id) {
-                Some(node) => match node.read() {
-                    Ok(node) => Ok(node.clone()),
-                    Err(err) => Err(PiError::InternalError(format!(
-                        "Error reading node: {}",
-                        err
-                    ))),
-                },
-                None => Err(PiError::GraphError(format!(
-                    "Node {} does not exist",
-                    node_id
-                ))),
-            },
-            Err(err) => Err(PiError::InternalError(format!(
-                "Error reading nodes: {}",
-                err
-            ))),
-        }
-    }
-
     fn save_to_disk(&self) {
         // We use RocksDB to store the graph
         let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
-        match self.nodes.read() {
+        match self.nodes.lock() {
             Ok(nodes) => {
-                for (node_id, node) in nodes.iter() {
-                    let bytes = match node.read() {
-                        Ok(node) => match to_allocvec(&*node) {
-                            Ok(bytes) => bytes,
-                            Err(err) => {
-                                error!("Error serializing node: {}", err);
-                                break;
-                            }
-                        },
+                for (node_id, node) in nodes.data.iter() {
+                    let bytes = match to_allocvec(&*node) {
+                        Ok(bytes) => bytes,
                         Err(err) => {
-                            error!("Error reading node: {}", err);
+                            error!("Error serializing node: {}", err);
                             break;
                         }
                     };
@@ -640,7 +625,9 @@ impl Engine {
                     }
                 }
             }
-            Err(_err) => {}
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+            }
         }
     }
 
@@ -667,24 +654,34 @@ impl Engine {
             // The first label if the type of the payload
             let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
             labels.extend(node.labels.iter().cloned());
-            {
-                match self.nodes.write() {
-                    Ok(mut nodes) => {
-                        nodes.insert(node_id.clone(), RwLock::new(node));
-                    }
-                    Err(_err) => {}
+            let labels: Vec<ArcedNodeLabel> = labels.iter().map(|x| Arc::new(x.clone())).collect();
+            match self.nodes.lock() {
+                Ok(mut nodes) => {
+                    nodes.data.insert(node_id.clone(), Arc::new(node));
+                }
+                Err(err) => {
+                    error!("Error locking nodes: {}", err);
+                    self.exit();
                 }
             }
 
-            for label in labels.into_iter() {
-                // Store the node in nodes_by_label_id
-                self.node_ids_by_label
-                    .write()
-                    .unwrap()
-                    .entry(label)
-                    .and_modify(|entries| entries.push(node_id.clone()))
-                    .or_insert(vec![node_id.clone()]);
+            // Store the node in nodes_by_label_id
+            match self.node_ids_by_label.lock() {
+                Ok(mut node_ids_by_label) => {
+                    for label in labels.into_iter() {
+                        node_ids_by_label
+                            .data
+                            .entry(label)
+                            .and_modify(|entries| entries.push(node_id.clone()))
+                            .or_insert(vec![node_id.clone()]);
+                    }
+                }
+                Err(err) => {
+                    error!("Error locking node_ids_by_label: {}", err);
+                    self.exit();
+                }
             }
+
             last_node_id = *node_id;
         }
         match self.last_node_id.lock() {
@@ -697,20 +694,6 @@ impl Engine {
                 self.exit();
             }
         }
-    }
-
-    pub fn needs_to_tick(&self) -> bool {
-        match self.pending_nodes_to_add.read() {
-            Ok(nodes) => {
-                if nodes.len() > 0 {
-                    return true;
-                }
-            }
-            Err(_err) => {
-                error!("Error reading pending nodes");
-            }
-        }
-        false
     }
 
     pub fn get_node_ids_connected_with_label(
@@ -802,7 +785,7 @@ impl Engine {
         let full_url = format!("https://{}{}", domain.name, url);
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             self.project_id.clone(),
-            node_id.as_ref().clone(),
+            node_id,
             full_url.clone(),
         )) {
             Ok(_) => {
@@ -819,6 +802,157 @@ impl Engine {
         Ok(())
     }
 }
+
+// fn add_pending_nodes(&self) -> bool {
+//     let mut count_nodes = 0;
+//     let mut nodes_to_write: Vec<PendingNode> = self
+//         .pending_nodes_to_add
+//         .write()
+//         .unwrap()
+//         .drain(..)
+//         .collect();
+//     while let Some(pending_node) = nodes_to_write.pop() {
+//         self.save_node(
+//             pending_node.id,
+//             pending_node.payload,
+//             pending_node.labels,
+//             HashMap::new(),
+//         );
+//         count_nodes += 1;
+//     }
+//
+//     if count_nodes > 0 {
+//         info!("Added {} pending nodes to the graph", count_nodes);
+//     }
+//     count_nodes > 0
+// }
+
+// fn add_pending_edges(&self) -> bool {
+//     let mut count_edges = 0;
+//     let mut edges_to_write: Vec<PendingEdge> = self
+//         .pending_edges_to_add
+//         .write()
+//         .unwrap()
+//         .drain(..)
+//         .collect();
+//     match self.nodes.read() {
+//         Ok(nodes) => {
+//             while let Some(pending_edge) = edges_to_write.pop() {
+//                 // Add a connection edge from the parent node to the new node
+//                 match nodes.get(&pending_edge.node_ids.0.clone()) {
+//                     Some(node) => match node.write() {
+//                         Ok(mut node) => {
+//                             node.edges
+//                                 .entry(pending_edge.edge_labels.0.clone())
+//                                 .and_modify(|existing| {
+//                                     existing.push(pending_edge.node_ids.1.clone())
+//                                 })
+//                                 .or_insert(vec![pending_edge.node_ids.1.clone()]);
+//                             count_edges += 1;
+//                             debug!(
+//                                 "Added {} edge from node {} to node {}",
+//                                 pending_edge.edge_labels.0,
+//                                 pending_edge.node_ids.0,
+//                                 pending_edge.node_ids.1
+//                             );
+//                         }
+//                         Err(e) => {
+//                             error!(
+//                                 "Failed to add {} edge from node {} to node {}: {}",
+//                                 pending_edge.edge_labels.0,
+//                                 pending_edge.node_ids.0,
+//                                 pending_edge.node_ids.1,
+//                                 e
+//                             );
+//                         }
+//                     },
+//                     None => {
+//                         error!(
+//                             "Failed to add {} edge from node {} to node {}",
+//                             pending_edge.edge_labels.0,
+//                             pending_edge.node_ids.0,
+//                             pending_edge.node_ids.1,
+//                         );
+//                     }
+//                 };
+//                 // Add a connection edge from the new node to the parent node
+//                 match nodes.get(&pending_edge.node_ids.1.clone()) {
+//                     Some(node) => match node.write() {
+//                         Ok(mut node) => {
+//                             node.edges
+//                                 .entry(pending_edge.edge_labels.1.clone())
+//                                 .and_modify(|existing| {
+//                                     existing.push(pending_edge.node_ids.0.clone())
+//                                 })
+//                                 .or_insert(vec![pending_edge.node_ids.0.clone()]);
+//                             count_edges += 1;
+//                             debug!(
+//                                 "Added {} edge from node {} to node {}",
+//                                 pending_edge.edge_labels.1,
+//                                 pending_edge.node_ids.1,
+//                                 pending_edge.node_ids.0
+//                             );
+//                         }
+//                         Err(e) => {
+//                             error!(
+//                                 "Failed to add {} edge from node {} to node {}: {}",
+//                                 pending_edge.edge_labels.1,
+//                                 pending_edge.node_ids.1,
+//                                 pending_edge.node_ids.0,
+//                                 e
+//                             );
+//                         }
+//                     },
+//                     None => {
+//                         error!(
+//                             "Failed to add {} edge from node {} to node {}",
+//                             pending_edge.edge_labels.1,
+//                             pending_edge.node_ids.1,
+//                             pending_edge.node_ids.0,
+//                         );
+//                     }
+//                 }
+//             }
+//         }
+//         Err(_err) => {}
+//     }
+//
+//     if count_edges > 0 {
+//         info!("Added {} pending edges to the graph", count_edges);
+//     }
+//     count_edges > 0
+// }
+
+// fn update_pending_nodes(&self) -> bool {
+//     let mut count_nodes = 0;
+//     let mut pending_nodes_to_update: Vec<PendingNode> =
+//         match self.pending_nodes_to_update.write() {
+//             Ok(mut pending_nodes_to_update) => pending_nodes_to_update.drain(..).collect(),
+//             Err(_err) => vec![],
+//         };
+//     match self.nodes.read() {
+//         Ok(nodes) => {
+//             while let Some(pending_node) = pending_nodes_to_update.pop() {
+//                 match nodes.get(&pending_node.id) {
+//                     Some(node) => match node.write() {
+//                         Ok(mut node) => {
+//                             node.payload = pending_node.payload;
+//                         }
+//                         Err(_err) => {}
+//                     },
+//                     None => {}
+//                 }
+//                 count_nodes += 1;
+//             }
+//         }
+//         Err(_err) => {}
+//     }
+//     if count_nodes > 0 {
+//         info!("Updated {} pending nodes to the graph", count_nodes);
+//         self.tick_me_later();
+//     }
+//     count_nodes > 0
+// }
 
 fn read_le_u32(input: &mut &[u8]) -> u32 {
     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());

@@ -55,9 +55,13 @@ pub enum FindNode<'a> {
     Domain(&'a str),
 }
 
-pub type NodeId = Arc<u32>;
-pub type NodeLabel = String;
-pub type EdgeLabel = String;
+pub(crate) type NodeId = u32;
+pub(crate) type ArcedNodeId = Arc<NodeId>;
+pub(crate) type NodeLabel = String;
+pub(crate) type ArcedNodeLabel = Arc<NodeLabel>;
+pub(crate) type EdgeLabel = String;
+
+pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 
 #[derive(Display, TS)]
 #[ts(export)]
@@ -86,9 +90,10 @@ pub struct NodeItem {
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
-    pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
+    // pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
     pub written_at: DateTime<Utc>,
 }
+pub type ArcedNodeItem = Arc<NodeItem>;
 
 pub trait Node {
     fn get_label() -> String;
