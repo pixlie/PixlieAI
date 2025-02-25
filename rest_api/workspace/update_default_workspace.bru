@@ -1,0 +1,21 @@
+meta {
+  name: update_default_workspace
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{api}}/workspace/1d2ec52d-b17b-4bac-9e10-ad6f29540f99
+  body: json
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}
+
+body:json {
+  {
+    "anthropic_api_key": "ak-sdfhslhjkdfs-dfklfdkfld"
+  }
+}

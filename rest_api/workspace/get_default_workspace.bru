@@ -1,0 +1,15 @@
+meta {
+  name: get_default_workspace
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api}}/workspace
+  body: none
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}

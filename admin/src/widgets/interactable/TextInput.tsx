@@ -26,6 +26,7 @@ const TextInput: Component<IFormField> = (props) => {
       onChange={handleChange}
       onFocus={props.onFocus}
       disabled={!props.isEditable}
+      autocomplete={props.autocomplete ? "on" : "off"}
     />
   );
 };
