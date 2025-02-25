@@ -3,6 +3,7 @@ import LinkNode from "./LinkNode";
 import DomainNode from "./DomainNode";
 import SearchTermNode from "./SearchTermNode";
 import ContentNode from "./ContentNode";
+import TopicNode from "./TopicNode";
 
 // interface NodePayloadProps {
 //   id: number;
@@ -68,6 +69,13 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
                 {(nodeId) => <SearchTermNode nodeId={nodeId} />}
+              </For>
+            </div>
+          )}
+          {props.nodeType === "Topic" && (
+            <div class="grid grid-cols-[1fr_auto] gap-2">
+              <For each={props.source()}>
+                {(nodeId) => <TopicNode nodeId={nodeId} />}
               </For>
             </div>
           )}

@@ -124,7 +124,7 @@ const PerProjectRoutes: Component = () => {
             isActive: location.pathname.startsWith(
               `/p/${params.projectId}/workflow`
             ),
-            children: ["Link", "SearchTerm"].map((label) => ({
+            children: ["Link", "Topic", "SearchTerm"].map((label) => ({
               label: `${label}(s)`,
               href: `/p/${params.projectId}/workflow?label=${label}`,
               isActive: location.pathname.startsWith(

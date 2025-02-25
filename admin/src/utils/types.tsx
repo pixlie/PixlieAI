@@ -41,6 +41,7 @@ interface INodeItemDisplayProps {
 }
 
 interface IFormField {
+  id?: string;
   name: string;
   placeholder?: string | null;
   size?: "xs" | "sm" | "base" | "lg";
