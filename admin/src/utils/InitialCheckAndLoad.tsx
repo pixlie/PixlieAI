@@ -7,14 +7,17 @@ interface ILoaderProps {
 }
 
 const InitialCheckAndLoad: Component<ILoaderProps> = (props) => {
-  const [workspace, { fetchSettings, fetchSettingsStatus, fetchProjects }] =
-    useWorkspace();
+  const [
+    workspace,
+    { fetchSettings, fetchSettingsStatus, fetchProjects, fetchWorkspace },
+  ] = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
 
   onMount(() => {
     fetchSettings();
     fetchSettingsStatus();
+    fetchWorkspace();
     fetchProjects();
   });
 

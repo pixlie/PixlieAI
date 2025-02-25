@@ -81,19 +81,16 @@ const makeStore = () => {
   };
 
   const saveWorkspace = (workspace: Partial<Workspace>) => {
-    if (!store.workspace) {
+    if (!store.workspace || !store.workspace.uuid) {
       return;
     }
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/workspace`, {
+    fetch(`${pixlieAIAPIRoot}/api/workspace/${store.workspace.uuid}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        uuid: store.workspace!.uuid || "",
-        ...snakeCasedKeys(workspace),
-      }),
+      body: JSON.stringify(snakeCasedKeys(workspace)),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save workspace");

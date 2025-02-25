@@ -50,6 +50,7 @@ interface IFormField {
   onFocus?: () => void;
   isRequired?: boolean;
   isEditable?: boolean;
+  autocomplete?: boolean;
 }
 
 export type {

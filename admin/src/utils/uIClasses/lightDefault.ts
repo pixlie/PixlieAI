@@ -23,6 +23,9 @@ const lightDefault = {
 
     label: "text-gray-600",
     text: "text-gray-700",
+    textSuccess: "text-green-600",
+    textInfo: "text-blue-600",
+    textDanger: "text-red-600",
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     button: "bg-green-600 text-white",
