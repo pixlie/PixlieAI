@@ -8,30 +8,14 @@ use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{debug, error};
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
-use std::ops::Deref;
-use std::time::Instant;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::RwLock,
-};
+use std::collections::{HashMap, HashSet};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-
-struct PendingNode {
-    id: NodeId,
-    payload: Payload,
-    labels: Vec<NodeLabel>,
-}
-
-struct PendingEdge {
-    node_ids: (NodeId, NodeId),          // First and second node IDs
-    edge_labels: (EdgeLabel, EdgeLabel), // From first to second and back
-}
 
 pub(crate) struct Labels {
     data: HashSet<ArcedNodeLabel>,
@@ -39,6 +23,54 @@ pub(crate) struct Labels {
 
 pub(crate) struct Nodes {
     data: HashMap<ArcedNodeId, ArcedNodeItem>,
+}
+
+impl Nodes {
+    fn new() -> Nodes {
+        Nodes {
+            data: HashMap::new(),
+        }
+    }
+
+    fn save_to_disk(&self, db: &DB) -> PiResult<()> {
+        let mut all_node_ids: Vec<NodeId> = vec![];
+        // We ignore single item serialization or writing errors for now
+        for (node_id, node) in self.data.iter() {
+            match to_allocvec(&*node) {
+                Ok(bytes) => match db.put(format!("node/{}", node_id), bytes) {
+                    Ok(_) => {
+                        all_node_ids.push(**node_id);
+                    }
+                    Err(err) => {
+                        error!("Error writing node to disk: {}", err);
+                        break;
+                    }
+                },
+                Err(err) => {
+                    error!("Error serializing node to disk: {}", err);
+                    break;
+                }
+            };
+        }
+        // TODO: For a very large list of nodes, we should break the list of node IDs into chunks
+        match to_allocvec(&all_node_ids) {
+            Ok(all_node_ids) => match db.put("node/ids", all_node_ids) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error writing node IDs: {}", err);
+                    return Err(err.into());
+                }
+            },
+            Err(err) => {
+                error!("Error converting node_ids to Vec<u32>: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error converting node_ids to Vec<u32>: {}",
+                    err
+                )));
+            }
+        };
+        Ok(())
+    }
 }
 
 impl Labels {
@@ -57,22 +89,6 @@ impl Iterator for Labels {
     }
 }
 
-impl Nodes {
-    fn new() -> Nodes {
-        Nodes {
-            data: HashMap::new(),
-        }
-    }
-}
-
-impl Iterator for Nodes {
-    type Item = (ArcedNodeId, ArcedNodeItem);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
-    }
-}
-
 pub(crate) struct Edges {
     data: HashMap<ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>>,
 }
@@ -83,13 +99,48 @@ impl Edges {
             data: HashMap::new(),
         }
     }
-}
 
-impl Iterator for Edges {
-    type Item = (ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
+    fn save_to_disk(&self, db: &DB) -> PiResult<()> {
+        let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
+        for (node_id, edges) in self.data.iter() {
+            match to_allocvec(edges) {
+                Ok(edges) => match db.put(format!("edges/{}", node_id), edges) {
+                    Ok(_) => {
+                        all_node_ids_with_edges.push(**node_id);
+                    }
+                    Err(_) => {}
+                },
+                Err(err) => {
+                    error!("Error converting edges to Vec<u32>: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error converting edges to Vec<u32>: {}",
+                        err
+                    )));
+                }
+            }
+        }
+        match to_allocvec(&all_node_ids_with_edges) {
+            Ok(all_node_ids_with_edges) => {
+                match db.put("edges/ids_of_starting_nodes", all_node_ids_with_edges) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error saving ids of starting nodes: {}", err);
+                        return Err(PiError::InternalError(format!(
+                            "Error saving ids of starting nodes: {}",
+                            err
+                        )));
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Error converting node_ids_with_edges to Vec<u32>: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error converting node_ids_with_edges to Vec<u32>: {}",
+                    err
+                )));
+            }
+        };
+        Ok(())
     }
 }
 
@@ -105,33 +156,16 @@ impl NodeIdsByLabel {
     }
 }
 
-impl Iterator for NodeIdsByLabel {
-    type Item = (ArcedNodeLabel, Vec<ArcedNodeId>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.iter().next().map(|(k, v)| (k.clone(), v.clone()))
-    }
-}
-
 // The engine keeps track of all the data nodes and their relationships
-// All the entity labels are loaded in the engine
-// All data may not be loaded in the engine, some of them may be on disk
 pub struct Engine {
-    // pub labels: RwLock<HashSet<NodeLabel>>,
-    // pub nodes: RwLock<HashMap<NodeId, RwLock<NodeItem>>>, // All nodes that are in the engine
-    // pub node_ids_by_label: RwLock<HashMap<NodeLabel, Vec<NodeId>>>,
     labels: Mutex<Labels>,
     nodes: Mutex<Nodes>, // All nodes that are in the engine
     edges: Mutex<Edges>,
     node_ids_by_label: Mutex<NodeIdsByLabel>,
 
-    // pending_nodes_to_add: RwLock<Vec<PendingNode>>, // Nodes pending to be added
-    // pending_edges_to_add: RwLock<Vec<PendingEdge>>, // Edges pending to be added
-    // pending_nodes_to_update: RwLock<Vec<PendingNode>>, // Nodes pending to be updated
     last_node_id: Mutex<u32>,
     project_id: String,
     project_path_on_disk: PathBuf,
-    last_ticked_at: RwLock<Instant>,
 
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
@@ -147,21 +181,14 @@ impl Engine {
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
-            // labels: RwLock::new(HashSet::new()),
-            // nodes: RwLock::new(HashMap::new()),
-            // node_ids_by_label: RwLock::new(HashMap::new()),
             labels: Mutex::new(Labels::new()),
             nodes: Mutex::new(Nodes::new()),
             edges: Mutex::new(Edges::new()),
             node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
 
-            // pending_nodes_to_add: RwLock::new(vec![]),
-            // pending_edges_to_add: RwLock::new(vec![]),
-            // pending_nodes_to_update: RwLock::new(vec![]),
             last_node_id: Mutex::new(0),
             project_id,
             project_path_on_disk: storage_root,
-            last_ticked_at: RwLock::new(Instant::now()),
 
             my_pi_channel,
             main_channel_tx,
@@ -192,7 +219,14 @@ impl Engine {
 
     fn tick(&self) {
         self.process_nodes();
-        self.save_to_disk();
+        match self.save_to_disk() {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error saving to disk: {}", err);
+                self.exit();
+                return;
+            }
+        }
         self.tick_me_later();
     }
 
@@ -239,29 +273,7 @@ impl Engine {
                     }
                 }
                 PiEvent::NeedsToTick => {
-                    let has_ticked = false;
-                    match self.last_ticked_at.read() {
-                        Ok(last_tick_at) => {
-                            if last_tick_at.elapsed().as_millis() > 10 {
-                                self.tick();
-                            } else {
-                                self.tick_me_later();
-                            }
-                        }
-                        Err(_err) => {
-                            error!("Error reading last_ticked_at in Engine");
-                        }
-                    }
-                    if has_ticked {
-                        match self.last_ticked_at.write() {
-                            Ok(mut last_tick_at) => {
-                                *last_tick_at = Instant::now();
-                            }
-                            Err(_err) => {
-                                error!("Error writing last_ticked_at in Engine");
-                            }
-                        };
-                    }
+                    self.tick();
                 }
                 PiEvent::FetchResponse(_project_id, node_id, _url, contents) => {
                     // Call the node that had needs this data
@@ -288,16 +300,6 @@ impl Engine {
         self.exit();
     }
 
-    pub fn iter_nodes(&self) -> Option<(ArcedNodeId, ArcedNodeItem)> {
-        match self.nodes.try_lock() {
-            Ok(mut nodes) => nodes.next(),
-            Err(err) => {
-                error!("Error locking nodes: {}", err);
-                None
-            }
-        }
-    }
-
     pub fn get_node_by_id(&self, node_id: &NodeId) -> Option<ArcedNodeItem> {
         match self.nodes.try_lock() {
             Ok(nodes) => nodes.data.get(node_id).map(|x| x.clone()),
@@ -310,25 +312,34 @@ impl Engine {
 
     fn process_nodes(&self) {
         let engine = Arc::new(self);
-        while let Some((node_id, node)) = self.iter_nodes() {
-            match node.payload {
-                Payload::Link(ref payload) => {
-                    match payload.process(engine.clone(), &node_id, None) {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("Error processing link: {}", err);
+        let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
+            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                return;
+            }
+        };
+        for node_id in node_ids {
+            if let Some(node) = self.get_node_by_id(&node_id) {
+                match node.payload {
+                    Payload::Link(ref payload) => {
+                        match payload.process(engine.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing link: {}", err);
+                            }
                         }
                     }
-                }
-                Payload::FileHTML(ref payload) => {
-                    match payload.process(engine.clone(), &node_id, None) {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("Error processing WebPage: {}", err);
+                    Payload::FileHTML(ref payload) => {
+                        match payload.process(engine.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing WebPage: {}", err);
+                            }
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         }
     }
@@ -338,7 +349,6 @@ impl Engine {
         id: NodeId,
         payload: Payload,
         given_labels: Vec<NodeLabel>,
-        // edges: HashMap<EdgeLabel, Vec<NodeId>>,
     ) -> PiResult<()> {
         // Get new ID after incrementing existing node ID
         let primary_label = payload.to_string();
@@ -456,7 +466,7 @@ impl Engine {
                 return Err(err);
             }
         };
-        self.save_to_disk();
+        self.save_to_disk()?;
         Ok(ExistingOrNewNodeId::New(id))
     }
 
@@ -499,7 +509,7 @@ impl Engine {
                 )));
             }
         };
-        self.save_to_disk();
+        self.save_to_disk()?;
         Ok(())
     }
 
@@ -524,7 +534,7 @@ impl Engine {
                 )));
             }
         };
-        self.save_to_disk();
+        self.save_to_disk()?;
         Ok(())
     }
 
@@ -561,73 +571,36 @@ impl Engine {
         }
     }
 
-    fn save_to_disk(&self) {
+    fn save_to_disk(&self) -> PiResult<()> {
         // We use RocksDB to store the graph
-        let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
-        let mut all_node_ids: Vec<NodeId> = vec![];
+        let db = match DB::open_default(self.project_path_on_disk.as_os_str()) {
+            Ok(db) => db,
+            Err(err) => {
+                error!("Error opening DB: {}", err);
+                return Err(PiError::InternalError(format!("Error opening DB: {}", err)));
+            }
+        };
         match self.nodes.lock() {
             Ok(nodes) => {
-                for (node_id, node) in nodes.data.iter() {
-                    let bytes = match to_allocvec(&*node) {
-                        Ok(bytes) => bytes,
-                        Err(err) => {
-                            error!("Error serializing node: {}", err);
-                            break;
-                        }
-                    };
-                    match db.put(format!("node/{}", node_id), bytes) {
-                        Ok(_) => {
-                            all_node_ids.push(**node_id);
-                        }
-                        Err(err) => {
-                            error!("Error writing node: {}", err);
-                            break;
-                        }
-                    }
-                }
+                nodes.save_to_disk(&db)?;
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )));
             }
         }
-        match to_allocvec(&all_node_ids) {
-            Ok(all_node_ids) => {
-                db.put("node/ids", all_node_ids).unwrap();
-            }
-            Err(_) => {
-                error!("Error converting node_ids to Vec<u32>");
-            }
-        }
-        let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
         match self.edges.lock() {
             Ok(edges) => {
-                for (node_id, edges) in edges.data.iter() {
-                    match to_allocvec(edges) {
-                        Ok(edges) => match db.put(format!("edges/{}", node_id), edges) {
-                            Ok(_) => {
-                                all_node_ids_with_edges.push(**node_id);
-                            }
-                            Err(_) => {}
-                        },
-                        Err(_) => {
-                            error!("Error converting edges to Vec<u32>");
-                        }
-                    }
-                }
+                edges.save_to_disk(&db)?;
             }
             Err(err) => {
                 error!("Error locking edges: {}", err);
             }
         }
-        match to_allocvec(&all_node_ids_with_edges) {
-            Ok(all_node_ids_with_edges) => {
-                db.put("edges/ids_of_starting_nodes", all_node_ids_with_edges)
-                    .unwrap();
-            }
-            Err(err) => {
-                error!("Error converting node_ids_with_edges to Vec<u32>: {}", err);
-            }
-        };
+        Ok(())
     }
 
     fn load_from_disk(&mut self) {
@@ -861,10 +834,46 @@ impl Engine {
             }
         }
     }
+
+    pub fn map_nodes(
+        &self,
+        f: impl Fn(&ArcedNodeId, &ArcedNodeItem) -> Option<NodeItem>,
+    ) -> PiResult<Vec<Option<NodeItem>>> {
+        // TODO: Create a version which can take a closure which captures and updates the
+        // environment of the function in parameter instead of returning Option<NodeItem>
+        let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
+            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )));
+            }
+        };
+        let mut results: Vec<Option<NodeItem>> = vec![];
+        for node_id in node_ids {
+            let node = self.get_node_by_id(&node_id);
+            if let Some(node) = node {
+                results.push(f(&node_id, &node));
+            }
+        }
+        Ok(results)
+    }
+
+    pub fn get_all_nodes(&self) -> Vec<ArcedNodeItem> {
+        match self.nodes.try_lock() {
+            Ok(nodes) => nodes.data.values().map(|x| x.clone()).collect(),
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                vec![]
+            }
+        }
+    }
 }
 
-fn read_le_u32(input: &mut &[u8]) -> u32 {
-    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
-    *input = rest;
-    u32::from_le_bytes(int_bytes.try_into().unwrap())
-}
+// fn read_le_u32(input: &mut &[u8]) -> u32 {
+//     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
+//     *input = rest;
+//     u32::from_le_bytes(int_bytes.try_into().unwrap())
+// }

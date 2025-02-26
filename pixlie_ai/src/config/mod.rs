@@ -5,17 +5,12 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::{
-    error::{PiError, PiResult},
-    services::TextClassificationProvider,
-};
+use crate::error::{PiError, PiResult};
 use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
 use flate2::read::GzDecoder;
-use gliner::get_is_gliner_setup;
-use log::{debug, error};
-use python::check_system_python;
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, exists, File},
@@ -191,7 +186,7 @@ impl Settings {
             None => {
                 error!("Cannot find config file");
                 Err(PiError::CannotReadOrWriteConfigFile)
-            },
+            }
         }
     }
 

@@ -5,7 +5,7 @@ use pixlie_ai::config::Settings;
 use pixlie_ai::engine::Engine;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, PiChannel, PiEvent};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env::var;
 use std::process::exit;
 use std::sync::atomic::AtomicBool;
@@ -56,6 +56,7 @@ fn main() {
     let main_channel = PiChannel::new();
     // Each engine has its own communication channel
     let mut channels_per_project: HashMap<String, PiChannel> = HashMap::new();
+    let mut tick_requests_per_project: HashSet<String> = HashSet::new();
     // The API channel is used by the API server and the CLI
     let api_channel = APIChannel::new();
     let main_channel_tx = main_channel.tx.clone();
@@ -191,26 +192,29 @@ fn main() {
             PiEvent::TickMeLater(project_id) => {
                 // The engine has requested to be called later
                 let channels_per_project = channels_per_project.clone();
-                debug!("TickMeLater for engine for project {}", &project_id);
-                pool.execute(move || {
-                    thread::sleep(Duration::from_millis(2000));
-                    match channels_per_project.get(&project_id) {
-                        Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
-                            Ok(_) => {
-                                debug!(
-                                    "Sent PiEvent::NeedsToTick to engine for project {}",
-                                    &project_id
-                                );
+                if !tick_requests_per_project.contains(&project_id) {
+                    tick_requests_per_project.insert(project_id.clone());
+                    debug!("TickMeLater for engine for project {}", &project_id);
+                    pool.execute(move || {
+                        thread::sleep(Duration::from_millis(1000));
+                        match channels_per_project.get(&project_id) {
+                            Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
+                                Ok(_) => {
+                                    debug!(
+                                        "Sent PiEvent::NeedsToTick to engine for project {}",
+                                        &project_id
+                                    );
+                                }
+                                Err(err) => {
+                                    error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+                                }
+                            },
+                            None => {
+                                error!("Project {} is not loaded", &project_id);
                             }
-                            Err(err) => {
-                                error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                            }
-                        },
-                        None => {
-                            error!("Project {} is not loaded", &project_id);
                         }
-                    }
-                });
+                    });
+                }
             }
             PiEvent::EngineExit(project_id) => {
                 channels_per_project.remove(&project_id);
