@@ -1,4 +1,6 @@
-use super::{Engine, Node, NodeId, NodeItem, NodeLabel, Payload};
+use super::{
+    ArcedEdgeLabel, ArcedNodeId, EdgeLabel, Engine, Node, NodeId, NodeItem, NodeLabel, Payload,
+};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
@@ -46,6 +48,7 @@ pub enum EngineRequestPayload {
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
     GetAllNodes,
+    GetAllEdges,
     CreateNode(NodeWrite),
     Query(u32), // Some nodes allow a "query", which can generate any number of nodes, like a search
 }
@@ -55,6 +58,8 @@ pub enum EngineRequestPayload {
 pub struct EngineResponseResults {
     pub nodes: Vec<APINodeItem>,
     pub labels: Vec<String>,
+    #[ts(type = "{ [node_id: number]: Array<[number, string]> }")]
+    pub edges: HashMap<NodeId, Vec<(NodeId, EdgeLabel)>>,
     #[ts(type = "{ [label: string]: Array<number> }")]
     pub node_ids_by_label: HashMap<String, Vec<u32>>,
 }
@@ -271,6 +276,54 @@ pub async fn get_nodes(
     }
 }
 
+pub async fn get_edges(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to get all edges",
+        request_id, project_id
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::GetAllEdges,
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
+}
+
 pub async fn create_node(
     project_id: web::Path<String>,
     node: web::Json<NodeWrite>,
@@ -435,6 +488,16 @@ pub fn handle_engine_api_request(
 
             EngineResponsePayload::Results(EngineResponseResults {
                 nodes,
+                ..Default::default()
+            })
+        }
+        EngineRequestPayload::GetAllEdges => {
+            let edges = engine.get_all_edges();
+            EngineResponsePayload::Results(EngineResponseResults {
+                edges: edges
+                    .iter()
+                    .map(|(k, v)| (**k, v.iter().map(|x| (*x.0, x.1.to_string())).collect()))
+                    .collect(),
                 ..Default::default()
             })
         }

@@ -870,6 +870,20 @@ impl Engine {
             }
         }
     }
+
+    pub fn get_all_edges(&self) -> HashMap<ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>> {
+        match self.edges.try_lock() {
+            Ok(edges) => edges
+                .data
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            Err(err) => {
+                error!("Error locking edges: {}", err);
+                HashMap::new()
+            }
+        }
+    }
 }
 
 // fn read_le_u32(input: &mut &[u8]) -> u32 {
