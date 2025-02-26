@@ -68,7 +68,7 @@ const Navbar: Component = () => {
 
       <nav class="flex items-center justify-end gap-6">
         <ToolTip text="Help">
-          <a href="/help">
+          <a href={`${location.pathname}#help`}>
             <svg
               class="w-6 h-6"
               viewBox="0 0 24 24"

@@ -4,6 +4,7 @@ import { useUIClasses } from "../../stores/UIClasses.tsx";
 import Sidebar from "./Sidebar.tsx";
 import ProjectForm from "../projects/ProjectForm.tsx";
 import { useLocation } from "@solidjs/router";
+import HelpModal from "../../routes/help/HelpModal.tsx";
 
 interface NavigationContainerProps {
   children: JSX.Element;
@@ -19,6 +20,9 @@ const NavigationContainer: Component<NavigationContainerProps> = (props) => {
       <div class="relative">
         {location.hash === "#createProject" && (
           <ProjectForm />
+        )}
+        {location.hash === "#help" && (
+          <HelpModal />
         )}
       </div>
       <div class="mt-20 flex-1 flex p-6 gap-6 w-ful">
