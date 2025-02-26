@@ -1,20 +1,20 @@
 import { Component, Show } from "solid-js";
 import { PerProjectRoutes } from "../../routes/RouteList.tsx";
 import { useUIClasses } from "../../stores/UIClasses";
-// import { useWorkspace } from "../../stores/workspace";
+import { useWorkspace } from "../../stores/workspace";
 import { useParams } from "@solidjs/router";
 
 const Sidebar: Component = () => {
   const [_, { getColors }] = useUIClasses();
-  // const [workspace] = useWorkspace();
+  const [workspace] = useWorkspace();
   const params = useParams();
 
   return (
     <Show
       when={
-        // workspace.isReady &&
-        // workspace.settingsStatus?.type === "Complete" &&
-        // workspace.projects &&
+        workspace.isReady &&
+        workspace.settingsStatus?.type === "Complete" &&
+        workspace.projects &&
         !!params.projectId
       }
     >
