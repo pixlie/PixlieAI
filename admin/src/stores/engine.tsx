@@ -122,6 +122,33 @@ const makeStore = () => {
     });
   };
 
+  const fetchAllEdges = (projectId: string) => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch edges");
+      }
+      response.json().then((responsePayload: EngineResponsePayload) => {
+        if (responsePayload.type === "Results") {
+          setStore((existing: IEngineStore) => ({
+            ...existing,
+            projects: {
+              ...existing.projects,
+              [projectId]: {
+                ...existing.projects[projectId],
+                edges: responsePayload.data.edges,
+              },
+            },
+          }));
+        }
+      });
+    });
+  };
+
   const getRelatedNodes = (
     projectId: string,
     nodeId: number,
@@ -156,6 +183,7 @@ const makeStore = () => {
     {
       setProjectId,
       fetchNodesByLabel,
+      fetchAllEdges,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference
