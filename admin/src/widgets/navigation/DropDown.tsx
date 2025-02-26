@@ -1,11 +1,12 @@
 import { Component, createMemo, createSignal, For, Show } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
-import { useParams } from "@solidjs/router";
+import { useLocation, useParams } from "@solidjs/router";
 
 const DropDown: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
   const [workspace] = useWorkspace();
   const params = useParams();
+  const location = useLocation();
   const getProject = createMemo(() => {
     if (params.projectId && workspace.isReady && workspace.projects) {
       return workspace.projects.find(
@@ -15,33 +16,36 @@ const DropDown: Component = () => {
   });
   return (
     <div class="relative w-48">
+      <Show when={workspace.isReady &&
+        workspace.settingsStatus?.type === "Complete"}>
       <button
         type="button"
         onClick={() => setVisible(!visible())}
-        class="inline-flex items-center justify-between w-full px-3 rounded-md border border-gray-300 shadow-sm py-2.5 bg-white font-semibold text-md text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-offset-gray-100"
+        class="inline-flex items-center justify-between w-full gap-5 pl-3 pr-5 rounded-md border  shadow-sm py-2.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-offset-gray-100"
         id="options-menu"
         aria-expanded="true"
         aria-haspopup="true"
       >
-        {getProject()?.name || "Projects"}
+        <p class="flex-1 truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">
+          {getProject()?.name || "Projects"}
+        </p>
         <svg
-          class="w-5 h-5"
+          class="w-6 h-6"
           fill="none"
-        //   stroke="oklch(0.551 0.027 264.364)"
-            stroke="currentColor"
+          stroke="currentColor"
           viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
-            // stroke-width="1"
-            stroke-width="2.5"
+            stroke-width="2"
             d="M19 9l-7 7-7-7"
             transform={visible() ? "rotate(180 12 12)" : ""}
           ></path>
         </svg>
       </button>
+      </Show>
 
       <Show when={visible()}>
         <div
@@ -55,27 +59,15 @@ const DropDown: Component = () => {
             role="menu"
             aria-orientation="vertical"
             aria-labelledby="options-menu"
+
           >
             <div class="p-1.5 flex flex-col" role="none">
-              <For each={workspace.projects?.filter((project) => project.name !== getProject()?.name)}>
-                {(project) => (
-                  <a
-                    href={`/p/${project.uuid}/workflow`}
-                    onClick={() => setVisible(false)}
-                    class="block w-full rounded p-1.5 text-md text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    role="menuitem"
-                  >
-                    {project.name}
-                  </a>
-                )}
-              </For>
               <a
-                href="/p#createProject"
+                href={`${location.pathname}#createProject`}
                 onClick={() => setVisible(false)}
-                class="block flex items-center w-full rounded p-1.5 pl-1 gap-0.5 justify-center text-md font-bold text-violet-800 hover:bg-indigo-100"
+                class="flex items-center rounded p-1.5 pl-1 gap-0.5 text-blue-600 hover:bg-blue-100"
                 role="menuitem"
               >
-                {/* plus icon */}
                 <svg
                   class="w-5 h-5"
                   fill="none"
@@ -90,8 +82,27 @@ const DropDown: Component = () => {
                     d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                   ></path>
                 </svg>
-                New Project
+                <p class="text-sm font-semibold">New Project</p>
               </a>
+              <div class="border-b m-1.5"></div>
+              <For
+                each={workspace.projects?.filter(
+                  (project) => project.name !== getProject()?.name
+                )}
+              >
+                {(project) => (
+                  <a
+                    href={`/p/${project.uuid}/workflow`}
+                    onClick={() => setVisible(false)}
+                    class="block w-full rounded p-1.5 hover:bg-gray-100"
+                    role="menuitem"
+                  >
+                    <p class="flex-1 truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">
+                      {project.name}
+                    </p>
+                  </a>
+                )}
+              </For>
             </div>
           </div>
         </div>

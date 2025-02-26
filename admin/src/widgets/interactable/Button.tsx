@@ -7,6 +7,7 @@ interface IPropTypes {
   isBlock?: boolean;
   onClick?: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent>;
   href?: string;
+  color?: string;
 }
 
 const Button: Component<IPropTypes> = (props) => {
@@ -28,7 +29,7 @@ const Button: Component<IPropTypes> = (props) => {
     getSizeClass() +
     " rounded-md select-none cursor-pointer hover:shadow " +
     `${props.isBlock ? "w-full" : ""}` +
-    (props.label === 'Cancel' ? "bg-red-500 text-white" : getColors()["button"]);
+    (props.color ? ` ${props.color} text-white` : getColors()["button"]);
 
   if (!!props.href) {
     return (
