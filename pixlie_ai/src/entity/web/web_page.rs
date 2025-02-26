@@ -33,20 +33,19 @@ impl WebPage {
             PiError::InternalError("No related node ids found for WebPage node".to_string())
         })?;
 
-        let node = match engine.get_node_by_id(first_related_node_id) {
-            Some(node) => node,
+        match engine.get_node_by_id(first_related_node_id) {
+            Some(node) => match node.payload {
+                Payload::Link(ref link) => Ok((link.clone(), **first_related_node_id)),
+                _ => Err(PiError::GraphError(
+                    "Cannot find parent Link node for WebPage node".to_string(),
+                )),
+            },
             None => {
                 return Err(PiError::InternalError(format!(
                     "Node with id {} not found",
                     first_related_node_id
                 )))
             }
-        };
-        match node.payload {
-            Payload::Link(ref link) => return Ok((link.clone(), node_id.clone())),
-            _ => Err(PiError::GraphError(
-                "Cannot find parent Link node for WebPage node".to_string(),
-            )),
         }
     }
 

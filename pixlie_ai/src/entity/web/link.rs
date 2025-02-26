@@ -96,81 +96,66 @@ impl Link {
         engine: Arc<&Engine>,
         url: &str,
     ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
-        Ok(None)
-        // match Url::parse(url) {
-        //     // To find an existing link, we first find the existing domain node
-        //     Ok(parsed) => match parsed.domain() {
-        //         Some(domain) => {
-        //             match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
-        //                 Some((_domain_node, _domain_node_id)) => {
-        //                     // We found an existing domain node, now we check if the link exists
-        //                     // We match link node by path and query
-        //                     let path = parsed.path().to_string();
-        //                     let query = parsed.query().map(|q| q.to_string());
-        //
-        //                     match engine.node_ids_by_label.read() {
-        //                         Ok(node_ids_by_label) => {
-        //                             match node_ids_by_label.get(&Link::get_label().to_string()) {
-        //                                 Some(link_node_ids) => {
-        //                                     for node_id in link_node_ids {
-        //                                         match engine.get_node_by_id(node_id) {
-        //                                             Ok(node) => match node.payload {
-        //                                                 Payload::Link(link) => {
-        //                                                     if link.path == path
-        //                                                         && link.query == query
-        //                                                     {
-        //                                                         return Ok(Some((
-        //                                                             link.clone(),
-        //                                                             node_id.clone(),
-        //                                                         )));
-        //                                                     }
-        //                                                 }
-        //                                                 _ => {}
-        //                                             },
-        //                                             Err(_) => {}
-        //                                         }
-        //                                     }
-        //                                     Ok(None)
-        //                                 }
-        //                                 None => {
-        //                                     error!("Could not read node_ids_by_label");
-        //                                     Err(PiError::InternalError(
-        //                                         "Could not read node_ids_by_label".to_string(),
-        //                                     ))
-        //                                 }
-        //                             }
-        //                         }
-        //                         Err(err) => {
-        //                             error!("Could not read node_ids_by_label: {}", err);
-        //                             Err(PiError::InternalError(format!(
-        //                                 "Could not read node_ids_by_label: {}",
-        //                                 err
-        //                             )))
-        //                         }
-        //                     }
-        //                 }
-        //                 None => {
-        //                     error!("Cannot find exiting domain node for URL {}", url);
-        //                     Ok(None)
-        //                 }
-        //             }
-        //         }
-        //         None => {
-        //             error!("Cannot parse URL {} to get domain", url);
-        //             Err(PiError::InternalError(format!(
-        //                 "Cannot parse URL {} to get domain",
-        //                 url
-        //             )))
-        //         }
-        //     },
-        //     Err(err) => {
-        //         error!("Cannot parse URL {} to get domain: {}", url, err);
-        //         Err(PiError::InternalError(format!(
-        //             "Cannot parse URL {} to get domain: {}",
-        //             url, err
-        //         )))
-        //     }
-        // }
+        match Url::parse(url) {
+            // To find an existing link, we first find the existing domain node
+            Ok(parsed) => match parsed.domain() {
+                Some(domain) => {
+                    match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
+                        Some((_domain_node, domain_node_id)) => {
+                            // We found an existing domain node, now we check if the link exists
+                            // We match link node by path and query
+                            let path = parsed.path().to_string();
+                            let query = parsed.query().map(|q| q.to_string());
+
+                            // We get all node IDs connected with the domain node
+                            let connected_node_ids: Vec<ArcedNodeId> = match engine
+                                .get_node_ids_connected_with_label(
+                                    &domain_node_id,
+                                    &CommonEdgeLabels::OwnerOf.to_string(),
+                                ) {
+                                Ok(connected_node_ids) => connected_node_ids,
+                                Err(err) => {
+                                    error!("Error getting connected node IDs: {}", err);
+                                    return Err(err);
+                                }
+                            };
+
+                            for node_id in connected_node_ids {
+                                if let Some(node) = engine.get_node_by_id(&node_id) {
+                                    match &node.payload {
+                                        Payload::Link(link) => {
+                                            if link.path == path && link.query == query {
+                                                return Ok(Some((node, node_id.clone())));
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            Ok(None)
+                        }
+                        None => {
+                            error!("Cannot find exiting domain node for URL {}", url);
+                            Ok(None)
+                        }
+                    }
+                }
+                None => {
+                    error!("Cannot parse URL {} to get domain", url);
+                    Err(PiError::InternalError(format!(
+                        "Cannot parse URL {} to get domain",
+                        url
+                    )))
+                }
+            },
+            Err(err) => {
+                error!("Cannot parse URL {} to get domain: {}", url, err);
+                Err(PiError::InternalError(format!(
+                    "Cannot parse URL {} to get domain: {}",
+                    url, err
+                )))
+            }
+        }
     }
 }
 

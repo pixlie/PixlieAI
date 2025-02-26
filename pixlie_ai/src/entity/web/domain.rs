@@ -3,7 +3,6 @@ use crate::error::{PiError, PiResult};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Instant;
 use ts_rs::TS;
 
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
@@ -57,20 +56,17 @@ impl Domain {
                         "No connected node ids found for Domain node".to_string(),
                     )
                 })?;
-                let node = match engine.get_node_by_id(first_belongs_to) {
-                    Some(node) => node,
-                    None => {
-                        return Err(PiError::InternalError(format!(
-                            "Node with id {} not found",
-                            first_belongs_to
-                        )))
-                    }
-                };
-                match node.payload {
-                    Payload::Domain(ref domain) => Ok(Some((node, first_belongs_to.clone()))),
-                    _ => Err(PiError::GraphError(
-                        "Cannot find domain node for URL".to_string(),
-                    )),
+                match engine.get_node_by_id(first_belongs_to) {
+                    Some(node) => match node.payload {
+                        Payload::Domain(_) => Ok(Some((node, first_belongs_to.clone()))),
+                        _ => Err(PiError::GraphError(
+                            "Cannot find domain node for URL".to_string(),
+                        )),
+                    },
+                    None => Err(PiError::InternalError(format!(
+                        "Node with id {} not found",
+                        first_belongs_to
+                    ))),
                 }
             }
         }
@@ -86,7 +82,7 @@ impl Domain {
         debug!("Checking if we can fetch within domain: {}", url);
         let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
             Self::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
-        let (domain, domain_node_id) = match existing_domain {
+        let (domain, _) = match existing_domain {
             Some(existing_domain) => existing_domain,
             None => {
                 error!("Cannot find domain node for URL {}", url);
