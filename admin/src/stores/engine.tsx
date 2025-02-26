@@ -18,6 +18,7 @@ const makeStore = () => {
         [projectId]: {
           nodes: {},
           nodeIdsByLabel: {},
+          edges: {},
         },
       },
     }));
@@ -127,21 +128,19 @@ const makeStore = () => {
     relatedNodeType: string,
   ): Array<APINodeItem> => {
     if (nodeId in store.projects[projectId].nodes) {
-      if (
-        relatedNodeType in store.projects[projectId].nodes[nodeId].edges &&
-        store.projects[projectId].nodes[nodeId].edges[relatedNodeType]
-      ) {
+      if (nodeId in store.projects[projectId].edges) {
         let nodes: Array<APINodeItem> = [];
         let nodesToBeFetched: Array<number> = [];
-        store.projects[projectId].nodes[nodeId].edges[relatedNodeType]?.forEach(
-          (nId: number) => {
+        for (const edge of store.projects[projectId].edges[nodeId]) {
+          let [nId, edgeLabel]: [number, string] = edge;
+          if (edgeLabel === relatedNodeType) {
             if (nId in store.projects[projectId].nodes) {
               nodes.push(store.projects[projectId].nodes[nId]);
             } else {
               nodesToBeFetched.push(nId);
             }
-          },
-        );
+          }
+        }
         if (nodesToBeFetched.length > 0) {
           fetchNodesByIds(projectId, nodesToBeFetched);
         }
