@@ -63,7 +63,7 @@ const DropDown: Component = () => {
           >
             <div class="p-1.5 flex flex-col" role="none">
               <a
-                href={`${location.pathname}#new-project`}
+                href={`${location.pathname}#createProject`}
                 onClick={() => setVisible(false)}
                 class="flex items-center rounded p-1.5 pl-1 gap-0.5 text-blue-600 hover:bg-blue-100"
                 role="menuitem"

@@ -17,7 +17,7 @@ const NavigationContainer: Component<NavigationContainerProps> = (props) => {
     <div class={"relative isolate flex h-dvh w-dvw " + getColors().app}>
       <Navbar />
       <div class="relative">
-        {location.hash === "#new-project" && (
+        {location.hash === "#createProject" && (
           <ProjectForm />
         )}
       </div>

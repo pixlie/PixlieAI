@@ -2,21 +2,15 @@ import { Component, createSignal } from "solid-js";
 import TextInput from "../interactable/TextInput.tsx";
 import TextArea from "../interactable/TextArea.tsx";
 import Drawer from "../overlay/Drawer.tsx";
-import { DisplayAs, IFormFieldValue } from "../../utils/types.tsx";
+import { IFormFieldValue } from "../../utils/types.tsx";
 import Button from "../interactable/Button.tsx";
 import Label from "../interactable/Label.tsx";
-import Heading from "../typography/Heading.tsx";
 import { ProjectCreate } from "../../api_types/ProjectCreate.ts";
 import { LinkWrite } from "../../api_types/LinkWrite.ts";
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 
-interface IPropTypes {
-  displayAs: DisplayAs;
-  onClose?: () => void;
-  projectId?: string;
-}
 
 interface IProjectFormData {
   name: string;
@@ -27,6 +21,7 @@ interface IProjectFormData {
 
 const ProjectForm: Component = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = createSignal<IProjectFormData>({
     name: "",
     description: "",
@@ -113,7 +108,11 @@ const ProjectForm: Component = () => {
   const Footer: Component = () => {
     return (
       <div class="space-x-2">
-        <Button size="sm" label="Cancel" onClick={() => navigate('/')} />
+        <Button
+          size="sm"
+          label="Cancel"
+          onClick={() => navigate(location.pathname)}
+        />
         <Button size="sm" label="Save" onClick={handleFormSubmit} />
       </div>
     );
@@ -121,15 +120,15 @@ const ProjectForm: Component = () => {
 
   return (
     <>
-  <div class="relative">
+      <div class="relative">
         <Drawer
           title={title}
           subtitle={subtitle}
           content={<Content />}
           footer={<Footer />}
-          onClose={() => navigate('/')}
+          onClose={() => navigate(location.pathname)}
         />
-</div>
+      </div>
     </>
   );
 };
