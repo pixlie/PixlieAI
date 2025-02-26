@@ -107,10 +107,11 @@ const ProjectForm: Component = () => {
 
   const Footer: Component = () => {
     return (
-      <div class="space-x-2">
+      <div class="space-x-3">
         <Button
           size="sm"
           label="Cancel"
+          color="bg-red-500"
           onClick={() => navigate(location.pathname)}
         />
         <Button size="sm" label="Save" onClick={handleFormSubmit} />
