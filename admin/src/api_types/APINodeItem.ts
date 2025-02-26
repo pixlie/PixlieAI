@@ -5,6 +5,5 @@ export type APINodeItem = {
   id: number;
   labels: Array<string>;
   payload: APIPayload;
-  edges: { [key in string]?: Array<number> };
   written_at: string;
 };

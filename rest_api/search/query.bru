@@ -1,17 +1,13 @@
 meta {
   name: query
   type: http
-  seq: 4
+  seq: 2
 }
 
 get {
-  url: {{api}}/engine/{{project_id}}/nodes?label=SearchTerm
+  url: {{api}}/engine/{{project_id}}/query/10
   body: none
   auth: none
-}
-
-params:query {
-  label: SearchTerm
 }
 
 headers {

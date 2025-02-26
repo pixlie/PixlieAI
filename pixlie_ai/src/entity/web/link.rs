@@ -1,15 +1,14 @@
 use crate::engine::{
-    CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId, Node, NodeId, NodeLabel,
-    Payload,
+    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
+    Node, NodeId, NodeLabel, Payload,
 };
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
-use crate::utils::fetcher::FetchEvent;
+use crate::ExternalData;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::thread;
 use ts_rs::TS;
 use url::Url;
 
@@ -47,7 +46,6 @@ impl Link {
                 Payload::Domain(Domain {
                     name: domain.to_string(),
                     is_allowed_to_crawl: is_domain_allowed_to_crawl,
-                    last_fetched_at: None,
                 }),
                 domain_extra_labels,
                 should_add_new_domain,
@@ -70,7 +68,7 @@ impl Link {
                 CommonEdgeLabels::OwnerOf.to_string(),
                 CommonEdgeLabels::BelongsTo.to_string(),
             ),
-        );
+        )?;
         Ok(link_node_id)
     }
 
@@ -97,58 +95,44 @@ impl Link {
     pub(crate) fn find_existing(
         engine: Arc<&Engine>,
         url: &str,
-    ) -> PiResult<Option<(Link, NodeId)>> {
+    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
         match Url::parse(url) {
             // To find an existing link, we first find the existing domain node
             Ok(parsed) => match parsed.domain() {
                 Some(domain) => {
                     match Domain::find_existing(engine.clone(), FindDomainOf::DomainName(domain))? {
-                        Some((_domain_node, _domain_node_id)) => {
+                        Some((_domain_node, domain_node_id)) => {
                             // We found an existing domain node, now we check if the link exists
                             // We match link node by path and query
                             let path = parsed.path().to_string();
                             let query = parsed.query().map(|q| q.to_string());
 
-                            match engine.node_ids_by_label.read() {
-                                Ok(node_ids_by_label) => {
-                                    match node_ids_by_label.get(&Link::get_label().to_string()) {
-                                        Some(link_node_ids) => {
-                                            for node_id in link_node_ids {
-                                                match engine.get_node_by_id(node_id) {
-                                                    Ok(node) => match node.payload {
-                                                        Payload::Link(link) => {
-                                                            if link.path == path
-                                                                && link.query == query
-                                                            {
-                                                                return Ok(Some((
-                                                                    link.clone(),
-                                                                    node_id.clone(),
-                                                                )));
-                                                            }
-                                                        }
-                                                        _ => {}
-                                                    },
-                                                    Err(_) => {}
-                                                }
+                            // We get all node IDs connected with the domain node
+                            let connected_node_ids: Vec<ArcedNodeId> = match engine
+                                .get_node_ids_connected_with_label(
+                                    &domain_node_id,
+                                    &CommonEdgeLabels::OwnerOf.to_string(),
+                                ) {
+                                Ok(connected_node_ids) => connected_node_ids,
+                                Err(err) => {
+                                    error!("Error getting connected node IDs: {}", err);
+                                    return Err(err);
+                                }
+                            };
+
+                            for node_id in connected_node_ids {
+                                if let Some(node) = engine.get_node_by_id(&node_id) {
+                                    match &node.payload {
+                                        Payload::Link(link) => {
+                                            if link.path == path && link.query == query {
+                                                return Ok(Some((node, node_id.clone())));
                                             }
-                                            Ok(None)
                                         }
-                                        None => {
-                                            error!("Could not read node_ids_by_label");
-                                            Err(PiError::InternalError(
-                                                "Could not read node_ids_by_label".to_string(),
-                                            ))
-                                        }
+                                        _ => {}
                                     }
                                 }
-                                Err(err) => {
-                                    error!("Could not read node_ids_by_label: {}", err);
-                                    Err(PiError::InternalError(format!(
-                                        "Could not read node_ids_by_label: {}",
-                                        err
-                                    )))
-                                }
                             }
+                            Ok(None)
                         }
                         None => {
                             error!("Cannot find exiting domain node for URL {}", url);
@@ -180,67 +164,63 @@ impl Node for Link {
         "Link".to_string()
     }
 
-    fn process(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
+    fn process(
+        &self,
+        engine: Arc<&Engine>,
+        node_id: &NodeId,
+        data_from_previous_request: Option<ExternalData>,
+    ) -> PiResult<()> {
         // Download the linked URL and add a new WebPage node
         if self.is_fetched {
             return Ok(());
         }
 
         let url = self.get_full_link();
-        let link = self.clone();
-        thread::scope(|scope| {
-            scope.spawn(|| match engine.fetch_url(&url, &node_id) {
-                Ok(rx) => match rx.recv() {
-                    Ok(event) => match event {
-                        FetchEvent::FetchResponse(_id, _url, contents) => {
-                            debug!("Fetched HTML from {}", &url);
-                            let content_node_id = match engine.get_or_add_node(
-                                Payload::FileHTML(WebPage {
-                                    contents,
-                                    ..Default::default()
-                                }),
-                                vec![],
-                                true,
-                            ) {
-                                Ok(existing_or_new_node_id) => match existing_or_new_node_id {
-                                    ExistingOrNewNodeId::Existing(id) => id,
-                                    ExistingOrNewNodeId::Pending(id) => id,
-                                    ExistingOrNewNodeId::New(id) => id,
-                                },
-                                Err(err) => {
-                                    error!("Error adding node: {}", err);
-                                    return;
-                                }
-                            };
-                            engine.add_connection(
-                                (node_id.clone(), content_node_id),
-                                (
-                                    CommonEdgeLabels::PathOf.to_string(),
-                                    CommonEdgeLabels::ContentOf.to_string(),
-                                ),
-                            );
-                            engine.update_node(
-                                &node_id,
-                                Payload::Link(Link {
-                                    is_fetched: true,
-                                    ..link
-                                }),
-                            );
-                        }
-                        _ => {}
+        match data_from_previous_request {
+            Some(ExternalData::Text(contents)) => {
+                // We have received the contents of the URL from the previous request
+                debug!("Fetched HTML from {}", &url);
+                let content_node_id = match engine.get_or_add_node(
+                    Payload::FileHTML(WebPage {
+                        contents,
+                        ..Default::default()
+                    }),
+                    vec![],
+                    true,
+                ) {
+                    Ok(existing_or_new_node_id) => match existing_or_new_node_id {
+                        ExistingOrNewNodeId::Existing(id) => id,
+                        ExistingOrNewNodeId::New(id) => id,
                     },
-                    Err(_err) => {
-                        error!("Can not fetch HTML from {}", &url);
+                    Err(err) => {
+                        error!("Error adding node: {}", err);
+                        return Err(err);
                     }
-                },
-                Err(_err) => {
-                    error!("Can not fetch HTML from {}", &url);
+                };
+                engine.add_connection(
+                    (node_id.clone(), content_node_id),
+                    (
+                        CommonEdgeLabels::PathOf.to_string(),
+                        CommonEdgeLabels::ContentOf.to_string(),
+                    ),
+                )?;
+                let link = self.clone();
+                engine.update_node(
+                    &node_id,
+                    Payload::Link(Link {
+                        is_fetched: true,
+                        ..link
+                    }),
+                )?;
+            }
+            None => match engine.fetch_url(&url, &node_id) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error fetching URL: {}", err);
+                    return Err(err);
                 }
-            });
-        });
-
-        // Returning to the engine, the crawl will continue in the separate thread
-        debug!("Returning from Link node: {}", self.path);
+            },
+        }
         Ok(())
     }
 }

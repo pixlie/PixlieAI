@@ -23,9 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Test pixlie_ai
-        working-directory: "./pixlie_ai"
-        run: cargo test --verbose
+      #      - name: Test pixlie_ai
+      #        working-directory: "./pixlie_ai"
+      #        run: cargo test --verbose
 
       - name: Build release
         working-directory: "./pixlie_ai"

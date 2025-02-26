@@ -1,14 +1,13 @@
-import { Component, createEffect, createMemo } from "solid-js";
+import { Component, createEffect, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
-// import Tabs from "../../widgets/navigation/Tab";
 import { useParams, useSearchParams } from "@solidjs/router";
 
 const labelTypes: string[] = ["Domain", "Link"];
 type LabelType = (typeof labelTypes)[number];
 
 const Crawl: Component = () => {
-  const [engine, { fetchNodesByLabel }] = useEngine();
+  const [engine, { fetchNodesByLabel, fetchAllEdges }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
 
@@ -34,6 +33,10 @@ const Crawl: Component = () => {
   //     searchParamValue: l,
   //   })),
   // );
+
+  onMount(() => {
+    fetchAllEdges(params.projectId);
+  });
 
   createEffect(() => {
     if (!!searchParams.label) {

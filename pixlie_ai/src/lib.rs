@@ -32,14 +32,26 @@ impl PiChannel {
 }
 
 #[derive(Clone)]
+pub enum ExternalData {
+    Text(String),
+}
+
+#[derive(Clone)]
 pub enum PiEvent {
-    NeedsToTick,
-    TickMeLater(String), // This is sent from engine to main thread
     SettingsUpdated,
     SetupGliner,
     FinishedSetupGliner,
-    EngineExit(String), // The engine has nothing else to do, so it gives up
+
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
+
+    FetchRequest(String, u32, String),
+    FetchResponse(String, u32, String, ExternalData),
+    FetchError(String, u32, String),
+
+    NeedsToTick,
+    TickMeLater(String), // This is sent from engine to main thread
+    EngineExit(String),  // The engine has nothing else to do, so it gives up
+
     Shutdown,
 }

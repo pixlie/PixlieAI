@@ -1409,7 +1409,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustls",
- "rustls-native-certs 0.8.1",
+ "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
@@ -1434,9 +1434,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.8"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da62f120a8a37763efb0cf8fdf264b884c7b8b9ac8660b900c8661030c00e6ba"
+checksum = "df2dcfbe0677734ab2f3ffa7fa7bfd4706bfdc1ef393f2ee30184aed67e631b4"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1447,7 +1447,6 @@ dependencies = [
  "pin-project-lite",
  "socket2",
  "tokio",
- "tower",
  "tower-service",
  "tracing",
 ]
@@ -1716,14 +1715,13 @@ dependencies = [
 
 [[package]]
 name = "librocksdb-sys"
-version = "0.16.0+8.10.0"
+version = "0.17.1+9.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce3d60bc059831dc1c83903fb45c103f75db65c5a7bf22272764d9cc683e348c"
+checksum = "2b7869a512ae9982f4d46ba482c2a304f1efd80c6412a3d4bf57bb79a619679f"
 dependencies = [
  "bindgen",
  "bzip2-sys",
  "cc",
- "glob",
  "libc",
  "libz-sys",
 ]
@@ -2209,26 +2207,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pin-project"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6bf43b791c5b9e34c3d182969b4abb522f9343702850a2e57f460d00d09b4b3"
-dependencies = [
- "pin-project-internal",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f38a4412a78282e09a2cf38d195ea5420d15ba0602cb375210efbc877243965"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2577,9 +2555,9 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 
 [[package]]
 name = "reqwest"
-version = "0.12.7"
+version = "0.12.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
+checksum = "43e734407157c3c2034e0258f5e4473ddb361b1e85f95a66690d67264d7cd1da"
 dependencies = [
  "async-compression",
  "base64",
@@ -2608,7 +2586,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls",
- "rustls-native-certs 0.7.3",
+ "rustls-native-certs",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
@@ -2620,6 +2598,7 @@ dependencies = [
  "tokio-native-tls",
  "tokio-rustls",
  "tokio-util",
+ "tower",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -2646,9 +2625,9 @@ dependencies = [
 
 [[package]]
 name = "rocksdb"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bd13e55d6d7b8cd0ea569161127567cd587676c99f4472f779a0279aa60a7a7"
+checksum = "26ec73b20525cb235bad420f911473b69f9fe27cc856c5461bccd7e4af037f43"
 dependencies = [
  "libc",
  "librocksdb-sys",
@@ -2708,19 +2687,6 @@ dependencies = [
  "rustls-webpki",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "rustls-native-certs"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5bfb394eeed242e909609f56089eecfe5fda225042e8b171791b9c95f5931e5"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile",
- "rustls-pki-types",
- "schannel",
- "security-framework 2.11.1",
 ]
 
 [[package]]
@@ -3594,14 +3560,14 @@ dependencies = [
 
 [[package]]
 name = "tower"
-version = "0.4.13"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
+checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
- "pin-project",
  "pin-project-lite",
+ "sync_wrapper",
  "tokio",
  "tower-layer",
  "tower-service",
