@@ -15,7 +15,7 @@ const Navbar: Component = () => {
     >
       <div class="flex items-center gap-6">
         <a
-          href="/p"
+          href="/"
           class={
             "text-4xl font-bold flex items-center gap-6 " +
             getColors()["navBar.logo"]
@@ -70,7 +70,7 @@ const Navbar: Component = () => {
         <ToolTip text="Help">
           <a href="/help">
             <svg
-              class="w-7 h-7"
+              class="w-6 h-6"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -87,7 +87,7 @@ const Navbar: Component = () => {
         <ToolTip text="Settings">
           <a href="/settings">
             <svg
-              class="w-7 h-7"
+              class="w-6 h-6"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

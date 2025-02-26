@@ -2,6 +2,8 @@ import { Component, JSX } from "solid-js";
 import Navbar from "./Navbar.tsx";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import Sidebar from "./Sidebar.tsx";
+import ProjectForm from "../projects/ProjectForm.tsx";
+import { useLocation } from "@solidjs/router";
 
 interface NavigationContainerProps {
   children: JSX.Element;
@@ -9,10 +11,16 @@ interface NavigationContainerProps {
 
 const NavigationContainer: Component<NavigationContainerProps> = (props) => {
   const [_, { getColors }] = useUIClasses();
+  const location = useLocation();
 
   return (
     <div class={"relative isolate flex h-dvh w-dvw " + getColors().app}>
       <Navbar />
+      <div class="relative">
+        {location.hash === "#new-project" && (
+          <ProjectForm />
+        )}
+      </div>
       <div class="mt-20 flex-1 flex p-6 gap-6 w-ful">
         <Sidebar />
         <div

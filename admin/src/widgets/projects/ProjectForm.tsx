@@ -25,7 +25,7 @@ interface IProjectFormData {
   webpageKeywords: string; // One per line
 }
 
-const ProjectForm: Component<IPropTypes> = (props) => {
+const ProjectForm: Component = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = createSignal<IProjectFormData>({
     name: "",
@@ -113,7 +113,7 @@ const ProjectForm: Component<IPropTypes> = (props) => {
   const Footer: Component = () => {
     return (
       <div class="space-x-2">
-        <Button size="sm" label="Cancel" onClick={props.onClose} />
+        <Button size="sm" label="Cancel" onClick={() => navigate('/')} />
         <Button size="sm" label="Save" onClick={handleFormSubmit} />
       </div>
     );
@@ -121,20 +121,15 @@ const ProjectForm: Component<IPropTypes> = (props) => {
 
   return (
     <>
-      {props.displayAs === "Drawer" ? (
+  <div class="relative">
         <Drawer
           title={title}
           subtitle={subtitle}
           content={<Content />}
           footer={<Footer />}
-          onClose={props.onClose}
+          onClose={() => navigate('/')}
         />
-      ) : (
-        <>
-          <Heading size={2}>{title}</Heading>
-          <Content />
-        </>
-      )}
+</div>
     </>
   );
 };
