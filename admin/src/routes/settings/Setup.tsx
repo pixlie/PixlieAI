@@ -6,8 +6,7 @@ import { useWorkspace } from "../../stores/workspace";
 import Anthropic from "../../widgets/settings/Anthropic";
 
 const help = `
-To run Pixlie AI, we need a storage space on your computer,
-[Python](https://www.python.org/) and Ollama (or Anthropic's API key).
+To run Pixlie AI, we need a storage space on your computer and access to Anthropic. Soon, we will also support Ollama.
 `;
 
 const Setup: Component = () => {
@@ -16,7 +15,6 @@ const Setup: Component = () => {
   return (
     <div class="max-w-screen-sm">
       <Markdown text={help} />
-
       {workspace.isReady ? (
         <>
           <div class="mb-16" />
@@ -25,10 +23,10 @@ const Setup: Component = () => {
           {!!workspace.settings?.pathToStorageDir ? (
             <>
               <div class="mb-16" />
-              <Ollama />
+              <Anthropic />
 
               <div class="mb-16" />
-              <Anthropic />
+              <Ollama />
 
               <div class="mb-16" />
             </>
