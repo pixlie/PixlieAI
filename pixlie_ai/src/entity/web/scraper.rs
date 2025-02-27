@@ -17,7 +17,15 @@ impl WebPage {
         let existing_domain =
             Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
         let (domain, _domain_node_id) = match existing_domain {
-            Some(existing_domain) => existing_domain,
+            Some(existing_domain) => match existing_domain.0.payload {
+                Payload::Domain(ref payload) => (payload.clone(), existing_domain.1.clone()),
+                _ => {
+                    error!("Expected Domain type payload");
+                    return Err(PiError::GraphError(
+                        "Expected Domain type payload".to_string(),
+                    ));
+                }
+            },
             None => {
                 error!(
                     "Cannot find domain node for URL {}",
@@ -66,7 +74,7 @@ impl WebPage {
                             CommonEdgeLabels::ParentOf.to_string(),
                             CommonEdgeLabels::ChildOf.to_string(),
                         ),
-                    );
+                    )?;
                 }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = engine
@@ -89,7 +97,7 @@ impl WebPage {
                             CommonEdgeLabels::ParentOf.to_string(),
                             CommonEdgeLabels::ChildOf.to_string(),
                         ),
-                    );
+                    )?;
                 }
                 "p" => {
                     let paragraph_node_id = engine
@@ -113,7 +121,7 @@ impl WebPage {
                             CommonEdgeLabels::ParentOf.to_string(),
                             CommonEdgeLabels::ChildOf.to_string(),
                         ),
-                    );
+                    )?;
                 }
                 "ul" => {
                     let mut bullet_points: Vec<String> = vec![];
@@ -147,7 +155,7 @@ impl WebPage {
                             CommonEdgeLabels::ParentOf.to_string(),
                             CommonEdgeLabels::ChildOf.to_string(),
                         ),
-                    );
+                    )?;
                 }
                 "ol" => {
                     let mut ordered_points: Vec<String> = vec![];
@@ -181,7 +189,7 @@ impl WebPage {
                             CommonEdgeLabels::ParentOf.to_string(),
                             CommonEdgeLabels::ChildOf.to_string(),
                         ),
-                    );
+                    )?;
                 }
                 "a" => {
                     if child.value().attr("href").is_none() {

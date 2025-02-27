@@ -5,5 +5,7 @@ export type EngineRequestPayload =
   | "GetLabels"
   | { GetNodesWithLabel: string }
   | { GetNodesWithIds: Array<number> }
+  | "GetAllNodes"
+  | "GetAllEdges"
   | { CreateNode: NodeWrite }
   | { Query: number };

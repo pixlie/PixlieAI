@@ -1,6 +1,5 @@
 use crate::engine::{CommonNodeLabels, Engine, Node, NodeId, NodeItem, Payload};
-use crate::error::{PiError, PiResult};
-use log::error;
+use crate::error::PiResult;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -67,59 +66,51 @@ impl Node for SearchTerm {
 
     fn query(&self, engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<Vec<NodeItem>> {
         // We search all the content nodes in the engine for the search term
-        let mut results: Vec<NodeItem> = vec![];
-        match engine.nodes.read() {
-            Ok(nodes) => {
-                for (id, node) in nodes.iter() {
-                    match node.read() {
-                        Ok(node) => match node.payload {
-                            Payload::Title(ref title) => {
-                                if title.0.to_ascii_lowercase().contains(&self.0.to_lowercase()) {
-                                    results.push(NodeItem {
-                                        id: id.clone(),
-                                        labels: node.labels.clone(),
-                                        payload: node.payload.clone(),
-                                        edges: node.edges.clone(),
-                                        written_at: node.written_at.clone(),
-                                    });
-                                }
-                            }
-                            Payload::Heading(ref heading) => {
-                                if heading.0.to_lowercase().contains(&self.0.to_lowercase()) {
-                                    results.push(NodeItem {
-                                        id: id.clone(),
-                                        labels: node.labels.clone(),
-                                        payload: node.payload.clone(),
-                                        edges: node.edges.clone(),
-                                        written_at: node.written_at.clone(),
-                                    });
-                                }
-                            }
-                            Payload::Paragraph(ref paragraph) => {
-                                if paragraph.0.to_lowercase().contains(&self.0.to_lowercase()) {
-                                    results.push(NodeItem {
-                                        id: id.clone(),
-                                        labels: node.labels.clone(),
-                                        payload: node.payload.clone(),
-                                        edges: node.edges.clone(),
-                                        written_at: node.written_at.clone(),
-                                    });
-                                }
-                            }
-                            _ => {}
-                        },
-                        Err(_err) => {}
-                    }
+        let results: Vec<Option<NodeItem>> = engine.map_nodes(|id, node| match node.payload {
+            Payload::Title(ref title) => {
+                if title.0.to_lowercase().contains(&self.0.to_lowercase()) {
+                    Some(NodeItem {
+                        id: **id,
+                        labels: node.labels.clone(),
+                        payload: node.payload.clone(),
+                        written_at: node.written_at.clone(),
+                    })
+                } else {
+                    None
                 }
             }
-            Err(err) => {
-                error!("Error reading nodes: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error reading nodes: {}",
-                    err
-                )));
+            Payload::Heading(ref heading) => {
+                if heading.0.to_lowercase().contains(&self.0.to_lowercase()) {
+                    Some(NodeItem {
+                        id: **id,
+                        labels: node.labels.clone(),
+                        payload: node.payload.clone(),
+                        written_at: node.written_at.clone(),
+                    })
+                } else {
+                    None
+                }
             }
-        }
-        Ok(results)
+            Payload::Paragraph(ref paragraph) => {
+                if paragraph.0.to_lowercase().contains(&self.0.to_lowercase()) {
+                    Some(NodeItem {
+                        id: **id,
+                        labels: node.labels.clone(),
+                        payload: node.payload.clone(),
+                        written_at: node.written_at.clone(),
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })?;
+        Ok(results
+            .iter()
+            .filter_map(|x| match x {
+                Some(node) => Some(node.clone()),
+                None => None,
+            })
+            .collect())
     }
 }

@@ -18,6 +18,7 @@ const makeStore = () => {
         [projectId]: {
           nodes: {},
           nodeIdsByLabel: {},
+          edges: {},
         },
       },
     }));
@@ -121,27 +122,52 @@ const makeStore = () => {
     });
   };
 
+  const fetchAllEdges = (projectId: string) => {
+    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch edges");
+      }
+      response.json().then((responsePayload: EngineResponsePayload) => {
+        if (responsePayload.type === "Results") {
+          setStore((existing: IEngineStore) => ({
+            ...existing,
+            projects: {
+              ...existing.projects,
+              [projectId]: {
+                ...existing.projects[projectId],
+                edges: responsePayload.data.edges,
+              },
+            },
+          }));
+        }
+      });
+    });
+  };
+
   const getRelatedNodes = (
     projectId: string,
     nodeId: number,
     relatedNodeType: string,
   ): Array<APINodeItem> => {
     if (nodeId in store.projects[projectId].nodes) {
-      if (
-        relatedNodeType in store.projects[projectId].nodes[nodeId].edges &&
-        store.projects[projectId].nodes[nodeId].edges[relatedNodeType]
-      ) {
+      if (nodeId in store.projects[projectId].edges) {
         let nodes: Array<APINodeItem> = [];
         let nodesToBeFetched: Array<number> = [];
-        store.projects[projectId].nodes[nodeId].edges[relatedNodeType]?.forEach(
-          (nId: number) => {
+        for (const edge of store.projects[projectId].edges[nodeId]) {
+          let [nId, edgeLabel]: [number, string] = edge;
+          if (edgeLabel === relatedNodeType) {
             if (nId in store.projects[projectId].nodes) {
               nodes.push(store.projects[projectId].nodes[nId]);
             } else {
               nodesToBeFetched.push(nId);
             }
-          },
-        );
+          }
+        }
         if (nodesToBeFetched.length > 0) {
           fetchNodesByIds(projectId, nodesToBeFetched);
         }
@@ -157,6 +183,7 @@ const makeStore = () => {
     {
       setProjectId,
       fetchNodesByLabel,
+      fetchAllEdges,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference
