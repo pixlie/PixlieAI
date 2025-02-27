@@ -1,5 +1,5 @@
 use super::{
-    ArcedEdgeLabel, ArcedNodeId, EdgeLabel, Engine, Node, NodeId, NodeItem, NodeLabel, Payload,
+    EdgeLabel, Engine, Node, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,

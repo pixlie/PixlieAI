@@ -18,7 +18,6 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use actix_web::web::service;
 
 const API_ROOT: &str = "/api";
 
