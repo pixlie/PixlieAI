@@ -79,6 +79,9 @@ pub enum CommonEdgeLabels {
 
     OwnerOf, // When one node is the root path of another (like domain and path or folder and file)
     BelongsTo,
+
+    Suggests,  // When one node is suggested based on another
+    SuggestedFor,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

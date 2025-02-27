@@ -18,6 +18,46 @@ impl SearchTerm {
         )?;
         Ok(())
     }
+    pub fn find_existing(engine: Arc<&Engine>, search_term: &str) -> PiResult<Option<(SearchTerm, NodeId)>> {
+        match engine.node_ids_by_label.read() {
+            Ok(node_ids_by_label) => {
+                match node_ids_by_label.get(&Self::get_label()) {
+                    Some(node_ids) => {
+                        for node_id in node_ids {
+                            match engine.get_node_by_id(node_id) {
+                                Ok(node) => {
+                                    match node.payload {
+                                        Payload::SearchTerm(ref term) => {
+                                            if term.0 == search_term {
+                                                return Ok(Some((term.clone(), node_id.clone())));
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(err) => {
+                                    error!("Error reading SearchTerm node: {}", err);
+                                    return Err(PiError::InternalError(format!(
+                                        "Error reading SearchTerm node: {}",
+                                        err
+                                    )));
+                                }
+                            }
+                        }
+                        Ok(None)
+                    }
+                    None => Ok(None),
+                }
+            }
+            Err(err) => {
+                error!("Error reading node_ids_by_label: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error reading node_ids_by_label: {}",
+                    err
+                )));
+            }
+        }
+    }
 }
 
 impl Node for SearchTerm {

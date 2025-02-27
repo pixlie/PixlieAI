@@ -12,6 +12,7 @@ import { useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
+import { TopicWrite } from "../../api_types/TopicWrite.ts";
 
 interface IPropTypes {
   displayAs: DisplayAs;
@@ -69,12 +70,14 @@ const ProjectForm: Component<IPropTypes> = (props) => {
             Link: {
               url,
             } as LinkWrite,
-          });
+          } as NodeWrite);
         }
 
         if (!!formData().topic) {
           insertNode(item.uuid, {
-            Topic: formData().topic,
+            Topic: {
+              topic: formData().topic
+            } as TopicWrite,
           } as NodeWrite);
         }
 

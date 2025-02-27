@@ -1,5 +1,7 @@
 use super::{EdgeLabel, ExistingOrNewNodeId, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::api::handle_engine_api_request;
+use crate::entity::search::SearchTerm;
+use crate::entity::topic::Topic;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
@@ -214,6 +216,14 @@ impl Engine {
                                 Ok(_) => {}
                                 Err(err) => {
                                     error!("Error processing WebPage: {}", err);
+                                }
+                            }
+                        }
+                        Payload::Topic(ref payload) => {
+                            match payload.process(engine.clone(), &node_id) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("Error processing Topic: {}", err);
                                 }
                             }
                         }
@@ -558,6 +568,30 @@ impl Engine {
                     None => None,
                 }
             }
+            Payload::Topic(ref topic) => {
+                let existing = match Topic::find_existing(engine, &topic.topic) {
+                    Ok(topic) => topic,
+                    Err(_err) => {
+                        return None;
+                    }
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
+                }
+            }
+            Payload::SearchTerm(ref search_term) => {
+                let existing = match SearchTerm::find_existing(engine, &search_term.0) {
+                    Ok(search_term) => search_term,
+                    Err(_err) => {
+                        return None;
+                    }
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
+                }
+            }
             _ => None,
         }
     }
@@ -640,6 +674,15 @@ impl Engine {
                     break;
                 }
             };
+            let node_payload = match node.clone().payload {
+                Payload::Domain(domain) => domain.name.clone(),
+                Payload::Link(link) => link.path.clone(),
+                Payload::Topic(topic) => topic.topic.clone(),
+                Payload::SearchTerm(search_term) => search_term.0.clone(),
+                _ => "".to_string(),
+                
+            };
+            debug!("Loaded node {} of type {} with payload {}", node.id.to_string(), node.payload.to_string(), node_payload);
             // The first label if the type of the payload
             let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
             labels.extend(node.labels.iter().cloned());
