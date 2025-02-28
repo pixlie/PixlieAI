@@ -11,12 +11,15 @@ use crate::entity::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 
 pub mod api;
+mod edges;
 pub mod engine;
+mod nodes;
 pub mod setup;
 
 // use crate::entity::content::TypedData;
@@ -92,6 +95,27 @@ pub struct NodeItem {
     // pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
     pub written_at: DateTime<Utc>,
 }
+
+impl Ord for NodeItem {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for NodeItem {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for NodeItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for NodeItem {}
+
 pub type ArcedNodeItem = Arc<NodeItem>;
 
 pub trait Node {
@@ -142,4 +166,9 @@ impl ExistingOrNewNodeId {
             ExistingOrNewNodeId::New(id) => id.clone(),
         }
     }
+}
+
+pub(super) fn get_chunk_id_and_node_ids(id: &u32) -> (u32, Vec<u32>) {
+    let chunk_id = id / 100;
+    (chunk_id, (chunk_id * 100..(chunk_id * 100 + 100)).collect())
 }

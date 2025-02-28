@@ -18,7 +18,6 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use actix_web::web::service;
 
 const API_ROOT: &str = "/api";
 
@@ -137,7 +136,7 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         )
         .service(
             web::resource(format!("{}/engine/{{project_id}}/edges", API_ROOT))
-                .route(web::get().to(engine::api::get_edges))
+                .route(web::get().to(engine::api::get_edges)),
         )
         .service(
             web::resource(format!(
@@ -153,7 +152,7 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         )
         .service(
             web::resource(format!("{}/workspace", API_ROOT))
-                .route(web::get().to(workspace::api::read_default_workspace))
+                .route(web::get().to(workspace::api::read_default_workspace)),
         )
         .service(
             web::resource(format!("{}/workspace/{{workspace_id}}", API_ROOT))
