@@ -1,11 +1,15 @@
 use crate::engine::{get_chunk_id_and_node_ids, ArcedNodeId, ArcedNodeItem, NodeId, NodeItem};
-use crate::error::PiResult;
+use crate::error::{PiError, PiResult};
 use itertools::sorted;
 use log::{debug, error};
 use postcard::{from_bytes, to_allocvec};
-use rocksdb::DB;
+use rocksdb::{Options, SliceTransform, DB};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
+
+// const NODES_KEY_PREFIX: &str = "nodes/";
+const NODES_CHUNK_PREFIX: &str = "nodes/chunk/";
 
 pub(super) struct Nodes {
     pub(super) data: HashMap<ArcedNodeId, ArcedNodeItem>,
@@ -20,7 +24,7 @@ impl Nodes {
 
     pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
         // We store all nodes in the DB, in chunks
-        // Each chunk has up to 100 nodes, till modulus 100 is 0
+        // Each chunk has up to 100 nodes
         let mut chunk_id = 0;
         let mut chunk: Vec<(&ArcedNodeId, &ArcedNodeItem)> = vec![];
         for data in sorted(self.data.iter()) {
@@ -28,7 +32,7 @@ impl Nodes {
                 chunk.push(data);
             } else if chunk.len() == 100 {
                 db.put(
-                    to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
+                    format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
                     to_allocvec(&chunk)?,
                 )?;
                 chunk_id += 1;
@@ -37,21 +41,16 @@ impl Nodes {
         }
         if !chunk.is_empty() {
             db.put(
-                to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
+                format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
                 to_allocvec(&chunk)?,
             )?;
         }
-        db.put(
-            to_allocvec(&"nodes/last_chunk_id")?,
-            to_allocvec(&chunk_id)?,
-        )?;
-        debug!("Saved last chunk ID in DB to {}", chunk_id);
         Ok(())
     }
 
     pub(super) fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
         // We store this (and all other nodes in its chunk) node to DB
-        // in the chunk corresponding to the node ID modulus 100
+        // in the chunk corresponding to the node ID divided by 100
         // Create a chunk of data from the start node ID to the end node ID of this chunk
         let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
         let chunk: Vec<(&NodeId, &ArcedNodeItem)> = node_ids
@@ -62,51 +61,37 @@ impl Nodes {
             })
             .collect();
         db.put(
-            to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
+            format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
             to_allocvec(&chunk)?,
         )?;
         debug!("Saved chunk {} of length {} to DB", chunk_id, chunk.len());
-        // Read the saved chunk count from the DB and update if current chunk ID is more than the saved chunk count
-        match db.get(to_allocvec(&"nodes/last_chunk_id")?)? {
-            Some(last_chunk_id) => {
-                let last_chunk_id: u32 = from_bytes(&last_chunk_id)?;
-                if chunk_id > last_chunk_id {
-                    db.put(
-                        to_allocvec(&"nodes/last_chunk_id")?,
-                        to_allocvec(&chunk_id)?,
-                    )?;
-                    debug!("Updated chunk count to {}", chunk_id);
-                }
-            }
-            None => {
-                db.put(
-                    to_allocvec(&"nodes/last_chunk_id")?,
-                    to_allocvec(&chunk_id)?,
-                )?;
-                debug!("Updated chunk count to {}", chunk_id);
-            }
-        }
         Ok(())
     }
 
-    pub(super) fn load_all_from_disk(&mut self, db: &DB) -> PiResult<u32> {
-        let last_chunk_id: u32 = match db.get(to_allocvec(&"nodes/last_chunk_id")?)? {
-            Some(chunk_count) => from_bytes(&chunk_count)?,
-            None => {
-                error!("Cannot find last chunk ID in DB");
-                return Ok(0);
-            }
-        };
-        debug!("Last chunk ID found in DB: {}", last_chunk_id);
+    pub(super) fn load_all_from_disk(&mut self, db_path: &Path) -> PiResult<u32> {
+        let prefix_extractor = SliceTransform::create_fixed_prefix(NODES_CHUNK_PREFIX.len());
+        let mut opts = Options::default();
+        // TODO: Remove this and make sure that loading from disk is not called for new projects
+        opts.create_if_missing(true);
+        opts.set_prefix_extractor(prefix_extractor);
+        let db = DB::open(&opts, db_path)?;
         let mut last_node_id: NodeId = 0;
-        for chunk_id in 0..=last_chunk_id {
-            let chunk: Vec<(NodeId, NodeItem)> = from_bytes(
-                &db.get(to_allocvec(&format!("nodes/chunk/{}", chunk_id))?)?
-                    .unwrap(),
-            )?;
-            last_node_id = chunk.last().unwrap().0;
-            for (node_id, node) in chunk {
-                self.data.insert(Arc::new(node_id), Arc::new(node));
+        for chunk in db.prefix_iterator(NODES_CHUNK_PREFIX) {
+            match chunk {
+                Ok(chunk) => {
+                    let data: Vec<(NodeId, NodeItem)> = from_bytes(&chunk.1)?;
+                    last_node_id = data.last().unwrap().0;
+                    for (node_id, node) in data {
+                        self.data.insert(Arc::new(node_id), Arc::new(node));
+                    }
+                }
+                Err(err) => {
+                    error!("Error reading chunk from DB: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error reading chunk from DB: {}",
+                        err
+                    )));
+                }
             }
         }
         Ok(last_node_id)
@@ -128,7 +113,7 @@ mod tests {
     use std::default::Default;
 
     #[test]
-    fn test_save_to_disk() {
+    fn test_save_to_disk_and_load_from_disk() {
         let mut node_id: NodeId = 0;
         let payloads: Vec<Payload> = vec![
             Payload::Title(Title("Test Title".to_string())),
@@ -165,14 +150,14 @@ mod tests {
             })
             .collect();
 
-        let tempdir = tempfile::Builder::new()
+        let temp_dir = tempfile::Builder::new()
             .prefix("_path_for_rocksdb_storage2")
             .tempdir()
             .expect("Failed to create temporary path for the _path_for_rocksdb_storage2.");
-        let path = tempdir.path();
-        let db = DB::open_default(path).unwrap();
+        let db_path = temp_dir.path();
 
         {
+            let db = DB::open_default(db_path).unwrap();
             let mut db_nodes: Nodes = Nodes::new();
             // Insert all nodes into the DB
             nodes.iter().for_each(|node| {
@@ -188,7 +173,7 @@ mod tests {
         {
             let mut db_nodes = Nodes::new();
             // Load data from disk and check that it is the same as the original
-            db_nodes.load_all_from_disk(&db).unwrap();
+            db_nodes.load_all_from_disk(&db_path).unwrap();
 
             for node in nodes.iter() {
                 // Check the ID and payload of each node against the one in the DB
@@ -262,15 +247,15 @@ mod tests {
                 }
             }
 
+            let db = DB::open_default(db_path).unwrap();
             db_nodes.save_all_to_disk(&db).unwrap();
         }
 
         // Check this again
-
         {
             let mut db_nodes = Nodes::new();
             // Load data from disk and check that it is the same as the original
-            db_nodes.load_all_from_disk(&db).unwrap();
+            db_nodes.load_all_from_disk(&db_path).unwrap();
 
             for node in nodes.iter() {
                 // Check the ID and payload of each node against the one in the DB
@@ -343,8 +328,6 @@ mod tests {
                     _ => {}
                 }
             }
-
-            db_nodes.save_all_to_disk(&db).unwrap();
         }
     }
 }

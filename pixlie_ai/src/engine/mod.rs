@@ -17,6 +17,7 @@ use strum::Display;
 use ts_rs::TS;
 
 pub mod api;
+mod edges;
 pub mod engine;
 mod nodes;
 pub mod setup;
