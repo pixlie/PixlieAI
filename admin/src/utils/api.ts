@@ -71,3 +71,31 @@ export const insertNode = (projectId: string, node: NodeWrite) => {
     }
   });
 };
+
+export const utcStringToLocaleStringAgo = (utcString: string | null | undefined) => {
+  if (!utcString) {
+    return "-";
+  }
+  let date = new Date(utcString);
+  let diff = new Date().getTime() - date.getTime();
+  let seconds = Math.floor(diff / 1000);
+  if (seconds < 60) {
+    return "Just now";
+  }
+  let minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} mins ago`;
+  }
+  let hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hours ago`;
+  }
+  let days = Math.floor(hours / 24);
+  if (days < 30) {
+    return `${days} days ago`;
+  }
+  let months = Math.floor(days / 30);
+  if (months < 12) {
+    return `${months} months ago`;
+  }
+}
