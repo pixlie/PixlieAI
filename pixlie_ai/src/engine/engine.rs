@@ -3,12 +3,12 @@ use super::{
     Node, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::api::handle_engine_api_request;
+use crate::engine::nodes::Nodes;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
-use itertools::{sorted, Itertools};
 use log::{debug, error};
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
@@ -20,62 +20,6 @@ use std::{
 
 pub(crate) struct Labels {
     data: HashSet<ArcedNodeLabel>,
-}
-
-fn get_chunk_id_and_node_ids(id: &u32) -> (u32, Vec<u32>) {
-    let chunk_id = id / 100;
-    (chunk_id, (chunk_id * 100..(chunk_id * 100 + 100)).collect())
-}
-
-pub(crate) struct Nodes {
-    data: HashMap<ArcedNodeId, ArcedNodeItem>,
-}
-
-impl Nodes {
-    fn new() -> Nodes {
-        Nodes {
-            data: HashMap::new(),
-        }
-    }
-
-    fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
-        // We store all nodes in the DB, in chunks
-        // Each chunk has up to 100 nodes, till modulus 100 is 0
-        let mut chunk_id = 0;
-        let mut chunk: Vec<(&ArcedNodeId, &ArcedNodeItem)> = vec![];
-        for data in sorted(self.data.iter()) {
-            if chunk.len().rem_euclid(100) == 0 {
-                db.put(
-                    to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
-                    to_allocvec(&chunk)?,
-                )?;
-                chunk_id += 1;
-                chunk = vec![];
-            } else {
-                chunk.push(data);
-            }
-        }
-        Ok(())
-    }
-
-    fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
-        // We store this (and all other nodes in its chunk) node to DB
-        // in the chunk corresponding to the node ID modulus 100
-        // Create a chunk of data from the start node ID to the end node ID of this chunk
-        let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
-        let chunk: Vec<(&NodeId, &ArcedNodeItem)> = node_ids
-            .iter()
-            .filter_map(|x_node_id| match self.data.get(x_node_id) {
-                Some(node) => Some((x_node_id, node)),
-                None => None,
-            })
-            .collect();
-        db.put(
-            to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
-            to_allocvec(&chunk)?,
-        )?;
-        Ok(())
-    }
 }
 
 impl Labels {
@@ -218,7 +162,7 @@ impl Engine {
             main_channel_tx,
             fetcher_tx,
         );
-        engine.load_from_disk();
+        engine.load_from_disk().unwrap();
         engine
     }
 
@@ -630,86 +574,18 @@ impl Engine {
         Ok(())
     }
 
-    fn load_from_disk(&mut self) {
-        let db = self.get_db().unwrap();
-        let mut last_node_id: u32 = 0;
-        let all_node_ids: Vec<NodeId> = match db.get("node/ids") {
-            Ok(node_ids) => match node_ids {
-                Some(node_ids) => match from_bytes(&node_ids) {
-                    Ok(node_ids) => node_ids,
-                    Err(err) => {
-                        error!("Error deserializing node IDs: {}", err);
-                        self.exit();
-                        return;
-                    }
-                },
-                None => {
-                    vec![]
-                }
-            },
+    fn load_from_disk(&mut self) -> PiResult<()> {
+        let db = self.get_db()?;
+        let last_node_id = match self.nodes.lock() {
+            Ok(mut nodes) => nodes.load_all_from_disk(&db)?,
             Err(err) => {
-                error!("Error reading node IDs: {}", err);
-                self.exit();
-                return;
+                error!("Error locking nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )));
             }
         };
-        for node_id in all_node_ids {
-            let node: NodeItem = match db.get(format!("node/{}", node_id)) {
-                Ok(node) => match node {
-                    Some(node) => match from_bytes(&node) {
-                        Ok(node) => node,
-                        Err(err) => {
-                            error!("Error deserializing node {}: {}", node_id, err);
-                            self.exit();
-                            return;
-                        }
-                    },
-                    None => {
-                        error!("Node {} not found", node_id);
-                        self.exit();
-                        return;
-                    }
-                },
-                Err(err) => {
-                    error!("Error reading node {}: {}", node_id, err);
-                    self.exit();
-                    return;
-                }
-            };
-            let arced_node_id = Arc::new(node_id);
-            // The first label if the type of the payload
-            let mut labels: Vec<NodeLabel> = vec![node.payload.to_string().clone()];
-            labels.extend(node.labels.iter().cloned());
-            let labels: Vec<ArcedNodeLabel> = labels.iter().map(|x| Arc::new(x.clone())).collect();
-            match self.nodes.lock() {
-                Ok(mut nodes) => {
-                    nodes.data.insert(arced_node_id.clone(), Arc::new(node));
-                }
-                Err(err) => {
-                    error!("Error locking nodes: {}", err);
-                    self.exit();
-                }
-            }
-
-            // Store the node in nodes_by_label_id
-            match self.node_ids_by_label.lock() {
-                Ok(mut node_ids_by_label) => {
-                    for label in labels.into_iter() {
-                        node_ids_by_label
-                            .data
-                            .entry(label)
-                            .and_modify(|entries| entries.push(arced_node_id.clone()))
-                            .or_insert(vec![arced_node_id.clone()]);
-                    }
-                }
-                Err(err) => {
-                    error!("Error locking node_ids_by_label: {}", err);
-                    self.exit();
-                }
-            }
-
-            last_node_id = node_id;
-        }
         match self.last_node_id.lock() {
             Ok(mut inner) => {
                 *inner = last_node_id;
@@ -727,8 +603,10 @@ impl Engine {
                     Ok(node_ids) => node_ids,
                     Err(err) => {
                         error!("Error deserializing node IDs: {}", err);
-                        self.exit();
-                        return;
+                        return Err(PiError::InternalError(format!(
+                            "Error deserializing node IDs: {}",
+                            err
+                        )));
                     }
                 },
                 None => {
@@ -737,8 +615,10 @@ impl Engine {
             },
             Err(err) => {
                 error!("Error reading node IDs: {}", err);
-                self.exit();
-                return;
+                return Err(PiError::InternalError(format!(
+                    "Error reading node IDs: {}",
+                    err
+                )));
             }
         };
         for node_id in all_node_ids_with_edges {
@@ -749,20 +629,26 @@ impl Engine {
                             Ok(edges) => edges,
                             Err(err) => {
                                 error!("Error deserializing edges for node {}: {}", node_id, err);
-                                self.exit();
-                                return;
+                                return Err(PiError::InternalError(format!(
+                                    "Error deserializing edges for node {}: {}",
+                                    node_id, err
+                                )));
                             }
                         },
                         None => {
                             error!("Edges for node {} not found", node_id);
-                            self.exit();
-                            return;
+                            return Err(PiError::InternalError(format!(
+                                "Edges for node {} not found",
+                                node_id
+                            )));
                         }
                     },
                     Err(err) => {
                         error!("Error reading edges for node {}: {}", node_id, err);
-                        self.exit();
-                        return;
+                        return Err(PiError::InternalError(format!(
+                            "Error reading edges for node {}: {}",
+                            node_id, err
+                        )));
                     }
                 };
             let arced_node_id = Arc::new(node_id);
@@ -780,11 +666,14 @@ impl Engine {
                 }
                 Err(err) => {
                     error!("Error locking edges: {}", err);
-                    self.exit();
-                    return;
+                    return Err(PiError::InternalError(format!(
+                        "Error locking edges: {}",
+                        err
+                    )));
                 }
             }
         }
+        Ok(())
     }
 
     pub fn get_node_ids_connected_with_label(

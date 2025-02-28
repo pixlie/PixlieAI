@@ -56,3 +56,7 @@ tempfile = "3.17.1"
 [[bin]]
 name = "cli"
 path = "src/bin/pixlie.rs"
+
+[[bin]]
+name = "test"
+path = "src/bin/test.rs"

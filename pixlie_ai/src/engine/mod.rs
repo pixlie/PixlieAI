@@ -18,6 +18,7 @@ use ts_rs::TS;
 
 pub mod api;
 pub mod engine;
+mod nodes;
 pub mod setup;
 
 // use crate::entity::content::TypedData;
@@ -164,4 +165,9 @@ impl ExistingOrNewNodeId {
             ExistingOrNewNodeId::New(id) => id.clone(),
         }
     }
+}
+
+pub(super) fn get_chunk_id_and_node_ids(id: &u32) -> (u32, Vec<u32>) {
+    let chunk_id = id / 100;
+    (chunk_id, (chunk_id * 100..(chunk_id * 100 + 100)).collect())
 }
