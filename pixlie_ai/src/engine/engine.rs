@@ -8,6 +8,7 @@ use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
+use itertools::{sorted, Itertools};
 use log::{debug, error};
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::DB;
@@ -21,6 +22,11 @@ pub(crate) struct Labels {
     data: HashSet<ArcedNodeLabel>,
 }
 
+fn get_chunk_id_and_node_ids(id: &u32) -> (u32, Vec<u32>) {
+    let chunk_id = id / 100;
+    (chunk_id, (chunk_id * 100..(chunk_id * 100 + 100)).collect())
+}
+
 pub(crate) struct Nodes {
     data: HashMap<ArcedNodeId, ArcedNodeItem>,
 }
@@ -32,43 +38,42 @@ impl Nodes {
         }
     }
 
-    fn save_to_disk(&self, db: &DB) -> PiResult<()> {
-        let mut all_node_ids: Vec<NodeId> = vec![];
-        // We ignore single item serialization or writing errors for now
-        for (node_id, node) in self.data.iter() {
-            match to_allocvec(&*node) {
-                Ok(bytes) => match db.put(format!("node/{}", node_id), bytes) {
-                    Ok(_) => {
-                        all_node_ids.push(**node_id);
-                    }
-                    Err(err) => {
-                        error!("Error writing node to disk: {}", err);
-                        break;
-                    }
-                },
-                Err(err) => {
-                    error!("Error serializing node to disk: {}", err);
-                    break;
-                }
-            };
-        }
-        // TODO: For a very large list of nodes, we should break the list of node IDs into chunks
-        match to_allocvec(&all_node_ids) {
-            Ok(all_node_ids) => match db.put("node/ids", all_node_ids) {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Error writing node IDs: {}", err);
-                    return Err(err.into());
-                }
-            },
-            Err(err) => {
-                error!("Error converting node_ids to Vec<u32>: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error converting node_ids to Vec<u32>: {}",
-                    err
-                )));
+    fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
+        // We store all nodes in the DB, in chunks
+        // Each chunk has up to 100 nodes, till modulus 100 is 0
+        let mut chunk_id = 0;
+        let mut chunk: Vec<(&ArcedNodeId, &ArcedNodeItem)> = vec![];
+        for data in sorted(self.data.iter()) {
+            if chunk.len().rem_euclid(100) == 0 {
+                db.put(
+                    to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
+                    to_allocvec(&chunk)?,
+                )?;
+                chunk_id += 1;
+                chunk = vec![];
+            } else {
+                chunk.push(data);
             }
-        };
+        }
+        Ok(())
+    }
+
+    fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
+        // We store this (and all other nodes in its chunk) node to DB
+        // in the chunk corresponding to the node ID modulus 100
+        // Create a chunk of data from the start node ID to the end node ID of this chunk
+        let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
+        let chunk: Vec<(&NodeId, &ArcedNodeItem)> = node_ids
+            .iter()
+            .filter_map(|x_node_id| match self.data.get(x_node_id) {
+                Some(node) => Some((x_node_id, node)),
+                None => None,
+            })
+            .collect();
+        db.put(
+            to_allocvec(&format!("nodes/chunk/{}", chunk_id))?,
+            to_allocvec(&chunk)?,
+        )?;
         Ok(())
     }
 }
@@ -100,7 +105,7 @@ impl Edges {
         }
     }
 
-    fn save_to_disk(&self, db: &DB) -> PiResult<()> {
+    fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
         let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
         for (node_id, edges) in self.data.iter() {
             match to_allocvec(edges) {
@@ -400,6 +405,16 @@ impl Engine {
                     )));
                 }
             }
+            match self.nodes.try_lock() {
+                Ok(nodes) => nodes.save_item_chunk_to_disk(&self.get_db()?, &id)?,
+                Err(err) => {
+                    error!("Error locking nodes: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking nodes: {}",
+                        err
+                    )));
+                }
+            }
         }
         // Store the node in nodes_by_label_id for the label from Payload and given labels
         {
@@ -466,7 +481,6 @@ impl Engine {
                 return Err(err);
             }
         };
-        self.save_to_disk()?;
         Ok(ExistingOrNewNodeId::New(id))
     }
 
@@ -534,7 +548,16 @@ impl Engine {
                 )));
             }
         };
-        self.save_to_disk()?;
+        match self.nodes.try_lock() {
+            Ok(nodes) => nodes.save_item_chunk_to_disk(&self.get_db()?, node_id)?,
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                return Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )));
+            }
+        }
         Ok(())
     }
 
@@ -571,18 +594,22 @@ impl Engine {
         }
     }
 
-    fn save_to_disk(&self) -> PiResult<()> {
-        // We use RocksDB to store the graph
-        let db = match DB::open_default(self.project_path_on_disk.as_os_str()) {
-            Ok(db) => db,
+    fn get_db(&self) -> PiResult<DB> {
+        match DB::open_default(self.project_path_on_disk.as_os_str()) {
+            Ok(db) => Ok(db),
             Err(err) => {
                 error!("Error opening DB: {}", err);
                 return Err(PiError::InternalError(format!("Error opening DB: {}", err)));
             }
-        };
+        }
+    }
+
+    fn save_to_disk(&self) -> PiResult<()> {
+        // We use RocksDB to store the graph
+        let db = self.get_db()?;
         match self.nodes.lock() {
             Ok(nodes) => {
-                nodes.save_to_disk(&db)?;
+                nodes.save_all_to_disk(&db)?;
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
@@ -594,7 +621,7 @@ impl Engine {
         }
         match self.edges.lock() {
             Ok(edges) => {
-                edges.save_to_disk(&db)?;
+                edges.save_all_to_disk(&db)?;
             }
             Err(err) => {
                 error!("Error locking edges: {}", err);
@@ -604,7 +631,7 @@ impl Engine {
     }
 
     fn load_from_disk(&mut self) {
-        let db = DB::open_default(self.project_path_on_disk.as_os_str()).unwrap();
+        let db = self.get_db().unwrap();
         let mut last_node_id: u32 = 0;
         let all_node_ids: Vec<NodeId> = match db.get("node/ids") {
             Ok(node_ids) => match node_ids {
