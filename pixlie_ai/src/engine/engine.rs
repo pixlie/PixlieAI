@@ -520,7 +520,7 @@ impl Engine {
                     *node = Arc::new(NodeItem {
                         id: node_id.clone(),
                         payload,
-                        labels: vec![],
+                        labels: node.labels.clone(),
                         written_at: Utc::now(),
                     });
                 }
