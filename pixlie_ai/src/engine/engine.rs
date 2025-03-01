@@ -5,6 +5,8 @@ use super::{
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
 use crate::engine::nodes::Nodes;
+use crate::entity::search::SearchTerm;
+use crate::entity::topic::Topic;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
@@ -236,6 +238,14 @@ impl Engine {
                             }
                         }
                     }
+                    Payload::Topic(ref payload) => {
+                        match payload.process(engine.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing Topic: {}", err);
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -462,6 +472,30 @@ impl Engine {
             Payload::Link(ref link) => {
                 let existing = match Link::find_existing(engine, &link.get_full_link()) {
                     Ok(link) => link,
+                    Err(_err) => {
+                        return None;
+                    }
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
+                }
+            }
+            Payload::Topic(ref topic) => {
+                let existing = match Topic::find_existing(engine, &topic.topic) {
+                    Ok(topic) => topic,
+                    Err(_err) => {
+                        return None;
+                    }
+                };
+                match existing {
+                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
+                    None => None,
+                }
+            }
+            Payload::SearchTerm(ref search_term) => {
+                let existing = match SearchTerm::find_existing(engine, &search_term.0) {
+                    Ok(search_term) => search_term,
                     Err(_err) => {
                         return None;
                     }
