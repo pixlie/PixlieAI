@@ -1,6 +1,6 @@
 use crate::engine::{
     ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
-    Node, NodeId, NodeLabel, Payload,
+    Node, NodeFlags, NodeId, NodeLabel, Payload,
 };
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
@@ -17,7 +17,6 @@ use url::Url;
 pub struct Link {
     pub path: String, // Relative to the domain
     pub query: Option<String>,
-    pub is_fetched: bool,
 }
 
 impl Link {
@@ -171,10 +170,6 @@ impl Node for Link {
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
         // Download the linked URL and add a new WebPage node
-        if self.is_fetched {
-            return Ok(());
-        }
-
         let url = self.get_full_link();
         match data_from_previous_request {
             Some(ExternalData::Text(contents)) => {
@@ -204,14 +199,7 @@ impl Node for Link {
                         CommonEdgeLabels::ContentOf.to_string(),
                     ),
                 )?;
-                let link = self.clone();
-                engine.update_node(
-                    &node_id,
-                    Payload::Link(Link {
-                        is_fetched: true,
-                        ..link
-                    }),
-                )?;
+                engine.set_flag(&node_id, NodeFlags::IS_PROCESSED)?;
             }
             None => match engine.fetch_url(&url, &node_id) {
                 Ok(_) => {}

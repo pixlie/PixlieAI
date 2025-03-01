@@ -9,6 +9,7 @@ use crate::entity::{
     content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
     workflow::WorkflowStep,
 };
+use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -86,13 +87,30 @@ pub enum CommonEdgeLabels {
     BelongsTo,
 }
 
+bitflags! {
+    #[derive(Clone)]
+    pub struct NodeFlags: u8 {
+        // This is set when a node is processed and does not need to be processed unless it changes
+        const IS_PROCESSED = 1;
+        // This is set when a node makes an external data request which has not finished yet
+        const IS_REQUESTING = 1 << 1;
+    }
+}
+
+impl Default for NodeFlags {
+    fn default() -> Self {
+        NodeFlags::empty()
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NodeItem {
     pub id: NodeId,
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
-    // pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
+    #[serde(skip)]
+    pub flags: NodeFlags,
     pub written_at: DateTime<Utc>,
 }
 

@@ -1,6 +1,6 @@
 use super::{
     ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, EdgeLabel, ExistingOrNewNodeId,
-    Node, NodeId, NodeItem, NodeLabel, Payload,
+    Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
@@ -8,10 +8,9 @@ use crate::engine::nodes::Nodes;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::{PiChannel, PiEvent};
+use crate::{FetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error};
-use postcard::from_bytes;
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::{
@@ -138,10 +137,7 @@ impl Engine {
     }
 
     fn exit(&self) {
-        error!(
-            "############################## Exiting engine for project {}",
-            self.project_id
-        );
+        debug!("Exiting engine for project {}", self.project_id);
         // We tell the main thread that we are done ticking
         match self
             .main_channel_tx
@@ -173,14 +169,14 @@ impl Engine {
                 PiEvent::NeedsToTick => {
                     self.tick();
                 }
-                PiEvent::FetchResponse(_project_id, node_id, _url, contents) => {
+                PiEvent::FetchResponse(response) => {
                     // Call the node that had needs this data
-                    match self.get_node_by_id(&node_id) {
+                    match self.get_node_by_id(&response.node_id) {
                         Some(node) => match node.payload {
                             Payload::Link(ref payload) => {
                                 let engine = Arc::new(self);
-                                let node_id = Arc::new(node_id.clone());
-                                match payload.process(engine, &node_id, Some(contents)) {
+                                let node_id = Arc::new(response.node_id.clone());
+                                match payload.process(engine, &node_id, Some(response.contents)) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         error!("Error processing link: {}", err);
@@ -219,6 +215,9 @@ impl Engine {
         };
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
+                if node.flags.contains(NodeFlags::IS_PROCESSED) {
+                    continue;
+                }
                 match node.payload {
                     Payload::Link(ref payload) => {
                         match payload.process(engine.clone(), &node_id, None) {
@@ -285,7 +284,7 @@ impl Engine {
                             payload,
 
                             labels: given_labels.clone(),
-                            // edges: HashMap::new(),
+                            flags: NodeFlags::default(),
                             written_at: Utc::now(),
                         }),
                     );
@@ -417,29 +416,18 @@ impl Engine {
     pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
-                match nodes.data.get_mut(node_id) {
-                    Some(node) => {
-                        *node = Arc::new(NodeItem {
-                            id: node_id.clone(),
-                            payload,
-                            labels: node.labels.clone(),
-                            written_at: Utc::now(),
-                        });
-                    }
-                    None => {}
-                }
-                nodes.save_item_chunk_to_disk(&self.get_db()?, node_id)?;
+                nodes.update_node(node_id, payload)?;
+                self.tick_me_later();
+                Ok(())
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
-                return Err(PiError::InternalError(format!(
+                Err(PiError::InternalError(format!(
                     "Error locking nodes: {}",
                     err
-                )));
+                )))
             }
-        };
-        self.tick_me_later();
-        Ok(())
+        }
     }
 
     fn find_existing(&self, payload: &Payload) -> Option<ArcedNodeId> {
@@ -569,18 +557,64 @@ impl Engine {
         }
     }
 
-    pub fn fetch_url(&self, url: &str, node_id: &NodeId) -> PiResult<()> {
+    pub fn fetch_url(&self, url: &str, link_node_id: &NodeId) -> PiResult<()> {
         let engine = Arc::new(self);
-        let (domain, _domain_node_id) =
-            Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
+        let link_node = match engine.get_node_by_id(link_node_id) {
+            Some(node) => node,
+            None => {
+                error!("Cannot find link node for URL {}", url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find link node for URL {}",
+                    url
+                )));
+            }
+        };
+        if link_node.flags.contains(NodeFlags::IS_REQUESTING) {
+            debug!("Link node {} is already being fetched", link_node_id);
+            return Ok(());
+        }
+        debug!("Checking if we can fetch within domain: {}", url);
+        let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
+            Domain::find_existing(engine.clone(), FindDomainOf::Node(link_node_id.clone()))?;
+        let (domain, _) = match existing_domain {
+            Some(existing_domain) => existing_domain,
+            None => {
+                error!("Cannot find domain node for URL {}", url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find domain node for URL {}",
+                    url
+                )));
+            }
+        };
 
-        debug!("Domain {} is allowed to crawl", &domain.name);
-        let full_url = format!("https://{}{}", domain.name, url);
-        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
-            self.project_id.clone(),
-            *node_id,
-            full_url.clone(),
-        )) {
+        let domain_payload = match domain.payload {
+            Payload::Domain(ref payload) => {
+                if !payload.is_allowed_to_crawl {
+                    debug!("Domain is not allowed to crawl: {}", &payload.name);
+                    return Err(PiError::FetchError(
+                        "Domain is not allowed to crawl".to_string(),
+                    ));
+                }
+                payload
+            }
+            _ => {
+                return Err(PiError::GraphError(format!(
+                    "Cannot find domain node for URL {}",
+                    url
+                )));
+            }
+        };
+        debug!("Domain {} is allowed to crawl", &domain_payload.name);
+
+        let full_url = format!("https://{}{}", domain_payload.name, url);
+        match self
+            .fetcher_tx
+            .blocking_send(PiEvent::FetchRequest(FetchRequest {
+                project_id: self.project_id.clone(),
+                node_id: *link_node_id,
+                domain: domain_payload.name.clone(),
+                url: full_url.clone(),
+            })) {
             Ok(_) => {
                 debug!("Sent fetch request for url {}", &full_url);
             }
@@ -664,6 +698,23 @@ impl Engine {
             Err(err) => {
                 error!("Error locking edges: {}", err);
                 HashMap::new()
+            }
+        }
+    }
+
+    pub fn set_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
+        match self.nodes.try_lock() {
+            Ok(mut nodes) => {
+                nodes.update_flag(node_id, flag);
+                self.tick_me_later();
+                Ok(())
+            }
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )))
             }
         }
     }

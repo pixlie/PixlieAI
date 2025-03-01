@@ -1,6 +1,5 @@
 use crate::engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, Engine, Node, NodeId, Payload};
 use crate::error::{PiError, PiResult};
-use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -30,6 +29,7 @@ impl Domain {
     ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
         match find_type {
             FindDomainOf::DomainName(domain_name) => {
+                // TODO: Implement and use better graph query API: https://github.com/pixlie/PixlieAI/issues/90, point 2
                 let domain_node_ids = engine.get_node_ids_with_label(&Domain::get_label());
                 for node_id in domain_node_ids {
                     match engine.get_node_by_id(&node_id) {
@@ -47,6 +47,7 @@ impl Domain {
                 Ok(None)
             }
             FindDomainOf::Node(node_id) => {
+                // TODO: Implement and use better graph query API: https://github.com/pixlie/PixlieAI/issues/90, point 1
                 let belongs_to = engine.get_node_ids_connected_with_label(
                     &node_id,
                     &CommonEdgeLabels::BelongsTo.to_string(),
@@ -70,45 +71,5 @@ impl Domain {
                 }
             }
         }
-    }
-
-    pub fn can_fetch_within_domain(
-        engine: Arc<&Engine>,
-        url: &str,
-        node_id: &NodeId,
-    ) -> PiResult<(Domain, NodeId)> {
-        // Get the related domain node for the URL from the engine
-        // TODO: Move this function to the Domain node
-        debug!("Checking if we can fetch within domain: {}", url);
-        let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
-            Self::find_existing(engine.clone(), FindDomainOf::Node(node_id.clone()))?;
-        let (domain, _) = match existing_domain {
-            Some(existing_domain) => existing_domain,
-            None => {
-                error!("Cannot find domain node for URL {}", url);
-                return Err(PiError::InternalError(format!(
-                    "Cannot find domain node for URL {}",
-                    url
-                )));
-            }
-        };
-
-        match domain.payload {
-            Payload::Domain(ref payload) => {
-                if !payload.is_allowed_to_crawl {
-                    error!("Domain is not allowed to crawl: {}", &payload.name);
-                    return Err(PiError::FetchError(
-                        "Domain is not allowed to crawl".to_string(),
-                    ));
-                }
-                return Ok((payload.clone(), node_id.clone()));
-            }
-            _ => {}
-        }
-
-        Err(PiError::GraphError(format!(
-            "Cannot find domain node for URL {}",
-            url
-        )))
     }
 }

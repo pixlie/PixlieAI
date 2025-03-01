@@ -1,5 +1,8 @@
-use crate::engine::{get_chunk_id_and_node_ids, ArcedNodeId, ArcedNodeItem, NodeId, NodeItem};
+use crate::engine::{
+    get_chunk_id_and_node_ids, ArcedNodeId, ArcedNodeItem, NodeFlags, NodeId, NodeItem, Payload,
+};
 use crate::error::{PiError, PiResult};
+use chrono::Utc;
 use itertools::sorted;
 use log::{debug, error};
 use postcard::{from_bytes, to_allocvec};
@@ -96,13 +99,38 @@ impl Nodes {
         }
         Ok(last_node_id)
     }
+
+    pub(super) fn update_node(&mut self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
+        self.data.get_mut(node_id).map(|node| {
+            *node = Arc::new(NodeItem {
+                id: node.id.clone(),
+                payload,
+                labels: node.labels.clone(),
+                flags: node.flags.clone(),
+                written_at: Utc::now(),
+            });
+        });
+        Ok(())
+    }
+
+    pub(super) fn update_flag(&mut self, node_id: &NodeId, flag: NodeFlags) {
+        self.data.get_mut(node_id).map(|node| {
+            *node = Arc::new(NodeItem {
+                id: node.id.clone(),
+                payload: node.payload.clone(),
+                labels: node.labels.clone(),
+                flags: NodeFlags::from_bits_truncate(node.flags.bits() | flag.bits()),
+                written_at: Utc::now(),
+            });
+        });
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::engine::nodes::Nodes;
-    use crate::engine::Payload;
+    use crate::engine::{NodeFlags, Payload};
     use crate::entity::content::{BulletPoints, Heading, OrderedPoints, Paragraph, Title};
     use crate::entity::search::SearchTerm;
     use crate::entity::web::domain::Domain;
@@ -143,6 +171,7 @@ mod tests {
                     id: node_id,
                     payload: payload.clone(),
                     labels: vec![],
+                    flags: NodeFlags::default(),
                     written_at: Utc::now(),
                 };
                 node_id += 1;
@@ -223,7 +252,6 @@ mod tests {
                         };
                         assert_eq!(link.path, db_link.path);
                         assert_eq!(link.query, db_link.query);
-                        assert_eq!(link.is_fetched, db_link.is_fetched);
                     }
                     Payload::Domain(ref domain) => {
                         let db_domain = match db_node.payload {
@@ -305,7 +333,6 @@ mod tests {
                         };
                         assert_eq!(link.path, db_link.path);
                         assert_eq!(link.query, db_link.query);
-                        assert_eq!(link.is_fetched, db_link.is_fetched);
                     }
                     Payload::Domain(ref domain) => {
                         let db_domain = match db_node.payload {

@@ -1,10 +1,9 @@
-use crate::{ExternalData, PiEvent};
+use crate::{ExternalData, FetchError, FetchResponse, PiEvent};
 use log::{debug, error};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
-use url::Url;
 
 struct FetchLog {
     last_fetched_at: Instant,
@@ -22,20 +21,7 @@ enum CanCrawl {
     No(String),
 }
 
-fn can_crawl_domain(url: &str, logs: &mut Logs) -> CanCrawl {
-    let parsed = match Url::parse(&url) {
-        Ok(parsed) => parsed,
-        Err(err) => {
-            return CanCrawl::No(format!("Cannot parse URL {} to get domain: {}", &url, err))
-        }
-    };
-    let domain = match parsed.domain() {
-        Some(domain) => domain,
-        None => return CanCrawl::No(format!("Cannot parse URL {} to get domain", &url)),
-    };
-    if domain.is_empty() {
-        return CanCrawl::No(format!("Cannot parse URL {} to get domain", &url));
-    }
+fn check_domain_log(domain: &str, logs: &mut Logs) -> CanCrawl {
     match logs.get(domain) {
         Some(domain_log) => {
             // Check the last fetch time for this domain. We do not want to fetch too often.
@@ -113,22 +99,30 @@ pub fn fetcher_runtime(
             let event = fetch_rx.recv().await;
             match event {
                 Some(event) => match event {
-                    PiEvent::FetchRequest(project_id, id, url) => {
+                    PiEvent::FetchRequest(request) => {
                         let fetch_response: PiEvent = {
-                            match can_crawl_domain(&url, &mut domain_logs) {
-                                CanCrawl::No(err) => PiEvent::FetchError(project_id, id, err),
-                                CanCrawl::Yes => match fetch_url(&url).await {
+                            match check_domain_log(&request.domain, &mut domain_logs) {
+                                CanCrawl::No(err) => PiEvent::FetchError(FetchError {
+                                    project_id: request.project_id.clone(),
+                                    node_id: request.node_id,
+                                    error: err,
+                                }),
+                                CanCrawl::Yes => match fetch_url(&request.url).await {
                                     FetchResult::Contents(_status, contents) => {
-                                        PiEvent::FetchResponse(
-                                            project_id,
-                                            id,
-                                            url,
-                                            ExternalData::Text(contents),
-                                        )
+                                        PiEvent::FetchResponse(FetchResponse {
+                                            project_id: request.project_id.clone(),
+                                            node_id: request.node_id,
+                                            url: request.url.clone(),
+                                            contents: ExternalData::Text(contents),
+                                        })
                                     }
                                     FetchResult::Error(err) => {
                                         error!("Error fetching URL: {}", err);
-                                        PiEvent::FetchError(project_id, id, err)
+                                        PiEvent::FetchError(FetchError {
+                                            project_id: request.project_id.clone(),
+                                            node_id: request.node_id,
+                                            error: err,
+                                        })
                                     }
                                 },
                             }

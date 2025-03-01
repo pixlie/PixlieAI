@@ -1,10 +1,9 @@
 use log::{debug, error};
-// use pixlie_ai::config::gliner::setup_gliner;
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::Settings;
 use pixlie_ai::engine::Engine;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
-use pixlie_ai::{api::api_manager, config::check_cli_settings, PiChannel, PiEvent};
+use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::{HashMap, HashSet};
 use std::env::var;
 use std::process::exit;
@@ -318,24 +317,26 @@ fn main() {
                     error!("Error locking channels_per_project: {}", err);
                 }
             },
-            PiEvent::FetchResponse(project_id, node_id, url, contents) => {
+            PiEvent::FetchResponse(response) => {
                 match channels_per_project.try_lock() {
                     Ok(channels_per_project) => {
                         // Pass on the response to the engine's channel
-                        match channels_per_project.get(&project_id) {
-                            Some(channel) => match channel.tx.send(PiEvent::FetchResponse(
-                                project_id.clone(),
-                                node_id.clone(),
-                                url.clone(),
-                                contents.clone(),
-                            )) {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!("Error sending PiEvent in Engine: {}", err);
+                        match channels_per_project.get(&response.project_id) {
+                            Some(channel) => {
+                                match channel.tx.send(PiEvent::FetchResponse(FetchResponse {
+                                    project_id: response.project_id.clone(),
+                                    node_id: response.node_id,
+                                    url: response.url.clone(),
+                                    contents: response.contents.clone(),
+                                })) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!("Error sending PiEvent in Engine: {}", err);
+                                    }
                                 }
-                            },
+                            }
                             None => {
-                                error!("Project {} is not loaded", &project_id);
+                                error!("Project {} is not loaded", &response.project_id);
                             }
                         }
                     }
