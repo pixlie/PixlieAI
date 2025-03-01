@@ -5,7 +5,7 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::{extract_search_terms, SearchTermPromptInput, SearchTermPromptInputContent}, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
 
 
 
@@ -146,17 +146,17 @@ impl Node for Topic {
                                                             match &child_node.payload {
                                                                 Payload::Title(title) => {
                                                                     content.push(
-                                                                        format!("<webpage_title>{}</webpage_title>", title.0)
+                                                                        ("webpage_title".to_string(), title.0.clone())
                                                                     );
                                                                 }
                                                                 Payload::Heading(heading) => {
                                                                     content.push(
-                                                                        format!("<heading>{}</heading>", heading.0)
+                                                                        ("webpage_heading".to_string(), heading.0.clone())
                                                                     );
                                                                 }
                                                                 Payload::Paragraph(paragraph) => {
                                                                     content.push(
-                                                                        format!("<paragraph>{}</paragraph>", paragraph.0)
+                                                                        ("webpage_paragraph".to_string(), paragraph.0.clone())
                                                                     );
                                                                 }
                                                                 _ => {}
@@ -218,24 +218,12 @@ impl Node for Topic {
             }
         };
 
-        if search_terms[0].0 != "Topic" || search_terms[0].1 != "SearchTerm" || search_terms[0].2 != "Match" {
-            debug!(
-                "Skipping processing of Topic node '{}': Invalid search terms response",
-                self.topic
-            );
-            return Ok(());
-        }
-
-        for search_term in search_terms[1..].to_vec() {
-            let (_topic, search_term, _match_type) = search_term;
-
+        for search_term in search_terms {
             let search_term_node_id = engine.get_or_add_node(
-                Payload::SearchTerm(SearchTerm(search_term.clone())),
+                Payload::SearchTerm(SearchTerm(search_term.search_term.clone())),
                 vec![],
                 true,
             )?.get_node_id();
-            println!("Search term node id: {}", search_term_node_id.to_string());
-            println!("Topic node id: {}", node_id.to_string());
             engine.add_connection(
                 (node_id.clone(), search_term_node_id.clone()),
                 (CommonEdgeLabels::Suggests.to_string(), CommonEdgeLabels::SuggestedFor.to_string()),

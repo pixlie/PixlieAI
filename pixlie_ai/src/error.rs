@@ -59,6 +59,9 @@ pub enum PiError {
     #[error("Error from Actix Web Blocking Error: {0}")]
     ActixWebError(#[from] actix_web::error::BlockingError),
 
+    #[error("Error from Anthropic Service: {0}")]
+    AnthropicServiceError(String),
+
     // #[error("Error reading guarded HashMap: {0}")]
     // PoisonError(
     //     #[from]

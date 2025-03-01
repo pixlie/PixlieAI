@@ -10,6 +10,8 @@ use crate::{
     error::{PiError, PiResult},
     services::extract_entites_from_lines,
 };
+use actix_web::ResponseError;
+use log::debug;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +54,24 @@ pub struct ClaudeChat {
 pub struct ClaudeChatMessage {
     pub role: &'static str,
     pub content: String,
+}
+
+#[derive(Serialize)]
+pub struct  SearchTermPromptInputContent {
+    pub content_type: String,
+    pub content: String,
+}
+
+#[derive(Deserialize)]
+pub struct  SearchTermPromptOutputItem {
+    pub search_term: String,
+    pub relevance: String,
+}
+
+#[derive(Serialize)]
+pub struct SearchTermPromptInput {
+    pub topic: String,
+    pub content: Vec<SearchTermPromptInputContent>,
 }
 
 const LL_MODEL: &str = "claude-3-5-haiku-20241022";
@@ -161,47 +181,53 @@ pub fn classify(text: &String, labels: &Vec<String>, api_key: &str) -> PiResult<
     Ok(classification)
 }
 
-pub fn get_prompt_to_extract_search_terms(topic: String, content: &Vec<String>) -> (String, String) {
+pub fn get_prompt_to_extract_search_terms(input: &SearchTermPromptInput) -> (String, String) {
 
     let system_prompt = format!(
         r#"
-You are a seasoned data professional who is helping me extract search terms based on topics of interest I provide to you.
-I will use these search terms to look for matching content that is relevant to a topic of interest.
+You are a seasoned data professional. You will help me extract search terms from content blocks, based on a topic.
+I will provide this data to you in JSON format.
 
-I will provide you with content blocks that contain relevant content.
+Guidelines for search term extraction:
+1. Extract search terms directly from content that match the topic
+2. Identify contextually relevant terms based on topic-content relationship
+3. Include relevant synonyms and variations
+4. Consider multi-word combinations when appropriate
+5. Add semantically related terms even if not present in content
+6. Rate each term's relevance (broad/regular/tight) to the topic
+7. Focus on precision and contextual accuracy
+8. Ensure terms are topically coherent and meaningful
 
-How to determine search terms:
-- You will look for relevant search terms in the content that match a topic.
-- You will also add synonyms for these search terms to your results.
-- You may provide multiple combinations of words too.
-- You may provide search terms that do not appear in the content too, based on your understanding of what I am looking for.
+Please provide your response in JSON array format where each object contains exactly two fields:
+1. "search_term" - containing the extracted search term
+2. "relevance" - containing one of these values: "broad", "regular", or "tight"
 
-Reply in CSV format ONLY with these headings:
-Topic,SearchTerm,Match
-
-There should be one row for each combination of Topic & SearchTerm.
-The value of Match should be 'broad','regular' or 'tight', based on how relevant the search term is for the topic.
+Do not include any explanations, code fences or additional text.
 "#,
     );
     let user_prompt = format!(
         r#"
-Topic: `{}`
-
-Content:
 {}
 "#,
-        topic,
-        content.iter().map(|content_item| format!("<content>\n{}\n</content>", content_item)).collect::<Vec<String>>().join("\n"),
+        serde_json::to_string(input).unwrap()
+        // topic,
+        // content.iter().map(|content_item| format!("<content>\n{}\n</content>", content_item)).collect::<Vec<String>>().join("\n"),
     );
     (system_prompt, user_prompt)
 }
 
 pub fn extract_search_terms(
     topic: String,
-    content: &Vec<String>,
+    content: &Vec<(String, String)>,
     api_key: &str,
-) -> PiResult<Vec<(String, String, String)>> {
-    let (system_prompt, user_prompt) = get_prompt_to_extract_search_terms(topic, content);
+) -> PiResult<Vec<SearchTermPromptOutputItem>> {
+    let (system_prompt, user_prompt) = get_prompt_to_extract_search_terms(&SearchTermPromptInput{
+        topic,
+        content: content.iter().map(|content_item| SearchTermPromptInputContent {
+            content_type: content_item.0.to_string(),
+            content: content_item.1.to_string(),
+        }).collect()
+    });
     let payload = ClaudeChat {
         model: LL_MODEL,
         max_tokens: 1024,
@@ -223,17 +249,52 @@ pub fn extract_search_terms(
         .send()
         .unwrap();
 
-    let response = response.json::<ClaudeResponse>()?;
-    let lines = response.content[0].text.lines().collect::<Vec<&str>>();
-    let mut search_terms = vec![];
-    for line in lines {
-        let parts = line.split(",").collect::<Vec<&str>>();
-        if parts.len() != 3 {
-            continue;
+    let response = match response.json::<ClaudeResponse>() {
+        Ok(response) => response,
+        Err(e) => {
+            debug!("Failed to parse response for Search Term Extraction from Claude as JSON: {}", e);
+            return Err(PiError::AnthropicServiceError(
+                "Failed to parse response for Search Term Extraction from Claude as JSON".to_string()
+            ));
         }
-        search_terms.push((parts[0].trim().to_string(), parts[1].trim().to_string(), parts[2].trim().to_string()));
-    }
-    Ok(search_terms)
+    };
+    Ok(match serde_json::from_str::<Vec<serde_json::Value>>(response.content[0].text.as_str()) {
+        Ok(prompt_response_json_object) => {
+            prompt_response_json_object.iter().map(|json_object| {
+                match json_object.get("search_term") {
+                    Some(search_term) => {
+                        match json_object.get("relevance") {
+                            Some(relevance) => Some(SearchTermPromptOutputItem {
+                                search_term: search_term.as_str().unwrap().to_string(),
+                                relevance: relevance.as_str().unwrap().to_string(),
+                            }),
+                            None => {
+                                debug!(
+                                    "Failed to parse search term item's relevance from Claude response: {:?}",
+                                    json_object
+                                );
+                                None
+                            }
+                        }
+                    },
+                    None => {
+                        debug!(
+                            "Failed to parse search term item from Claude response: {:?}",
+                            json_object
+                        );
+                        None
+                    }
+                }
+            }).filter_map(|x| x).collect::<Vec<SearchTermPromptOutputItem>>()
+        },
+        Err(_) => {
+            debug!(
+                "Failed to parse response for Search Term Extraction from Claude as JSON: {}",
+                response.content[0].text
+            );
+            return Ok(vec![]);
+        }
+    })
 }
 
 // pub fn extract_entities_in_batch(
