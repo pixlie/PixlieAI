@@ -26,27 +26,6 @@ const Sidebar: Component = () => {
       >
         <PerProjectRoutes />
       </div>
-        {/* Changes from feature/keyword-match in merge commit */}
-      {/* <div class="grow">
-        <nav class="grid grid-cols-1 gap-y-0.5 px-2">
-          {workspace.isReady &&
-          workspace.settingsStatus?.type === "Complete" ? (
-            <>
-              <GlobalRoutes />
-              <span class="block my-2" />
-
-              <PerProjectRoutes />
-            </>
-          ) : (
-            <SidebarLink label="Setup" href="/settings/setup" />
-          )}
-        </nav>
-      </div>
-
-      <div class="mb-2 px-2">
-        <SidebarLink label="Settings" href="/settings" />
-      </div>
-    </div> */}
     </Show>
   );
 };

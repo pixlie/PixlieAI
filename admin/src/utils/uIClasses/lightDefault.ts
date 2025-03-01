@@ -29,7 +29,7 @@ const lightDefault = {
     textMuted: "text-gray-400",
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
-    button: "bg-green-600 text-white",
+    button: "bg-blue-600 text-white",
     link: "text-blue-600 hover:underline",
 
     breadcrumb: "bg-stone-100",

@@ -125,7 +125,7 @@ const PerProjectRoutes: Component = () => {
               `/p/${params.projectId}/workflow`
             ),
             children: ["Link", "Topic", "SearchTerm"].map((label) => ({
-              label: `${label}(s)`,
+              label: `${label}s`,
               href: `/p/${params.projectId}/workflow?label=${label}`,
               isActive: location.pathname.startsWith(
                 `/p/${params.projectId}/workflow?label=${label}`
@@ -150,7 +150,7 @@ const PerProjectRoutes: Component = () => {
               "BulletPoint",
               "OrderedPoint",
             ].map((label) => ({
-              label: `${label}(s)`,
+              label: `${label}s`,
               href: `/p/${params.projectId}/graph?label=${label}`,
               isActive: location.pathname.startsWith(
                 `/p/${params.projectId}/graph?label=${label}`
@@ -171,7 +171,7 @@ const PerProjectRoutes: Component = () => {
               `/p/${params.projectId}/crawl`
             ),
             children: ["Domain", "Link"].map((label) => ({
-              label: `${label}(s)`,
+              label: `${label}s`,
               href: `/p/${params.projectId}/crawl?label=${label}`,
               isActive: location.pathname.startsWith(
                 `/p/${params.projectId}/crawl?label=${label}`
