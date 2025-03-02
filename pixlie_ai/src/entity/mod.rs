@@ -13,6 +13,7 @@ between them.
 Not all entity types have a corresponding node. Some nodes have an internal type
 and therefore many entities may point to the same node.
 */
+pub mod actions;
 pub mod content;
 pub mod email;
 pub mod search;

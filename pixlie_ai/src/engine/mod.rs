@@ -6,8 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
-    workflow::WorkflowStep,
+    actions::extraction::topic_link_search_terms::TopicLinkSearchTerms, content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title}, workflow::WorkflowStep
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -52,6 +51,7 @@ pub enum Payload {
     NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
     Topic(Topic),
+    TopicLinkSearchTerms(TopicLinkSearchTerms),
 }
 
 pub enum FindNode<'a> {
@@ -71,6 +71,7 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
+    Action,
 }
 
 #[derive(Display, TS)]
@@ -86,6 +87,9 @@ pub enum CommonEdgeLabels {
 
     OwnerOf, // When one node is the root path of another (like domain and path or folder and file)
     BelongsTo,
+
+    Ran, // When one node ran an action node
+    RanBy,
 
     Suggests,  // When one node is suggested based on another
     SuggestedFor,

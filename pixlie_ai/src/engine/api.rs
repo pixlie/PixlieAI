@@ -120,6 +120,7 @@ impl APIPayload {
             Payload::NamedEntity(label, text) => APIPayload::NamedEntity(label, text),
             Payload::SearchTerm(search_term) => APIPayload::SearchTerm(search_term),
             Payload::Topic(topic) => APIPayload::Topic(topic),
+            Payload::TopicLinkSearchTerms(action) => todo!(),
         }
     }
 }
