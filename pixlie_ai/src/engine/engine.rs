@@ -172,19 +172,32 @@ impl Engine {
                 PiEvent::FetchResponse(response) => {
                     // Call the node that had needs this data
                     match self.get_node_by_id(&response.node_id) {
-                        Some(node) => match node.payload {
-                            Payload::Link(ref payload) => {
-                                let engine = Arc::new(self);
-                                let node_id = Arc::new(response.node_id.clone());
-                                match payload.process(engine, &node_id, Some(response.contents)) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        error!("Error processing link: {}", err);
-                                    }
+                        Some(node) => {
+                            match self.toggle_flag(&node.id, NodeFlags::IS_REQUESTING) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error toggling IS_REQUESTING flag for node with ID {}: {}",
+                                        &node.id, err
+                                    );
+                                    continue;
                                 }
                             }
-                            _ => {}
-                        },
+                            match node.payload {
+                                Payload::Link(ref payload) => {
+                                    let engine = Arc::new(self);
+                                    let node_id = Arc::new(response.node_id.clone());
+                                    match payload.process(engine, &node_id, Some(response.contents))
+                                    {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing link: {}", err);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
                         None => {}
                     }
                 }
@@ -215,7 +228,11 @@ impl Engine {
         };
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
-                if node.flags.contains(NodeFlags::IS_PROCESSED) {
+                if node.flags.contains(NodeFlags::IS_PROCESSED)
+                    || node.flags.contains(NodeFlags::IS_REQUESTING)
+                    || node.flags.contains(NodeFlags::IS_BLOCKED)
+                {
+                    // debug!("Skipping node {} due to flags", node_id);
                     continue;
                 }
                 match node.payload {
@@ -329,10 +346,11 @@ impl Engine {
         payload: Payload,
         labels: Vec<NodeLabel>,
         should_add_new: bool,
+        find_related_to: Option<NodeId>,
     ) -> PiResult<ExistingOrNewNodeId> {
-        if let Some(existing_node_id) = self.find_existing(&payload) {
+        if let Some(existing_node_id) = self.find_existing_node(&payload, find_related_to)? {
             // If there is the same payload saved in the graph, we do not add a new node
-            return Ok(ExistingOrNewNodeId::Existing(*existing_node_id));
+            return Ok(ExistingOrNewNodeId::Existing(*existing_node_id.1));
         }
 
         if !should_add_new {
@@ -430,36 +448,21 @@ impl Engine {
         }
     }
 
-    fn find_existing(&self, payload: &Payload) -> Option<ArcedNodeId> {
+    fn find_existing_node(
+        &self,
+        payload: &Payload,
+        find_related_to: Option<NodeId>,
+    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
         // For certain node payloads, check if there is a node with the same payload
         let engine = Arc::new(self);
         match payload {
             Payload::Domain(ref domain) => {
-                let existing =
-                    match Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name)) {
-                        Ok(domain) => domain,
-                        Err(_err) => {
-                            return None;
-                        }
-                    };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name))
             }
             Payload::Link(ref link) => {
-                let existing = match Link::find_existing(engine, &link.get_full_link()) {
-                    Ok(link) => link,
-                    Err(_err) => {
-                        return None;
-                    }
-                };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                Link::find_existing(engine, &link.get_full_link(), find_related_to)
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -548,16 +551,13 @@ impl Engine {
                         }
                     })
                     .collect()),
-                None => Err(PiError::GraphError(format!(
-                    "Node {} does not exist",
-                    starting_node_id
-                ))),
+                None => Ok(vec![]),
             },
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }
     }
 
-    pub fn fetch_url(&self, url: &str, link_node_id: &NodeId) -> PiResult<()> {
+    pub fn fetch(&self, url: &str, link_node_id: &NodeId) -> PiResult<()> {
         let engine = Arc::new(self);
         let link_node = match engine.get_node_by_id(link_node_id) {
             Some(node) => node,
@@ -570,13 +570,20 @@ impl Engine {
             }
         };
         if link_node.flags.contains(NodeFlags::IS_REQUESTING) {
-            debug!("Link node {} is already being fetched", link_node_id);
+            debug!("Link node for URL {} is already being fetched", &url);
             return Ok(());
         }
-        debug!("Checking if we can fetch within domain: {}", url);
+        if link_node.flags.contains(NodeFlags::IS_BLOCKED) {
+            debug!("Link node for URL {} is blocked, cannot fetch", &url);
+            return Err(PiError::FetchError(format!(
+                "Link node for URL {} is blocked, cannot fetch",
+                &url
+            )));
+        }
+
         let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
             Domain::find_existing(engine.clone(), FindDomainOf::Node(link_node_id.clone()))?;
-        let (domain, _) = match existing_domain {
+        let (domain, domain_node_id) = match existing_domain {
             Some(existing_domain) => existing_domain,
             None => {
                 error!("Cannot find domain node for URL {}", url);
@@ -587,10 +594,22 @@ impl Engine {
             }
         };
 
+        if domain.flags.contains(NodeFlags::IS_BLOCKED) {
+            debug!("Domain is blocked, cannot fetch");
+            return Err(PiError::FetchError(format!(
+                "Domain for URL {} is blocked, cannot fetch",
+                &url
+            )));
+        }
+
         let domain_payload = match domain.payload {
             Payload::Domain(ref payload) => {
                 if !payload.is_allowed_to_crawl {
                     debug!("Domain is not allowed to crawl: {}", &payload.name);
+                    // Update Link node and set to blocked
+                    self.toggle_flag(link_node_id, NodeFlags::IS_BLOCKED)?;
+                    // This domain and it's links cannot be crawled
+                    self.toggle_flag(&*domain_node_id, NodeFlags::IS_BLOCKED)?;
                     return Err(PiError::FetchError(
                         "Domain is not allowed to crawl".to_string(),
                     ));
@@ -606,6 +625,7 @@ impl Engine {
         };
         debug!("Domain {} is allowed to crawl", &domain_payload.name);
 
+        self.toggle_flag(link_node_id, NodeFlags::IS_REQUESTING)?;
         let full_url = format!("https://{}{}", domain_payload.name, url);
         match self
             .fetcher_tx
@@ -702,10 +722,10 @@ impl Engine {
         }
     }
 
-    pub fn set_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
+    pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
-                nodes.update_flag(node_id, flag);
+                nodes.toggle_flag(node_id, flag);
                 self.tick_me_later();
                 Ok(())
             }
@@ -719,9 +739,3 @@ impl Engine {
         }
     }
 }
-
-// fn read_le_u32(input: &mut &[u8]) -> u32 {
-//     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
-//     *input = rest;
-//     u32::from_le_bytes(int_bytes.try_into().unwrap())
-// }

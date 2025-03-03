@@ -14,6 +14,7 @@ impl SearchTerm {
             Payload::SearchTerm(Self(search_term.to_string())),
             vec![CommonNodeLabels::AddedByUser.to_string()],
             true,
+            None,
         )?;
         Ok(())
     }

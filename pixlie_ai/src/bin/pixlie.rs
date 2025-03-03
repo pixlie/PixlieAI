@@ -295,10 +295,6 @@ fn main() {
                 // The engine has requested to be called later
                 match tick_requests_per_project.try_lock() {
                     Ok(mut tick_requests_per_project) => {
-                        debug!(
-                            "Current tick requests for project {}: {:?}",
-                            project_id, tick_requests_per_project
-                        );
                         if !tick_requests_per_project.contains(&project_id) {
                             tick_requests_per_project.insert(project_id.clone());
                             debug!("TickMeLater for project {}", &project_id);

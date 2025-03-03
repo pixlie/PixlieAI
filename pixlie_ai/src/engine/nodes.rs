@@ -113,13 +113,15 @@ impl Nodes {
         Ok(())
     }
 
-    pub(super) fn update_flag(&mut self, node_id: &NodeId, flag: NodeFlags) {
+    pub(super) fn toggle_flag(&mut self, node_id: &NodeId, flag: NodeFlags) {
         self.data.get_mut(node_id).map(|node| {
+            let mut flags: NodeFlags = node.flags.clone();
+            flags.toggle(flag);
             *node = Arc::new(NodeItem {
                 id: node.id.clone(),
                 payload: node.payload.clone(),
                 labels: node.labels.clone(),
-                flags: NodeFlags::from_bits_truncate(node.flags.bits() | flag.bits()),
+                flags,
                 written_at: Utc::now(),
             });
         });

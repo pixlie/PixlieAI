@@ -21,13 +21,43 @@ enum CanCrawl {
     No(String),
 }
 
-fn check_domain_log(domain: &str, logs: &mut Logs) -> CanCrawl {
-    match logs.get(domain) {
+fn check_logs(domain: &str, url: &str, logs: &mut Logs) -> CanCrawl {
+    match logs.get_mut(domain) {
         Some(domain_log) => {
             // Check the last fetch time for this domain. We do not want to fetch too often.
             if domain_log.last_fetched_at.elapsed().as_secs() > 2 {
-                // We have fetched from this domain some time ago, we can fetch now
-                CanCrawl::Yes
+                // We have fetched from this domain some time ago, let's check the URL logs
+                match domain_log.per_url.get(url) {
+                    Some(url_log) => {
+                        // Check the last fetch time for this URL. We do not want to fetch too often.
+                        if url_log.last_fetched_at.elapsed().as_secs() > 2 {
+                            // We have fetched from this URL some time ago, we can fetch now
+                            debug!("URL was recently fetched from, cannot fetch now");
+                            CanCrawl::No(
+                                "URL was recently fetched from, cannot fetch now".to_string(),
+                            )
+                        } else {
+                            // We have fetched from this URL recently, let's update the last fetched time
+                            domain_log.per_url.insert(
+                                url.to_string(),
+                                FetchLog {
+                                    last_fetched_at: Instant::now(),
+                                },
+                            );
+                            CanCrawl::Yes
+                        }
+                    }
+                    None => {
+                        // We have not fetched from this URL yet, we can fetch now
+                        domain_log.per_url.insert(
+                            url.to_string(),
+                            FetchLog {
+                                last_fetched_at: Instant::now(),
+                            },
+                        );
+                        CanCrawl::Yes
+                    }
+                }
             } else {
                 // We have fetched from this domain very recently, we can not fetch now
                 debug!("Domain was recently fetched from, cannot fetch now");
@@ -101,7 +131,7 @@ pub fn fetcher_runtime(
                 Some(event) => match event {
                     PiEvent::FetchRequest(request) => {
                         let fetch_response: PiEvent = {
-                            match check_domain_log(&request.domain, &mut domain_logs) {
+                            match check_logs(&request.domain, &request.url, &mut domain_logs) {
                                 CanCrawl::No(err) => PiEvent::FetchError(FetchError {
                                     project_id: request.project_id.clone(),
                                     node_id: request.node_id,

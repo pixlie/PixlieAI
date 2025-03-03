@@ -92,8 +92,14 @@ bitflags! {
     pub struct NodeFlags: u8 {
         // This is set when a node is processed and does not need to be processed unless it changes
         const IS_PROCESSED = 1;
+
         // This is set when a node makes an external data request which has not finished yet
         const IS_REQUESTING = 1 << 1;
+
+        // This flag says that a node cannot be processed given the current state of the graph
+        // For example, if a domain is not set to be crawled, then we cannot fetch any URLs from it
+        // In that case all Link nodes belonging to that domain will have this flag set
+        const IS_BLOCKED = 1 << 2;
     }
 }
 
