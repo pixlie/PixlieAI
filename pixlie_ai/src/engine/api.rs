@@ -5,6 +5,7 @@ use crate::entity::content::{
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::robots_txt::RobotsTxt;
 use crate::entity::web::web_page::WebPage;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
@@ -79,6 +80,7 @@ pub enum APIPayload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
+    RobotsTxt(RobotsTxt),
     FileHTML(WebPage),
     Title(Title),
     Heading(Heading),
@@ -99,6 +101,7 @@ impl APIPayload {
             Payload::Step(step) => APIPayload::Step(step),
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
+            Payload::RobotsTxt(robots_txt) => APIPayload::RobotsTxt(robots_txt),
             Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
             Payload::Title(title) => APIPayload::Title(title),
             Payload::Heading(heading) => APIPayload::Heading(heading),

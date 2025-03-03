@@ -28,6 +28,7 @@ use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::robots_txt::RobotsTxt;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
@@ -39,6 +40,7 @@ pub enum Payload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
+    RobotsTxt(RobotsTxt),
     FileHTML(WebPage),
     Title(Title),
     Heading(Heading),
