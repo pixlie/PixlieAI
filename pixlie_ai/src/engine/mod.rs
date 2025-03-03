@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    actions::extraction::topic_link_search_terms::TopicLinkSearchTerms, content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title}, workflow::WorkflowStep
+    actions::extraction::topic_link_search_term::TopicLinkSearchTerm, content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title}, workflow::WorkflowStep
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ pub enum Payload {
     NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
     Topic(Topic),
-    TopicLinkSearchTerms(TopicLinkSearchTerms),
+    TopicLinkSearchTerm(TopicLinkSearchTerm),
 }
 
 pub enum FindNode<'a> {
