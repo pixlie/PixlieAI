@@ -12,14 +12,15 @@ import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { TopicWrite } from "../../api_types/TopicWrite.ts";
+import { SearchTerm } from "../../api_types/SearchTerm.ts";
 
 
 interface IProjectFormData {
   name: string;
   description: string;
   startingURLs: string; // One per line
-  topic: string;
-  webpageKeywords: string; // One per line
+  topics: string;
+  searchTerms: string; // One per line
 }
 
 const ProjectForm: Component = () => {
@@ -29,8 +30,8 @@ const ProjectForm: Component = () => {
     name: "",
     description: "",
     startingURLs: "",
-    topic: "",
-    webpageKeywords: "",
+    topics: "",
+    searchTerms: "",
   });
   const title = "Create a project";
   const subtitle =
@@ -67,13 +68,21 @@ const ProjectForm: Component = () => {
             } as LinkWrite,
           } as NodeWrite);
         }
-
-        if (!!formData().topic) {
-          insertNode(item.uuid, {
-            Topic: {
-              topic: formData().topic
-            } as TopicWrite,
-          } as NodeWrite);
+        for (const topic of formData().topics.split(/[\r\n]+/)) {
+          if (!!topic) {
+            insertNode(item.uuid, {
+              Topic: {
+                topic,
+              } as TopicWrite,
+            } as NodeWrite);
+          }
+        }
+        for (const searchTerm of formData().searchTerms.split(/[\r\n]+/)) {
+          if (!!searchTerm) {
+            insertNode(item.uuid, {
+              SearchTerm: searchTerm as SearchTerm,
+            } as NodeWrite);
+          }
         }
 
         navigate(`/p/${item.uuid}/workflow`);
@@ -108,26 +117,26 @@ const ProjectForm: Component = () => {
         </div>
 
         <div>
-          <Label label="Topic to track" for="createProjectTopic" />
-          <TextInput
-            id="createProjectTopic"
-            name="topic"
+          <Label label="Topics to track (one per line)" for="createProjectTopics" />
+          <TextArea
+            id="createProjectTopics"
+            name="topics"
             isEditable
             onChange={handleChange}
-            value={formData().topic}
-            autocomplete={false}
+            value={formData().topics}
           />
         </div>
 
-        {/* <div>
-          <Label label="Keywords of interest (one per line)" />
+        <div>
+          <Label label="Search terms of interest (one per line)" for="createProjectSearchTerms" />
           <TextArea
-            name="webpageKeywords"
+            id="createProjectSearchTerms"
+            name="searchTerms"
             isEditable
             onChange={handleChange}
-            value={formData().webpageKeywords}
+            value={formData().searchTerms}
           />
-        </div> */}
+        </div>
       </div>
     );
   };
