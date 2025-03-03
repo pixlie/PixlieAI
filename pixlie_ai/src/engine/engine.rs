@@ -55,8 +55,7 @@ pub struct Engine {
     labels: Mutex<Labels>,
     nodes: Mutex<Nodes>, // All nodes that are in the engine
     edges: Mutex<Edges>,
-    node_ids_by_label: Mutex<NodeIdsByLabel>,
-
+    // node_ids_by_label: Mutex<NodeIdsByLabel>,
     last_node_id: Mutex<u32>,
     project_id: String,
     project_path_on_disk: PathBuf,
@@ -78,8 +77,7 @@ impl Engine {
             labels: Mutex::new(Labels::new()),
             nodes: Mutex::new(Nodes::new()),
             edges: Mutex::new(Edges::new()),
-            node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
-
+            // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
             last_node_id: Mutex::new(0),
             project_id,
             project_path_on_disk: storage_root,
@@ -316,27 +314,7 @@ impl Engine {
                 }
             }
         }
-        // Store the node in nodes_by_label_id for the label from Payload and given labels
-        {
-            match self.node_ids_by_label.try_lock() {
-                Ok(mut node_ids_by_label) => {
-                    for label in all_given_labels.iter() {
-                        node_ids_by_label
-                            .data
-                            .entry(label.clone())
-                            .and_modify(|entries| entries.push(arced_id.clone()))
-                            .or_insert(vec![arced_id.clone()]);
-                    }
-                }
-                Err(err) => {
-                    error!("Error locking node_ids_by_label: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error locking node_ids_by_label: {}",
-                        err
-                    )));
-                }
-            };
-        }
+        // TODO: Store the node in nodes_by_label_id for the label from Payload and given labels
         self.tick_me_later();
         Ok(())
     }
@@ -649,24 +627,41 @@ impl Engine {
         Ok(())
     }
 
-    pub fn get_all_node_labels(&self) -> Vec<ArcedNodeLabel> {
-        match self.node_ids_by_label.try_lock() {
-            Ok(node_ids_by_label) => node_ids_by_label.data.keys().map(|x| x.clone()).collect(),
+    pub fn get_all_node_labels(&self) -> Vec<NodeLabel> {
+        match self.nodes.try_lock() {
+            Ok(nodes) => {
+                let mut labels: HashSet<NodeLabel> = HashSet::new();
+                for node in nodes.data.values() {
+                    labels.insert(node.get_label());
+                    labels.extend(node.labels.iter().cloned());
+                }
+                labels.iter().map(|x| x.clone()).collect()
+            }
             Err(err) => {
-                error!("Could not lock node_ids_by_label: {}", err);
+                error!("Could not lock nodes: {}", err);
                 vec![]
             }
         }
     }
 
     pub fn get_node_ids_with_label(&self, label: &NodeLabel) -> Vec<ArcedNodeId> {
-        match self.node_ids_by_label.try_lock() {
-            Ok(node_ids_by_label) => match node_ids_by_label.data.get(label) {
-                Some(node_ids) => node_ids.clone(),
-                None => vec![],
-            },
+        // TODO: Use a cached HashMap of node_ids_by_label
+        match self.nodes.try_lock() {
+            Ok(nodes) => nodes
+                .data
+                .iter()
+                .filter_map(|(id, node)| {
+                    if node.get_label() == *label {
+                        Some(id.clone())
+                    } else if node.labels.contains(label) {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
             Err(err) => {
-                error!("Could not lock node_ids_by_label: {}", err);
+                error!("Could not lock nodes: {}", err);
                 vec![]
             }
         }

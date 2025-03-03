@@ -120,6 +120,12 @@ pub struct NodeItem {
     pub written_at: DateTime<Utc>,
 }
 
+impl NodeItem {
+    pub fn get_label(&self) -> String {
+        self.payload.to_string()
+    }
+}
+
 impl Ord for NodeItem {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id.cmp(&other.id)

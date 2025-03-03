@@ -167,7 +167,7 @@ fn main() {
         let fetcher_tx = fetcher_tx.clone();
         let pool_inner = pool.clone();
         pool.execute(move || loop {
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(10000));
             let ticks = match tick_requests_per_project.try_lock() {
                 Ok(mut ticks) => ticks.drain().collect(),
                 Err(err) => {
