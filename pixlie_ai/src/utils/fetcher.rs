@@ -143,7 +143,7 @@ pub fn fetcher_runtime(
                                             project_id: request.project_id.clone(),
                                             node_id: request.node_id,
                                             url: request.url.clone(),
-                                            contents: ExternalData::Text(contents),
+                                            contents,
                                         })
                                     }
                                     FetchResult::Error(err) => {

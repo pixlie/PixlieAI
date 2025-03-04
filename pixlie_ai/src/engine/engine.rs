@@ -1,6 +1,6 @@
 use super::{
-    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, EdgeLabel, ExistingOrNewNodeId,
-    Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
+    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, CommonEdgeLabels, EdgeLabel,
+    ExistingOrNewNodeId, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
@@ -8,15 +8,17 @@ use crate::engine::nodes::Nodes;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::{FetchRequest, PiChannel, PiEvent};
+use crate::{ExternalData, FetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
+use std::fmt::format;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use texting_robots::Robot;
 
 pub(crate) struct Labels {
     data: HashSet<ArcedNodeLabel>,
@@ -35,18 +37,6 @@ impl Iterator for Labels {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.data.iter().next().map(|x| x.clone())
-    }
-}
-
-pub(crate) struct NodeIdsByLabel {
-    data: HashMap<ArcedNodeLabel, Vec<ArcedNodeId>>,
-}
-
-impl NodeIdsByLabel {
-    fn new() -> NodeIdsByLabel {
-        NodeIdsByLabel {
-            data: HashMap::new(),
-        }
     }
 }
 
@@ -181,15 +171,30 @@ impl Engine {
                                     continue;
                                 }
                             }
+                            let engine = Arc::new(self);
+                            let node_id = Arc::new(response.node_id.clone());
                             match node.payload {
-                                Payload::Link(ref payload) => {
-                                    let engine = Arc::new(self);
-                                    let node_id = Arc::new(response.node_id.clone());
-                                    match payload.process(engine, &node_id, Some(response.contents))
-                                    {
+                                Payload::Domain(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
                                         Ok(_) => {}
                                         Err(err) => {
-                                            error!("Error processing link: {}", err);
+                                            error!("Error processing Domain: {}", err);
+                                        }
+                                    }
+                                }
+                                Payload::Link(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Link: {}", err);
                                         }
                                     }
                                 }
@@ -198,6 +203,53 @@ impl Engine {
                         }
                         None => {}
                     }
+                }
+                PiEvent::FetchError(error) => {
+                    // We have received the error from the previous request
+                    match self.get_node_by_id(&error.node_id) {
+                        Some(node) => {
+                            match self.toggle_flag(&node.id, NodeFlags::IS_REQUESTING) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error toggling IS_REQUESTING flag for node with ID {}: {}",
+                                        &node.id, err
+                                    );
+                                    continue;
+                                }
+                            }
+                            let engine = Arc::new(self);
+                            let node_id = Arc::new(error.node_id.clone());
+                            match node.payload {
+                                Payload::Domain(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Domain: {}", err);
+                                        }
+                                    }
+                                }
+                                Payload::Link(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Link: {}", err);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        None => {}
+                    };
                 }
                 _ => {}
             }
@@ -218,7 +270,20 @@ impl Engine {
     fn process_nodes(&self) {
         let engine = Arc::new(self);
         let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
-            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
+            Ok(nodes) => nodes
+                .data
+                .iter()
+                .filter_map(|item| {
+                    if item.1.flags.contains(NodeFlags::IS_PROCESSED)
+                        || item.1.flags.contains(NodeFlags::IS_REQUESTING)
+                        || item.1.flags.contains(NodeFlags::IS_BLOCKED)
+                    {
+                        None
+                    } else {
+                        Some(item.0.clone())
+                    }
+                })
+                .collect(),
             Err(err) => {
                 error!("Error locking nodes: {}", err);
                 return;
@@ -226,14 +291,15 @@ impl Engine {
         };
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
-                if node.flags.contains(NodeFlags::IS_PROCESSED)
-                    || node.flags.contains(NodeFlags::IS_REQUESTING)
-                    || node.flags.contains(NodeFlags::IS_BLOCKED)
-                {
-                    // debug!("Skipping node {} due to flags", node_id);
-                    continue;
-                }
                 match node.payload {
+                    Payload::Domain(ref domain) => {
+                        match domain.process(engine.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing domain: {}", err);
+                            }
+                        }
+                    }
                     Payload::Link(ref payload) => {
                         match payload.process(engine.clone(), &node_id, None) {
                             Ok(_) => {}
@@ -535,9 +601,11 @@ impl Engine {
         }
     }
 
-    pub fn fetch(&self, url: &str, link_node_id: &NodeId) -> PiResult<()> {
+    pub fn fetch(&self, url: &str, calling_node_id: &NodeId) -> PiResult<()> {
+        // Calling node is usually a Link,
+        // but it can also be a Domain when Domain is fetching `robots.txt`
         let engine = Arc::new(self);
-        let link_node = match engine.get_node_by_id(link_node_id) {
+        let calling_node = match engine.get_node_by_id(calling_node_id) {
             Some(node) => node,
             None => {
                 error!("Cannot find link node for URL {}", url);
@@ -547,23 +615,37 @@ impl Engine {
                 )));
             }
         };
-        if link_node.flags.contains(NodeFlags::IS_REQUESTING) {
-            debug!("Link node for URL {} is already being fetched", &url);
+        if calling_node.flags.contains(NodeFlags::IS_REQUESTING) {
+            debug!("Cannot fetch URL {} since it is already fetching", &url);
             return Ok(());
         }
-        if link_node.flags.contains(NodeFlags::IS_BLOCKED) {
-            debug!("Link node for URL {} is blocked, cannot fetch", &url);
+        if calling_node.flags.contains(NodeFlags::IS_BLOCKED) {
+            // debug!("Cannot fetch URL {} since it is blocked", &url);
             return Err(PiError::FetchError(format!(
-                "Link node for URL {} is blocked, cannot fetch",
+                "Cannot fetch URL {} since it is blocked",
                 &url
             )));
         }
 
-        let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> =
-            Domain::find_existing(engine.clone(), FindDomainOf::Node(link_node_id.clone()))?;
-        let (domain, domain_node_id) = match existing_domain {
-            Some(existing_domain) => existing_domain,
-            None => {
+        let (domain, domain_node_id): (ArcedNodeItem, NodeId) = match calling_node.payload {
+            Payload::Link(_) => {
+                let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> = Domain::find_existing(
+                    engine.clone(),
+                    FindDomainOf::Node(calling_node_id.clone()),
+                )?;
+                match existing_domain {
+                    Some(existing_domain) => (existing_domain.0, *existing_domain.1),
+                    None => {
+                        error!("Cannot find domain node for URL {}", url);
+                        return Err(PiError::GraphError(format!(
+                            "Cannot find domain node for URL {}",
+                            url
+                        )));
+                    }
+                }
+            }
+            Payload::Domain(_) => (calling_node.clone(), calling_node_id.clone()),
+            _ => {
                 error!("Cannot find domain node for URL {}", url);
                 return Err(PiError::GraphError(format!(
                     "Cannot find domain node for URL {}",
@@ -583,14 +665,59 @@ impl Engine {
         let domain_payload = match domain.payload {
             Payload::Domain(ref payload) => {
                 if !payload.is_allowed_to_crawl {
-                    debug!("Domain is not allowed to crawl: {}", &payload.name);
-                    // Update Link node and set to blocked
-                    self.toggle_flag(link_node_id, NodeFlags::IS_BLOCKED)?;
-                    // This domain and it's links cannot be crawled
-                    self.toggle_flag(&*domain_node_id, NodeFlags::IS_BLOCKED)?;
+                    // debug!("Domain is not allowed to crawl: {}", &payload.name);
                     return Err(PiError::FetchError(
                         "Domain is not allowed to crawl".to_string(),
                     ));
+                }
+                if *calling_node_id != domain_node_id {
+                    // Find the RobotsTxt node connected to the domain node
+                    let connected_node_ids = self.get_node_ids_connected_with_label(
+                        &domain_node_id,
+                        &CommonEdgeLabels::OwnerOf.to_string(),
+                    )?;
+                    if connected_node_ids.len() == 0 {
+                        // We will try to fetch the robots.txt file in the next tick
+                        debug!("robots.txt node not found for domain {}", payload.name);
+                        return Ok(());
+                    }
+                    for connected_node_id in connected_node_ids {
+                        match self.get_node_by_id(&*connected_node_id) {
+                            Some(node) => match node.payload {
+                                Payload::RobotsTxt(ref robots_txt) => {
+                                    if robots_txt.contents.is_empty() {
+                                        debug!("robots.txt is empty for domain {}", payload.name);
+                                        break;
+                                    } else {
+                                        let robot = match Robot::new(
+                                            "Pixlie AI",
+                                            &robots_txt.contents.as_bytes(),
+                                        ) {
+                                            Ok(robot) => robot,
+                                            Err(err) => {
+                                                error!(
+                                                    "Error parsing robots.txt for domain {}: {}",
+                                                    url, err
+                                                );
+                                                return Err(PiError::FetchError(
+                                                    "Error parsing robots.txt".to_string(),
+                                                ));
+                                            }
+                                        };
+                                        if !robot.allowed(&url) {
+                                            debug!("URL {} is not allowed to crawl", url);
+                                            return Err(PiError::FetchError(
+                                                "URL is not allowed to crawl".to_string(),
+                                            ));
+                                        }
+                                        break;
+                                    }
+                                }
+                                _ => {}
+                            },
+                            None => {}
+                        }
+                    }
                 }
                 payload
             }
@@ -603,13 +730,15 @@ impl Engine {
         };
         debug!("Domain {} is allowed to crawl", &domain_payload.name);
 
-        self.toggle_flag(link_node_id, NodeFlags::IS_REQUESTING)?;
+        self.toggle_flag(calling_node_id, NodeFlags::IS_REQUESTING)?;
+
         let full_url = format!("https://{}{}", domain_payload.name, url);
+        debug!("Fetching URL {}", &full_url);
         match self
             .fetcher_tx
             .blocking_send(PiEvent::FetchRequest(FetchRequest {
                 project_id: self.project_id.clone(),
-                node_id: *link_node_id,
+                node_id: *calling_node_id,
                 domain: domain_payload.name.clone(),
                 url: full_url.clone(),
             })) {

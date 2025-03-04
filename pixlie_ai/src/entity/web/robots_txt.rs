@@ -3,8 +3,8 @@ use ts_rs::TS;
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub(crate) struct RobotsTxt {
-    pub(crate) contents: String,
+pub struct RobotsTxt {
+    pub contents: String,
 }
 
 impl RobotsTxt {}

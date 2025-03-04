@@ -33,7 +33,8 @@ impl PiChannel {
 
 #[derive(Clone)]
 pub enum ExternalData {
-    Text(String),
+    Response(FetchResponse),
+    Error(FetchError),
 }
 
 #[derive(Clone)]
@@ -49,7 +50,7 @@ pub struct FetchResponse {
     pub project_id: String,
     pub node_id: u32,
     pub url: String,
-    pub contents: ExternalData,
+    pub contents: String,
 }
 
 #[derive(Clone)]

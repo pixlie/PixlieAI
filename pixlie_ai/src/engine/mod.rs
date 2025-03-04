@@ -90,7 +90,7 @@ pub enum CommonEdgeLabels {
 }
 
 bitflags! {
-    #[derive(Clone)]
+    #[derive(Clone, Deserialize, Serialize)]
     pub struct NodeFlags: u8 {
         // This is set when a node is processed and does not need to be processed unless it changes
         const IS_PROCESSED = 1;
@@ -117,7 +117,6 @@ pub struct NodeItem {
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
-    #[serde(skip)]
     pub flags: NodeFlags,
     pub written_at: DateTime<Utc>,
 }

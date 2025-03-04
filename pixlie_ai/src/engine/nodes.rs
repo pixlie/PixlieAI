@@ -67,7 +67,7 @@ impl Nodes {
             format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
             to_allocvec(&chunk)?,
         )?;
-        debug!("Saved chunk {} of length {} to DB", chunk_id, chunk.len());
+        // debug!("Saved chunk {} of length {} to DB", chunk_id, chunk.len());
         Ok(())
     }
 

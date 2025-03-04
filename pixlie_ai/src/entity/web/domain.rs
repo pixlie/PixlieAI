@@ -8,7 +8,6 @@ use crate::ExternalData;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use texting_robots::get_robots_url;
 use ts_rs::TS;
 
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
@@ -28,59 +27,67 @@ impl Node for Domain {
         engine: Arc<&Engine>,
         node_id: &NodeId,
         data_from_previous_request: Option<ExternalData>,
-    ) -> PiResult<()>
-    where
-        Self: Sized,
-    {
-        // We create the link for `robots.txt` and fetch it
-        let robots_txt_link = match get_robots_url(&format!("https://{}", &self.name)) {
-            Ok(robots_txt_link) => robots_txt_link,
-            Err(err) => {
-                error!(
-                    "Error building robots.txt link for domain {}: {}",
-                    &self.name, err
-                );
-                return Err(PiError::InternalError(format!(
-                    "Error building robots.txt link for domain {}: {}",
-                    &self.name, err
-                )));
-            }
-        };
+    ) -> PiResult<()> {
         match data_from_previous_request {
-            Some(ExternalData::Text(contents)) => {
-                // We have received the contents of the `robots.txt` from the previous request
-                debug!("Fetched robots.txt from {}", &robots_txt_link);
-                let content_node_id = match engine.get_or_add_node(
-                    Payload::RobotsTxt(RobotsTxt { contents }),
-                    vec![],
-                    true,
-                    None,
-                ) {
-                    Ok(existing_or_new_node_id) => match existing_or_new_node_id {
-                        ExistingOrNewNodeId::Existing(id) => id,
-                        ExistingOrNewNodeId::New(id) => id,
-                    },
-                    Err(err) => {
-                        error!("Error adding node: {}", err);
-                        return Err(err);
-                    }
-                };
-                engine.add_connection(
-                    (node_id.clone(), content_node_id),
-                    (
-                        CommonEdgeLabels::ParentOf.to_string(),
-                        CommonEdgeLabels::ChildOf.to_string(),
-                    ),
-                )?;
-                engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
-            }
-            None => match engine.fetch(&robots_txt_link, &node_id) {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Error fetching robots.txt: {}", err);
-                    return Err(err);
+            Some(external_data) => match external_data {
+                ExternalData::Response(response) => {
+                    // We have received the contents of the `robots.txt` from the previous request
+                    // debug!("Fetched robots.txt from {}", &self.name);
+                    let content_node_id = match engine.get_or_add_node(
+                        Payload::RobotsTxt(RobotsTxt {
+                            contents: response.contents,
+                        }),
+                        vec![],
+                        true,
+                        None,
+                    ) {
+                        Ok(existing_or_new_node_id) => match existing_or_new_node_id {
+                            ExistingOrNewNodeId::Existing(id) => id,
+                            ExistingOrNewNodeId::New(id) => id,
+                        },
+                        Err(err) => {
+                            error!("Error adding node: {}", err);
+                            return Err(err);
+                        }
+                    };
+                    engine.add_connection(
+                        (node_id.clone(), content_node_id),
+                        (
+                            CommonEdgeLabels::OwnerOf.to_string(),
+                            CommonEdgeLabels::BelongsTo.to_string(),
+                        ),
+                    )?;
+                    engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
                 }
-            }
+                ExternalData::Error(_error) => {
+                    let content_node_id = match engine.get_or_add_node(
+                        Payload::RobotsTxt(RobotsTxt {
+                            contents: "".to_string(),
+                        }),
+                        vec![],
+                        true,
+                        None,
+                    ) {
+                        Ok(existing_or_new_node_id) => match existing_or_new_node_id {
+                            ExistingOrNewNodeId::Existing(id) => id,
+                            ExistingOrNewNodeId::New(id) => id,
+                        },
+                        Err(err) => {
+                            error!("Error adding node: {}", err);
+                            return Err(err);
+                        }
+                    };
+                    engine.add_connection(
+                        (node_id.clone(), content_node_id),
+                        (
+                            CommonEdgeLabels::OwnerOf.to_string(),
+                            CommonEdgeLabels::BelongsTo.to_string(),
+                        ),
+                    )?;
+                    engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
+                }
+            },
+            None => engine.fetch("/robots.txt", &node_id)?,
         };
         Ok(())
     }
