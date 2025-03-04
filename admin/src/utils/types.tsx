@@ -25,7 +25,6 @@ interface INodeItem extends APINodeItem {
 
 interface IEngine {
   nodes: { [nodeId: number]: INodeItem };
-  nodeIdsByLabel: { [label: string]: Array<number> };
   edges: { [nodeId: number]: Array<[number, string]> };
 }
 
