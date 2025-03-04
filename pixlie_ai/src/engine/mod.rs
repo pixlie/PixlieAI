@@ -9,6 +9,7 @@ use crate::entity::{
     content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
     workflow::WorkflowStep,
 };
+use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -27,6 +28,7 @@ use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::robots_txt::RobotsTxt;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
@@ -38,6 +40,7 @@ pub enum Payload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
+    RobotsTxt(RobotsTxt),
     FileHTML(WebPage),
     Title(Title),
     Heading(Heading),
@@ -86,14 +89,42 @@ pub enum CommonEdgeLabels {
     BelongsTo,
 }
 
+bitflags! {
+    #[derive(Clone, Deserialize, Serialize)]
+    pub struct NodeFlags: u8 {
+        // This is set when a node is processed and does not need to be processed unless it changes
+        const IS_PROCESSED = 1;
+
+        // This is set when a node makes an external data request which has not finished yet
+        const IS_REQUESTING = 1 << 1;
+
+        // This flag says that a node cannot be processed given the current state of the graph
+        // For example, if a domain is not set to be crawled, then we cannot fetch any URLs from it
+        // In that case all Link nodes belonging to that domain will have this flag set
+        const IS_BLOCKED = 1 << 2;
+    }
+}
+
+impl Default for NodeFlags {
+    fn default() -> Self {
+        NodeFlags::empty()
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NodeItem {
     pub id: NodeId,
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: Payload,
 
-    // pub edges: HashMap<EdgeLabel, Vec<NodeId>>, // Nodes that are connected to this node
+    pub flags: NodeFlags,
     pub written_at: DateTime<Utc>,
+}
+
+impl NodeItem {
+    pub fn get_label(&self) -> String {
+        self.payload.to_string()
+    }
 }
 
 impl Ord for NodeItem {

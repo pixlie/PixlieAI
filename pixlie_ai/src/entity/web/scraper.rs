@@ -5,7 +5,7 @@ use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
-use log::error;
+use log::{debug, error};
 use scraper::Html;
 use std::sync::Arc;
 use url::Url;
@@ -16,34 +16,38 @@ impl WebPage {
         let (current_link, current_link_node_id) = self.get_link(engine.clone(), node_id)?;
         let existing_domain =
             Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
-        let (domain, _domain_node_id) = match existing_domain {
-            Some(existing_domain) => match existing_domain.0.payload {
-                Payload::Domain(ref payload) => (payload.clone(), existing_domain.1.clone()),
-                _ => {
-                    error!("Expected Domain type payload");
-                    return Err(PiError::GraphError(
-                        "Expected Domain type payload".to_string(),
-                    ));
-                }
-            },
-            None => {
-                error!(
-                    "Cannot find domain node for URL {}",
-                    &current_link.get_full_link()
-                );
-                return Err(PiError::InternalError(format!(
-                    "Cannot find domain node for URL {}",
-                    &current_link.get_full_link()
-                )));
+        if existing_domain.is_none() {
+            error!(
+                "Cannot find domain node for URL {}",
+                &current_link.get_full_link()
+            );
+            return Err(PiError::InternalError(format!(
+                "Cannot find domain node for URL {}",
+                &current_link.get_full_link()
+            )));
+        }
+        let existing_domain = existing_domain.unwrap();
+        let (domain_payload, _domain_node_id) = match existing_domain.0.payload {
+            Payload::Domain(ref payload) => (payload.clone(), existing_domain.1.clone()),
+            _ => {
+                error!("Expected Domain type payload");
+                return Err(PiError::GraphError(
+                    "Expected Domain type payload".to_string(),
+                ));
             }
         };
-        let full_url = format!("https://{}{}", domain.name, current_link.get_full_link());
+        // TODO: Use protocol from original link instead of https only
+        let full_url = format!(
+            "https://{}{}",
+            domain_payload.name,
+            current_link.get_full_link()
+        );
         let current_url = match Url::parse(&full_url) {
             Ok(url) => url,
             Err(err) => {
-                error!("Cannot parse URL {} to get domain: {}", &full_url, err);
+                error!("Cannot parse URL {}: {}", &full_url, err);
                 return Err(PiError::InternalError(format!(
-                    "Cannot parse URL {} to get domain: {}",
+                    "Cannot parse URL {}: {}",
                     &full_url, err
                 )));
             }
@@ -66,6 +70,7 @@ impl WebPage {
                             )),
                             vec![],
                             true,
+                            None,
                         )?
                         .get_node_id();
                     engine.add_connection(
@@ -89,6 +94,7 @@ impl WebPage {
                             )),
                             vec![],
                             true,
+                            None,
                         )?
                         .get_node_id();
                     engine.add_connection(
@@ -113,6 +119,7 @@ impl WebPage {
                             )),
                             vec![],
                             true,
+                            None,
                         )?
                         .get_node_id();
                     engine.add_connection(
@@ -147,6 +154,7 @@ impl WebPage {
                             Payload::BulletPoints(BulletPoints(bullet_points)),
                             vec![],
                             true,
+                            None,
                         )?
                         .get_node_id();
                     engine.add_connection(
@@ -181,6 +189,7 @@ impl WebPage {
                             Payload::OrderedPoints(OrderedPoints(ordered_points)),
                             vec![],
                             true,
+                            None,
                         )?
                         .get_node_id();
                     engine.add_connection(
@@ -209,6 +218,7 @@ impl WebPage {
                         // Links that are relative to this website, we build the full URL
                         match current_url.join(&url) {
                             Ok(parsed) => {
+                                debug!("Adding link to {}", parsed.to_string());
                                 match Link::add(
                                     engine.clone(),
                                     &parsed.to_string(),
@@ -227,8 +237,9 @@ impl WebPage {
                                 error!("Cannot parse URL to get domain for link: {}", err);
                             }
                         }
-                    } else {
+                    } else if url.starts_with("https://") || url.starts_with("http://") {
                         // Links that are full URLs
+                        debug!("Adding link to {}", url);
                         match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
                             Ok(_) => {}
                             Err(err) => {

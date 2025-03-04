@@ -33,7 +33,31 @@ impl PiChannel {
 
 #[derive(Clone)]
 pub enum ExternalData {
-    Text(String),
+    Response(FetchResponse),
+    Error(FetchError),
+}
+
+#[derive(Clone)]
+pub struct FetchRequest {
+    pub project_id: String,
+    pub node_id: u32,
+    pub domain: String,
+    pub url: String,
+}
+
+#[derive(Clone)]
+pub struct FetchResponse {
+    pub project_id: String,
+    pub node_id: u32,
+    pub url: String,
+    pub contents: String,
+}
+
+#[derive(Clone)]
+pub struct FetchError {
+    pub project_id: String,
+    pub node_id: u32,
+    pub error: String,
 }
 
 #[derive(Clone)]
@@ -45,9 +69,9 @@ pub enum PiEvent {
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
 
-    FetchRequest(String, u32, String),
-    FetchResponse(String, u32, String, ExternalData),
-    FetchError(String, u32, String),
+    FetchRequest(FetchRequest),
+    FetchResponse(FetchResponse),
+    FetchError(FetchError),
 
     NeedsToTick,
     TickMeLater(String), // This is sent from engine to main thread

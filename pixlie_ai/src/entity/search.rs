@@ -14,6 +14,7 @@ impl SearchTerm {
             Payload::SearchTerm(Self(search_term.to_string())),
             vec![CommonNodeLabels::AddedByUser.to_string()],
             true,
+            None,
         )?;
         Ok(())
     }
@@ -33,6 +34,7 @@ impl Node for SearchTerm {
                         id: **id,
                         labels: node.labels.clone(),
                         payload: node.payload.clone(),
+                        flags: node.flags.clone(),
                         written_at: node.written_at.clone(),
                     })
                 } else {
@@ -45,6 +47,7 @@ impl Node for SearchTerm {
                         id: **id,
                         labels: node.labels.clone(),
                         payload: node.payload.clone(),
+                        flags: node.flags.clone(),
                         written_at: node.written_at.clone(),
                     })
                 } else {
@@ -57,6 +60,7 @@ impl Node for SearchTerm {
                         id: **id,
                         labels: node.labels.clone(),
                         payload: node.payload.clone(),
+                        flags: node.flags.clone(),
                         written_at: node.written_at.clone(),
                     })
                 } else {

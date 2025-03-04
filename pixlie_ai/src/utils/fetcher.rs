@@ -1,10 +1,9 @@
-use crate::{ExternalData, PiEvent};
+use crate::{ExternalData, FetchError, FetchResponse, PiEvent};
 use log::{debug, error};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
-use url::Url;
 
 struct FetchLog {
     last_fetched_at: Instant,
@@ -22,26 +21,43 @@ enum CanCrawl {
     No(String),
 }
 
-fn can_crawl_domain(url: &str, logs: &mut Logs) -> CanCrawl {
-    let parsed = match Url::parse(&url) {
-        Ok(parsed) => parsed,
-        Err(err) => {
-            return CanCrawl::No(format!("Cannot parse URL {} to get domain: {}", &url, err))
-        }
-    };
-    let domain = match parsed.domain() {
-        Some(domain) => domain,
-        None => return CanCrawl::No(format!("Cannot parse URL {} to get domain", &url)),
-    };
-    if domain.is_empty() {
-        return CanCrawl::No(format!("Cannot parse URL {} to get domain", &url));
-    }
-    match logs.get(domain) {
+fn check_logs(domain: &str, url: &str, logs: &mut Logs) -> CanCrawl {
+    match logs.get_mut(domain) {
         Some(domain_log) => {
             // Check the last fetch time for this domain. We do not want to fetch too often.
             if domain_log.last_fetched_at.elapsed().as_secs() > 2 {
-                // We have fetched from this domain some time ago, we can fetch now
-                CanCrawl::Yes
+                // We have fetched from this domain some time ago, let's check the URL logs
+                match domain_log.per_url.get(url) {
+                    Some(url_log) => {
+                        // Check the last fetch time for this URL. We do not want to fetch too often.
+                        if url_log.last_fetched_at.elapsed().as_secs() > 2 {
+                            // We have fetched from this URL some time ago, we can fetch now
+                            debug!("URL was recently fetched from, cannot fetch now");
+                            CanCrawl::No(
+                                "URL was recently fetched from, cannot fetch now".to_string(),
+                            )
+                        } else {
+                            // We have fetched from this URL recently, let's update the last fetched time
+                            domain_log.per_url.insert(
+                                url.to_string(),
+                                FetchLog {
+                                    last_fetched_at: Instant::now(),
+                                },
+                            );
+                            CanCrawl::Yes
+                        }
+                    }
+                    None => {
+                        // We have not fetched from this URL yet, we can fetch now
+                        domain_log.per_url.insert(
+                            url.to_string(),
+                            FetchLog {
+                                last_fetched_at: Instant::now(),
+                            },
+                        );
+                        CanCrawl::Yes
+                    }
+                }
             } else {
                 // We have fetched from this domain very recently, we can not fetch now
                 debug!("Domain was recently fetched from, cannot fetch now");
@@ -113,22 +129,30 @@ pub fn fetcher_runtime(
             let event = fetch_rx.recv().await;
             match event {
                 Some(event) => match event {
-                    PiEvent::FetchRequest(project_id, id, url) => {
+                    PiEvent::FetchRequest(request) => {
                         let fetch_response: PiEvent = {
-                            match can_crawl_domain(&url, &mut domain_logs) {
-                                CanCrawl::No(err) => PiEvent::FetchError(project_id, id, err),
-                                CanCrawl::Yes => match fetch_url(&url).await {
+                            match check_logs(&request.domain, &request.url, &mut domain_logs) {
+                                CanCrawl::No(err) => PiEvent::FetchError(FetchError {
+                                    project_id: request.project_id.clone(),
+                                    node_id: request.node_id,
+                                    error: err,
+                                }),
+                                CanCrawl::Yes => match fetch_url(&request.url).await {
                                     FetchResult::Contents(_status, contents) => {
-                                        PiEvent::FetchResponse(
-                                            project_id,
-                                            id,
-                                            url,
-                                            ExternalData::Text(contents),
-                                        )
+                                        PiEvent::FetchResponse(FetchResponse {
+                                            project_id: request.project_id.clone(),
+                                            node_id: request.node_id,
+                                            url: request.url.clone(),
+                                            contents,
+                                        })
                                     }
                                     FetchResult::Error(err) => {
                                         error!("Error fetching URL: {}", err);
-                                        PiEvent::FetchError(project_id, id, err)
+                                        PiEvent::FetchError(FetchError {
+                                            project_id: request.project_id.clone(),
+                                            node_id: request.node_id,
+                                            error: err,
+                                        })
                                     }
                                 },
                             }
