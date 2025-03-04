@@ -1,6 +1,6 @@
 use std::{sync::Arc, vec};
 
-use log::{debug, error};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -79,11 +79,6 @@ impl Node for Topic {
         }
 
         let webpage_node_ids = engine.get_node_ids_with_label(&WebPage::get_label());
-        debug!(
-            "Processing Topic node '{}': Found {} Webpage nodes",
-            self.0,
-            webpage_node_ids.len()
-        );
         if webpage_node_ids.len() == 0 {
             // Skip if there are no webpages in the graph
             return Ok(());
@@ -137,12 +132,25 @@ impl Node for Topic {
             }
         }).collect::<Vec<(ArcedNodeId, ArcedNodeId)>>();
 
+        if unprocessed_webpages.len() > 0 {
+            info!(
+                "Extracting search terms for {} unprocessed Web Pages for topic '{}'",
+                unprocessed_webpages.len(),
+                self.0
+            );
+        }
+
         for (webpage_node_id, link_node_id) in unprocessed_webpages {
             match engine.get_node_by_id(&webpage_node_id) {
                 Some(webpage_node) => {
                     match &webpage_node.payload {
                         Payload::FileHTML(web_page) => {
                             if web_page.is_scraped {
+                                debug!(
+                                    "Processing Topic node '{}': Extracting search terms from Webpage node {}",
+                                    self.0,
+                                    webpage_node_id
+                                );
                                 // Only process content of scraped webpages
                                 let partial_content_node_ids: Vec<ArcedNodeId>
                                 = match engine.get_node_ids_connected_with_label(
