@@ -35,7 +35,7 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
           <a href={`https://${getPayload()!.name}`} class={getColors().link}>
             {getPayload()!.name}
           </a>
-          <span>
+          <span class="text-xs">
             {getPayload()!.is_allowed_to_crawl ? "Can crawl" : "Cannot crawl"}
           </span>
         </>

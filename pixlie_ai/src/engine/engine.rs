@@ -655,20 +655,16 @@ impl Engine {
         };
 
         if domain.flags.contains(NodeFlags::IS_BLOCKED) {
-            debug!("Domain is blocked, cannot fetch");
-            return Err(PiError::FetchError(format!(
-                "Domain for URL {} is blocked, cannot fetch",
-                &url
-            )));
+            // debug!("Domain is blocked, cannot fetch");
+            return Ok(());
         }
 
         let domain_payload = match domain.payload {
             Payload::Domain(ref payload) => {
                 if !payload.is_allowed_to_crawl {
-                    // debug!("Domain is not allowed to crawl: {}", &payload.name);
-                    return Err(PiError::FetchError(
-                        "Domain is not allowed to crawl".to_string(),
-                    ));
+                    debug!("Domain is not allowed to crawl: {}", &payload.name);
+                    self.toggle_flag(&calling_node_id, NodeFlags::IS_BLOCKED)?;
+                    return Ok(());
                 }
                 if *calling_node_id != domain_node_id {
                     // Find the RobotsTxt node connected to the domain node
