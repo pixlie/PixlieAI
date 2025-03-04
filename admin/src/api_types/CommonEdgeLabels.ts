@@ -9,4 +9,5 @@ export type CommonEdgeLabels =
   | "OwnerOf"
   | "BelongsTo"
   | "Suggests"
-  | "SuggestedFor";
+  | "SuggestedFor"
+  | "EvaluatedFor";

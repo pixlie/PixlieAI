@@ -5,6 +5,7 @@ import type { Heading } from "./Heading";
 import type { Link } from "./Link";
 import type { OrderedPoints } from "./OrderedPoints";
 import type { Paragraph } from "./Paragraph";
+import type { RobotsTxt } from "./RobotsTxt";
 import type { SearchTerm } from "./SearchTerm";
 import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
@@ -17,6 +18,7 @@ export type APIPayload =
   | { type: "Step"; data: WorkflowStep }
   | { type: "Domain"; data: Domain }
   | { type: "Link"; data: Link }
+  | { type: "RobotsTxt"; data: RobotsTxt }
   | { type: "FileHTML"; data: WebPage }
   | { type: "Title"; data: Title }
   | { type: "Heading"; data: Heading }
