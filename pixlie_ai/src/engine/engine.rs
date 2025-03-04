@@ -16,6 +16,7 @@ use log::{debug, error};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::fmt::format;
+use std::sync::atomic::AtomicU32;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -55,6 +56,8 @@ pub struct Engine {
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
     fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
+
+    count_open_fetch_requests: AtomicU32,
 }
 
 impl Engine {
@@ -77,6 +80,8 @@ impl Engine {
             my_pi_channel,
             main_channel_tx,
             fetcher_tx,
+
+            count_open_fetch_requests: AtomicU32::new(0),
         };
         engine
     }
@@ -173,6 +178,9 @@ impl Engine {
                                     continue;
                                 }
                             }
+                            // Reduce the number of open fetch requests by 1
+                            self.count_open_fetch_requests
+                                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                             let engine = Arc::new(self);
                             let node_id = Arc::new(response.node_id.clone());
                             match node.payload {
@@ -220,6 +228,9 @@ impl Engine {
                                     continue;
                                 }
                             }
+                            // Reduce the number of open fetch requests by 1
+                            self.count_open_fetch_requests
+                                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                             let engine = Arc::new(self);
                             let node_id = Arc::new(error.node_id.clone());
                             match node.payload {
@@ -620,6 +631,15 @@ impl Engine {
     pub fn fetch(&self, url: &str, calling_node_id: &NodeId) -> PiResult<()> {
         // Calling node is usually a Link,
         // but it can also be a Domain when Domain is fetching `robots.txt`
+        // We have only a limited number of open fetch requests at a time
+        if self
+            .count_open_fetch_requests
+            .load(std::sync::atomic::Ordering::Relaxed)
+            >= 5
+        {
+            return Ok(());
+        }
+
         let engine = Arc::new(self);
         let calling_node = match engine.get_node_by_id(calling_node_id) {
             Some(node) => node,
@@ -743,9 +763,12 @@ impl Engine {
         debug!("Domain {} is allowed to crawl", &domain_payload.name);
 
         self.toggle_flag(calling_node_id, NodeFlags::IS_REQUESTING)?;
+        self.count_open_fetch_requests
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         let full_url = format!("https://{}{}", domain_payload.name, url);
         debug!("Fetching URL {}", &full_url);
+
         match self
             .fetcher_tx
             .blocking_send(PiEvent::FetchRequest(FetchRequest {

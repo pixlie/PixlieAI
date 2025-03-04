@@ -1,4 +1,4 @@
-import { Component, createMemo } from "solid-js";
+import { Component, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams, useSearchParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid";
@@ -10,9 +10,14 @@ const labelTypes: string[] = ["Link", "SearchTerm"];
 type LabelType = (typeof labelTypes)[number];
 
 const Workflow: Component = () => {
-  const [engine] = useEngine();
+  const [engine, { fetchNodes, fetchEdges }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
+
+  onMount(() => {
+    fetchNodes(params.projectId);
+    fetchEdges(params.projectId);
+  });
 
   const getProject = createMemo(() => {
     if (!!params.projectId && params.projectId in engine.projects) {
