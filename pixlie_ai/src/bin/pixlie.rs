@@ -167,7 +167,7 @@ fn main() {
         let fetcher_tx = fetcher_tx.clone();
         let pool_inner = pool.clone();
         pool.execute(move || loop {
-            thread::sleep(Duration::from_millis(2000));
+            thread::sleep(Duration::from_millis(1000));
             let ticks = match tick_requests_per_project.try_lock() {
                 Ok(mut ticks) => ticks.drain().collect(),
                 Err(err) => {
@@ -341,28 +341,22 @@ fn main() {
                     }
                 }
             }
-            PiEvent::FetchError(error) => {
-                match channels_per_project.try_lock() {
-                    Ok(channels_per_project) => {
-                        match channels_per_project.get(&error.project_id) {
-                            Some(channel) => {
-                                match channel.tx.send(PiEvent::FetchError(error.clone())) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        error!("Error sending PiEvent in Engine: {}", err);
-                                    }
-                                }
-                            }
-                            None => {
-                                error!("Project {} is not loaded", &error.project_id);
-                            }
+            PiEvent::FetchError(error) => match channels_per_project.try_lock() {
+                Ok(channels_per_project) => match channels_per_project.get(&error.project_id) {
+                    Some(channel) => match channel.tx.send(PiEvent::FetchError(error.clone())) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error sending PiEvent in Engine: {}", err);
                         }
+                    },
+                    None => {
+                        error!("Project {} is not loaded", &error.project_id);
                     }
-                    Err(err) => {
-                        error!("Error locking channels_per_project: {}", err);
-                    }
+                },
+                Err(err) => {
+                    error!("Error locking channels_per_project: {}", err);
                 }
-            }
+            },
             PiEvent::Shutdown => {
                 break;
             }

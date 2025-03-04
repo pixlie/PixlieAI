@@ -2,6 +2,7 @@ use super::{Project, ProjectCollection, ProjectCreate, ProjectOwner};
 use crate::error::PiError;
 use crate::{error::PiResult, utils::crud::Crud};
 use actix_web::{web, Responder};
+use uuid::Uuid;
 
 pub async fn read_projects() -> PiResult<impl Responder> {
     let projects = ProjectCollection::read_list()?;
@@ -15,7 +16,7 @@ pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl 
         ));
     }
     let project: Project = Project {
-        uuid: uuid::Uuid::new_v4().to_string(),
+        uuid: Uuid::new_v4().to_string(),
         name: project.name.clone(),
         description: project.description.clone(),
         owner: ProjectOwner::Myself,

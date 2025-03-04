@@ -7,20 +7,20 @@ interface IPerProjectInnerProps {
 }
 
 const PerProjectInner: Component<IPerProjectInnerProps> = (props) => {
-  const [_, { setProjectId, fetchNodes, fetchAllEdges }] = useEngine();
+  const [_, { setProjectId, fetchNodes, fetchEdges }] = useEngine();
   const params = useParams();
 
   onMount(() => {
     setProjectId(params.projectId);
     fetchNodes(params.projectId);
-    fetchAllEdges(params.projectId);
+    fetchEdges(params.projectId);
   });
 
   createEffect(() => {
     if (params.projectId) {
       setProjectId(params.projectId);
       fetchNodes(params.projectId);
-      fetchAllEdges(params.projectId);
+      fetchEdges(params.projectId);
     }
   });
 
