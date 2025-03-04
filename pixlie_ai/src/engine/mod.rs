@@ -87,6 +87,8 @@ pub enum CommonEdgeLabels {
 
     Suggests,  // When one node is suggested based on another
     SuggestedFor,
+
+    EvaluatedFor, // When one node is evaluated for another
 }
 
 #[derive(Clone, Deserialize, Serialize)]

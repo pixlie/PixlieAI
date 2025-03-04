@@ -4,7 +4,9 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::search::SearchTerm, error::PiResult, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+
+use super::web::web_page::WebPage;
 
 
 
@@ -69,151 +71,206 @@ impl Node for Topic {
         // Skip if there is no API key
         if active_workspace.anthropic_api_key.is_none() {
             debug!(
-                "Skipping processing Topic node '{}': Antrhropic API key isnt configured yet",
+                "Skipping processing Topic node '{}': Anthropic API key isnt configured yet",
                 self.0,
             );
             return Ok(());
         }
 
-        let topic = self.clone();
-        let link_node_ids: Vec<ArcedNodeId> = engine.get_node_ids_with_label(&Link::get_label());
-        if link_node_ids.len() == 0 {
-            debug!(
-                "Skipping processing of Topic node '{}': No link nodes present",
-                self.0
-            );
+        let webpage_node_ids = engine.get_node_ids_with_label(&WebPage::get_label());
+        debug!(
+            "Processing Topic node '{}': Found {} Webpage nodes",
+            self.0,
+            webpage_node_ids.len()
+        );
+        if webpage_node_ids.len() == 0 {
+            // Skip if there are no webpages in the graph
             return Ok(());
         }
-        let mut content = vec![];
-        for link_node_id in link_node_ids {
-            let link_node = match engine.get_node_by_id(&link_node_id) {
-                Some(arced_node) => arced_node,
-                None => {
-                    debug!(
-                        "Skipping processing of Topic node '{}': Link node {} not found",
-                        self.0,
-                        link_node_id
-                    );
-                    return Ok(());
-                }
+
+        let unprocessed_webpages: Vec<(ArcedNodeId, ArcedNodeId)> = webpage_node_ids.iter().filter_map(|webpage_node_id| {
+            // Check if this webpage has already been processed for this topic
+            let is_already_processed = match engine.get_node_ids_connected_with_label(
+                node_id, &CommonEdgeLabels::EvaluatedFor.to_string()
+            ) {
+                Ok(evaluated_link_ids) => evaluated_link_ids.iter().any(|link_id| {
+                    // Check if this link is connected to the current webpage
+                    match engine.get_node_ids_connected_with_label(
+                        &webpage_node_id, &CommonEdgeLabels::ContentOf.to_string()
+                    ) {
+                        Ok(webpage_link_ids) => webpage_link_ids.contains(link_id),
+                        Err(_) => false
+                    }
+                }),
+                Err(_) => false
             };
-            if !link_node.labels.contains(&CommonNodeLabels::AddedByUser.to_string()) {
-                // Only process topic for links added by the user for now
-                // TODO: Later, we will introduce processing for all links
-                // We may want to store the topic's processing time for
-                // each link in a HashMap in the Topic structure
-                continue;
+
+            if is_already_processed {
+                return None;
             }
 
-            match &link_node.payload {
-                Payload::Link(link) => {
-                    if link.is_fetched {
-                        let webpage_node_ids: Vec<ArcedNodeId> = engine.get_node_ids_connected_with_label(
-                            &link_node.id,
-                            &CommonEdgeLabels::PathOf.to_string(),
-                        )?;
+            // Find the link connected to this webpage
+            match engine.get_node_ids_connected_with_label(
+                &webpage_node_id, &CommonEdgeLabels::ContentOf.to_string()
+            ) {
+                Ok(link_ids) => {
+                    if link_ids.is_empty() {
+                        error!(
+                            "Skipping search term extraction for topic '{}', Webpage node {}: No link connected to web page",
+                            self.0,
+                            webpage_node_id
+                        );
+                        return None;
+                    }
+                    Some((webpage_node_id.clone(), link_ids[0].clone()))
+                },
+                Err(err) => {
+                    error!(
+                        "Skipping search term extraction for topic '{}', Webpage node {}: {}",
+                        self.0,
+                        webpage_node_id,
+                        err
+                    );
+                    return None;
+                }
+            }
+        }).collect::<Vec<(ArcedNodeId, ArcedNodeId)>>();
 
-                        for webpage_node_id in webpage_node_ids {
-                            match engine.get_node_by_id(&webpage_node_id) {
-                                Some(webpage_node) => {
-                                    match &webpage_node.payload {
-                                        Payload::FileHTML(web_page) => {
-                                            if web_page.is_scraped {
-                                                let child_node_ids: Vec<ArcedNodeId> = engine.get_node_ids_connected_with_label(
-                                                    &webpage_node_id,
-                                                    &CommonEdgeLabels::ParentOf.to_string()
-                                                )?;
-                                                for child_node_id in child_node_ids {
-                                                    match engine.get_node_by_id(&child_node_id) {
-                                                        Some(child_node) => {
-                                                            match &child_node.payload {
-                                                                Payload::Title(title) => {
-                                                                    content.push(
-                                                                        ("webpage_title".to_string(), title.0.clone())
-                                                                    );
-                                                                }
-                                                                Payload::Heading(heading) => {
-                                                                    content.push(
-                                                                        ("webpage_heading".to_string(), heading.0.clone())
-                                                                    );
-                                                                }
-                                                                Payload::Paragraph(paragraph) => {
-                                                                    content.push(
-                                                                        ("webpage_paragraph".to_string(), paragraph.0.clone())
-                                                                    );
-                                                                }
-                                                                _ => {}
-                                                            }
-                                                        }
-                                                        None => {}
-                                                    };
-                                                }   
-                                            } else {
-                                                debug!(
-                                                    "Skipping processing of Topic node '{}': WebPage node {} is not scraped yet",
-                                                    self.0,
-                                                    webpage_node_id
-                                                );
-                                                return Ok(());
+        for (webpage_node_id, link_node_id) in unprocessed_webpages {
+            match engine.get_node_by_id(&webpage_node_id) {
+                Some(webpage_node) => {
+                    match &webpage_node.payload {
+                        Payload::FileHTML(web_page) => {
+                            if web_page.is_scraped {
+                                // Only process content of scraped webpages
+                                let partial_content_node_ids: Vec<ArcedNodeId>
+                                = match engine.get_node_ids_connected_with_label(
+                                    &webpage_node_id,
+                                    &CommonEdgeLabels::ParentOf.to_string()
+                                ) {
+                                    Ok(node_ids) => node_ids,
+                                    Err(err) => {
+                                        // Skip if there was an error in accessing any partial content node
+                                        debug!(
+                                            "Skipping search term extraction for topic '{}', Webpage node {}: {}",
+                                            self.0,
+                                            webpage_node_id,
+                                            err
+                                        );
+                                        continue;
+                                    }
+                                };
+                                let content = partial_content_node_ids.iter().filter_map(|node_id| {
+                                    match engine.get_node_by_id(node_id) {
+                                        Some(partial_content_node) => {
+                                            match &partial_content_node.payload {
+                                                Payload::Title(title) => {
+                                                    Some(("webpage_title".to_string(), title.0.clone()))
+                                                }
+                                                Payload::Heading(heading) => {
+                                                    Some(("webpage_heading".to_string(), heading.0.clone()))
+                                                }
+                                                Payload::Paragraph(paragraph) => {
+                                                    Some(("webpage_paragraph".to_string(), paragraph.0.clone()))
+                                                }
+                                                _ => None
                                             }
                                         }
-                                        _ => {}
+                                        None => None
                                     }
-                                },
-                                None => {}
-                            };
+                                }).collect::<Vec<(String, String)>>();
+                                if content.len() == 0 {
+                                    // Skip if there is no content in the webpage to evaluate
+                                    continue;
+                                }
+                                let search_term_results = match extract_search_terms(
+                                    self.0.clone(),
+                                    &content,
+                                    active_workspace.anthropic_api_key.as_ref().unwrap()
+                                ) {
+                                    Ok(search_terms) => search_terms,
+                                    Err(err) => {
+                                        error!("Error extracting search terms: {}", err);
+                                        continue;
+                                    }
+                                };
+                                for search_term_result in search_term_results {
+                                    let search_term_node_id: Option<NodeId> = match engine.get_or_add_node(
+                                        Payload::SearchTerm(SearchTerm(search_term_result.search_term.clone())),
+                                        vec![],
+                                        true,
+                                    ) {
+                                        Ok(node_id) => Some(node_id.get_node_id()),
+                                        Err(err) => {
+                                            // TODO: Need to determine how to handle instances of search terms
+                                            // failing to be saved if new / retrieved if existing
+                                            error!(
+                                                "Error adding search term {} while processing webpage node {} for topic {}: {}",
+                                                search_term_result.search_term,
+                                                webpage_node_id,
+                                                self.0,
+                                                err
+                                            );
+                                            None
+                                        }
+                                    };
+                                    match search_term_node_id {
+                                        Some(search_term_node_id) => {
+                                            match engine.add_connection(
+                                                (node_id.clone(), search_term_node_id.clone()),
+                                                (CommonEdgeLabels::Suggests.to_string(), CommonEdgeLabels::SuggestedFor.to_string()),
+                                            ) {
+                                                Ok(_)=>{},
+                                                Err(err)=>{
+                                                    error!(
+                                                        "Error adding connection between Topic node {} and SearchTerm node {}: {}",
+                                                        node_id,
+                                                        search_term_node_id,
+                                                        err
+                                                    );
+                                                }
+                                            };
+                                            match engine.add_connection(
+                                                (search_term_node_id.clone(), *link_node_id.clone()),
+                                                (CommonEdgeLabels::Suggests.to_string(), CommonEdgeLabels::SuggestedFor.to_string()),
+                                            ) {
+                                                Ok(_)=>{},
+                                                Err(err)=>{
+                                                    error!(
+                                                        "Error adding connection between SearchTerm node {} and Link node {}: {}",
+                                                        search_term_node_id,
+                                                        link_node_id,
+                                                        err
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        None => {}
+                                    }
+                                }
+                                match engine.add_connection(
+                                    (node_id.clone(), *link_node_id.clone()),
+                                    (CommonEdgeLabels::EvaluatedFor.to_string(), CommonEdgeLabels::EvaluatedFor.to_string()),
+                                ) {
+                                    Ok(_)=>{},
+                                    Err(err)=>{
+                                        error!(
+                                            "Error adding connection between Topic node {} and Link node {}: {}",
+                                            node_id,
+                                            link_node_id,
+                                            err
+                                        );
+                                    }
+                                    
+                                }
+                            }
                         }
-                    }
-                    else {
-                        debug!(
-                            "Skipping processing of Topic node '{}': Link node {}({}) is not fetched yet",
-                            self.0,
-                            link_node.id,
-                            link.get_full_link()
-                        );
-                        return Ok(());
+                        _ => {}
                     }
                 },
-                _ => {},
+                None => {}
             };
         }
-
-        if content.len() == 0 {
-            debug!(
-                "Skipping processing of Topic node '{}': No content found",
-                self.0
-            );
-            return Ok(());
-        }
-
-        let search_terms = match extract_search_terms(
-            topic.0.clone(),
-            &content,
-            active_workspace.anthropic_api_key.as_ref().unwrap()
-        ) {
-            Ok(search_terms) => search_terms,
-            Err(err) => {
-                error!("Error extracting search terms: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error extracting search terms: {}",
-                    err
-                )));
-            }
-        };
-
-        for search_term in search_terms {
-            let search_term_node_id = engine.get_or_add_node(
-                Payload::SearchTerm(SearchTerm(search_term.search_term.clone())),
-                vec![],
-                true,
-            )?.get_node_id();
-            engine.add_connection(
-                (node_id.clone(), search_term_node_id.clone()),
-                (CommonEdgeLabels::Suggests.to_string(), CommonEdgeLabels::SuggestedFor.to_string()),
-            )?;
-        }
-
-        engine.update_node(&node_id, Payload::Topic(topic))?;
         Ok(())
     }
 }
