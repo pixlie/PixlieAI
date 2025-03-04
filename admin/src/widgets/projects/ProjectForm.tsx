@@ -11,8 +11,8 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import { TopicWrite } from "../../api_types/TopicWrite.ts";
 import { SearchTerm } from "../../api_types/SearchTerm.ts";
+import { Topic } from "../../api_types/Topic.ts";
 
 
 interface IProjectFormData {
@@ -71,9 +71,7 @@ const ProjectForm: Component = () => {
         for (const topic of formData().topics.split(/[\r\n]+/)) {
           if (!!topic) {
             insertNode(item.uuid, {
-              Topic: {
-                topic,
-              } as TopicWrite,
+              Topic: topic as Topic,
             } as NodeWrite);
           }
         }

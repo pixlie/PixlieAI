@@ -1,28 +1,21 @@
 use std::{sync::Arc, vec};
 
-use chrono::{DateTime, TimeDelta, Utc};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::{extract_search_terms, SearchTermPromptInput, SearchTermPromptInputContent}, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
 
 
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub struct Topic {
-    pub topic: String,
-    pub last_processed: Option<DateTime<Utc>>
-}
+pub struct Topic(pub String);
 
 impl Topic {
     pub fn add_manually(engine: Arc<&Engine>, topic: &String) -> PiResult<()> {
         engine.get_or_add_node(
-            Payload::Topic(Self {
-                topic: topic.to_string(),
-                last_processed: None,
-            }),
+            Payload::Topic(Topic(topic.to_string())),
             vec![CommonNodeLabels::AddedByUser.to_string()],
             true,
         )?;
@@ -33,8 +26,8 @@ impl Topic {
         for node_id in existing_node_ids {
             match engine.get_node_by_id(&node_id) {
                 Some(node) => match &node.payload {
-                    Payload::Topic(topic_node) => {
-                        if topic_node.topic == *topic {
+                    Payload::Topic(payload) => {
+                        if &payload.0 == topic {
                             return Ok(Some((node, node_id)));
                         }
                     }
@@ -56,7 +49,7 @@ impl Node for Topic {
         &self,
         engine: Arc<&Engine>,
         node_id: &NodeId,
-        data_from_previous_request: Option<ExternalData>
+        _data_from_previous_request: Option<ExternalData>
     ) -> PiResult<()> {
         let workspaces = WorkspaceCollection::read_list()?;
 
@@ -64,7 +57,7 @@ impl Node for Topic {
         if workspaces.len() == 0 {
             debug!(
                 "Skipping processing Topic node '{}': There are no workspaces yet",
-                self.topic
+                self.0
             );
             return Ok(());
         }
@@ -77,17 +70,7 @@ impl Node for Topic {
         if active_workspace.anthropic_api_key.is_none() {
             debug!(
                 "Skipping processing Topic node '{}': Antrhropic API key isnt configured yet",
-                self.topic,
-            );
-            return Ok(());
-        }
-        const WAIT_TIME: TimeDelta = TimeDelta::hours(5);
-        // If the node was processed within WAIT_TIME, skip processing
-        if !self.last_processed.is_none_or(|p| p > Utc::now() - WAIT_TIME) {
-            debug!(
-                "Skipping processing of Topic node '{}': Isn't still {} since the last processing",
-                self.topic,
-                WAIT_TIME.to_string(),
+                self.0,
             );
             return Ok(());
         }
@@ -97,7 +80,7 @@ impl Node for Topic {
         if link_node_ids.len() == 0 {
             debug!(
                 "Skipping processing of Topic node '{}': No link nodes present",
-                self.topic
+                self.0
             );
             return Ok(());
         }
@@ -108,7 +91,7 @@ impl Node for Topic {
                 None => {
                     debug!(
                         "Skipping processing of Topic node '{}': Link node {} not found",
-                        self.topic,
+                        self.0,
                         link_node_id
                     );
                     return Ok(());
@@ -168,7 +151,7 @@ impl Node for Topic {
                                             } else {
                                                 debug!(
                                                     "Skipping processing of Topic node '{}': WebPage node {} is not scraped yet",
-                                                    self.topic,
+                                                    self.0,
                                                     webpage_node_id
                                                 );
                                                 return Ok(());
@@ -184,7 +167,7 @@ impl Node for Topic {
                     else {
                         debug!(
                             "Skipping processing of Topic node '{}': Link node {}({}) is not fetched yet",
-                            self.topic,
+                            self.0,
                             link_node.id,
                             link.get_full_link()
                         );
@@ -198,13 +181,13 @@ impl Node for Topic {
         if content.len() == 0 {
             debug!(
                 "Skipping processing of Topic node '{}': No content found",
-                self.topic
+                self.0
             );
             return Ok(());
         }
 
         let search_terms = match extract_search_terms(
-            topic.topic.clone(),
+            topic.0.clone(),
             &content,
             active_workspace.anthropic_api_key.as_ref().unwrap()
         ) {
@@ -230,10 +213,7 @@ impl Node for Topic {
             )?;
         }
 
-        engine.update_node(&node_id, Payload::Topic(Topic {
-            last_processed: Some(Utc::now()),
-            ..self.clone()
-        }))?;
+        engine.update_node(&node_id, Payload::Topic(topic))?;
         Ok(())
     }
 }

@@ -33,18 +33,12 @@ pub struct LinkWrite {
     pub url: String,
 }
 
-#[derive(Clone, Deserialize, TS)]
-#[ts(export)]
-pub struct TopicWrite {
-    pub topic: String,
-}
-
 #[derive(Clone, Deserialize, Display, TS)]
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
     SearchTerm(SearchTerm),
-    Topic(TopicWrite),
+    Topic(Topic),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -518,7 +512,7 @@ pub fn handle_engine_api_request(
                     SearchTerm::add_manually(engine.clone(), &search_term.0)?;
                 }
                 NodeWrite::Topic(topic) => {
-                    Topic::add_manually(engine.clone(), &topic.topic)?;
+                    Topic::add_manually(engine.clone(), &topic.0)?;
                 }
             }
             EngineResponsePayload::Success

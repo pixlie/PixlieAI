@@ -6,8 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
-    workflow::WorkflowStep,
+    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title}, topic::Topic, workflow::WorkflowStep
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,7 +24,6 @@ pub mod setup;
 // use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
-use crate::entity::topic::Topic;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;

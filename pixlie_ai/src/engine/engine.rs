@@ -13,7 +13,6 @@ use crate::error::{PiError, PiResult};
 use crate::{PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error};
-use postcard::from_bytes;
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::{
@@ -482,7 +481,7 @@ impl Engine {
                 }
             }
             Payload::Topic(ref topic) => {
-                let existing = match Topic::find_existing(engine, &topic.topic) {
+                let existing = match Topic::find_existing(engine, &topic.0) {
                     Ok(topic) => topic,
                     Err(_err) => {
                         return None;
