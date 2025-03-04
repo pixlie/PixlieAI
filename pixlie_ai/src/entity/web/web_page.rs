@@ -155,7 +155,7 @@ impl WebPage {
 
 impl Node for WebPage {
     fn get_label() -> String {
-        "WebPage".to_string()
+        "FileHTML".to_string()
     }
 
     fn process(

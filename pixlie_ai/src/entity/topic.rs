@@ -4,7 +4,7 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::search::SearchTerm, error::PiResult, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::PiResult, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
 
 use super::web::web_page::WebPage;
 
@@ -20,6 +20,7 @@ impl Topic {
             Payload::Topic(Topic(topic.to_string())),
             vec![CommonNodeLabels::AddedByUser.to_string()],
             true,
+            None,
         )?;
         Ok(())
     }
@@ -199,6 +200,7 @@ impl Node for Topic {
                                         Payload::SearchTerm(SearchTerm(search_term_result.search_term.clone())),
                                         vec![],
                                         true,
+                                        None,
                                     ) {
                                         Ok(node_id) => Some(node_id.get_node_id()),
                                         Err(err) => {

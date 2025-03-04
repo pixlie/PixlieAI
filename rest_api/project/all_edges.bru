@@ -1,0 +1,15 @@
+meta {
+  name: all_edges
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{api}}/engine/{{project_id}}/edges
+  body: none
+  auth: none
+}
+
+headers {
+  User-Agent: insomnia/10.1.1
+}

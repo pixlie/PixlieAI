@@ -1,6 +1,6 @@
 use super::{
-    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, EdgeLabel, ExistingOrNewNodeId,
-    Node, NodeId, NodeItem, NodeLabel, Payload,
+    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, CommonEdgeLabels, EdgeLabel,
+    ExistingOrNewNodeId, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
@@ -10,15 +10,17 @@ use crate::entity::topic::Topic;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::{PiChannel, PiEvent};
+use crate::{ExternalData, FetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
+use std::fmt::format;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use texting_robots::Robot;
 
 pub(crate) struct Labels {
     data: HashSet<ArcedNodeLabel>,
@@ -40,25 +42,12 @@ impl Iterator for Labels {
     }
 }
 
-pub(crate) struct NodeIdsByLabel {
-    data: HashMap<ArcedNodeLabel, Vec<ArcedNodeId>>,
-}
-
-impl NodeIdsByLabel {
-    fn new() -> NodeIdsByLabel {
-        NodeIdsByLabel {
-            data: HashMap::new(),
-        }
-    }
-}
-
 // The engine keeps track of all the data nodes and their relationships
 pub struct Engine {
     labels: Mutex<Labels>,
     nodes: Mutex<Nodes>, // All nodes that are in the engine
     edges: Mutex<Edges>,
-    node_ids_by_label: Mutex<NodeIdsByLabel>,
-
+    // node_ids_by_label: Mutex<NodeIdsByLabel>,
     last_node_id: Mutex<u32>,
     project_id: String,
     project_path_on_disk: PathBuf,
@@ -80,8 +69,7 @@ impl Engine {
             labels: Mutex::new(Labels::new()),
             nodes: Mutex::new(Nodes::new()),
             edges: Mutex::new(Edges::new()),
-            node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
-
+            // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
             last_node_id: Mutex::new(0),
             project_id,
             project_path_on_disk: storage_root,
@@ -139,10 +127,7 @@ impl Engine {
     }
 
     fn exit(&self) {
-        error!(
-            "############################## Exiting engine for project {}",
-            self.project_id
-        );
+        debug!("Exiting engine for project {}", self.project_id);
         // We tell the main thread that we are done ticking
         match self
             .main_channel_tx
@@ -174,24 +159,99 @@ impl Engine {
                 PiEvent::NeedsToTick => {
                     self.tick();
                 }
-                PiEvent::FetchResponse(_project_id, node_id, _url, contents) => {
+                PiEvent::FetchResponse(response) => {
                     // Call the node that had needs this data
-                    match self.get_node_by_id(&node_id) {
-                        Some(node) => match node.payload {
-                            Payload::Link(ref payload) => {
-                                let engine = Arc::new(self);
-                                let node_id = Arc::new(node_id.clone());
-                                match payload.process(engine, &node_id, Some(contents)) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        error!("Error processing link: {}", err);
-                                    }
+                    match self.get_node_by_id(&response.node_id) {
+                        Some(node) => {
+                            match self.toggle_flag(&node.id, NodeFlags::IS_REQUESTING) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error toggling IS_REQUESTING flag for node with ID {}: {}",
+                                        &node.id, err
+                                    );
+                                    continue;
                                 }
                             }
-                            _ => {}
-                        },
+                            let engine = Arc::new(self);
+                            let node_id = Arc::new(response.node_id.clone());
+                            match node.payload {
+                                Payload::Domain(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Domain: {}", err);
+                                        }
+                                    }
+                                }
+                                Payload::Link(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Link: {}", err);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
                         None => {}
                     }
+                }
+                PiEvent::FetchError(error) => {
+                    // We have received the error from the previous request
+                    match self.get_node_by_id(&error.node_id) {
+                        Some(node) => {
+                            match self.toggle_flag(&node.id, NodeFlags::IS_REQUESTING) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error toggling IS_REQUESTING flag for node with ID {}: {}",
+                                        &node.id, err
+                                    );
+                                    continue;
+                                }
+                            }
+                            let engine = Arc::new(self);
+                            let node_id = Arc::new(error.node_id.clone());
+                            match node.payload {
+                                Payload::Domain(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Domain: {}", err);
+                                        }
+                                    }
+                                }
+                                Payload::Link(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Link: {}", err);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        None => {}
+                    };
                 }
                 _ => {}
             }
@@ -212,7 +272,20 @@ impl Engine {
     fn process_nodes(&self) {
         let engine = Arc::new(self);
         let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
-            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
+            Ok(nodes) => nodes
+                .data
+                .iter()
+                .filter_map(|item| {
+                    if item.1.flags.contains(NodeFlags::IS_PROCESSED)
+                        || item.1.flags.contains(NodeFlags::IS_REQUESTING)
+                        || item.1.flags.contains(NodeFlags::IS_BLOCKED)
+                    {
+                        None
+                    } else {
+                        Some(item.0.clone())
+                    }
+                })
+                .collect(),
             Err(err) => {
                 error!("Error locking nodes: {}", err);
                 return;
@@ -221,6 +294,14 @@ impl Engine {
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
                 match node.payload {
+                    Payload::Domain(ref domain) => {
+                        match domain.process(engine.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing domain: {}", err);
+                            }
+                        }
+                    }
                     Payload::Link(ref payload) => {
                         match payload.process(engine.clone(), &node_id, None) {
                             Ok(_) => {}
@@ -294,7 +375,7 @@ impl Engine {
                             payload,
 
                             labels: given_labels.clone(),
-                            // edges: HashMap::new(),
+                            flags: NodeFlags::default(),
                             written_at: Utc::now(),
                         }),
                     );
@@ -309,27 +390,7 @@ impl Engine {
                 }
             }
         }
-        // Store the node in nodes_by_label_id for the label from Payload and given labels
-        {
-            match self.node_ids_by_label.try_lock() {
-                Ok(mut node_ids_by_label) => {
-                    for label in all_given_labels.iter() {
-                        node_ids_by_label
-                            .data
-                            .entry(label.clone())
-                            .and_modify(|entries| entries.push(arced_id.clone()))
-                            .or_insert(vec![arced_id.clone()]);
-                    }
-                }
-                Err(err) => {
-                    error!("Error locking node_ids_by_label: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error locking node_ids_by_label: {}",
-                        err
-                    )));
-                }
-            };
-        }
+        // TODO: Store the node in nodes_by_label_id for the label from Payload and given labels
         self.tick_me_later();
         Ok(())
     }
@@ -339,10 +400,11 @@ impl Engine {
         payload: Payload,
         labels: Vec<NodeLabel>,
         should_add_new: bool,
+        find_related_to: Option<NodeId>,
     ) -> PiResult<ExistingOrNewNodeId> {
-        if let Some(existing_node_id) = self.find_existing(&payload) {
+        if let Some(existing_node_id) = self.find_existing_node(&payload, find_related_to)? {
             // If there is the same payload saved in the graph, we do not add a new node
-            return Ok(ExistingOrNewNodeId::Existing(*existing_node_id));
+            return Ok(ExistingOrNewNodeId::Existing(*existing_node_id.1));
         }
 
         if !should_add_new {
@@ -426,85 +488,41 @@ impl Engine {
     pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
-                match nodes.data.get_mut(node_id) {
-                    Some(node) => {
-                        *node = Arc::new(NodeItem {
-                            id: node_id.clone(),
-                            payload,
-                            labels: node.labels.clone(),
-                            written_at: Utc::now(),
-                        });
-                    }
-                    None => {}
-                }
-                nodes.save_item_chunk_to_disk(&self.get_db()?, node_id)?;
+                nodes.update_node(node_id, payload)?;
+                self.tick_me_later();
+                Ok(())
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
-                return Err(PiError::InternalError(format!(
+                Err(PiError::InternalError(format!(
                     "Error locking nodes: {}",
                     err
-                )));
+                )))
             }
-        };
-        self.tick_me_later();
-        Ok(())
+        }
     }
 
-    fn find_existing(&self, payload: &Payload) -> Option<ArcedNodeId> {
+    fn find_existing_node(
+        &self,
+        payload: &Payload,
+        find_related_to: Option<NodeId>,
+    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
         // For certain node payloads, check if there is a node with the same payload
         let engine = Arc::new(self);
         match payload {
             Payload::Domain(ref domain) => {
-                let existing =
-                    match Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name)) {
-                        Ok(domain) => domain,
-                        Err(_err) => {
-                            return None;
-                        }
-                    };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                Domain::find_existing(engine, FindDomainOf::DomainName(&domain.name))
             }
             Payload::Link(ref link) => {
-                let existing = match Link::find_existing(engine, &link.get_full_link()) {
-                    Ok(link) => link,
-                    Err(_err) => {
-                        return None;
-                    }
-                };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                Link::find_existing(engine, &link.get_full_link(), find_related_to)
             }
             Payload::Topic(ref topic) => {
-                let existing = match Topic::find_existing(engine, &topic.0) {
-                    Ok(topic) => topic,
-                    Err(_err) => {
-                        return None;
-                    }
-                };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                Topic::find_existing(engine, &topic.0)
             }
             Payload::SearchTerm(ref search_term) => {
-                let existing = match SearchTerm::find_existing(engine, &search_term.0) {
-                    Ok(search_term) => search_term,
-                    Err(_err) => {
-                        return None;
-                    }
-                };
-                match existing {
-                    Some((_existing_node, existing_node_id)) => Some(existing_node_id),
-                    None => None,
-                }
+                SearchTerm::find_existing(engine, &search_term.0)
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -593,27 +611,153 @@ impl Engine {
                         }
                     })
                     .collect()),
-                None => Err(PiError::GraphError(format!(
-                    "Node {} does not exist",
-                    starting_node_id
-                ))),
+                None => Ok(vec![]),
             },
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }
     }
 
-    pub fn fetch_url(&self, url: &str, node_id: &NodeId) -> PiResult<()> {
+    pub fn fetch(&self, url: &str, calling_node_id: &NodeId) -> PiResult<()> {
+        // Calling node is usually a Link,
+        // but it can also be a Domain when Domain is fetching `robots.txt`
         let engine = Arc::new(self);
-        let (domain, _domain_node_id) =
-            Domain::can_fetch_within_domain(engine.clone(), url, node_id)?;
+        let calling_node = match engine.get_node_by_id(calling_node_id) {
+            Some(node) => node,
+            None => {
+                error!("Cannot find link node for URL {}", url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find link node for URL {}",
+                    url
+                )));
+            }
+        };
+        if calling_node.flags.contains(NodeFlags::IS_REQUESTING) {
+            debug!("Cannot fetch URL {} since it is already fetching", &url);
+            return Ok(());
+        }
+        if calling_node.flags.contains(NodeFlags::IS_BLOCKED) {
+            // debug!("Cannot fetch URL {} since it is blocked", &url);
+            return Err(PiError::FetchError(format!(
+                "Cannot fetch URL {} since it is blocked",
+                &url
+            )));
+        }
 
-        debug!("Domain {} is allowed to crawl", &domain.name);
-        let full_url = format!("https://{}{}", domain.name, url);
-        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
-            self.project_id.clone(),
-            *node_id,
-            full_url.clone(),
-        )) {
+        let (domain, domain_node_id): (ArcedNodeItem, NodeId) = match calling_node.payload {
+            Payload::Link(_) => {
+                let existing_domain: Option<(ArcedNodeItem, ArcedNodeId)> = Domain::find_existing(
+                    engine.clone(),
+                    FindDomainOf::Node(calling_node_id.clone()),
+                )?;
+                match existing_domain {
+                    Some(existing_domain) => (existing_domain.0, *existing_domain.1),
+                    None => {
+                        error!("Cannot find domain node for URL {}", url);
+                        return Err(PiError::GraphError(format!(
+                            "Cannot find domain node for URL {}",
+                            url
+                        )));
+                    }
+                }
+            }
+            Payload::Domain(_) => (calling_node.clone(), calling_node_id.clone()),
+            _ => {
+                error!("Cannot find domain node for URL {}", url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find domain node for URL {}",
+                    url
+                )));
+            }
+        };
+
+        if domain.flags.contains(NodeFlags::IS_BLOCKED) {
+            debug!("Domain is blocked, cannot fetch");
+            return Err(PiError::FetchError(format!(
+                "Domain for URL {} is blocked, cannot fetch",
+                &url
+            )));
+        }
+
+        let domain_payload = match domain.payload {
+            Payload::Domain(ref payload) => {
+                if !payload.is_allowed_to_crawl {
+                    // debug!("Domain is not allowed to crawl: {}", &payload.name);
+                    return Err(PiError::FetchError(
+                        "Domain is not allowed to crawl".to_string(),
+                    ));
+                }
+                if *calling_node_id != domain_node_id {
+                    // Find the RobotsTxt node connected to the domain node
+                    let connected_node_ids = self.get_node_ids_connected_with_label(
+                        &domain_node_id,
+                        &CommonEdgeLabels::OwnerOf.to_string(),
+                    )?;
+                    if connected_node_ids.len() == 0 {
+                        // We will try to fetch the robots.txt file in the next tick
+                        debug!("robots.txt node not found for domain {}", payload.name);
+                        return Ok(());
+                    }
+                    for connected_node_id in connected_node_ids {
+                        match self.get_node_by_id(&*connected_node_id) {
+                            Some(node) => match node.payload {
+                                Payload::RobotsTxt(ref robots_txt) => {
+                                    if robots_txt.contents.is_empty() {
+                                        debug!("robots.txt is empty for domain {}", payload.name);
+                                        break;
+                                    } else {
+                                        let robot = match Robot::new(
+                                            "Pixlie AI",
+                                            &robots_txt.contents.as_bytes(),
+                                        ) {
+                                            Ok(robot) => robot,
+                                            Err(err) => {
+                                                error!(
+                                                    "Error parsing robots.txt for domain {}: {}",
+                                                    url, err
+                                                );
+                                                return Err(PiError::FetchError(
+                                                    "Error parsing robots.txt".to_string(),
+                                                ));
+                                            }
+                                        };
+                                        if !robot.allowed(&url) {
+                                            debug!("URL {} is not allowed to crawl", url);
+                                            return Err(PiError::FetchError(
+                                                "URL is not allowed to crawl".to_string(),
+                                            ));
+                                        }
+                                        break;
+                                    }
+                                }
+                                _ => {}
+                            },
+                            None => {}
+                        }
+                    }
+                }
+                payload
+            }
+            _ => {
+                return Err(PiError::GraphError(format!(
+                    "Cannot find domain node for URL {}",
+                    url
+                )));
+            }
+        };
+        debug!("Domain {} is allowed to crawl", &domain_payload.name);
+
+        self.toggle_flag(calling_node_id, NodeFlags::IS_REQUESTING)?;
+
+        let full_url = format!("https://{}{}", domain_payload.name, url);
+        debug!("Fetching URL {}", &full_url);
+        match self
+            .fetcher_tx
+            .blocking_send(PiEvent::FetchRequest(FetchRequest {
+                project_id: self.project_id.clone(),
+                node_id: *calling_node_id,
+                domain: domain_payload.name.clone(),
+                url: full_url.clone(),
+            })) {
             Ok(_) => {
                 debug!("Sent fetch request for url {}", &full_url);
             }
@@ -628,24 +772,41 @@ impl Engine {
         Ok(())
     }
 
-    pub fn get_all_node_labels(&self) -> Vec<ArcedNodeLabel> {
-        match self.node_ids_by_label.try_lock() {
-            Ok(node_ids_by_label) => node_ids_by_label.data.keys().map(|x| x.clone()).collect(),
+    pub fn get_all_node_labels(&self) -> Vec<NodeLabel> {
+        match self.nodes.try_lock() {
+            Ok(nodes) => {
+                let mut labels: HashSet<NodeLabel> = HashSet::new();
+                for node in nodes.data.values() {
+                    labels.insert(node.get_label());
+                    labels.extend(node.labels.iter().cloned());
+                }
+                labels.iter().map(|x| x.clone()).collect()
+            }
             Err(err) => {
-                error!("Could not lock node_ids_by_label: {}", err);
+                error!("Could not lock nodes: {}", err);
                 vec![]
             }
         }
     }
 
     pub fn get_node_ids_with_label(&self, label: &NodeLabel) -> Vec<ArcedNodeId> {
-        match self.node_ids_by_label.try_lock() {
-            Ok(node_ids_by_label) => match node_ids_by_label.data.get(label) {
-                Some(node_ids) => node_ids.clone(),
-                None => vec![],
-            },
+        // TODO: Use a cached HashMap of node_ids_by_label
+        match self.nodes.try_lock() {
+            Ok(nodes) => nodes
+                .data
+                .iter()
+                .filter_map(|(id, node)| {
+                    if node.get_label() == *label {
+                        Some(id.clone())
+                    } else if node.labels.contains(label) {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
             Err(err) => {
-                error!("Could not lock node_ids_by_label: {}", err);
+                error!("Could not lock nodes: {}", err);
                 vec![]
             }
         }
@@ -700,10 +861,21 @@ impl Engine {
             }
         }
     }
-}
 
-// fn read_le_u32(input: &mut &[u8]) -> u32 {
-//     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
-//     *input = rest;
-//     u32::from_le_bytes(int_bytes.try_into().unwrap())
-// }
+    pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
+        match self.nodes.try_lock() {
+            Ok(mut nodes) => {
+                nodes.toggle_flag(node_id, flag);
+                self.tick_me_later();
+                Ok(())
+            }
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )))
+            }
+        }
+    }
+}

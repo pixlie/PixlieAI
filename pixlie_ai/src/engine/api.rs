@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Engine, Node, NodeId, NodeItem, NodeLabel, Payload};
+use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::{
     BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
 };
@@ -6,6 +6,7 @@ use crate::entity::search::SearchTerm;
 use crate::entity::topic::Topic;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::robots_txt::RobotsTxt;
 use crate::entity::web::web_page::WebPage;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
@@ -81,6 +82,7 @@ pub enum APIPayload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
+    RobotsTxt(RobotsTxt),
     FileHTML(WebPage),
     Title(Title),
     Heading(Heading),
@@ -102,6 +104,7 @@ impl APIPayload {
             Payload::Step(step) => APIPayload::Step(step),
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
+            Payload::RobotsTxt(robots_txt) => APIPayload::RobotsTxt(robots_txt),
             Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
             Payload::Title(title) => APIPayload::Title(title),
             Payload::Heading(heading) => APIPayload::Heading(heading),
@@ -118,6 +121,32 @@ impl APIPayload {
     }
 }
 
+#[derive(Clone, Default, Serialize, TS)]
+#[ts(export)]
+pub enum APINodeFlags {
+    #[default]
+    None, // Not used
+    IsProcessed,
+    IsRequesting,
+    IsBlocked,
+}
+
+impl APINodeFlags {
+    pub fn from_node_flags(flags: NodeFlags) -> Vec<APINodeFlags> {
+        let mut api_flags = vec![];
+        if flags.contains(NodeFlags::IS_PROCESSED) {
+            api_flags.push(APINodeFlags::IsProcessed);
+        }
+        if flags.contains(NodeFlags::IS_REQUESTING) {
+            api_flags.push(APINodeFlags::IsRequesting);
+        }
+        if flags.contains(NodeFlags::IS_BLOCKED) {
+            api_flags.push(APINodeFlags::IsBlocked);
+        }
+        api_flags
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct APINodeItem {
@@ -125,6 +154,8 @@ pub struct APINodeItem {
     pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
     pub payload: APIPayload,
 
+    #[serde(skip_deserializing)]
+    pub flags: Vec<APINodeFlags>,
     pub written_at: DateTime<Utc>,
 }
 
@@ -444,6 +475,7 @@ pub fn handle_engine_api_request(
                         id: **node_id,
                         labels: arced_node.labels.clone(),
                         payload: APIPayload::from_payload(arced_node.payload.clone()),
+                        flags: APINodeFlags::from_node_flags(arced_node.flags.clone()),
                         written_at: arced_node.written_at.clone(),
                     }),
                     None => None,
@@ -464,6 +496,7 @@ pub fn handle_engine_api_request(
                         id: node.id.clone(),
                         labels: node.labels.clone(),
                         payload: APIPayload::from_payload(node.payload.clone()),
+                        flags: APINodeFlags::from_node_flags(node.flags.clone()),
                         written_at: node.written_at.clone(),
                     });
                 }
@@ -483,6 +516,7 @@ pub fn handle_engine_api_request(
                     id: node.id.clone(),
                     labels: node.labels.clone(),
                     payload: APIPayload::from_payload(node.payload.clone()),
+                    flags: APINodeFlags::from_node_flags(node.flags.clone()),
                     written_at: node.written_at.clone(),
                 })
                 .collect();
@@ -531,6 +565,7 @@ pub fn handle_engine_api_request(
                                 id: x.id.clone(),
                                 labels: x.labels.clone(),
                                 payload: APIPayload::from_payload(x.payload.clone()),
+                                flags: APINodeFlags::from_node_flags(x.flags.clone()),
                                 written_at: x.written_at.clone(),
                             })
                             .collect::<Vec<APINodeItem>>(),
