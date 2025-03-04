@@ -24,19 +24,13 @@ const makeStore = () => {
     }));
   };
 
-  const fetchNodesByLabel = (projectId: string, label: string) => {
+  const fetchNodes = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(
-      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
-        new URLSearchParams({
-          label,
-        }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
+    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
+      headers: {
+        "Content-Type": "application/json",
       },
-    ).then((response) => {
+    }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch nodes");
       }
@@ -60,14 +54,6 @@ const makeStore = () => {
                     }),
                     {},
                   ),
-                },
-                nodeIdsByLabel: {
-                  ...existing.projects[projectId].nodeIdsByLabel,
-                  [label]:
-                    responsePayload.data.node_ids_by_label &&
-                    label in responsePayload.data.node_ids_by_label
-                      ? responsePayload.data.node_ids_by_label[label]
-                      : [],
                 },
               },
             },
@@ -182,7 +168,7 @@ const makeStore = () => {
     store,
     {
       setProjectId,
-      fetchNodesByLabel,
+      fetchNodes,
       fetchAllEdges,
       getRelatedNodes,
     },

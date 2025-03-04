@@ -4,9 +4,11 @@ import { useEngine } from "../../stores/engine.tsx";
 import { Link } from "../../api_types/Link.ts";
 import { Domain } from "../../api_types/Domain.ts";
 import { useParams } from "@solidjs/router";
+import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
 
 interface ILinkPayloadProps {
   id: number;
+  flags: Array<APINodeFlags>;
   payload: Link;
 }
 
@@ -40,12 +42,19 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
       )}
       <a
         href={`${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-        class={"text-sm text-nowrap " + getColors().link}
+        class={
+          "text-sm text-nowrap overflow-hidden text-ellipsis " +
+          getColors().link
+        }
         target="_blank"
       >
         {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
       </a>
-      <span>{props.payload.is_fetched ? "Fetched" : "Not Fetched"}</span>
+      <span class="text-xs">
+        {props.flags.includes("IsFetched" as APINodeFlags)
+          ? "Fetched"
+          : "Not Fetched"}
+      </span>
     </>
   );
 };
@@ -72,6 +81,7 @@ const LinkNode: Component<ILinkNodeProps> = (props) => {
       getProject()!.nodes[props.nodeId].payload.type === "Link" ? (
         <Payload
           id={props.nodeId}
+          flags={getProject()!.nodes[props.nodeId].flags}
           payload={getProject()!.nodes[props.nodeId].payload.data as Link}
         />
       ) : null}
