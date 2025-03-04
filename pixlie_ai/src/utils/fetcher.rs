@@ -1,4 +1,4 @@
-use crate::{ExternalData, FetchError, FetchResponse, PiEvent};
+use crate::{FetchError, FetchResponse, PiEvent};
 use log::{debug, error};
 use reqwest::StatusCode;
 use std::collections::HashMap;

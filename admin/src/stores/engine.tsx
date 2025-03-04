@@ -108,7 +108,7 @@ const makeStore = () => {
     });
   };
 
-  const fetchAllEdges = (projectId: string) => {
+  const fetchEdges = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
       headers: {
@@ -169,7 +169,7 @@ const makeStore = () => {
     {
       setProjectId,
       fetchNodes,
-      fetchAllEdges,
+      fetchEdges,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference
