@@ -32,9 +32,8 @@ const Workflow: Component = () => {
       return Object.values(getProject()!.nodes)
         .filter(
           (x) =>
-            x.labels.includes("AddedByUser") &&
-            (labelTypes.includes(x.payload.type) ||
-              x.labels.filter((label) => labelTypes.includes(label))),
+            searchParams.label === x.payload.type &&
+            x.labels.includes("AddedByUser"),
         )
         .map((x) => x.id);
     } else {
