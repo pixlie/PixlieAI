@@ -10,7 +10,7 @@ use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
 use flate2::read::GzDecoder;
-use log::{debug, error};
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, exists, File},
