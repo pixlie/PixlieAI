@@ -1,8 +1,7 @@
 import { Component, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
-import NodeGrid from "../../widgets/node/NodeGrid.tsx";
+import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
-// import Tabs from "../../widgets/navigation/Tab";
 
 const labelTypes: string[] = [
   "Title",
@@ -34,9 +33,20 @@ const Graph: Component = () => {
   const getSelectNodeIds = createMemo<number[]>(() => {
     if (getProject() && !!searchParams.label) {
       // Only select nodes that have AddedByUser label
-      return Object.values(getProject()!.nodes)
-        .filter((x) => x.payload.type === searchParams.label)
-        .map((x) => x.id);
+      if (typeof searchParams.label === "string") {
+        return Object.values(getProject()!.nodes)
+          .filter((x) => x.labels.includes(searchParams.label as string))
+          .map((x) => x.id);
+      } else if (Array.isArray(searchParams.label)) {
+        return Object.values(getProject()!.nodes)
+          .filter((x) =>
+            x.labels.filter((label) =>
+              (searchParams.label as string[]).includes(label),
+            ),
+          )
+          .map((x) => x.id);
+      }
+      return [];
     } else {
       return [];
     }
@@ -50,13 +60,10 @@ const Graph: Component = () => {
   });
 
   return (
-    <>
-      {/* <Tabs tabs={getTabs()} /> */}
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-      />
-    </>
+    <NodeGrid
+      nodeType={getNodeTypeFromSearchParam()}
+      source={getSelectNodeIds}
+    />
   );
 };
 
