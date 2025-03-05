@@ -315,6 +315,10 @@ impl Engine {
     fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) -> PiResult<()> {
         let arced_id = Arc::new(id);
 
+        // Add the payload.to_string() to the labels
+        let mut labels = labels.clone();
+        labels.push(payload.to_string());
+
         // Store the node in the engine
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
@@ -341,7 +345,6 @@ impl Engine {
         }
 
         // TODO: Store the node in nodes_by_label_id for the label from Payload and given labels
-        // self.tick_me_later();
         Ok(())
     }
 

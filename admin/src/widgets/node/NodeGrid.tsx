@@ -3,7 +3,6 @@ import LinkNode from "./LinkNode";
 import DomainNode from "./DomainNode";
 import SearchTermNode from "./SearchTermNode";
 import ContentNode from "./ContentNode";
-import Heading from "../typography/Heading";
 
 interface NodeListItemProps {
   nodeType?: string;
@@ -15,7 +14,6 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
     <>
       {props.nodeType ? (
         <>
-          <Heading size={3}>{props.nodeType}s</Heading>
           {props.nodeType === "Link" && (
             <div class="grid grid-cols-[auto_1fr_auto] gap-2">
               <For each={props.source()}>
