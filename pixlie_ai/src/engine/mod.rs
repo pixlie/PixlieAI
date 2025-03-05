@@ -63,7 +63,6 @@ pub enum FindNode<'a> {
 pub(crate) type NodeId = u32;
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub(crate) type NodeLabel = String;
-pub(crate) type ArcedNodeLabel = Arc<NodeLabel>;
 pub(crate) type EdgeLabel = String;
 
 pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
@@ -72,6 +71,16 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
+    Domain,
+    Link,
+    RobotsTxt,
+    WebPage,
+    Title,
+    Heading,
+    Paragraph,
+    BulletPoints,
+    OrderedPoints,
+    SearchTerm,
 }
 
 #[derive(Display, TS)]

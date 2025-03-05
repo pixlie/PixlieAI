@@ -4,7 +4,7 @@ use crate::engine::{
 use crate::error::{PiError, PiResult};
 use chrono::Utc;
 use itertools::sorted;
-use log::{debug, error};
+use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::{Options, SliceTransform, DB};
 use std::collections::HashMap;

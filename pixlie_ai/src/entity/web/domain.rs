@@ -5,7 +5,7 @@ use crate::engine::{
 use crate::entity::web::robots_txt::RobotsTxt;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
-use log::{debug, error};
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
