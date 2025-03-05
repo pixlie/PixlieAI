@@ -26,8 +26,6 @@ const ContentNode: Component<INodeItemDisplayProps> = (props) => {
     return undefined;
   });
 
-  console.log(params.projectId, props.nodeId);
-
   return (
     <>
       {!!getPayload() ? (

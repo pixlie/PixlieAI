@@ -3,8 +3,6 @@ use crate::entity::content::{BulletPoints, OrderedPoints, Table, TableRow};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
-use crate::entity::web::robots_txt::RobotsTxt;
-use crate::entity::web::web_page::WebPage;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
 use crate::PiEvent;
@@ -79,16 +77,12 @@ pub enum APIPayload {
     Domain(Domain),
     Link(Link),
     Text(String),
-    FileHTML(WebPage),
-    // Title(Title),
-    // Heading(Heading),
-    // Paragraph(Paragraph),
+    FileHTML(String),
     BulletPoints(BulletPoints),
     OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
     Label(String),
-    // TypedData(TypedData),
     NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
 }
@@ -100,7 +94,7 @@ impl APIPayload {
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
             Payload::Text(text) => APIPayload::Text(text),
-            Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
+            Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
             Payload::BulletPoints(bullet_points) => APIPayload::BulletPoints(bullet_points),
             Payload::OrderedPoints(ordered_points) => APIPayload::OrderedPoints(ordered_points),
             Payload::Table(table) => APIPayload::Table(table),

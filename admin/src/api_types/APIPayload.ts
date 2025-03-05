@@ -6,7 +6,6 @@ import type { OrderedPoints } from "./OrderedPoints";
 import type { SearchTerm } from "./SearchTerm";
 import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
-import type { WebPage } from "./WebPage";
 import type { WorkflowStep } from "./WorkflowStep";
 
 export type APIPayload =
@@ -14,7 +13,7 @@ export type APIPayload =
   | { type: "Domain"; data: Domain }
   | { type: "Link"; data: Link }
   | { type: "Text"; data: string }
-  | { type: "FileHTML"; data: WebPage }
+  | { type: "FileHTML"; data: string }
   | { type: "BulletPoints"; data: BulletPoints }
   | { type: "OrderedPoints"; data: OrderedPoints }
   | { type: "Table"; data: Table }
