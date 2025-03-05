@@ -9,7 +9,17 @@ use std::path::PathBuf;
 const PIXLIE_AI_DB: &str = "pixlie_ai";
 
 fn get_pixlie_ai_db() -> PiResult<DB> {
-    let mut path = PathBuf::from(&Settings::get_cli_settings()?.path_to_storage_dir.unwrap());
+    let settings = Settings::get_cli_settings()?;
+    let path_to_storage_dir = match settings.path_to_storage_dir {
+        Some(ref path) => path.clone(),
+        None => {
+            error!("Cannot find path to storage directory");
+            return Err(PiError::InternalError(
+                "Cannot find path to storage directory".to_string(),
+            ));
+        }
+    };
+    let mut path = PathBuf::from(path_to_storage_dir);
     path.push(format!("{}.rocksdb", PIXLIE_AI_DB));
     Ok(DB::open_default(path)?)
 }

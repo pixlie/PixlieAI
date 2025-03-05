@@ -34,28 +34,30 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
   return (
     <>
-      {!!getDomain() ? (
-        <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-          {getDomain()!.name}
-        </span>
+      {!!getDomain() && getDomain()!.is_allowed_to_crawl ? (
+        <>
+          <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
+            {getDomain()!.name}
+          </span>
+          <a
+            href={`https://${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+            class={
+              "text-sm text-nowrap overflow-hidden text-ellipsis " +
+              getColors().link
+            }
+            target="_blank"
+          >
+            {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+          </a>
+          <span class="text-xs">
+            {props.flags.includes("IsProcessed" as APINodeFlags)
+              ? "Fetched"
+              : "Not Fetched"}
+          </span>
+        </>
       ) : (
-        <span></span>
+        <></>
       )}
-      <a
-        href={`${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-        class={
-          "text-sm text-nowrap overflow-hidden text-ellipsis " +
-          getColors().link
-        }
-        target="_blank"
-      >
-        {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-      </a>
-      <span class="text-xs">
-        {props.flags.includes("IsProcessed" as APINodeFlags)
-          ? "Fetched"
-          : "Not Fetched"}
-      </span>
     </>
   );
 };

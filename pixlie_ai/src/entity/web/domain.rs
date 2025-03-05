@@ -2,7 +2,6 @@ use crate::engine::{
     ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
     Node, NodeFlags, NodeId, Payload,
 };
-use crate::entity::web::robots_txt::RobotsTxt;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
 use log::error;

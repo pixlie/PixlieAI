@@ -10,7 +10,7 @@ use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
 use flate2::read::GzDecoder;
-use log::error;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, exists, File},
@@ -114,34 +114,29 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     Ok((path_to_config_dir, path_to_config_file))
 }
 
-pub fn download_admin_site(admin_path: &PathBuf) -> PiResult<()> {
+pub fn download_admin_site() -> PiResult<()> {
     // We download admin.tar.gz from our GitHub release
-    let admin_tar_gz_url =
-        "https://github.com/pixlie/PixlieAI/releases/download/v0.1.0/admin.tar.gz";
-    let admin_tar_gz_response = reqwest::blocking::get(admin_tar_gz_url)?;
-    let admin_tar_gz_bytes = admin_tar_gz_response.bytes()?;
-    // Use flate2 to decompress the tar.gz file
-    let admin_tar_gz = GzDecoder::new(admin_tar_gz_bytes.reader());
-    // Use tar to extract the files from the tar.gz file
-    Archive::new(admin_tar_gz).unpack(&admin_path)?;
-    Ok(())
-}
+    let static_admin_dir = get_static_admin_dir()?;
 
-pub fn get_static_admin_dir() -> PiResult<PathBuf> {
-    let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
-    let mut static_root = PathBuf::from(path_to_config_dir.clone());
-    static_root.push("admin");
     // Create the `admin` directory if it does not exist
-    match exists(&static_root) {
+    match exists(&static_admin_dir) {
         Ok(true) => {}
-        Ok(false) => match create_dir(static_root.clone()) {
+        Ok(false) => match create_dir(static_admin_dir.clone()) {
             Ok(_) => {
-                download_admin_site(&static_root)?;
+                let admin_tar_gz_url =
+                    "https://github.com/pixlie/PixlieAI/releases/download/v0.1.0/admin.tar.gz";
+                let admin_tar_gz_response = reqwest::blocking::get(admin_tar_gz_url)?;
+                // Save the response to a file
+                let admin_tar_gz_bytes = admin_tar_gz_response.bytes()?;
+                // Use flate2 to decompress the tar.gz file
+                let admin_tar_gz = GzDecoder::new(admin_tar_gz_bytes.reader());
+                // Use tar to extract the files from the tar.gz file
+                Archive::new(admin_tar_gz).unpack(&static_admin_dir)?;
             }
             Err(err) => {
                 error!(
                     "Could not create admin directory at {}\nError: {}",
-                    static_root.display(),
+                    static_admin_dir.display(),
                     err
                 );
                 return Err(PiError::CannotReadOrWriteToConfigDirectory);
@@ -150,12 +145,19 @@ pub fn get_static_admin_dir() -> PiResult<PathBuf> {
         Err(err) => {
             error!(
                 "Could not check if admin directory exists at {}\nError: {}",
-                static_root.display(),
+                static_admin_dir.display(),
                 err
             );
             return Err(PiError::CannotReadOrWriteToConfigDirectory);
         }
     }
+    Ok(())
+}
+
+pub fn get_static_admin_dir() -> PiResult<PathBuf> {
+    let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
+    let mut static_root = PathBuf::from(path_to_config_dir.clone());
+    static_root.push("admin");
     Ok(static_root)
 }
 

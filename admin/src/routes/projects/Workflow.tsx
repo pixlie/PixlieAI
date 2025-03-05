@@ -1,17 +1,14 @@
 import { Component, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine.tsx";
-import { useParams, useSearchParams } from "@solidjs/router";
+import { useParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import Paragraph from "../../widgets/typography/Paragraph";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import SearchTermForm from "../../widgets/nodeForm/SearchTermForm";
-
-const labelTypes: string[] = ["Link", "SearchTerm"];
-type LabelType = (typeof labelTypes)[number];
+import Heading from "../../widgets/typography/Heading.tsx";
 
 const Workflow: Component = () => {
   const [engine, { fetchNodes, fetchEdges }] = useEngine();
-  const [searchParams] = useSearchParams();
   const params = useParams();
 
   onMount(() => {
@@ -26,14 +23,12 @@ const Workflow: Component = () => {
     return undefined;
   });
 
-  const getSelectNodeIds = createMemo<number[]>(() => {
-    if (getProject() && !!searchParams.label) {
+  const getSelectLinkIds = createMemo<number[]>(() => {
+    if (getProject()) {
       // Only select nodes that have AddedByUser label
       return Object.values(getProject()!.nodes)
         .filter(
-          (x) =>
-            searchParams.label === x.payload.type &&
-            x.labels.includes("AddedByUser"),
+          (x) => x.labels.includes("AddedByUser") && x.labels.includes("Link"),
         )
         .map((x) => x.id);
     } else {
@@ -41,11 +36,18 @@ const Workflow: Component = () => {
     }
   });
 
-  const getNodeTypeFromSearchParam = createMemo(() => {
-    if (!!searchParams.label) {
-      return searchParams.label as LabelType;
+  const getSelectSearchTermIds = createMemo<number[]>(() => {
+    if (getProject()) {
+      // Only select nodes that have AddedByUser label
+      return Object.values(getProject()!.nodes)
+        .filter(
+          (x) =>
+            x.labels.includes("AddedByUser") && x.labels.includes("SearchTerm"),
+        )
+        .map((x) => x.id);
+    } else {
+      return [];
     }
-    return undefined;
   });
 
   return (
@@ -57,22 +59,17 @@ const Workflow: Component = () => {
         </Paragraph>
       </div>
 
-      {/* <Tabs tabs={getTabs()} /> */}
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-      />
+      <Heading size={3}>Starting links</Heading>
+      <NodeGrid nodeType={"Link"} source={getSelectLinkIds} />
+      <div class="mt-6 max-w-screen-sm">
+        <LinkForm />
+      </div>
 
-      {searchParams.label === "Link" && (
-        <div class="mt-6 max-w-screen-sm">
-          <LinkForm />
-        </div>
-      )}
-      {searchParams.label === "SearchTerm" && (
-        <div class="mt-6 max-w-screen-sm">
-          <SearchTermForm />
-        </div>
-      )}
+      <Heading size={3}>Saved search terms</Heading>
+      <NodeGrid nodeType={"SearchTerm"} source={getSelectSearchTermIds} />
+      <div class="mt-6 max-w-screen-sm">
+        <SearchTermForm />
+      </div>
     </>
   );
 };

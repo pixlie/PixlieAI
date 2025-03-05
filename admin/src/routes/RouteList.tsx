@@ -13,14 +13,6 @@ interface IRoute {
 }
 
 const SidebarItem: Component<{ route: IRoute }> = (props) => {
-  // const [isOpen, setIsOpen] = createSignal(props.route.isOpen || false);
-
-  // const toggleDropdown = () => {
-  //   if (props.route.children?.length) {
-  //     setIsOpen(!isOpen());
-  //   }
-  // };
-
   return (
     <>
       <Show when={props.route.children?.length}>
@@ -106,7 +98,7 @@ const PerProjectRoutes: Component = () => {
   const getProject = createMemo(() => {
     if (params.projectId && workspace.isReady && workspace.projects) {
       return workspace.projects.find(
-        (project) => project.uuid === params.projectId
+        (project) => project.uuid === params.projectId,
       );
     }
   });
@@ -114,34 +106,18 @@ const PerProjectRoutes: Component = () => {
   const getRoutes = createMemo(() =>
     params.projectId && !!getProject()
       ? [
-          // {
-          //   label: getProject()!.name,
-          //   isActive: true,
-          // },
           {
             label: "Workflow",
             href: `/p/${params.projectId}/workflow`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/workflow`
+              `/p/${params.projectId}/workflow`,
             ),
-            children: ["Link", "SearchTerm"].map((label) => ({
-              label: `${label}s`,
-              href: `/p/${params.projectId}/workflow?label=${label}`,
-              isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/workflow?label=${label}`
-              ),
-            })),
           },
-          // {
-          //   label: "Insights",
-          //   href: `/p/${params.projectId}/insights`,
-          //   isActive: location.pathname.startsWith(`/p/${params.projectId}/insights`),
-          // },
           {
             label: "Graph",
             href: `/p/${params.projectId}/graph`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/graph`
+              `/p/${params.projectId}/graph`,
             ),
             children: [
               "Title",
@@ -153,7 +129,7 @@ const PerProjectRoutes: Component = () => {
               label: `${label}s`,
               href: `/p/${params.projectId}/graph?label=${label}`,
               isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/graph?label=${label}`
+                `/p/${params.projectId}/graph?label=${label}`,
               ),
             })),
           },
@@ -168,13 +144,13 @@ const PerProjectRoutes: Component = () => {
             label: "Crawl",
             href: `/p/${params.projectId}/crawl`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/crawl`
+              `/p/${params.projectId}/crawl`,
             ),
             children: ["Domain", "Link"].map((label) => ({
               label: `${label}s`,
               href: `/p/${params.projectId}/crawl?label=${label}`,
               isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/crawl?label=${label}`
+                `/p/${params.projectId}/crawl?label=${label}`,
               ),
             })),
           },
