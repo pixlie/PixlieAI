@@ -630,26 +630,24 @@ impl Engine {
                     for connected_node_id in connected_node_ids {
                         match self.get_node_by_id(&*connected_node_id) {
                             Some(node) => match node.payload {
-                                Payload::RobotsTxt(ref robots_txt) => {
-                                    if robots_txt.contents.is_empty() {
+                                Payload::Text(ref robots_txt) => {
+                                    if robots_txt.is_empty() {
                                         debug!("robots.txt is empty for domain {}", payload.name);
                                         break;
                                     } else {
-                                        let robot = match Robot::new(
-                                            "Pixlie AI",
-                                            &robots_txt.contents.as_bytes(),
-                                        ) {
-                                            Ok(robot) => robot,
-                                            Err(err) => {
-                                                error!(
+                                        let robot =
+                                            match Robot::new("Pixlie AI", &robots_txt.as_bytes()) {
+                                                Ok(robot) => robot,
+                                                Err(err) => {
+                                                    error!(
                                                     "Error parsing robots.txt for domain {}: {}",
                                                     url, err
                                                 );
-                                                return Err(PiError::FetchError(
-                                                    "Error parsing robots.txt".to_string(),
-                                                ));
-                                            }
-                                        };
+                                                    return Err(PiError::FetchError(
+                                                        "Error parsing robots.txt".to_string(),
+                                                    ));
+                                                }
+                                            };
                                         if !robot.allowed(&url) {
                                             debug!("URL {} is not allowed to crawl", url);
                                             return Err(PiError::FetchError(

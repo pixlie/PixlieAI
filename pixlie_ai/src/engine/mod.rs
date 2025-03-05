@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
+    content::{BulletPoints, OrderedPoints, Table, TableRow},
     workflow::WorkflowStep,
 };
 use bitflags::bitflags;
@@ -40,11 +40,8 @@ pub enum Payload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
-    RobotsTxt(RobotsTxt),
+    Text(String),
     FileHTML(WebPage),
-    Title(Title),
-    Heading(Heading),
-    Paragraph(Paragraph),
     BulletPoints(BulletPoints),
     OrderedPoints(OrderedPoints),
     Table(Table),

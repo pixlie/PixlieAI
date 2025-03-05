@@ -1,7 +1,5 @@
 use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
-use crate::entity::content::{
-    BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
-};
+use crate::entity::content::{BulletPoints, OrderedPoints, Table, TableRow};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
@@ -80,11 +78,11 @@ pub enum APIPayload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
-    RobotsTxt(RobotsTxt),
+    Text(String),
     FileHTML(WebPage),
-    Title(Title),
-    Heading(Heading),
-    Paragraph(Paragraph),
+    // Title(Title),
+    // Heading(Heading),
+    // Paragraph(Paragraph),
     BulletPoints(BulletPoints),
     OrderedPoints(OrderedPoints),
     Table(Table),
@@ -101,11 +99,8 @@ impl APIPayload {
             Payload::Step(step) => APIPayload::Step(step),
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
-            Payload::RobotsTxt(robots_txt) => APIPayload::RobotsTxt(robots_txt),
+            Payload::Text(text) => APIPayload::Text(text),
             Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
-            Payload::Title(title) => APIPayload::Title(title),
-            Payload::Heading(heading) => APIPayload::Heading(heading),
-            Payload::Paragraph(paragraph) => APIPayload::Paragraph(paragraph),
             Payload::BulletPoints(bullet_points) => APIPayload::BulletPoints(bullet_points),
             Payload::OrderedPoints(ordered_points) => APIPayload::OrderedPoints(ordered_points),
             Payload::Table(table) => APIPayload::Table(table),

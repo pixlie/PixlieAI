@@ -28,8 +28,8 @@ impl Node for SearchTerm {
     fn query(&self, engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<Vec<NodeItem>> {
         // We search all the content nodes in the engine for the search term
         let results: Vec<Option<NodeItem>> = engine.map_nodes(|id, node| match node.payload {
-            Payload::Title(ref title) => {
-                if title.0.to_lowercase().contains(&self.0.to_lowercase()) {
+            Payload::Text(ref title) => {
+                if title.to_lowercase().contains(&self.0.to_lowercase()) {
                     Some(NodeItem {
                         id: **id,
                         labels: node.labels.clone(),
@@ -41,8 +41,8 @@ impl Node for SearchTerm {
                     None
                 }
             }
-            Payload::Heading(ref heading) => {
-                if heading.0.to_lowercase().contains(&self.0.to_lowercase()) {
+            Payload::Text(ref heading) => {
+                if heading.to_lowercase().contains(&self.0.to_lowercase()) {
                     Some(NodeItem {
                         id: **id,
                         labels: node.labels.clone(),
@@ -54,8 +54,8 @@ impl Node for SearchTerm {
                     None
                 }
             }
-            Payload::Paragraph(ref paragraph) => {
-                if paragraph.0.to_lowercase().contains(&self.0.to_lowercase()) {
+            Payload::Text(ref paragraph) => {
+                if paragraph.to_lowercase().contains(&self.0.to_lowercase()) {
                     Some(NodeItem {
                         id: **id,
                         labels: node.labels.clone(),

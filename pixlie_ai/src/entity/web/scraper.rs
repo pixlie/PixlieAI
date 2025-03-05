@@ -1,6 +1,6 @@
-use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
+use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, NodeId, Payload};
 use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
-use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
+use crate::entity::content::{TableRow, TypedData};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
@@ -60,15 +60,15 @@ impl WebPage {
                 "title" => {
                     let title_node_id = engine
                         .get_or_add_node(
-                            Payload::Title(Title(
+                            Payload::Text(
                                 child
                                     .text()
                                     .collect::<Vec<&str>>()
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![CommonNodeLabels::Title.to_string()],
                             true,
                             None,
                         )?
@@ -84,15 +84,15 @@ impl WebPage {
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = engine
                         .get_or_add_node(
-                            Payload::Heading(Heading(
+                            Payload::Text(
                                 child
                                     .text()
                                     .collect::<Vec<&str>>()
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![CommonNodeLabels::Heading.to_string()],
                             true,
                             None,
                         )?
@@ -108,7 +108,7 @@ impl WebPage {
                 "p" => {
                     let paragraph_node_id = engine
                         .get_or_add_node(
-                            Payload::Paragraph(Paragraph(
+                            Payload::Text(
                                 child
                                     .text()
                                     .map(|x| x.to_string())
@@ -116,8 +116,8 @@ impl WebPage {
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![CommonNodeLabels::Paragraph.to_string()],
                             true,
                             None,
                         )?
