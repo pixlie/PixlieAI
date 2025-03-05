@@ -5,6 +5,7 @@ import { Link } from "../../api_types/Link.ts";
 import { Domain } from "../../api_types/Domain.ts";
 import { useParams } from "@solidjs/router";
 import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
+import { APINodeItem } from "../../api_types/APINodeItem.ts";
 
 interface ILinkPayloadProps {
   id: number;
@@ -74,15 +75,24 @@ const LinkNode: Component<ILinkNodeProps> = (props) => {
     return undefined;
   });
 
+  const getNode = createMemo(() => {
+    if (
+      !!getProject() &&
+      props.nodeId in getProject()!.nodes &&
+      getProject()!.nodes[props.nodeId].payload.type === "Link"
+    ) {
+      return getProject()!.nodes[props.nodeId] as APINodeItem;
+    }
+    return undefined;
+  });
+
   return (
     <>
-      {getProject() &&
-      props.nodeId in getProject()!.nodes &&
-      getProject()!.nodes[props.nodeId].payload.type === "Link" ? (
+      {!!getProject() && !!getNode() ? (
         <Payload
           id={props.nodeId}
-          flags={getProject()!.nodes[props.nodeId].flags}
-          payload={getProject()!.nodes[props.nodeId].payload.data as Link}
+          flags={getNode()!.flags}
+          payload={getNode()!.payload.data as Link}
         />
       ) : null}
     </>

@@ -63,51 +63,6 @@ const makeStore = () => {
     });
   };
 
-  const fetchNodesByIds = (projectId: string, ids: Array<number>) => {
-    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(
-      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?` +
-        new URLSearchParams({
-          ids: ids.join(","),
-        }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    ).then((response) => {
-      if (!response.ok) {
-        throw new Error("Failed to fetch nodes");
-      }
-      response.json().then((responsePayload: EngineResponsePayload) => {
-        if (responsePayload.type === "Results") {
-          setStore((existing: IEngineStore) => ({
-            ...existing,
-            projects: {
-              ...existing.projects,
-              [projectId]: {
-                ...existing.projects[projectId],
-                nodes: {
-                  ...existing.projects[projectId].nodes,
-                  ...responsePayload.data.nodes.reduce(
-                    (map: { [k: number]: INodeItem }, item) => ({
-                      ...map,
-                      [item.id]: {
-                        ...item,
-                        isFetching: false,
-                      },
-                    }),
-                    {},
-                  ),
-                },
-              },
-            },
-          }));
-        }
-      });
-    });
-  };
-
   const fetchEdges = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
@@ -143,19 +98,13 @@ const makeStore = () => {
     if (nodeId in store.projects[projectId].nodes) {
       if (nodeId in store.projects[projectId].edges) {
         let nodes: Array<APINodeItem> = [];
-        let nodesToBeFetched: Array<number> = [];
         for (const edge of store.projects[projectId].edges[nodeId]) {
           let [nId, edgeLabel]: [number, string] = edge;
           if (edgeLabel === relatedNodeType) {
             if (nId in store.projects[projectId].nodes) {
               nodes.push(store.projects[projectId].nodes[nId]);
-            } else {
-              nodesToBeFetched.push(nId);
             }
           }
-        }
-        if (nodesToBeFetched.length > 0) {
-          fetchNodesByIds(projectId, nodesToBeFetched);
         }
         return nodes;
       }

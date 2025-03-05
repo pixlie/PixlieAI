@@ -69,14 +69,14 @@ impl WebPage {
 
             match node.payload {
                 // Payload::Title(ref title) => Some(title.0.to_string()),
-                Payload::Heading(ref heading) => {
-                    if heading.0.len() > 20 {
-                        content.push_str(&heading.0);
+                Payload::Text(ref heading) => {
+                    if heading.len() > 20 {
+                        content.push_str(&heading);
                     }
                 }
-                Payload::Paragraph(ref paragraph) => {
-                    if paragraph.0.len() > 200 {
-                        content.push_str(&paragraph.0);
+                Payload::Text(ref paragraph) => {
+                    if paragraph.len() > 200 {
+                        content.push_str(&paragraph);
                     }
                 }
                 _ => {}

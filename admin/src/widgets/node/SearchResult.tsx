@@ -6,15 +6,15 @@ import {
   JSX,
   onMount,
 } from "solid-js";
-import { useEngine } from "../../stores/engine.tsx";
+import { useEngine } from "../../stores/engine";
 import { useParams } from "@solidjs/router";
-import { IEngine } from "../../utils/types.tsx";
+import { IEngine } from "../../utils/types";
 import { SearchTerm } from "../../api_types/SearchTerm";
-import { getPixlieAIAPIRoot } from "../../utils/api.ts";
-import { EngineResponsePayload } from "../../api_types/EngineResponsePayload.ts";
-import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import Heading from "../typography/Heading.tsx";
-import Paragraph from "../typography/Paragraph.tsx";
+import { getPixlieAIAPIRoot } from "../../utils/api";
+import { EngineResponsePayload } from "../../api_types/EngineResponsePayload";
+import { APINodeItem } from "../../api_types/APINodeItem";
+import Heading from "../typography/Heading";
+import Paragraph from "../typography/Paragraph";
 
 interface INodeProps {
   nodeId: number;
@@ -57,10 +57,10 @@ const SearchResultItems: Component<ISearchResultItemsProps> = (props) => {
       // Store nodes into the store. These will be a mix of different payload types
       response.json().then((responsePayload: EngineResponsePayload) => {
         if (responsePayload.type === "Results") {
-          setResults((existing: Array<APINodeItem>) => ([
+          setResults((existing: Array<APINodeItem>) => [
             ...existing,
             ...responsePayload.data.nodes,
-          ]));
+          ]);
         }
       });
     });
@@ -72,24 +72,36 @@ const SearchResultItems: Component<ISearchResultItemsProps> = (props) => {
 
   return (
     <>
-    <For each={results()}>
-      {(result) => (
-        <div class="mt-2">
-            <span class={
-              "text-xs bg-gray-300 rounded px-2 py-0.5" + (result.payload.type === "Paragraph" && " float-left mr-1")
-            }>{result.payload.type}</span>
-          {result.payload.type === "Heading" && (
-            <Heading size={3}>{highlightText(result.payload.data, props.searchTerm)}</Heading>
-          )}
-          {result.payload.type === "Title" && (
-            <Heading size={3}>{highlightText(result.payload.data, props.searchTerm)}</Heading>
-          )}
-          {result.payload.type === "Paragraph" && (
-            <Paragraph>{result.payload.data}</Paragraph>
-          )}
-        </div>
-      )}
-    </For>
+      <For each={results()}>
+        {(result) => (
+          <div class="mt-2">
+            <span
+              class={
+                "text-xs bg-gray-300 rounded px-2 py-0.5" +
+                (result.payload.type === "Text" && " float-left mr-1")
+              }
+            >
+              {result.payload.type}
+            </span>
+            {result.payload.type === "Text" &&
+              result.labels.includes("Heading") && (
+                <Heading size={3}>
+                  {highlightText(result.payload.data, props.searchTerm)}
+                </Heading>
+              )}
+            {result.payload.type === "Text" &&
+              result.labels.includes("Title") && (
+                <Heading size={3}>
+                  {highlightText(result.payload.data, props.searchTerm)}
+                </Heading>
+              )}
+            {result.payload.type === "Text" &&
+              result.labels.includes("Paragraph") && (
+                <Paragraph>{result.payload.data}</Paragraph>
+              )}
+          </div>
+        )}
+      </For>
     </>
   );
 };
@@ -123,7 +135,10 @@ const SearchResultNode: Component<INodeProps> = (props) => {
             </span>
           </div>
           <div>
-            <SearchResultItems nodeId={props.nodeId} searchTerm={getPayload() || ""} />
+            <SearchResultItems
+              nodeId={props.nodeId}
+              searchTerm={getPayload() || ""}
+            />
           </div>
         </div>
       ) : (

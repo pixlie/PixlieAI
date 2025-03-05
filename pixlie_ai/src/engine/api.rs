@@ -1,12 +1,8 @@
 use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
-use crate::entity::content::{
-    BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title,
-};
+use crate::entity::content::{BulletPoints, OrderedPoints, Table, TableRow};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
-use crate::entity::web::robots_txt::RobotsTxt;
-use crate::entity::web::web_page::WebPage;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
 use crate::PiEvent;
@@ -80,17 +76,13 @@ pub enum APIPayload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
-    RobotsTxt(RobotsTxt),
-    FileHTML(WebPage),
-    Title(Title),
-    Heading(Heading),
-    Paragraph(Paragraph),
+    Text(String),
+    FileHTML(String),
     BulletPoints(BulletPoints),
     OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
     Label(String),
-    // TypedData(TypedData),
     NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
 }
@@ -101,11 +93,8 @@ impl APIPayload {
             Payload::Step(step) => APIPayload::Step(step),
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
-            Payload::RobotsTxt(robots_txt) => APIPayload::RobotsTxt(robots_txt),
-            Payload::FileHTML(web_page) => APIPayload::FileHTML(web_page),
-            Payload::Title(title) => APIPayload::Title(title),
-            Payload::Heading(heading) => APIPayload::Heading(heading),
-            Payload::Paragraph(paragraph) => APIPayload::Paragraph(paragraph),
+            Payload::Text(text) => APIPayload::Text(text),
+            Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
             Payload::BulletPoints(bullet_points) => APIPayload::BulletPoints(bullet_points),
             Payload::OrderedPoints(ordered_points) => APIPayload::OrderedPoints(ordered_points),
             Payload::Table(table) => APIPayload::Table(table),

@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title},
+    content::{BulletPoints, OrderedPoints, Table, TableRow},
     workflow::WorkflowStep,
 };
 use bitflags::bitflags;
@@ -40,11 +40,8 @@ pub enum Payload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
-    RobotsTxt(RobotsTxt),
+    Text(String),
     FileHTML(WebPage),
-    Title(Title),
-    Heading(Heading),
-    Paragraph(Paragraph),
     BulletPoints(BulletPoints),
     OrderedPoints(OrderedPoints),
     Table(Table),
@@ -63,7 +60,6 @@ pub enum FindNode<'a> {
 pub(crate) type NodeId = u32;
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub(crate) type NodeLabel = String;
-pub(crate) type ArcedNodeLabel = Arc<NodeLabel>;
 pub(crate) type EdgeLabel = String;
 
 pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
@@ -72,6 +68,16 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
+    Domain,
+    Link,
+    RobotsTxt,
+    WebPage,
+    Title,
+    Heading,
+    Paragraph,
+    BulletPoints,
+    OrderedPoints,
+    SearchTerm,
 }
 
 #[derive(Display, TS)]

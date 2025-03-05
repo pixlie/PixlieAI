@@ -1,6 +1,6 @@
 import { Component, createMemo, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
-import NodeGrid from "../../widgets/node/NodeGrid.tsx";
+import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
 
 const labelTypes: string[] = ["Domain", "Link"];
@@ -25,9 +25,6 @@ const Crawl: Component = () => {
 
   const getSelectNodeIds = createMemo<number[]>(() => {
     if (getProject() && !!searchParams.label) {
-      console.log(
-        Object.values(getProject()!.nodes).map((x) => x.payload.type),
-      );
       return Object.values(getProject()!.nodes)
         .filter((x) => x.payload.type === searchParams.label)
         .map((x) => x.id);
@@ -44,13 +41,10 @@ const Crawl: Component = () => {
   });
 
   return (
-    <>
-      {/* <Tabs tabs={getTabs()} /> */}
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-      />
-    </>
+    <NodeGrid
+      nodeType={getNodeTypeFromSearchParam()}
+      source={getSelectNodeIds}
+    />
   );
 };
 

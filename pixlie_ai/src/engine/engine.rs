@@ -1,6 +1,6 @@
 use super::{
-    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, ArcedNodeLabel, CommonEdgeLabels, EdgeLabel,
-    ExistingOrNewNodeId, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
+    ArcedEdgeLabel, ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, EdgeLabel, ExistingOrNewNodeId,
+    Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
@@ -13,7 +13,6 @@ use chrono::Utc;
 use log::{debug, error};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
-use std::fmt::format;
 use std::sync::atomic::AtomicU32;
 use std::{
     path::PathBuf,
@@ -21,33 +20,13 @@ use std::{
 };
 use texting_robots::Robot;
 
-pub(crate) struct Labels {
-    data: HashSet<ArcedNodeLabel>,
-}
-
-impl Labels {
-    fn new() -> Labels {
-        Labels {
-            data: HashSet::new(),
-        }
-    }
-}
-
-impl Iterator for Labels {
-    type Item = ArcedNodeLabel;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.iter().next().map(|x| x.clone())
-    }
-}
-
 // The engine keeps track of all the data nodes and their relationships
 pub struct Engine {
-    labels: Mutex<Labels>,
+    // labels: Mutex<Labels>,
     nodes: Mutex<Nodes>, // All nodes that are in the engine
     edges: Mutex<Edges>,
     // node_ids_by_label: Mutex<NodeIdsByLabel>,
-    last_node_id: Mutex<u32>,
+    last_node_id: AtomicU32,
     project_id: String,
     project_path_on_disk: PathBuf,
 
@@ -67,11 +46,11 @@ impl Engine {
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
-            labels: Mutex::new(Labels::new()),
+            // labels: Mutex::new(Labels::new()),
             nodes: Mutex::new(Nodes::new()),
             edges: Mutex::new(Edges::new()),
             // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
-            last_node_id: Mutex::new(0),
+            last_node_id: AtomicU32::new(0),
             project_id,
             project_path_on_disk: storage_root,
 
@@ -333,66 +312,36 @@ impl Engine {
         }
     }
 
-    fn save_node(
-        &self,
-        id: NodeId,
-        payload: Payload,
-        given_labels: Vec<NodeLabel>,
-    ) -> PiResult<()> {
-        // Get new ID after incrementing existing node ID
-        let primary_label = payload.to_string();
-        // Create a new vector of labels with the primary label and given labels, each Arced
-        let mut all_given_labels: Vec<ArcedNodeLabel> = given_labels
-            .iter()
-            .map(|x| Arc::new(x.clone()))
-            .collect::<Vec<ArcedNodeLabel>>();
-        all_given_labels.push(Arc::new(primary_label.clone()));
+    fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) -> PiResult<()> {
         let arced_id = Arc::new(id);
 
-        // Store all labels in the engine
-        match self.labels.try_lock() {
-            Ok(mut labels) => {
-                for label in all_given_labels.iter() {
-                    labels.data.insert(label.clone());
-                }
+        // Store the node in the engine
+        match self.nodes.try_lock() {
+            Ok(mut nodes) => {
+                nodes.data.insert(
+                    arced_id.clone(),
+                    Arc::new(NodeItem {
+                        id,
+                        payload,
+
+                        labels: labels.clone(),
+                        flags: NodeFlags::default(),
+                        written_at: Utc::now(),
+                    }),
+                );
+                nodes.save_item_chunk_to_disk(&self.get_db()?, &id)?;
             }
             Err(err) => {
-                error!("Error locking labels: {}", err);
+                error!("Error locking nodes: {}", err);
                 return Err(PiError::InternalError(format!(
-                    "Error locking labels: {}",
+                    "Error locking nodes: {}",
                     err
                 )));
             }
-        };
-
-        // Store the node in the engine
-        {
-            match self.nodes.try_lock() {
-                Ok(mut nodes) => {
-                    nodes.data.insert(
-                        arced_id.clone(),
-                        Arc::new(NodeItem {
-                            id,
-                            payload,
-
-                            labels: given_labels.clone(),
-                            flags: NodeFlags::default(),
-                            written_at: Utc::now(),
-                        }),
-                    );
-                    nodes.save_item_chunk_to_disk(&self.get_db()?, &id)?;
-                }
-                Err(err) => {
-                    error!("Error locking nodes: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error locking nodes: {}",
-                        err
-                    )));
-                }
-            }
         }
+
         // TODO: Store the node in nodes_by_label_id for the label from Payload and given labels
-        self.tick_me_later();
+        // self.tick_me_later();
         Ok(())
     }
 
@@ -416,19 +365,8 @@ impl Engine {
         }
 
         let id = {
-            match self.last_node_id.lock() {
-                Ok(mut id) => {
-                    *id += 1;
-                    *id
-                }
-                Err(err) => {
-                    error!("Error locking last_node_id: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error locking last_node_id: {}",
-                        err
-                    )));
-                }
-            }
+            self.last_node_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         };
 
         match self.save_node(id, payload, labels) {
@@ -568,16 +506,8 @@ impl Engine {
                 )));
             }
         };
-        match self.last_node_id.lock() {
-            Ok(mut inner) => {
-                *inner = last_node_id;
-                self.tick_me_later();
-            }
-            Err(err) => {
-                error!("Error locking last_node_id: {}", err);
-                self.exit();
-            }
-        }
+        self.last_node_id
+            .store(last_node_id, std::sync::atomic::Ordering::Relaxed);
         match self.edges.lock() {
             Ok(mut edges) => {
                 edges.load_all_from_disk(&self.project_path_on_disk.as_path())?;
@@ -700,26 +630,24 @@ impl Engine {
                     for connected_node_id in connected_node_ids {
                         match self.get_node_by_id(&*connected_node_id) {
                             Some(node) => match node.payload {
-                                Payload::RobotsTxt(ref robots_txt) => {
-                                    if robots_txt.contents.is_empty() {
+                                Payload::Text(ref robots_txt) => {
+                                    if robots_txt.is_empty() {
                                         debug!("robots.txt is empty for domain {}", payload.name);
                                         break;
                                     } else {
-                                        let robot = match Robot::new(
-                                            "Pixlie AI",
-                                            &robots_txt.contents.as_bytes(),
-                                        ) {
-                                            Ok(robot) => robot,
-                                            Err(err) => {
-                                                error!(
+                                        let robot =
+                                            match Robot::new("Pixlie AI", &robots_txt.as_bytes()) {
+                                                Ok(robot) => robot,
+                                                Err(err) => {
+                                                    error!(
                                                     "Error parsing robots.txt for domain {}: {}",
                                                     url, err
                                                 );
-                                                return Err(PiError::FetchError(
-                                                    "Error parsing robots.txt".to_string(),
-                                                ));
-                                            }
-                                        };
+                                                    return Err(PiError::FetchError(
+                                                        "Error parsing robots.txt".to_string(),
+                                                    ));
+                                                }
+                                            };
                                         if !robot.allowed(&url) {
                                             debug!("URL {} is not allowed to crawl", url);
                                             return Err(PiError::FetchError(
