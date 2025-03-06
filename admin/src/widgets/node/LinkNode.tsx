@@ -50,9 +50,11 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
             {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
           </a>
           <span class="text-xs">
-            {props.flags.includes("IsProcessed" as APINodeFlags)
-              ? "Fetched"
-              : "Not Fetched"}
+            {/*{props.flags.includes("IsProcessed" as APINodeFlags) &&*/}
+            {/*!props.flags.includes("IsRequesting")*/}
+            {/*  ? "Fetched"*/}
+            {/*  : "Not Fetched"}*/}
+            {props.flags.join(", ")}
           </span>
         </>
       ) : (

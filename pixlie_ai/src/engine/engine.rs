@@ -22,7 +22,6 @@ use texting_robots::Robot;
 
 // The engine keeps track of all the data nodes and their relationships
 pub struct Engine {
-    // labels: Mutex<Labels>,
     nodes: Mutex<Nodes>, // All nodes that are in the engine
     edges: Mutex<Edges>,
     // node_ids_by_label: Mutex<NodeIdsByLabel>,
@@ -46,7 +45,6 @@ impl Engine {
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
         let engine = Engine {
-            // labels: Mutex::new(Labels::new()),
             nodes: Mutex::new(Nodes::new()),
             edges: Mutex::new(Edges::new()),
             // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
@@ -84,6 +82,7 @@ impl Engine {
     }
 
     fn tick(&self) {
+        debug!("Ticking engine");
         self.process_nodes();
         match self.save_to_disk() {
             Ok(_) => {}
@@ -93,20 +92,20 @@ impl Engine {
                 return;
             }
         }
-        self.tick_me_later();
+        // self.tick_me_later();
     }
 
-    fn tick_me_later(&self) {
-        match self
-            .main_channel_tx
-            .send(PiEvent::TickMeLater(self.project_id.clone()))
-        {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-            }
-        }
-    }
+    // fn tick_me_later(&self) {
+    //     match self
+    //         .main_channel_tx
+    //         .send(PiEvent::TickMeLater(self.project_id.clone()))
+    //     {
+    //         Ok(_) => {}
+    //         Err(err) => {
+    //             error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
+    //         }
+    //     }
+    // }
 
     fn exit(&self) {
         debug!("Exiting engine for project {}", self.project_id);
@@ -423,7 +422,7 @@ impl Engine {
                 )));
             }
         };
-        self.tick_me_later();
+        // self.tick_me_later();
         Ok(())
     }
 
@@ -431,7 +430,7 @@ impl Engine {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
                 nodes.update_node(node_id, payload)?;
-                self.tick_me_later();
+                // self.tick_me_later();
                 Ok(())
             }
             Err(err) => {
@@ -800,7 +799,7 @@ impl Engine {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
                 nodes.toggle_flag(node_id, flag);
-                self.tick_me_later();
+                // self.tick_me_later();
                 Ok(())
             }
             Err(err) => {

@@ -4,7 +4,7 @@ use pixlie_ai::config::{download_admin_site, Settings};
 use pixlie_ai::engine::Engine;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::env::var;
 use std::process::exit;
 use std::sync::atomic::AtomicBool;
@@ -52,8 +52,6 @@ fn main() {
     // Each engine has its own communication channel
     let channels_per_project: Arc<Mutex<HashMap<String, PiChannel>>> =
         Arc::new(Mutex::new(HashMap::new()));
-    let tick_requests_per_project: Arc<Mutex<HashSet<String>>> =
-        Arc::new(Mutex::new(HashSet::new()));
     // The API channel is used by the API server and the CLI
     let api_channel = APIChannel::new();
     let main_channel_tx = main_channel.tx.clone();
@@ -169,45 +167,12 @@ fn main() {
 
     {
         let channels_per_project = channels_per_project.clone();
-        let tick_requests_per_project = tick_requests_per_project.clone();
-        let main_channel = main_channel.clone();
-        let fetcher_tx = fetcher_tx.clone();
-        let pool_inner = pool.clone();
         pool.execute(move || loop {
-            thread::sleep(Duration::from_millis(1000));
-            let ticks = match tick_requests_per_project.try_lock() {
-                Ok(mut ticks) => ticks.drain().collect(),
-                Err(err) => {
-                    error!("Error locking tick_requests_per_project: {}", err);
-                    vec![]
-                }
-            };
-            for project_id in ticks {
-                let channels_per_project_inner = channels_per_project.clone();
-                let channel_exists: bool = match channels_per_project.try_lock() {
-                    Ok(channels_per_project) => {
-                        match channels_per_project.contains_key(&project_id) {
-                            true => true,
-                            false => false,
-                        }
-                    }
-                    Err(err) => {
-                        error!("Error locking channels_per_project: {}", err);
-                        false
-                    }
-                };
-                if !channel_exists {
-                    load_project(
-                        project_id.clone(),
-                        channels_per_project_inner,
-                        main_channel.clone().tx,
-                        fetcher_tx.clone(),
-                        pool_inner.clone(),
-                    );
-                }
-                match channels_per_project.try_lock() {
-                    Ok(channels_per_project) => match channels_per_project.get(&project_id) {
-                        Some(channel) => match channel.tx.send(PiEvent::NeedsToTick) {
+            thread::sleep(Duration::from_millis(5000));
+            match channels_per_project.try_lock() {
+                Ok(channels_per_project) => {
+                    for (project_id, channel) in channels_per_project.iter() {
+                        match channel.tx.send(PiEvent::NeedsToTick) {
                             Ok(_) => {
                                 debug!(
                                     "Sent PiEvent::NeedsToTick to engine for project {}",
@@ -217,14 +182,11 @@ fn main() {
                             Err(err) => {
                                 error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
                             }
-                        },
-                        None => {
-                            error!("Project {} is not loaded", &project_id);
                         }
-                    },
-                    Err(err) => {
-                        error!("Error locking channels_per_project: {}", err);
                     }
+                }
+                Err(err) => {
+                    error!("Error locking channels_per_project: {}", err);
                 }
             }
         });
@@ -295,20 +257,6 @@ fn main() {
                     Ok(_) => {}
                     Err(err) => {
                         error!("Error sending PiEvent in API broadcast channel: {}", err);
-                    }
-                }
-            }
-            PiEvent::TickMeLater(project_id) => {
-                // The engine has requested to be called later
-                match tick_requests_per_project.try_lock() {
-                    Ok(mut tick_requests_per_project) => {
-                        if !tick_requests_per_project.contains(&project_id) {
-                            tick_requests_per_project.insert(project_id.clone());
-                            debug!("TickMeLater for project {}", &project_id);
-                        }
-                    }
-                    Err(err) => {
-                        error!("Error locking tick_requests_per_project: {}", err);
                     }
                 }
             }

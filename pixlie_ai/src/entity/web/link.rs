@@ -35,13 +35,10 @@ impl Link {
         // We do not store fragment
         // The link node only stores the path and query, domain is stored in the domain node
         let parsed = Url::parse(url).map_err(|err| {
-            PiError::InternalError(format!(
-                "1. Cannot parse URL {} to get domain: {}",
-                &url, err
-            ))
+            PiError::InternalError(format!("Cannot parse URL {} to get domain: {}", &url, err))
         })?;
         let domain = parsed.domain().ok_or_else(|| {
-            PiError::InternalError(format!("2. Cannot parse URL {} to get domain", &url))
+            PiError::InternalError(format!("Cannot parse URL {} to get domain", &url))
         })?;
         let domain_node_id: NodeId = engine
             .get_or_add_node(
