@@ -84,7 +84,11 @@ const DropDown: Component = () => {
                 </svg>
                 <p class="text-sm font-semibold">New Project</p>
               </a>
-              <div class="border-b m-1.5"></div>
+              <Show
+                when={!!workspace.projects && workspace.projects.length > 1}
+              >
+                <div class="border-b m-1.5" />
+              </Show>
               <For
                 each={workspace.projects?.filter(
                   (project) => project.name !== getProject()?.name
