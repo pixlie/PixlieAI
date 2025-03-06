@@ -46,6 +46,7 @@ pub enum EngineRequestPayload {
     GetAllEdges,
     CreateNode(NodeWrite),
     Query(u32), // Some nodes allow a "query", which can generate any number of nodes, like a search
+    ToggleCrawl(u32),
 }
 
 #[derive(Clone, Default, Serialize, TS)]
@@ -437,6 +438,50 @@ pub async fn search_results(
     }
 }
 
+pub async fn toggle_crawl(
+    path: web::Path<(String, u32)>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let (project_id, node_id) = path.into_inner();
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::ToggleCrawl(node_id),
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while response_opt.is_none() {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
+}
+
+
 pub fn handle_engine_api_request(
     request: EngineRequest,
     engine: &Engine,
@@ -561,6 +606,24 @@ pub fn handle_engine_api_request(
             },
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
+        EngineRequestPayload::ToggleCrawl(node_id) => match engine.get_node_by_id(&node_id) {
+            Some(node) => match node.payload {
+                Payload::Domain(ref domain) => {
+                    // toggle domain.is_allowed_to_crawl here
+                    EngineResponsePayload::Success
+                }
+                _ => EngineResponsePayload::Error(format!(
+                    "Node {} is not a domain",
+                    node_id
+                )),
+            },
+            None => EngineResponsePayload::Error(format!(
+                "Node {} not found",
+                node_id
+            )),
+        }
+        
+        
     };
 
     main_channel_tx.send(PiEvent::APIResponse(
