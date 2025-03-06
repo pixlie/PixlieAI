@@ -218,7 +218,6 @@ impl WebPage {
                         // Links that are relative to this website, we build the full URL
                         match current_url.join(&url) {
                             Ok(parsed) => {
-                                debug!("Adding link to {}", parsed.to_string());
                                 match Link::add(
                                     engine.clone(),
                                     &parsed.to_string(),
@@ -239,7 +238,6 @@ impl WebPage {
                         }
                     } else if url.starts_with("https://") || url.starts_with("http://") {
                         // Links that are full URLs
-                        debug!("Adding link to {}", url);
                         match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
                             Ok(_) => {}
                             Err(err) => {

@@ -32,10 +32,11 @@ fn check_logs(domain: &str, url: &str, logs: &mut Logs) -> CanCrawl {
                         // Check the last fetch time for this URL. We do not want to fetch too often.
                         if url_log.last_fetched_at.elapsed().as_secs() > 2 {
                             // We have fetched from this URL some time ago, we can fetch now
-                            debug!("URL was recently fetched from, cannot fetch now");
-                            CanCrawl::No(
-                                "URL was recently fetched from, cannot fetch now".to_string(),
-                            )
+                            debug!("URL {} was recently fetched from, cannot fetch now", url);
+                            CanCrawl::No(format!(
+                                "URL {} was recently fetched from, cannot fetch now",
+                                url
+                            ))
                         } else {
                             // We have fetched from this URL recently, let's update the last fetched time
                             domain_log.per_url.insert(
@@ -60,8 +61,14 @@ fn check_logs(domain: &str, url: &str, logs: &mut Logs) -> CanCrawl {
                 }
             } else {
                 // We have fetched from this domain very recently, we can not fetch now
-                debug!("Domain was recently fetched from, cannot fetch now");
-                CanCrawl::No("Domain was recently fetched from, cannot fetch now".to_string())
+                debug!(
+                    "Domain {} was recently fetched from, cannot fetch now",
+                    domain
+                );
+                CanCrawl::No(format!(
+                    "Domain {} was recently fetched from, cannot fetch now",
+                    domain
+                ))
             }
         }
         None => {
