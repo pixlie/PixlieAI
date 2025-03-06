@@ -300,26 +300,13 @@ mod tests {
                 assert_eq!(node.id, db_node.id);
                 // Match the payload data type and check the inner values
                 match node.payload {
-                    Payload::Text(ref title) => {
-                        let db_title = match db_node.payload {
-                            Payload::Text(ref title) => title,
+                    Payload::Text(ref text) => {
+                        let db_text = match db_node.payload {
+                            Payload::Text(ref text) => text,
                             _ => panic!("Expected Title payload"),
                         };
-                        assert_eq!(title, db_title);
-                    }
-                    Payload::Text(ref heading) => {
-                        let db_heading = match db_node.payload {
-                            Payload::Text(ref heading) => heading,
-                            _ => panic!("Expected Heading payload"),
-                        };
-                        assert_eq!(heading, db_heading);
-                    }
-                    Payload::Text(ref paragraph) => {
-                        let db_paragraph = match db_node.payload {
-                            Payload::Text(ref paragraph) => paragraph,
-                            _ => panic!("Expected Paragraph payload"),
-                        };
-                        assert_eq!(paragraph, db_paragraph);
+                        assert_eq!(text, db_text);
+                        assert_eq!(node.labels, db_node.labels);
                     }
                     Payload::ArrayOfTexts(ref texts) => {
                         let db_texts = match db_node.payload {

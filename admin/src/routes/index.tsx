@@ -1,16 +1,16 @@
 import { Component } from "solid-js";
 import { Route } from "@solidjs/router";
 import Setup from "./settings/Setup";
-import SettingsContainer from "./settings/SettingsContainer.tsx";
+import SettingsContainer from "./settings/SettingsContainer";
 import Workflow from "./projects/Workflow";
 import Insights from "./projects/Insights";
 import Graph from "./projects/Graph";
 import Crawl from "./projects/Crawl";
-import SearchResults from "./projects/SearchResults";
-import PerProjectWrapper from "./projects/PerProject.tsx";
-import HelpContainer from "./help/HelpContainer.tsx";
-import Contact from "./help/Contact.tsx";
-import Home from "./Home.tsx";
+import Search from "./projects/Search";
+import PerProjectWrapper from "./projects/PerProject";
+import HelpContainer from "./help/HelpContainer";
+import Contact from "./help/Contact";
+import Home from "./Home";
 
 const Routes: Component = () => {
   return (
@@ -23,7 +23,7 @@ const Routes: Component = () => {
             <Route path="/workflow" component={Workflow} />
             <Route path="/insights" component={Insights} />
             <Route path="/graph" component={Graph} />
-            <Route path="/searchResults" component={SearchResults} />
+            <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
           </Route>
         </Route>
