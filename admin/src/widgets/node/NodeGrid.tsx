@@ -22,7 +22,7 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
             </div>
           )}
           {props.nodeType === "Domain" && (
-            <div class="grid grid-cols-[1fr_auto] gap-2">
+            <div class="flex flex-col gap-6">
               <For each={props.source()}>
                 {(nodeId) => <DomainNode nodeId={nodeId} />}
               </For>
