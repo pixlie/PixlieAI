@@ -1,5 +1,5 @@
 use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
-use crate::entity::content::{BulletPoints, OrderedPoints, Table, TableRow};
+use crate::entity::content::{Table, TableRow};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
@@ -77,13 +77,10 @@ pub enum APIPayload {
     Domain(Domain),
     Link(Link),
     Text(String),
+    ArrayOfTexts(Vec<String>),
     FileHTML(String),
-    BulletPoints(BulletPoints),
-    OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
-    Label(String),
-    NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
 }
 
@@ -94,13 +91,10 @@ impl APIPayload {
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
             Payload::Text(text) => APIPayload::Text(text),
+            Payload::ArrayOfTexts(texts) => APIPayload::ArrayOfTexts(texts),
             Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
-            Payload::BulletPoints(bullet_points) => APIPayload::BulletPoints(bullet_points),
-            Payload::OrderedPoints(ordered_points) => APIPayload::OrderedPoints(ordered_points),
             Payload::Table(table) => APIPayload::Table(table),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
-            Payload::Label(label) => APIPayload::Label(label),
-            Payload::NamedEntity(label, text) => APIPayload::NamedEntity(label, text),
             Payload::SearchTerm(search_term) => APIPayload::SearchTerm(search_term),
         }
     }

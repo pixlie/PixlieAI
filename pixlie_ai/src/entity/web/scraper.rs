@@ -1,5 +1,5 @@
 use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, NodeId, Payload};
-use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
+use crate::entity::content::CellData;
 use crate::entity::content::{TableRow, TypedData};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
@@ -151,8 +151,8 @@ impl WebPage {
                     }
                     let bullet_points_node_id = engine
                         .get_or_add_node(
-                            Payload::BulletPoints(BulletPoints(bullet_points)),
-                            vec![],
+                            Payload::ArrayOfTexts(bullet_points),
+                            vec![CommonNodeLabels::BulletPoints.to_string()],
                             true,
                             None,
                         )?
@@ -186,8 +186,8 @@ impl WebPage {
                     }
                     let ordered_points_node_id = engine
                         .get_or_add_node(
-                            Payload::OrderedPoints(OrderedPoints(ordered_points)),
-                            vec![],
+                            Payload::ArrayOfTexts(ordered_points),
+                            vec![CommonNodeLabels::OrderedPoints.to_string()],
                             true,
                             None,
                         )?

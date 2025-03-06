@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, OrderedPoints, Table, TableRow},
+    content::{Table, TableRow},
     workflow::WorkflowStep,
 };
 use bitflags::bitflags;
@@ -23,7 +23,6 @@ pub mod engine;
 mod nodes;
 pub mod setup;
 
-// use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
@@ -40,14 +39,10 @@ pub enum Payload {
     Domain(Domain),
     Link(Link),
     Text(String),
+    ArrayOfTexts(Vec<String>),
     FileHTML(WebPage),
-    BulletPoints(BulletPoints),
-    OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
-    Label(String),
-    // TypedData(TypedData),
-    NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
 }
 

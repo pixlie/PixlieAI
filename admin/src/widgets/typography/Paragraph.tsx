@@ -1,9 +1,9 @@
-import { Component } from "solid-js";
+import { Component, JSX } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
 
 interface IPropTypes {
   size?: "sm" | "base" | "lg";
-  children: string;
+  children: JSX.Element | string;
 }
 
 const Paragraph: Component<IPropTypes> = (props) => {

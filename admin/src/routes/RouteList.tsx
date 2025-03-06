@@ -114,6 +114,13 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
+            label: "Search",
+            href: `/p/${params.projectId}/search`,
+            isActive: location.pathname.startsWith(
+              `/p/${params.projectId}/search`,
+            ),
+          },
+          {
             label: "Graph",
             href: `/p/${params.projectId}/graph`,
             isActive: location.pathname.startsWith(
@@ -132,13 +139,6 @@ const PerProjectRoutes: Component = () => {
                 `/p/${params.projectId}/graph?label=${label}`,
               ),
             })),
-          },
-          {
-            label: "Search results",
-            href: `/p/${params.projectId}/searchResults`,
-            isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/searchResults`,
-            ),
           },
           {
             label: "Crawl",

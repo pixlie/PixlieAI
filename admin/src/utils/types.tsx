@@ -48,6 +48,7 @@ interface IFormField {
   value?: IFormFieldValue;
   onChange?: (name: string, value: IFormFieldValue) => void;
   onFocus?: () => void;
+  onKeyUp?: (event: KeyboardEvent) => void;
   isRequired?: boolean;
   isEditable?: boolean;
   autocomplete?: boolean;
