@@ -125,7 +125,7 @@ impl Domain {
                 )?;
                 let first_belongs_to = belongs_to.first().ok_or_else(|| {
                     PiError::InternalError(
-                        "No connected node ids found for Domain node".to_string(),
+                        format!("Could not find Domain node for given node with ID {}", node_id),
                     )
                 })?;
                 match engine.get_node_by_id(first_belongs_to) {

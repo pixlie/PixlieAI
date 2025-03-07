@@ -5,10 +5,9 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload};
+use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeFlags, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-// use crate::services::{anthropic, ollama, TextClassificationProvider};
 use crate::ExternalData;
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -17,12 +16,7 @@ use ts_rs::TS;
 
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub struct WebPage {
-    pub contents: String,
-    pub is_scraped: bool,
-    pub is_classified: bool,
-    pub is_extracted: bool, // Has entity extraction process been run on this page
-}
+pub struct WebPage(pub String);
 
 impl WebPage {
     pub fn get_link(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
@@ -165,58 +159,51 @@ impl Node for WebPage {
         node_id: &NodeId,
         _data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
-        // TODO: save the scraped nodes to graph only if webpage is classified as important to us
-        if !self.is_scraped {
-            self.scrape(engine.clone(), node_id)?;
-            engine.update_node(
-                &node_id,
-                Payload::FileHTML(WebPage {
-                    is_scraped: true,
-                    ..self.clone()
-                }),
-            )?;
-        } else if !self.is_classified {
-            // self.classify(engine.clone(), node_id).unwrap();
-            engine.update_node(
-                &node_id,
-                Payload::FileHTML(WebPage {
-                    is_classified: true,
-                    ..self.clone()
-                }),
-            )?;
-        } else if !self.is_extracted {
-            // Get the related Label node and check that classification is not "Other"
-            // let classification =
-            //     match engine.nodes.read() {
-            //         Ok(nodes) => match nodes.get(node_id) {
-            //             Some(node) => node.read().unwrap().edges.iter().find_map(|node_id| {
-            //                 match engine.nodes.read() {
-            //                     Ok(nodes) => match nodes.get(node_id) {
-            //                         Some(node) => match node.read() {
-            //                             Ok(node) => match node.payload {
-            //                                 Payload::Label(ref label) => Some(label.clone()),
-            //                                 _ => None,
-            //                             },
-            //                             Err(_err) => None,
-            //                         },
-            //                         None => None,
-            //                     },
-            //                     Err(_err) => None,
-            //                 }
-            //             }),
-            //             None => None,
-            //         },
-            //         Err(_err) => None,
-            //     };
-            //
-            // if classification.is_some_and(|x| x != "Other") {
-            //     self.extract_entities(engine, node_id).unwrap();
-            //     return Some(WebPage {
-            //         is_extracted: true,
-            //         ..self.clone()
-            //     });
-            // }
-        }
+        self.scrape(engine.clone(), node_id)?;
+        engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
+        // else if !self.is_classified {
+        //     // self.classify(engine.clone(), node_id).unwrap();
+        //     engine.update_node(
+        //         &node_id,
+        //         Payload::FileHTML(WebPage {
+        //             is_classified: true,
+        //             ..self.clone()
+        //         }),
+        //     )?;
+        // }
+        // else if !self.is_extracted {
+        //     Get the related Label node and check that classification is not "Other"
+        //     let classification =
+        //         match engine.nodes.read() {
+        //             Ok(nodes) => match nodes.get(node_id) {
+        //                 Some(node) => node.read().unwrap().edges.iter().find_map(|node_id| {
+        //                     match engine.nodes.read() {
+        //                         Ok(nodes) => match nodes.get(node_id) {
+        //                             Some(node) => match node.read() {
+        //                                 Ok(node) => match node.payload {
+        //                                     Payload::Label(ref label) => Some(label.clone()),
+        //                                     _ => None,
+        //                                 },
+        //                                 Err(_err) => None,
+        //                             },
+        //                             None => None,
+        //                         },
+        //                         Err(_err) => None,
+        //                     }
+        //                 }),
+        //                 None => None,
+        //             },
+        //             Err(_err) => None,
+        //         };
+        //
+        //     if classification.is_some_and(|x| x != "Other") {
+        //         self.extract_entities(engine, node_id).unwrap();
+        //         return Some(WebPage {
+        //             is_extracted: true,
+        //             ..self.clone()
+        //         });
+        //     }
+        // }
         Ok(())
     }
 }

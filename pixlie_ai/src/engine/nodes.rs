@@ -3,7 +3,6 @@ use crate::engine::{
 };
 use crate::error::{PiError, PiResult};
 use chrono::Utc;
-use itertools::sorted;
 use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::{Options, SliceTransform, DB};
@@ -25,31 +24,31 @@ impl Nodes {
         }
     }
 
-    pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
-        // We store all nodes in the DB, in chunks
-        // Each chunk has up to 100 nodes
-        let mut chunk_id = 0;
-        let mut chunk: Vec<(&ArcedNodeId, &ArcedNodeItem)> = vec![];
-        for data in sorted(self.data.iter()) {
-            if chunk.len() < 100 {
-                chunk.push(data);
-            } else if chunk.len() == 100 {
-                db.put(
-                    format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
-                    to_allocvec(&chunk)?,
-                )?;
-                chunk_id += 1;
-                chunk = vec![];
-            }
-        }
-        if !chunk.is_empty() {
-            db.put(
-                format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
-                to_allocvec(&chunk)?,
-            )?;
-        }
-        Ok(())
-    }
+    // pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
+    //     // We store all nodes in the DB, in chunks
+    //     // Each chunk has up to 100 nodes
+    //     let mut chunk_id = 0;
+    //     let mut chunk: Vec<(&ArcedNodeId, &ArcedNodeItem)> = vec![];
+    //     for data in sorted(self.data.iter()) {
+    //         if chunk.len() < 100 {
+    //             chunk.push(data);
+    //         } else if chunk.len() == 100 {
+    //             db.put(
+    //                 format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
+    //                 to_allocvec(&chunk)?,
+    //             )?;
+    //             chunk_id += 1;
+    //             chunk = vec![];
+    //         }
+    //     }
+    //     if !chunk.is_empty() {
+    //         db.put(
+    //             format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
+    //             to_allocvec(&chunk)?,
+    //         )?;
+    //     }
+    //     Ok(())
+    // }
 
     pub(super) fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
         // We store this (and all other nodes in its chunk) node to DB
@@ -173,10 +172,7 @@ mod tests {
                 CommonNodeLabels::Link.to_string(),
             ),
             (
-                Payload::FileHTML(WebPage {
-                    contents: "<html></html>".to_string(),
-                    ..Default::default()
-                }),
+                Payload::FileHTML(WebPage("<html></html>".to_string())),
                 CommonNodeLabels::WebPage.to_string(),
             ),
             (
@@ -220,11 +216,12 @@ mod tests {
             nodes.iter().for_each(|node| {
                 let key = Arc::new(node.id);
                 let value = Arc::new(node.clone());
-                db_nodes.data.insert(key, value);
+                db_nodes.data.insert(key.clone(), value);
+                db_nodes.save_item_chunk_to_disk(&db, &key).unwrap();
             });
 
             // Save the nodes to disk
-            db_nodes.save_all_to_disk(&db).unwrap();
+            // db_nodes.save_all_to_disk(&db).unwrap();
         }
 
         {
@@ -275,17 +272,14 @@ mod tests {
                             Payload::FileHTML(ref web_page) => web_page,
                             _ => panic!("Expected FileHTML payload"),
                         };
-                        assert_eq!(web_page.contents, db_web_page.contents);
-                        assert_eq!(web_page.is_scraped, db_web_page.is_scraped);
-                        assert_eq!(web_page.is_classified, db_web_page.is_classified);
-                        assert_eq!(web_page.is_extracted, db_web_page.is_extracted);
+                        assert_eq!(web_page.0, db_web_page.0);
                     }
                     _ => {}
                 }
             }
 
-            let db = DB::open_default(db_path).unwrap();
-            db_nodes.save_all_to_disk(&db).unwrap();
+            // let db = DB::open_default(db_path).unwrap();
+            // db_nodes.save_all_to_disk(&db).unwrap();
         }
 
         // Check this again
@@ -336,10 +330,7 @@ mod tests {
                             Payload::FileHTML(ref web_page) => web_page,
                             _ => panic!("Expected FileHTML payload"),
                         };
-                        assert_eq!(web_page.contents, db_web_page.contents);
-                        assert_eq!(web_page.is_scraped, db_web_page.is_scraped);
-                        assert_eq!(web_page.is_classified, db_web_page.is_classified);
-                        assert_eq!(web_page.is_extracted, db_web_page.is_extracted);
+                        assert_eq!(web_page.0, db_web_page.0);
                     }
                     _ => {}
                 }
