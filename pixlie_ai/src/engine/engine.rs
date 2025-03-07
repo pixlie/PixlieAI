@@ -306,7 +306,7 @@ impl Engine {
                         }
                     }
                     Payload::Topic(ref payload) => {
-                        match payload.process(engine.clone(), &node_id, None) {
+                        match payload.process(arced_self.clone(), &node_id, None) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error processing Topic: {}", err);
