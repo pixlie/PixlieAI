@@ -2,14 +2,15 @@
 
 export type CommonNodeLabels =
   | "AddedByUser"
-  | "Domain"
-  | "Link"
-  | "RobotsTxt"
-  | "WebPage"
-  | "PartialContent"
-  | "Title"
-  | "Heading"
-  | "Paragraph"
   | "BulletPoints"
+  | "Content"
+  | "Domain"
+  | "Heading"
+  | "Link"
   | "OrderedPoints"
-  | "SearchTerm";
+  | "Paragraph"
+  | "PartialContent"
+  | "RobotsTxt"
+  | "SearchTerm"
+  | "Title"
+  | "WebPage";
