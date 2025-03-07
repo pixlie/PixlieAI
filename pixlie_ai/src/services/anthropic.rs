@@ -62,10 +62,7 @@ pub struct  SearchTermPromptInputContent {
 }
 
 #[derive(Deserialize)]
-pub struct  SearchTermPromptOutputItem {
-    pub search_term: String,
-    pub relevance: String,
-}
+pub struct  SearchTermPromptOutputItem(pub String);
 
 #[derive(Serialize)]
 pub struct SearchTermPromptInput {
@@ -184,24 +181,22 @@ pub fn get_prompt_to_extract_search_terms(input: &SearchTermPromptInput) -> (Str
 
     let system_prompt = format!(
         r#"
-You are a seasoned data professional. You will help me extract search terms from content blocks, based on a topic.
-I will provide this data to you in JSON format.
+You are a data professional and a linguistic expert specializing in semantic analysis.
+Your task is to extract search terms from content blocks based on a specific topic.
+I will provide structured input in JSON format with a topic and content blocks.
 
 Guidelines for search term extraction:
-1. Extract search terms directly from content that match the topic
-2. Identify contextually relevant terms based on topic-content relationship
-3. Include relevant synonyms and variations
-4. Consider multi-word combinations when appropriate
-5. Add semantically related terms even if not present in content
-6. Rate each term's relevance (broad/regular/tight) to the topic
-7. Focus on precision and contextual accuracy
-8. Ensure terms are topically coherent and meaningful
+1. Extract only exact phrases from the content that are 1-3 consecutive words long.
+2. Only include terms that are directly relevant to the specified topic.
+3. Each search term must appear verbatim in the source content.
+4. Consider the content_type field when determining a term's importance (e.g., titles and headings should be prioritized).
+5. Focus on high precision and contextual accuracy.
 
-Please provide your response in JSON array format where each object contains exactly two fields:
-1. "search_term" - containing the extracted search term
-2. "relevance" - containing one of these values: "broad", "regular", or "tight"
+Output format:
+Return a JSON array of strings with exactly this structure:
+[\"exact phrase one\", \"exact phrase two\", ...]
 
-Do not include any explanations, code fences or additional text.
+Do not include any explanations, code fences, or text outside the JSON array.
 "#,
     );
     let user_prompt = format!(
@@ -209,8 +204,6 @@ Do not include any explanations, code fences or additional text.
 {}
 "#,
         serde_json::to_string(input).unwrap()
-        // topic,
-        // content.iter().map(|content_item| format!("<content>\n{}\n</content>", content_item)).collect::<Vec<String>>().join("\n"),
     );
     (system_prompt, user_prompt)
 }
@@ -259,32 +252,17 @@ pub fn extract_search_terms(
     };
     Ok(match serde_json::from_str::<Vec<serde_json::Value>>(response.content[0].text.as_str()) {
         Ok(prompt_response_json_object) => {
-            prompt_response_json_object.iter().map(|json_object| {
-                match json_object.get("search_term") {
+            prompt_response_json_object.iter().filter_map(|search_term| {
+                match search_term.as_str() {
                     Some(search_term) => {
-                        match json_object.get("relevance") {
-                            Some(relevance) => Some(SearchTermPromptOutputItem {
-                                search_term: search_term.as_str().unwrap().to_string(),
-                                relevance: relevance.as_str().unwrap().to_string(),
-                            }),
-                            None => {
-                                debug!(
-                                    "Failed to parse search term item's relevance from Claude response: {:?}",
-                                    json_object
-                                );
-                                None
-                            }
-                        }
-                    },
+                        Some(SearchTermPromptOutputItem(search_term.to_string()))
+                    }
                     None => {
-                        debug!(
-                            "Failed to parse search term item from Claude response: {:?}",
-                            json_object
-                        );
+                        debug!("Failed to parse search term from Claude response: {}", search_term);
                         None
                     }
                 }
-            }).filter_map(|x| x).collect::<Vec<SearchTermPromptOutputItem>>()
+            }).collect::<Vec<SearchTermPromptOutputItem>>()
         },
         Err(_) => {
             debug!(

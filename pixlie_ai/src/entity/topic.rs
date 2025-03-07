@@ -166,9 +166,9 @@ impl Node for Topic {
                     continue;
                 }
             };
-            for search_term_result in search_term_results {
+            for search_term in search_term_results {
                 let search_term_node_id: Option<NodeId> = match engine.get_or_add_node(
-                    Payload::SearchTerm(SearchTerm(search_term_result.search_term.clone())),
+                    Payload::SearchTerm(SearchTerm(search_term.0.to_string())),
                     vec![],
                     true,
                     None,
@@ -177,7 +177,7 @@ impl Node for Topic {
                     Err(err) => {
                         error!(
                             "Error adding search term {} while processing webpage node {} for topic {}: {}",
-                            search_term_result.search_term,
+                            search_term.0.to_string(),
                             content_node.id,
                             self.0,
                             err
