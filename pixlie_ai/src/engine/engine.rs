@@ -278,11 +278,6 @@ impl Engine {
         };
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
-                info!(
-                    "Processing node {} of payload {}",
-                    node_id,
-                    node.payload.to_string()
-                );
                 match node.payload {
                     Payload::Domain(ref payload) => {
                         match payload.process(arced_self.clone(), &node_id, None) {
