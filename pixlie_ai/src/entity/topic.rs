@@ -91,16 +91,13 @@ impl Node for Topic {
                 Some(content_node) => {
                     if !content_node.flags.contains(NodeFlags::IS_PROCESSED) {
                         // Skip if the content node has not been processed yet
-                        debug!("Content node not procesed: {}", content_node_id);
                         return None;
                     }
                     else {
-                        debug!("Content node processed: {}", content_node_id);
                         return Some(content_node);
                     }
                 },
                 None => {
-                    debug!("Could not load content node: {}", content_node_id);
                     return None;
                 }
             }
@@ -109,7 +106,6 @@ impl Node for Topic {
         let labels_of_interest = [
             CommonNodeLabels::BulletPoints.to_string(),
             CommonNodeLabels::Heading.to_string(),
-            CommonNodeLabels::Link.to_string(),
             CommonNodeLabels::Paragraph.to_string(),
             CommonNodeLabels::OrderedPoints.to_string(),
             CommonNodeLabels::Title.to_string(),
