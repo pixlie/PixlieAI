@@ -10,13 +10,15 @@ use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
-use log::{debug, error};
+use log::{debug, error, info};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU32;
+use std::time::Duration;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
+    thread,
 };
 use texting_robots::Robot;
 
@@ -81,31 +83,20 @@ impl Engine {
         engine
     }
 
-    fn tick(&self) {
-        debug!("Ticking engine");
-        self.process_nodes();
-        match self.save_to_disk() {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Error saving to disk: {}", err);
-                self.exit();
-                return;
-            }
+    pub fn ticker(&self) {
+        loop {
+            thread::sleep(Duration::from_millis(5000));
+            self.process_nodes();
+            // match self.save_to_disk() {
+            //     Ok(_) => {}
+            //     Err(err) => {
+            //         error!("Error saving to disk: {}", err);
+            //         self.exit();
+            //         return;
+            //     }
+            // }
         }
-        // self.tick_me_later();
     }
-
-    // fn tick_me_later(&self) {
-    //     match self
-    //         .main_channel_tx
-    //         .send(PiEvent::TickMeLater(self.project_id.clone()))
-    //     {
-    //         Ok(_) => {}
-    //         Err(err) => {
-    //             error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-    //         }
-    //     }
-    // }
 
     fn exit(&self) {
         debug!("Exiting engine for project {}", self.project_id);
@@ -121,24 +112,24 @@ impl Engine {
         }
     }
 
-    pub fn run(&self) {
+    pub fn channel_listener(&self) {
         // We block on the channel of this engine
+        let arced_self = Arc::new(self);
         for event in self.my_pi_channel.rx.iter() {
             match event {
                 PiEvent::APIRequest(project_id, request) => {
                     if self.project_id == project_id {
-                        debug!("API request {} for engine", project_id);
-                        match handle_engine_api_request(request, self, self.main_channel_tx.clone())
-                        {
+                        match handle_engine_api_request(
+                            request,
+                            arced_self.clone(),
+                            self.main_channel_tx.clone(),
+                        ) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error handling API request: {}", err);
                             }
                         }
                     }
-                }
-                PiEvent::NeedsToTick => {
-                    self.tick();
                 }
                 PiEvent::FetchResponse(response) => {
                     // Call the node that had needs this data
@@ -240,7 +231,9 @@ impl Engine {
                         None => {}
                     };
                 }
-                _ => {}
+                event => {
+                    info!("Unhandled event: {}", event.to_string());
+                }
             }
         }
         self.exit();
@@ -257,7 +250,7 @@ impl Engine {
     }
 
     fn process_nodes(&self) {
-        let engine = Arc::new(self);
+        let arced_self = Arc::new(self);
         let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
             Ok(nodes) => nodes
                 .data
@@ -269,7 +262,12 @@ impl Engine {
                     {
                         None
                     } else {
-                        Some(item.0.clone())
+                        match item.1.payload {
+                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) => {
+                                Some(item.0.clone())
+                            }
+                            _ => None,
+                        }
                     }
                 })
                 .collect(),
@@ -280,9 +278,14 @@ impl Engine {
         };
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
+                info!(
+                    "Processing node {} of payload {}",
+                    node_id,
+                    node.payload.to_string()
+                );
                 match node.payload {
-                    Payload::Domain(ref domain) => {
-                        match domain.process(engine.clone(), &node_id, None) {
+                    Payload::Domain(ref payload) => {
+                        match payload.process(arced_self.clone(), &node_id, None) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error processing domain: {}", err);
@@ -290,7 +293,7 @@ impl Engine {
                         }
                     }
                     Payload::Link(ref payload) => {
-                        match payload.process(engine.clone(), &node_id, None) {
+                        match payload.process(arced_self.clone(), &node_id, None) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error processing link: {}", err);
@@ -298,7 +301,7 @@ impl Engine {
                         }
                     }
                     Payload::FileHTML(ref payload) => {
-                        match payload.process(engine.clone(), &node_id, None) {
+                        match payload.process(arced_self.clone(), &node_id, None) {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error processing WebPage: {}", err);
@@ -430,7 +433,6 @@ impl Engine {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
                 nodes.update_node(node_id, payload)?;
-                // self.tick_me_later();
                 Ok(())
             }
             Err(err) => {
@@ -471,31 +473,31 @@ impl Engine {
         }
     }
 
-    fn save_to_disk(&self) -> PiResult<()> {
-        // We use RocksDB to store the graph
-        let db = self.get_db()?;
-        match self.nodes.lock() {
-            Ok(nodes) => {
-                nodes.save_all_to_disk(&db)?;
-            }
-            Err(err) => {
-                error!("Error locking nodes: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error locking nodes: {}",
-                    err
-                )));
-            }
-        }
-        match self.edges.lock() {
-            Ok(edges) => {
-                edges.save_all_to_disk(&db)?;
-            }
-            Err(err) => {
-                error!("Error locking edges: {}", err);
-            }
-        }
-        Ok(())
-    }
+    // fn save_to_disk(&self) -> PiResult<()> {
+    //     // We use RocksDB to store the graph
+    //     let db = self.get_db()?;
+    //     match self.nodes.try_lock() {
+    //         Ok(nodes) => {
+    //             nodes.save_all_to_disk(&db)?;
+    //         }
+    //         Err(err) => {
+    //             error!("Error locking nodes: {}", err);
+    //             return Err(PiError::InternalError(format!(
+    //                 "Error locking nodes: {}",
+    //                 err
+    //             )));
+    //         }
+    //     }
+    //     match self.edges.try_lock() {
+    //         Ok(edges) => {
+    //             edges.save_all_to_disk(&db)?;
+    //         }
+    //         Err(err) => {
+    //             error!("Error locking edges: {}", err);
+    //         }
+    //     }
+    //     Ok(())
+    // }
 
     fn load_from_disk(&mut self) -> PiResult<()> {
         let last_node_id = match self.nodes.lock() {

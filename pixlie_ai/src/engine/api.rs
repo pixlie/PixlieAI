@@ -207,7 +207,6 @@ pub async fn get_nodes(
     let project_id = project_id.into_inner();
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
-
     if let Some(label) = &params.label {
         debug!(
             "API request {} for project {} to get nodes with label {}",
@@ -475,13 +474,11 @@ pub async fn toggle_crawl(
     }
 }
 
-
 pub fn handle_engine_api_request(
     request: EngineRequest,
-    engine: &Engine,
+    engine: Arc<&Engine>,
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
-    let engine = Arc::new(engine);
     let response: EngineResponsePayload = match request.payload {
         EngineRequestPayload::GetLabels => {
             let labels = engine.get_all_node_labels();
@@ -603,21 +600,20 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::ToggleCrawl(node_id) => match engine.get_node_by_id(&node_id) {
             Some(node) => match node.payload {
                 Payload::Domain(ref domain) => {
-                    // toggle domain.is_allowed_to_crawl here
+                    engine.update_node(
+                        &node_id,
+                        Payload::Domain(Domain {
+                            name: domain.name.clone(),
+                            is_allowed_to_crawl: !domain.is_allowed_to_crawl,
+                        }),
+                    )?;
+                    engine.toggle_flag(&node_id, NodeFlags::IS_BLOCKED)?;
                     EngineResponsePayload::Success
                 }
-                _ => EngineResponsePayload::Error(format!(
-                    "Node {} is not a domain",
-                    node_id
-                )),
+                _ => EngineResponsePayload::Error(format!("Node {} is not a domain", node_id)),
             },
-            None => EngineResponsePayload::Error(format!(
-                "Node {} not found",
-                node_id
-            )),
-        }
-        
-        
+            None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
+        },
     };
 
     main_channel_tx.send(PiEvent::APIResponse(

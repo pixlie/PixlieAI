@@ -20,32 +20,32 @@ impl Edges {
         }
     }
 
-    pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
-        // We store all edges in the DB, in chunks
-        // Each chunk has edges for up to 100 starting nodes
-        let mut chunk_id = 0;
-        let mut chunk: Vec<(&ArcedNodeId, &Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
-        // let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
-        for (node_id, edges) in self.data.iter() {
-            if chunk.len() < 100 {
-                chunk.push((node_id, edges));
-            } else if chunk.len() == 100 {
-                db.put(
-                    format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
-                    to_allocvec(&chunk)?,
-                )?;
-                chunk_id += 1;
-                chunk = vec![];
-            }
-        }
-        if !chunk.is_empty() {
-            db.put(
-                format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
-                to_allocvec(&chunk)?,
-            )?;
-        }
-        Ok(())
-    }
+    // pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
+    //     // We store all edges in the DB, in chunks
+    //     // Each chunk has edges for up to 100 starting nodes
+    //     let mut chunk_id = 0;
+    //     let mut chunk: Vec<(&ArcedNodeId, &Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
+    //     // let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
+    //     for (node_id, edges) in self.data.iter() {
+    //         if chunk.len() < 100 {
+    //             chunk.push((node_id, edges));
+    //         } else if chunk.len() == 100 {
+    //             db.put(
+    //                 format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
+    //                 to_allocvec(&chunk)?,
+    //             )?;
+    //             chunk_id += 1;
+    //             chunk = vec![];
+    //         }
+    //     }
+    //     if !chunk.is_empty() {
+    //         db.put(
+    //             format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
+    //             to_allocvec(&chunk)?,
+    //         )?;
+    //     }
+    //     Ok(())
+    // }
 
     pub(super) fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
         // We store this (and all other edges in its chunk) edge to DB
@@ -167,7 +167,7 @@ mod tests {
             }
 
             // Save the edges to disk
-            db_edges.save_all_to_disk(&db).unwrap();
+            db_edges.save_item_chunk_to_disk(&db, &node_id).unwrap();
         }
 
         {
