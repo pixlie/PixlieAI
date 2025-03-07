@@ -83,23 +83,22 @@ impl Node for Topic {
             // Skip if there are no webpages in the graph
             return Ok(());
         }
+        
+        let node_ids_connected_to_topic = engine.get_node_ids_connected_with_label(
+            node_id, &CommonEdgeLabels::EvaluatedFor.to_string()
+        ).unwrap_or_else(|_| vec![]);
 
         let unprocessed_webpages: Vec<(ArcedNodeId, ArcedNodeId)> = webpage_node_ids.iter().filter_map(|webpage_node_id| {
             // Check if this webpage has already been processed for this topic
-            let is_already_processed = match engine.get_node_ids_connected_with_label(
-                node_id, &CommonEdgeLabels::EvaluatedFor.to_string()
-            ) {
-                Ok(evaluated_link_ids) => evaluated_link_ids.iter().any(|link_id| {
-                    // Check if this link is connected to the current webpage
-                    match engine.get_node_ids_connected_with_label(
-                        &webpage_node_id, &CommonEdgeLabels::ContentOf.to_string()
-                    ) {
-                        Ok(webpage_link_ids) => webpage_link_ids.contains(link_id),
-                        Err(_) => false
-                    }
-                }),
-                Err(_) => false
-            };
+            let is_already_processed = node_ids_connected_to_topic.iter().any(|link_id| {
+                // Check if this link is connected to the current webpage
+                match engine.get_node_ids_connected_with_label(
+                    &webpage_node_id, &CommonEdgeLabels::ContentOf.to_string()
+                ) {
+                    Ok(webpage_link_ids) => webpage_link_ids.contains(link_id),
+                    Err(_) => false
+                }
+            });
 
             if is_already_processed {
                 return None;
