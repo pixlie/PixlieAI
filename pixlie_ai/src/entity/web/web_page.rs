@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::{CommonEdgeLabels, Engine, Node, NodeId, Payload};
+use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 // use crate::services::{anthropic, ollama, TextClassificationProvider};
@@ -68,15 +68,16 @@ impl WebPage {
             };
 
             match node.payload {
-                // Payload::Title(ref title) => Some(title.0.to_string()),
-                Payload::Heading(ref heading) => {
-                    if heading.0.len() > 20 {
-                        content.push_str(&heading.0);
-                    }
-                }
-                Payload::Paragraph(ref paragraph) => {
-                    if paragraph.0.len() > 200 {
-                        content.push_str(&paragraph.0);
+                Payload::Text(ref text) => {
+                    if node.labels.contains(&CommonNodeLabels::Title.to_string()) && text.len() > 20
+                    {
+                        content.push_str(&text);
+                    } else if node
+                        .labels
+                        .contains(&CommonNodeLabels::Paragraph.to_string())
+                        && text.len() > 200
+                    {
+                        content.push_str(&text);
                     }
                 }
                 _ => {}

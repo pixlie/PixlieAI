@@ -47,19 +47,19 @@ const makeStore = () => {
     });
   };
 
-  const saveSettings = (settings: Partial<IWorkspace["settings"]>) => {
+  const saveSettings = (workspace: Partial<IWorkspace["settings"]>) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/settings`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(snakeCasedKeys(settings)),
+      body: JSON.stringify(snakeCasedKeys(workspace)),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save settings");
       }
-      setStore("settings", settings);
+      setStore("settings", workspace);
     });
   };
 

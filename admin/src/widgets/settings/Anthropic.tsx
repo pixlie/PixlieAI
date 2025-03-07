@@ -48,20 +48,14 @@ const Anthropic: Component = () => {
       setErrorMessage("Please enter a valid Anthropic API key");
       return;
     }
-    setErrorMessage("");
     saveWorkspace({
       ...formData,
     });
     fetchWorkspace();
-    setFormData({
-      anthropicApiKey: ""
-    })
   };
 
   onMount(() => {
-    if (!workspace.isReady) {
-      fetchWorkspace();
-    }
+    fetchWorkspace();
   });
 
   return (
@@ -76,8 +70,8 @@ const Anthropic: Component = () => {
           <>
             {workspace.workspace?.anthropicApiKey && (
               <small class={getColors()["textInfo"]}>
-                  You already have an Anthropic API key saved.
-                  You can replace it by entering a new one.
+                You already have an Anthropic API key saved. You can replace it
+                by entering a new one.
               </small>
             )}
             <TextInput

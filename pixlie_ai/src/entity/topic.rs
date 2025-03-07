@@ -4,7 +4,7 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::PiResult, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
+use crate::{engine::{ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeId, Payload}, entity::{search::SearchTerm, web::link::Link}, error::{PiError, PiResult}, services::anthropic::extract_search_terms, utils::crud::Crud, workspace::WorkspaceCollection, ExternalData};
 
 use super::web::web_page::WebPage;
 
@@ -54,6 +54,7 @@ impl Node for Topic {
         node_id: &NodeId,
         _data_from_previous_request: Option<ExternalData>
     ) -> PiResult<()> {
+        return Ok(());
         let workspaces = WorkspaceCollection::read_list()?;
 
         // Skip if there are no workspaces yet
@@ -159,7 +160,7 @@ impl Node for Topic {
                                 ) {
                                     Ok(node_ids) => node_ids,
                                     Err(err) => {
-                                        // Skip if there was an error in accessing any partial content node
+                                        // Skip the webpage if there was an error in accessing child node
                                         debug!(
                                             "Skipping search term extraction for topic '{}', Webpage node {}: {}",
                                             self.0,
@@ -173,15 +174,9 @@ impl Node for Topic {
                                     match engine.get_node_by_id(node_id) {
                                         Some(partial_content_node) => {
                                             match &partial_content_node.payload {
-                                                Payload::Title(title) => {
-                                                    Some(("webpage_title".to_string(), title.0.clone()))
-                                                }
-                                                Payload::Heading(heading) => {
-                                                    Some(("webpage_heading".to_string(), heading.0.clone()))
-                                                }
-                                                Payload::Paragraph(paragraph) => {
-                                                    Some(("webpage_paragraph".to_string(), paragraph.0.clone()))
-                                                }
+                                                Payload::Text(text) => {
+                                                    Some((partial_content_node.payload.to_string(), text.to_string()))
+                                                },
                                                 _ => None
                                             }
                                         }

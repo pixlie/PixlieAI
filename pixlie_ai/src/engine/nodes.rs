@@ -4,7 +4,7 @@ use crate::engine::{
 use crate::error::{PiError, PiResult};
 use chrono::Utc;
 use itertools::sorted;
-use log::{debug, error};
+use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::{Options, SliceTransform, DB};
 use std::collections::HashMap;
@@ -132,8 +132,7 @@ impl Nodes {
 mod tests {
     use super::*;
     use crate::engine::nodes::Nodes;
-    use crate::engine::{NodeFlags, Payload};
-    use crate::entity::content::{BulletPoints, Heading, OrderedPoints, Paragraph, Title};
+    use crate::engine::{CommonNodeLabels, NodeFlags, Payload};
     use crate::entity::search::SearchTerm;
     use crate::entity::web::domain::Domain;
     use crate::entity::web::link::Link;
@@ -145,25 +144,52 @@ mod tests {
     #[test]
     fn test_save_to_disk_and_load_from_disk() {
         let mut node_id: NodeId = 0;
-        let payloads: Vec<Payload> = vec![
-            Payload::Title(Title("Test Title".to_string())),
-            Payload::Heading(Heading("Test Heading".to_string())),
-            Payload::Paragraph(Paragraph("Test Paragraph".to_string())),
-            Payload::BulletPoints(BulletPoints(vec!["Test Bullet Point".to_string()])),
-            Payload::OrderedPoints(OrderedPoints(vec!["Test Ordered Point".to_string()])),
-            Payload::Link(Link {
-                path: "/".to_string(),
-                ..Default::default()
-            }),
-            Payload::FileHTML(WebPage {
-                contents: "<html></html>".to_string(),
-                ..Default::default()
-            }),
-            Payload::Domain(Domain {
-                name: "google.com".to_string(),
-                ..Default::default()
-            }),
-            Payload::SearchTerm(SearchTerm("test".to_string())),
+        let payloads: Vec<(Payload, String)> = vec![
+            (
+                Payload::Text("Test Title".to_string()),
+                CommonNodeLabels::Title.to_string(),
+            ),
+            (
+                Payload::Text("Test Heading".to_string()),
+                CommonNodeLabels::Heading.to_string(),
+            ),
+            (
+                Payload::Text("Test Paragraph".to_string()),
+                CommonNodeLabels::Paragraph.to_string(),
+            ),
+            (
+                Payload::ArrayOfTexts(vec!["Test Bullet Point".to_string()]),
+                CommonNodeLabels::BulletPoints.to_string(),
+            ),
+            (
+                Payload::ArrayOfTexts(vec!["Test Ordered Point".to_string()]),
+                CommonNodeLabels::OrderedPoints.to_string(),
+            ),
+            (
+                Payload::Link(Link {
+                    path: "/".to_string(),
+                    ..Default::default()
+                }),
+                CommonNodeLabels::Link.to_string(),
+            ),
+            (
+                Payload::FileHTML(WebPage {
+                    contents: "<html></html>".to_string(),
+                    ..Default::default()
+                }),
+                CommonNodeLabels::WebPage.to_string(),
+            ),
+            (
+                Payload::Domain(Domain {
+                    name: "google.com".to_string(),
+                    ..Default::default()
+                }),
+                CommonNodeLabels::Domain.to_string(),
+            ),
+            (
+                Payload::SearchTerm(SearchTerm("test".to_string())),
+                CommonNodeLabels::SearchTerm.to_string(),
+            ),
         ];
 
         let nodes: Vec<NodeItem> = payloads
@@ -171,8 +197,8 @@ mod tests {
             .map(|payload| {
                 let node = NodeItem {
                     id: node_id,
-                    payload: payload.clone(),
-                    labels: vec![],
+                    payload: payload.0.clone(),
+                    labels: vec![payload.1.clone()],
                     flags: NodeFlags::default(),
                     written_at: Utc::now(),
                 };
@@ -212,40 +238,21 @@ mod tests {
                 assert_eq!(node.id, db_node.id);
                 // Match the payload data type and check the inner values
                 match node.payload {
-                    Payload::Title(ref title) => {
-                        let db_title = match db_node.payload {
-                            Payload::Title(ref title) => title,
+                    Payload::Text(ref text) => {
+                        let db_text = match db_node.payload {
+                            Payload::Text(ref text) => text,
                             _ => panic!("Expected Title payload"),
                         };
-                        assert_eq!(title.0, db_title.0);
+                        assert_eq!(text, db_text);
+                        assert_eq!(node.labels, db_node.labels);
                     }
-                    Payload::Heading(ref heading) => {
-                        let db_heading = match db_node.payload {
-                            Payload::Heading(ref heading) => heading,
-                            _ => panic!("Expected Heading payload"),
+                    Payload::ArrayOfTexts(ref texts) => {
+                        let db_texts = match db_node.payload {
+                            Payload::ArrayOfTexts(ref texts) => texts,
+                            _ => panic!("Expected MultipleTexts payload"),
                         };
-                        assert_eq!(heading.0, db_heading.0);
-                    }
-                    Payload::Paragraph(ref paragraph) => {
-                        let db_paragraph = match db_node.payload {
-                            Payload::Paragraph(ref paragraph) => paragraph,
-                            _ => panic!("Expected Paragraph payload"),
-                        };
-                        assert_eq!(paragraph.0, db_paragraph.0);
-                    }
-                    Payload::BulletPoints(ref bullet_points) => {
-                        let db_bullet_points = match db_node.payload {
-                            Payload::BulletPoints(ref bullet_points) => bullet_points,
-                            _ => panic!("Expected BulletPoints payload"),
-                        };
-                        assert_eq!(bullet_points.0, db_bullet_points.0);
-                    }
-                    Payload::OrderedPoints(ref ordered_points) => {
-                        let db_ordered_points = match db_node.payload {
-                            Payload::OrderedPoints(ref ordered_points) => ordered_points,
-                            _ => panic!("Expected OrderedPoints payload"),
-                        };
-                        assert_eq!(ordered_points.0, db_ordered_points.0);
+                        assert_eq!(texts, db_texts);
+                        assert_eq!(node.labels, db_node.labels);
                     }
                     Payload::Link(ref link) => {
                         let db_link = match db_node.payload {
@@ -293,40 +300,20 @@ mod tests {
                 assert_eq!(node.id, db_node.id);
                 // Match the payload data type and check the inner values
                 match node.payload {
-                    Payload::Title(ref title) => {
-                        let db_title = match db_node.payload {
-                            Payload::Title(ref title) => title,
+                    Payload::Text(ref text) => {
+                        let db_text = match db_node.payload {
+                            Payload::Text(ref text) => text,
                             _ => panic!("Expected Title payload"),
                         };
-                        assert_eq!(title.0, db_title.0);
+                        assert_eq!(text, db_text);
+                        assert_eq!(node.labels, db_node.labels);
                     }
-                    Payload::Heading(ref heading) => {
-                        let db_heading = match db_node.payload {
-                            Payload::Heading(ref heading) => heading,
-                            _ => panic!("Expected Heading payload"),
-                        };
-                        assert_eq!(heading.0, db_heading.0);
-                    }
-                    Payload::Paragraph(ref paragraph) => {
-                        let db_paragraph = match db_node.payload {
-                            Payload::Paragraph(ref paragraph) => paragraph,
-                            _ => panic!("Expected Paragraph payload"),
-                        };
-                        assert_eq!(paragraph.0, db_paragraph.0);
-                    }
-                    Payload::BulletPoints(ref bullet_points) => {
-                        let db_bullet_points = match db_node.payload {
-                            Payload::BulletPoints(ref bullet_points) => bullet_points,
+                    Payload::ArrayOfTexts(ref texts) => {
+                        let db_texts = match db_node.payload {
+                            Payload::ArrayOfTexts(ref texts) => texts,
                             _ => panic!("Expected BulletPoints payload"),
                         };
-                        assert_eq!(bullet_points.0, db_bullet_points.0);
-                    }
-                    Payload::OrderedPoints(ref ordered_points) => {
-                        let db_ordered_points = match db_node.payload {
-                            Payload::OrderedPoints(ref ordered_points) => ordered_points,
-                            _ => panic!("Expected OrderedPoints payload"),
-                        };
-                        assert_eq!(ordered_points.0, db_ordered_points.0);
+                        assert_eq!(texts, db_texts);
                     }
                     Payload::Link(ref link) => {
                         let db_link = match db_node.payload {

@@ -74,7 +74,7 @@ pub enum PiEvent {
     FetchError(FetchError),
 
     NeedsToTick,
-    TickMeLater(String), // This is sent from engine to main thread
+    // TickMeLater(String), // This is sent from engine to main thread
     EngineExit(String),  // The engine has nothing else to do, so it gives up
 
     Shutdown,

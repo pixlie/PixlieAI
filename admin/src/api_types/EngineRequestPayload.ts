@@ -8,4 +8,5 @@ export type EngineRequestPayload =
   | "GetAllNodes"
   | "GetAllEdges"
   | { CreateNode: NodeWrite }
-  | { Query: number };
+  | { Query: number }
+  | { ToggleCrawl: number };

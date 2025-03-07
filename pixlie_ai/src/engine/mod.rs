@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{BulletPoints, Heading, OrderedPoints, Paragraph, Table, TableRow, Title}, topic::Topic, workflow::WorkflowStep
+    content::{Table, TableRow}, topic::Topic, workflow::WorkflowStep
 };
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
@@ -22,12 +22,10 @@ pub mod engine;
 mod nodes;
 pub mod setup;
 
-// use crate::entity::content::TypedData;
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crate::entity::search::SearchTerm;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
-use crate::entity::web::robots_txt::RobotsTxt;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
@@ -39,18 +37,11 @@ pub enum Payload {
     Step(WorkflowStep),
     Domain(Domain),
     Link(Link),
-    RobotsTxt(RobotsTxt),
+    Text(String),
+    ArrayOfTexts(Vec<String>),
     FileHTML(WebPage),
-    Title(Title),
-    Heading(Heading),
-    Paragraph(Paragraph),
-    BulletPoints(BulletPoints),
-    OrderedPoints(OrderedPoints),
     Table(Table),
     TableRow(TableRow),
-    Label(String),
-    // TypedData(TypedData),
-    NamedEntity(String, String), // label, text
     SearchTerm(SearchTerm),
     Topic(Topic),
 }
@@ -63,7 +54,6 @@ pub enum FindNode<'a> {
 pub(crate) type NodeId = u32;
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub(crate) type NodeLabel = String;
-pub(crate) type ArcedNodeLabel = Arc<NodeLabel>;
 pub(crate) type EdgeLabel = String;
 
 pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
@@ -72,6 +62,17 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
+    Domain,
+    Link,
+    RobotsTxt,
+    WebPage,
+    PartialContent,
+    Title,
+    Heading,
+    Paragraph,
+    BulletPoints,
+    OrderedPoints,
+    SearchTerm,
 }
 
 #[derive(Display, TS)]

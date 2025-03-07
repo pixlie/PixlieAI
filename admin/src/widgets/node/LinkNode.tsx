@@ -5,6 +5,7 @@ import { Link } from "../../api_types/Link.ts";
 import { Domain } from "../../api_types/Domain.ts";
 import { useParams } from "@solidjs/router";
 import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
+import { APINodeItem } from "../../api_types/APINodeItem.ts";
 
 interface ILinkPayloadProps {
   id: number;
@@ -33,28 +34,32 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
   return (
     <>
-      {!!getDomain() ? (
-        <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-          {getDomain()!.name}
-        </span>
+      {!!getDomain() && getDomain()!.is_allowed_to_crawl ? (
+        <>
+          <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
+            {getDomain()!.name}
+          </span>
+          <a
+            href={`https://${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+            class={
+              "text-sm text-nowrap overflow-hidden text-ellipsis " +
+              getColors().link
+            }
+            target="_blank"
+          >
+            {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+          </a>
+          <span class="text-xs">
+            {/*{props.flags.includes("IsProcessed" as APINodeFlags) &&*/}
+            {/*!props.flags.includes("IsRequesting")*/}
+            {/*  ? "Fetched"*/}
+            {/*  : "Not Fetched"}*/}
+            {props.flags.join(", ")}
+          </span>
+        </>
       ) : (
-        <span></span>
+        <></>
       )}
-      <a
-        href={`${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-        class={
-          "text-sm text-nowrap overflow-hidden text-ellipsis " +
-          getColors().link
-        }
-        target="_blank"
-      >
-        {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-      </a>
-      <span class="text-xs">
-        {props.flags.includes("IsProcessed" as APINodeFlags)
-          ? "Fetched"
-          : "Not Fetched"}
-      </span>
     </>
   );
 };
@@ -74,15 +79,24 @@ const LinkNode: Component<ILinkNodeProps> = (props) => {
     return undefined;
   });
 
+  const getNode = createMemo(() => {
+    if (
+      !!getProject() &&
+      props.nodeId in getProject()!.nodes &&
+      getProject()!.nodes[props.nodeId].payload.type === "Link"
+    ) {
+      return getProject()!.nodes[props.nodeId] as APINodeItem;
+    }
+    return undefined;
+  });
+
   return (
     <>
-      {getProject() &&
-      props.nodeId in getProject()!.nodes &&
-      getProject()!.nodes[props.nodeId].payload.type === "Link" ? (
+      {!!getProject() && !!getNode() ? (
         <Payload
           id={props.nodeId}
-          flags={getProject()!.nodes[props.nodeId].flags}
-          payload={getProject()!.nodes[props.nodeId].payload.data as Link}
+          flags={getNode()!.flags}
+          payload={getNode()!.payload.data as Link}
         />
       ) : null}
     </>

@@ -45,41 +45,22 @@ impl Node for SearchTerm {
     fn query(&self, engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<Vec<NodeItem>> {
         // We search all the content nodes in the engine for the search term
         let results: Vec<Option<NodeItem>> = engine.map_nodes(|id, node| match node.payload {
-            Payload::Title(ref title) => {
-                if title.0.to_lowercase().contains(&self.0.to_lowercase()) {
-                    Some(NodeItem {
-                        id: **id,
-                        labels: node.labels.clone(),
-                        payload: node.payload.clone(),
-                        flags: node.flags.clone(),
-                        written_at: node.written_at.clone(),
-                    })
-                } else {
-                    None
-                }
-            }
-            Payload::Heading(ref heading) => {
-                if heading.0.to_lowercase().contains(&self.0.to_lowercase()) {
-                    Some(NodeItem {
-                        id: **id,
-                        labels: node.labels.clone(),
-                        payload: node.payload.clone(),
-                        flags: node.flags.clone(),
-                        written_at: node.written_at.clone(),
-                    })
-                } else {
-                    None
-                }
-            }
-            Payload::Paragraph(ref paragraph) => {
-                if paragraph.0.to_lowercase().contains(&self.0.to_lowercase()) {
-                    Some(NodeItem {
-                        id: **id,
-                        labels: node.labels.clone(),
-                        payload: node.payload.clone(),
-                        flags: node.flags.clone(),
-                        written_at: node.written_at.clone(),
-                    })
+            Payload::Text(ref text) => {
+                if node.labels.contains(&CommonNodeLabels::Title.to_string())
+                    || node.labels.contains(&CommonNodeLabels::Heading.to_string())
+                    || node.labels.contains(&CommonNodeLabels::Paragraph.to_string())
+                {
+                    if text.to_lowercase().contains(&self.0.to_lowercase()) {
+                        Some(NodeItem {
+                            id: **id,
+                            labels: node.labels.clone(),
+                            payload: node.payload.clone(),
+                            flags: node.flags.clone(),
+                            written_at: node.written_at.clone(),
+                        })
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }

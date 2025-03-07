@@ -1,11 +1,10 @@
 use crate::engine::{
-    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, Engine, ExistingOrNewNodeId, Node, NodeFlags,
-    NodeId, Payload,
+    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
+    Node, NodeFlags, NodeId, Payload,
 };
-use crate::entity::web::robots_txt::RobotsTxt;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
-use log::{debug, error};
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -34,10 +33,8 @@ impl Node for Domain {
                     // We have received the contents of the `robots.txt` from the previous request
                     // debug!("Fetched robots.txt from {}", &self.name);
                     let content_node_id = match engine.get_or_add_node(
-                        Payload::RobotsTxt(RobotsTxt {
-                            contents: response.contents,
-                        }),
-                        vec![],
+                        Payload::Text(response.contents),
+                        vec![CommonNodeLabels::RobotsTxt.to_string()],
                         true,
                         None,
                     ) {
@@ -61,10 +58,8 @@ impl Node for Domain {
                 }
                 ExternalData::Error(_error) => {
                     let content_node_id = match engine.get_or_add_node(
-                        Payload::RobotsTxt(RobotsTxt {
-                            contents: "".to_string(),
-                        }),
-                        vec![],
+                        Payload::Text("".to_string()),
+                        vec![CommonNodeLabels::RobotsTxt.to_string()],
                         true,
                         None,
                     ) {

@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import Ollama from "../../widgets/settings/Ollama";
+// import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
 import { useWorkspace } from "../../stores/workspace";
@@ -25,8 +25,8 @@ const Setup: Component = () => {
               <div class="mb-16" />
               <Anthropic />
 
-              <div class="mb-16" />
-              <Ollama />
+              {/*<div class="mb-16" />*/}
+              {/*<Ollama />*/}
 
               <div class="mb-16" />
             </>

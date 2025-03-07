@@ -1,6 +1,6 @@
-use crate::engine::{CommonEdgeLabels, Engine, NodeId, Payload};
-use crate::entity::content::{BulletPoints, CellData, OrderedPoints};
-use crate::entity::content::{Heading, Paragraph, TableRow, Title, TypedData};
+use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, NodeId, Payload};
+use crate::entity::content::CellData;
+use crate::entity::content::{TableRow, TypedData};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
@@ -60,15 +60,18 @@ impl WebPage {
                 "title" => {
                     let title_node_id = engine
                         .get_or_add_node(
-                            Payload::Title(Title(
+                            Payload::Text(
                                 child
                                     .text()
                                     .collect::<Vec<&str>>()
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![
+                                CommonNodeLabels::Title.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -84,15 +87,18 @@ impl WebPage {
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = engine
                         .get_or_add_node(
-                            Payload::Heading(Heading(
+                            Payload::Text(
                                 child
                                     .text()
                                     .collect::<Vec<&str>>()
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![
+                                CommonNodeLabels::Heading.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -108,7 +114,7 @@ impl WebPage {
                 "p" => {
                     let paragraph_node_id = engine
                         .get_or_add_node(
-                            Payload::Paragraph(Paragraph(
+                            Payload::Text(
                                 child
                                     .text()
                                     .map(|x| x.to_string())
@@ -116,8 +122,11 @@ impl WebPage {
                                     .join("")
                                     .trim()
                                     .to_string(),
-                            )),
-                            vec![],
+                            ),
+                            vec![
+                                CommonNodeLabels::Paragraph.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -151,8 +160,11 @@ impl WebPage {
                     }
                     let bullet_points_node_id = engine
                         .get_or_add_node(
-                            Payload::BulletPoints(BulletPoints(bullet_points)),
-                            vec![],
+                            Payload::ArrayOfTexts(bullet_points),
+                            vec![
+                                CommonNodeLabels::BulletPoints.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -186,8 +198,11 @@ impl WebPage {
                     }
                     let ordered_points_node_id = engine
                         .get_or_add_node(
-                            Payload::OrderedPoints(OrderedPoints(ordered_points)),
-                            vec![],
+                            Payload::ArrayOfTexts(ordered_points),
+                            vec![
+                                CommonNodeLabels::OrderedPoints.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -218,7 +233,6 @@ impl WebPage {
                         // Links that are relative to this website, we build the full URL
                         match current_url.join(&url) {
                             Ok(parsed) => {
-                                debug!("Adding link to {}", parsed.to_string());
                                 match Link::add(
                                     engine.clone(),
                                     &parsed.to_string(),
@@ -239,7 +253,6 @@ impl WebPage {
                         }
                     } else if url.starts_with("https://") || url.starts_with("http://") {
                         // Links that are full URLs
-                        debug!("Adding link to {}", url);
                         match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
                             Ok(_) => {}
                             Err(err) => {
