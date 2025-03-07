@@ -1,4 +1,4 @@
-use log::{debug, error};
+use log::{debug, error, info};
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::{download_admin_site, Settings};
 use pixlie_ai::engine::Engine;
@@ -9,8 +9,6 @@ use std::env::var;
 use std::process::exit;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
 use threadpool::ThreadPool;
 
 fn main() {
@@ -148,16 +146,26 @@ fn main() {
                         return;
                     }
                 };
-                pool.execute(move || {
-                    let engine = Engine::open_project(
-                        &path_to_storage_dir,
-                        &project_id,
-                        my_pi_channel.clone(),
-                        pi_channel_tx,
-                        fetcher_tx,
-                    );
-                    engine.run();
-                });
+
+                let arced_engine = Arc::new(Engine::open_project(
+                    &path_to_storage_dir,
+                    &project_id,
+                    my_pi_channel.clone(),
+                    pi_channel_tx,
+                    fetcher_tx,
+                ));
+                {
+                    let arced_engine = arced_engine.clone();
+                    pool.execute(move || {
+                        arced_engine.channel_listener();
+                    });
+                }
+                {
+                    let arced_engine = arced_engine.clone();
+                    pool.execute(move || {
+                        arced_engine.ticker();
+                    });
+                }
             }
             Err(err) => {
                 error!("Error locking channels_per_project: {}", err);
@@ -165,38 +173,10 @@ fn main() {
         };
     }
 
-    {
-        let channels_per_project = channels_per_project.clone();
-        pool.execute(move || loop {
-            thread::sleep(Duration::from_millis(5000));
-            match channels_per_project.try_lock() {
-                Ok(channels_per_project) => {
-                    for (project_id, channel) in channels_per_project.iter() {
-                        match channel.tx.send(PiEvent::NeedsToTick) {
-                            Ok(_) => {
-                                debug!(
-                                    "Sent PiEvent::NeedsToTick to engine for project {}",
-                                    &project_id
-                                );
-                            }
-                            Err(err) => {
-                                error!("Error sending PiEvent::NeedsToTick in Engine: {}", err);
-                            }
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Error locking channels_per_project: {}", err);
-                }
-            }
-        });
-    }
-
     let main_channel_iter = main_channel.clone();
     let channels_per_project = channels_per_project.clone();
     for event in main_channel_iter.rx.iter() {
         match event {
-            PiEvent::SettingsUpdated => {}
             PiEvent::APIRequest(project_id, request) => {
                 let channels_per_project_inner = channels_per_project.clone();
                 let channel_exists: bool = match channels_per_project.try_lock() {
@@ -229,7 +209,7 @@ fn main() {
                             Some(my_pi_channel) => {
                                 match my_pi_channel
                                     .tx
-                                    .send(PiEvent::APIRequest(project_id.clone(), request))
+                                    .send(PiEvent::APIRequest(project_id.clone(), request.clone()))
                                 {
                                     Ok(_) => {}
                                     Err(err) => {
@@ -239,7 +219,6 @@ fn main() {
                             }
                             None => {
                                 error!("Project {} is not loaded", project_id);
-                                continue;
                             }
                         };
                     }
@@ -315,7 +294,9 @@ fn main() {
             PiEvent::Shutdown => {
                 break;
             }
-            _ => {}
+            event => {
+                info!("Unhandled event: {}", event.to_string());
+            }
         }
     }
 }

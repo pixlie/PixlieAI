@@ -222,11 +222,8 @@ impl Node for Link {
                     // We have received the contents of the URL from the previous request
                     debug!("Fetched HTML from {}", &url);
                     let content_node_id = match engine.get_or_add_node(
-                        Payload::FileHTML(WebPage {
-                            contents: response.contents,
-                            ..Default::default()
-                        }),
-                        vec![],
+                        Payload::FileHTML(WebPage(response.contents)),
+                        vec![CommonNodeLabels::WebPage.to_string()],
                         true,
                         None,
                     ) {

@@ -5,7 +5,7 @@ use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
-use log::{debug, error};
+use log::error;
 use scraper::Html;
 use std::sync::Arc;
 use url::Url;
@@ -53,7 +53,7 @@ impl WebPage {
             }
         };
 
-        let document = Html::parse_document(&self.contents);
+        let document = Html::parse_document(&self.0);
         let start_node = document.root_element();
         for child in start_node.descendent_elements() {
             match child.value().name() {

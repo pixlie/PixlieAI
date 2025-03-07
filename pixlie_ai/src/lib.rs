@@ -7,6 +7,7 @@
 
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crossbeam_channel::unbounded;
+use strum::Display;
 
 pub mod api;
 pub mod config;
@@ -60,7 +61,7 @@ pub struct FetchError {
     pub error: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Display)]
 pub enum PiEvent {
     SettingsUpdated,
     SetupGliner,
