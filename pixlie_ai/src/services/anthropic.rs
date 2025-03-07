@@ -10,7 +10,6 @@ use crate::{
     error::{PiError, PiResult},
     services::extract_entites_from_lines,
 };
-use actix_web::ResponseError;
 use log::debug;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};

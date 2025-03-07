@@ -177,6 +177,18 @@ impl Engine {
                                         }
                                     }
                                 }
+                                Payload::Topic(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Topic: {}", err);
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -227,6 +239,18 @@ impl Engine {
                                         }
                                     }
                                 }
+                                Payload::Topic(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Topic: {}", err);
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -265,7 +289,7 @@ impl Engine {
                         None
                     } else {
                         match item.1.payload {
-                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) => {
+                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) | Payload::Topic(_) => {
                                 Some(item.0.clone())
                             }
                             _ => None,
@@ -540,18 +564,20 @@ impl Engine {
         label: &EdgeLabel,
     ) -> PiResult<Vec<ArcedNodeId>> {
         match self.edges.try_lock() {
-            Ok(edges) => match edges.data.get(starting_node_id) {
-                Some(edges_from_node) => Ok(edges_from_node
-                    .iter()
-                    .filter_map(|(x_node_id, x_label)| {
-                        if **x_label == *label {
-                            Some(x_node_id.clone())
-                        } else {
-                            None
+            Ok(edges) => {
+                let mut connnected_node_ids: Vec<ArcedNodeId> = vec![];
+
+                match edges.data.get(starting_node_id) {
+                    Some(edges_from_node) => {
+                        for (node_id, node_label) in edges_from_node {
+                            if **node_label == *label && !connnected_node_ids.contains(node_id) {
+                                connnected_node_ids.push(node_id.clone());
+                            }
                         }
-                    })
-                    .collect()),
-                None => Ok(vec![]),
+                    },
+                    None => {},
+                };
+                Ok(connnected_node_ids)
             },
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }

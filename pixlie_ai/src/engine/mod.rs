@@ -62,17 +62,18 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
-    Domain,
-    Link,
-    RobotsTxt,
-    WebPage,
-    PartialContent,
-    Title,
-    Heading,
-    Paragraph,
     BulletPoints,
+    Content,
+    Domain,
+    Heading,
+    Link,
     OrderedPoints,
+    Paragraph,
+    PartialContent,
+    RobotsTxt,
     SearchTerm,
+    Title,
+    WebPage,
 }
 
 #[derive(Display, TS)]
