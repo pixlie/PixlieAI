@@ -214,7 +214,6 @@ impl Node for Link {
         node_id: &NodeId,
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
-        return Ok(());
         // Download the linked URL and add a new WebPage node
         let url = self.get_full_link();
         match data_from_previous_request {

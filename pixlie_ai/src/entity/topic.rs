@@ -54,7 +54,6 @@ impl Node for Topic {
         node_id: &NodeId,
         _data_from_previous_request: Option<ExternalData>
     ) -> PiResult<()> {
-        return Ok(());
         let workspaces = WorkspaceCollection::read_list()?;
 
         // Skip if there are no workspaces yet
