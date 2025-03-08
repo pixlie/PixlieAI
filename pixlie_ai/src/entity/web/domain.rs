@@ -1,10 +1,9 @@
 use crate::engine::{
-    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
-    Node, NodeFlags, NodeId, Payload,
+    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeFlags,
+    NodeId, Payload,
 };
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
-use log::error;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;

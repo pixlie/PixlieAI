@@ -1,6 +1,6 @@
 use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, ArcedNodeId, EdgeLabel, NodeId};
 use crate::error::{PiError, PiResult};
-use log::{error, info};
+use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rocksdb::{ErrorKind, Options, SliceTransform, DB};
 use std::collections::HashMap;
