@@ -25,7 +25,7 @@ const NavigationContainer: Component<NavigationContainerProps> = (props) => {
           <HelpModal />
         )}
       </div>
-      <div class="mt-20 flex-1 flex p-6 gap-6 w-ful">
+      <div class="mt-20 flex-1 flex p-6 gap-6 w-full">
         <Sidebar />
         <div
           class={

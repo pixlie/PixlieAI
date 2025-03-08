@@ -6,6 +6,7 @@ import Paragraph from "../../widgets/typography/Paragraph";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import SearchTermForm from "../../widgets/nodeForm/SearchTermForm";
 import Heading from "../../widgets/typography/Heading.tsx";
+import TopicForm from "../../widgets/nodeForm/TopicForm.tsx";
 
 const Workflow: Component = () => {
   const [engine, { fetchNodes, fetchEdges }] = useEngine();
@@ -49,6 +50,20 @@ const Workflow: Component = () => {
       return [];
     }
   });
+  
+  const getSelectTopicIds = createMemo<number[]>(() => {
+    if (getProject()) {
+      // Only select nodes that have AddedByUser label
+      return Object.values(getProject()!.nodes)
+        .filter(
+          (x) =>
+            x.labels.includes("AddedByUser") && x.labels.includes("Topic"),
+        )
+        .map((x) => x.id);
+    } else {
+      return [];
+    }
+  });
 
   return (
     <>
@@ -69,6 +84,12 @@ const Workflow: Component = () => {
       <NodeGrid nodeType={"SearchTerm"} source={getSelectSearchTermIds} />
       <div class="mt-6 max-w-screen-sm">
         <SearchTermForm />
+      </div>
+
+      <Heading size={3}>Saved topics</Heading>
+      <NodeGrid nodeType={"Topic"} source={getSelectTopicIds} />
+      <div class="mt-6 max-w-screen-sm">
+        <TopicForm />
       </div>
     </>
   );

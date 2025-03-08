@@ -1,4 +1,4 @@
-import { Component, createMemo, onMount } from "solid-js";
+import { Component, createMemo, createSignal, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
@@ -12,6 +12,8 @@ const Crawl: Component = () => {
   const [engine, { fetchNodes, fetchEdges }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
+  const [linkCount, setLinkCount] = createSignal(0);
+  const [domainCount, setDomainCount] = createSignal(0);
 
   onMount(() => {
     fetchNodes(params.projectId);
@@ -26,13 +28,20 @@ const Crawl: Component = () => {
   });
 
   const getSelectNodeIds = createMemo<number[]>(() => {
+    let items: number[] = [];
+
     if (getProject() && !!searchParams.label) {
-      return Object.values(getProject()!.nodes)
+      items = Object.values(getProject()!.nodes)
         .filter((x) => x.payload.type === searchParams.label)
         .map((x) => x.id);
-    } else {
-      return [];
-    }
+      }
+      if (searchParams.label === "Link") {
+        setLinkCount(items.length);
+      }
+      if (searchParams.label === "Domain") {
+        setDomainCount(items.length);
+      }
+      return items;
   });
 
   const getNodeTypeFromSearchParam = createMemo(() => {
@@ -44,11 +53,11 @@ const Crawl: Component = () => {
 
   return (
     <>
-      {searchParams.label === "Link" && <Heading size={3}>Links found</Heading>}
+      {searchParams.label === "Link" && <Heading size={3}>Links found: {linkCount()}</Heading>}
       {searchParams.label === "Domain" && (
-        <Heading size={3}>Domains found</Heading>
+        <Heading size={3}>Domains found: {domainCount()}</Heading>
       )}
-      <Paragraph>Domains or links found while crawling.</Paragraph>
+      <Paragraph>{searchParams.label?searchParams.label + "s":"Domains or links"} found while crawling.</Paragraph>
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}

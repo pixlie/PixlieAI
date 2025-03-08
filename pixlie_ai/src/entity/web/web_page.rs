@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeFlags, NodeId, Payload};
+use crate::engine::{ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, Node, NodeFlags, NodeId, Payload};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
@@ -43,7 +43,7 @@ impl WebPage {
         }
     }
 
-    fn get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
+    fn _get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
         let part_node_ids = match engine
             .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ChildOf.to_string())
         {
@@ -80,13 +80,40 @@ impl WebPage {
         content
     }
 
-    fn classify(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
+    pub fn get_partial_content_nodes(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<Vec<ArcedNodeItem>> {
+        match engine.get_node_ids_connected_with_label(
+            node_id, &CommonEdgeLabels::ParentOf.to_string()
+        ) {
+            Ok(partial_content_node_ids) => Ok(partial_content_node_ids.iter().filter_map(
+                |partial_content_node_id| {
+                    match engine.get_node_by_id(partial_content_node_id) {
+                        Some(node) => {
+                            if node.labels.contains(&CommonNodeLabels::PartialContent.to_string()) {
+                                Some(node)
+                            }
+                            else {
+                                None
+                            }
+                        }
+                        None => None
+                    }
+                }
+            ).collect::<Vec<ArcedNodeItem>>()),
+            Err(err) => {
+                error!("Error getting partial content nodes: {}", err);
+                Err(err)
+            }
+        }
+    }
+
+
+    fn _classify(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<()> {
         // Classify the web page using Anthropic
         // let settings = Settings::get_cli_settings()?;
-        let content = self.get_content(engine, node_id);
-        if content.is_empty() {
-            return Ok(());
-        }
+        // let content = self.get_content(engine, node_id);
+        // if content.is_empty() {
+        //     return Ok(());
+        // }
         // let labels: Vec<String> = vec![];
 
         // let classification = match settings.get_text_classification_provider()? {
@@ -115,7 +142,7 @@ impl WebPage {
         Ok(())
     }
 
-    fn extract_entities(&self, _engine: &Engine, _node_id: &NodeId) -> PiResult<()> {
+    fn _extract_entities(&self, _engine: &Engine, _node_id: &NodeId) -> PiResult<()> {
         // A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
         // We collect all these nodes from the engine and pass them to the entity extraction service
         // let settings = Settings::get_cli_settings()?;
@@ -150,7 +177,7 @@ impl WebPage {
 
 impl Node for WebPage {
     fn get_label() -> String {
-        "WebPage".to_string()
+        "FileHTML".to_string()
     }
 
     fn process(

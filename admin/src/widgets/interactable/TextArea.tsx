@@ -15,6 +15,8 @@ const TextArea: Component<IFormField> = (props) => {
 
   return (
     <textarea
+      id={props.id}
+      name={props.name}
       required={props.isRequired !== null ? props.isRequired : false}
       class={`block w-full rounded-md px-2 py-1.5 border font-content m-0 ${getColors()["input"]}`}
       placeholder={props.placeholder !== null ? props.placeholder : ""}

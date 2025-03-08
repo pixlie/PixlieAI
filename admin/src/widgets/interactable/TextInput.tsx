@@ -17,6 +17,7 @@ const TextInput: Component<IFormField> = (props) => {
 
   return (
     <input
+      id={props.id}
       name={props.name}
       type={inputType}
       required={props.isRequired || undefined}
