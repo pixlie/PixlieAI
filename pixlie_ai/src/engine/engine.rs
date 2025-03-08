@@ -265,7 +265,7 @@ impl Engine {
         }
     }
 
-    fn process_nodes(&self) {
+    pub fn process_nodes(&self) {
         let arced_self = Arc::new(self);
         let node_ids: Vec<ArcedNodeId> = match self.nodes.try_lock() {
             Ok(nodes) => nodes
@@ -279,9 +279,10 @@ impl Engine {
                         None
                     } else {
                         match item.1.payload {
-                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) | Payload::Topic(_) => {
-                                Some(item.0.clone())
-                            }
+                            Payload::Domain(_)
+                            | Payload::Link(_)
+                            | Payload::FileHTML(_)
+                            | Payload::Topic(_) => Some(item.0.clone()),
                             _ => None,
                         }
                     }
@@ -503,9 +504,7 @@ impl Engine {
             Payload::Link(ref link) => {
                 Link::find_existing(engine, &link.get_full_link(), find_related_to)
             }
-            Payload::Topic(ref topic) => {
-                Topic::find_existing(engine, &topic.0)
-            }
+            Payload::Topic(ref topic) => Topic::find_existing(engine, &topic.0),
             Payload::SearchTerm(ref search_term) => {
                 SearchTerm::find_existing(engine, &search_term.0)
             }
@@ -555,11 +554,11 @@ impl Engine {
                                 connnected_node_ids.push(node_id.clone());
                             }
                         }
-                    },
-                    None => {},
+                    }
+                    None => {}
                 };
                 Ok(connnected_node_ids)
-            },
+            }
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }
     }
@@ -831,4 +830,26 @@ impl Engine {
             }
         }
     }
+}
+
+pub fn get_test_engine() -> Engine {
+    let temp_dir = tempfile::Builder::new()
+        .prefix("_path_for_test_engine")
+        .tempdir()
+        .expect("Failed to create temporary path for the _path_for_test_engine.");
+    let project_id = "test_project_id".to_string();
+    let path_to_storage_dir = PathBuf::from(temp_dir.path());
+    let channel_for_engine = PiChannel::new();
+    let main_channel = PiChannel::new();
+    let pi_channel_tx = main_channel.tx.clone();
+    let (fetcher_tx, _fetcher_rx) = tokio::sync::mpsc::channel::<PiEvent>(100);
+    let mut engine = Engine::open_project(
+        path_to_storage_dir,
+        &project_id,
+        channel_for_engine,
+        pi_channel_tx,
+        fetcher_tx,
+    );
+    engine.init_db().unwrap();
+    engine
 }

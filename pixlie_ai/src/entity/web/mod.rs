@@ -1,4 +1,5 @@
 pub(crate) mod domain;
+pub(super) mod fixtures;
 pub(crate) mod link;
 pub(crate) mod robots_txt;
 mod scraper;
