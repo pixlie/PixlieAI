@@ -93,7 +93,7 @@ enum FetchResult {
 async fn fetch_url(url: &str) -> FetchResult {
     match reqwest::Client::builder()
         .user_agent("Pixlie AI bot (https://pixlie.com)")
-        .timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(2))
         .build()
     {
         Ok(client) => {

@@ -1,10 +1,10 @@
-use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, ArcedNodeId, NodeId};
+use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, ArcedNodeId, EdgeLabel, NodeId};
 use crate::error::{PiError, PiResult};
-use log::error;
+use log::{error, info};
 use postcard::{from_bytes, to_allocvec};
-use rocksdb::{Options, SliceTransform, DB};
+use rocksdb::{ErrorKind, Options, SliceTransform, DB};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 const EDGES_CHUNK_PREFIX: &str = "edges/chunk/";
@@ -20,42 +20,21 @@ impl Edges {
         }
     }
 
-    // pub(super) fn save_all_to_disk(&self, db: &DB) -> PiResult<()> {
-    //     // We store all edges in the DB, in chunks
-    //     // Each chunk has edges for up to 100 starting nodes
-    //     let mut chunk_id = 0;
-    //     let mut chunk: Vec<(&ArcedNodeId, &Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
-    //     // let mut all_node_ids_with_edges: Vec<NodeId> = vec![];
-    //     for (node_id, edges) in self.data.iter() {
-    //         if chunk.len() < 100 {
-    //             chunk.push((node_id, edges));
-    //         } else if chunk.len() == 100 {
-    //             db.put(
-    //                 format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
-    //                 to_allocvec(&chunk)?,
-    //             )?;
-    //             chunk_id += 1;
-    //             chunk = vec![];
-    //         }
-    //     }
-    //     if !chunk.is_empty() {
-    //         db.put(
-    //             format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
-    //             to_allocvec(&chunk)?,
-    //         )?;
-    //     }
-    //     Ok(())
-    // }
-
-    pub(super) fn save_item_chunk_to_disk(&self, db: &DB, node_id: &NodeId) -> PiResult<()> {
+    pub(super) fn save_item_chunk_to_disk(&self, db: Arc<DB>, node_id: &NodeId) -> PiResult<()> {
         // We store this (and all other edges in its chunk) edge to DB
         // in the chunk corresponding to the node ID divided by 100
         // Create a chunk of data from the start node ID to the end node ID of this chunk
         let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
-        let chunk: Vec<(&NodeId, &Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = node_ids
+        let chunk: Vec<(NodeId, Vec<(NodeId, EdgeLabel)>)> = node_ids
             .iter()
             .filter_map(|x_node_id| match self.data.get(x_node_id) {
-                Some(edges) => Some((x_node_id, edges)),
+                Some(edges) => Some((
+                    *x_node_id,
+                    edges
+                        .iter()
+                        .map(|(y_node_id, y_label)| (**y_node_id, y_label.to_string()))
+                        .collect(),
+                )),
                 None => None,
             })
             .collect();
@@ -63,17 +42,28 @@ impl Edges {
             format!("{}{}", EDGES_CHUNK_PREFIX, chunk_id),
             to_allocvec(&chunk)?,
         )?;
-        // debug!("Saved chunk {} of length {} to DB", chunk_id, chunk.len());
         Ok(())
     }
 
-    pub(super) fn load_all_from_disk(&mut self, db_path: &Path) -> PiResult<()> {
+    pub(super) fn load_all_from_disk(&mut self, db_path: &PathBuf) -> PiResult<()> {
         let prefix_extractor = SliceTransform::create_fixed_prefix(EDGES_CHUNK_PREFIX.len());
         let mut opts = Options::default();
-        // TODO: Remove this and make sure that loading from disk is not called for new projects
-        opts.create_if_missing(true);
+        opts.create_if_missing(false);
         opts.set_prefix_extractor(prefix_extractor);
-        let db = DB::open(&opts, db_path)?;
+        let db = match DB::open(&opts, db_path) {
+            Ok(db) => db,
+            Err(err) => {
+                return if err.kind() == ErrorKind::InvalidArgument
+                    && err.to_string().contains("does not exist")
+                {
+                    Ok(())
+                } else {
+                    Err(PiError::InternalError(
+                        "Database does not exist".to_string(),
+                    ))
+                }
+            }
+        };
         for chunk in db.prefix_iterator(EDGES_CHUNK_PREFIX) {
             match chunk {
                 Ok(chunk) => {
@@ -154,10 +144,11 @@ mod tests {
             .prefix("_path_for_rocksdb_storage2")
             .tempdir()
             .expect("Failed to create temporary path for the _path_for_rocksdb_storage2.");
-        let db_path = temp_dir.path();
+        let db_path = PathBuf::from(temp_dir.path());
 
         {
-            let db = DB::open_default(db_path).unwrap();
+            let db = DB::open_default(db_path.clone()).unwrap();
+            let arced_db = Arc::new(db);
             let mut db_edges: Edges = Edges::new();
             // Insert all edges into the DB
             for (node_id, edges) in edges.iter() {
@@ -167,7 +158,9 @@ mod tests {
             }
 
             // Save the edges to disk
-            db_edges.save_item_chunk_to_disk(&db, &node_id).unwrap();
+            db_edges
+                .save_item_chunk_to_disk(arced_db.clone(), &node_id)
+                .unwrap();
         }
 
         {
