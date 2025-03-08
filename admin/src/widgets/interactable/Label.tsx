@@ -11,6 +11,7 @@ const Label: Component<IPropTypes> = (props) => {
 
   return (
     <label
+      for={props.for}
       class={`block text-sm font-medium leading-2 mb-1 ${getColors()["label"]}`}
     >
       {props.label}

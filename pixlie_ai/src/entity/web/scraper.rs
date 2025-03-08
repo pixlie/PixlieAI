@@ -68,7 +68,10 @@ impl WebPage {
                                     .trim()
                                     .to_string(),
                             ),
-                            vec![CommonNodeLabels::Title.to_string()],
+                            vec![
+                                CommonNodeLabels::Title.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -92,7 +95,10 @@ impl WebPage {
                                     .trim()
                                     .to_string(),
                             ),
-                            vec![CommonNodeLabels::Heading.to_string()],
+                            vec![
+                                CommonNodeLabels::Heading.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -117,7 +123,10 @@ impl WebPage {
                                     .trim()
                                     .to_string(),
                             ),
-                            vec![CommonNodeLabels::Paragraph.to_string()],
+                            vec![
+                                CommonNodeLabels::Paragraph.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -152,7 +161,10 @@ impl WebPage {
                     let bullet_points_node_id = engine
                         .get_or_add_node(
                             Payload::ArrayOfTexts(bullet_points),
-                            vec![CommonNodeLabels::BulletPoints.to_string()],
+                            vec![
+                                CommonNodeLabels::BulletPoints.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?
@@ -187,7 +199,10 @@ impl WebPage {
                     let ordered_points_node_id = engine
                         .get_or_add_node(
                             Payload::ArrayOfTexts(ordered_points),
-                            vec![CommonNodeLabels::OrderedPoints.to_string()],
+                            vec![
+                                CommonNodeLabels::OrderedPoints.to_string(),
+                                CommonNodeLabels::PartialContent.to_string(),
+                            ],
                             true,
                             None,
                         )?

@@ -5,6 +5,8 @@ use super::{
 use crate::engine::api::handle_engine_api_request;
 use crate::engine::edges::Edges;
 use crate::engine::nodes::Nodes;
+use crate::entity::search::SearchTerm;
+use crate::entity::topic::Topic;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
@@ -165,6 +167,18 @@ impl Engine {
                                         }
                                     }
                                 }
+                                Payload::Topic(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Response(response)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Topic: {}", err);
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -215,6 +229,18 @@ impl Engine {
                                         }
                                     }
                                 }
+                                Payload::Topic(ref payload) => {
+                                    match payload.process(
+                                        engine,
+                                        &node_id,
+                                        Some(ExternalData::Error(error)),
+                                    ) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            error!("Error processing Topic: {}", err);
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -253,7 +279,7 @@ impl Engine {
                         None
                     } else {
                         match item.1.payload {
-                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) => {
+                            Payload::Domain(_) | Payload::Link(_) | Payload::FileHTML(_) | Payload::Topic(_) => {
                                 Some(item.0.clone())
                             }
                             _ => None,
@@ -293,6 +319,14 @@ impl Engine {
                             Ok(_) => {}
                             Err(err) => {
                                 error!("Error processing WebPage: {}", err);
+                            }
+                        }
+                    }
+                    Payload::Topic(ref payload) => {
+                        match payload.process(arced_self.clone(), &node_id, None) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error processing Topic: {}", err);
                             }
                         }
                     }
@@ -469,6 +503,12 @@ impl Engine {
             Payload::Link(ref link) => {
                 Link::find_existing(engine, &link.get_full_link(), find_related_to)
             }
+            Payload::Topic(ref topic) => {
+                Topic::find_existing(engine, &topic.0)
+            }
+            Payload::SearchTerm(ref search_term) => {
+                SearchTerm::find_existing(engine, &search_term.0)
+            }
             _ => Ok(None),
         }
     }
@@ -505,18 +545,20 @@ impl Engine {
         label: &EdgeLabel,
     ) -> PiResult<Vec<ArcedNodeId>> {
         match self.edges.try_lock() {
-            Ok(edges) => match edges.data.get(starting_node_id) {
-                Some(edges_from_node) => Ok(edges_from_node
-                    .iter()
-                    .filter_map(|(x_node_id, x_label)| {
-                        if **x_label == *label {
-                            Some(x_node_id.clone())
-                        } else {
-                            None
+            Ok(edges) => {
+                let mut connnected_node_ids: Vec<ArcedNodeId> = vec![];
+
+                match edges.data.get(starting_node_id) {
+                    Some(edges_from_node) => {
+                        for (node_id, node_label) in edges_from_node {
+                            if **node_label == *label && !connnected_node_ids.contains(node_id) {
+                                connnected_node_ids.push(node_id.clone());
+                            }
                         }
-                    })
-                    .collect()),
-                None => Ok(vec![]),
+                    },
+                    None => {},
+                };
+                Ok(connnected_node_ids)
             },
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }

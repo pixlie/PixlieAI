@@ -7,4 +7,7 @@ export type CommonEdgeLabels =
   | "ContentOf"
   | "PathOf"
   | "OwnerOf"
-  | "BelongsTo";
+  | "BelongsTo"
+  | "Suggests"
+  | "SuggestedFor"
+  | "EvaluatedFor";

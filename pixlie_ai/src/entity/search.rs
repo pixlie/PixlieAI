@@ -1,4 +1,4 @@
-use crate::engine::{CommonNodeLabels, Engine, Node, NodeId, NodeItem, Payload};
+use crate::engine::{ArcedNodeId, ArcedNodeItem, CommonNodeLabels, Engine, Node, NodeId, NodeItem, Payload};
 use crate::error::PiResult;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -17,6 +17,23 @@ impl SearchTerm {
             None,
         )?;
         Ok(())
+    }
+    pub fn find_existing(engine: Arc<&Engine>, search_term: &str) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
+        let existing_node_ids: Vec<ArcedNodeId> = engine.get_node_ids_with_label(&SearchTerm::get_label());
+        for node_id in existing_node_ids {
+            match engine.get_node_by_id(&node_id) {
+                Some(node) => match &node.payload {
+                    Payload::SearchTerm(node_search_term) => {
+                        if node_search_term.0 == search_term {
+                            return Ok(Some((node, node_id)));
+                        }
+                    }
+                    _ => {}
+                },
+                None => {}
+            }
+        }
+        Ok(None)
     }
 }
 

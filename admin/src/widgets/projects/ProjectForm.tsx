@@ -10,13 +10,17 @@ import { LinkWrite } from "../../api_types/LinkWrite.ts";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
+import { NodeWrite } from "../../api_types/NodeWrite.ts";
+import { SearchTerm } from "../../api_types/SearchTerm.ts";
+import { Topic } from "../../api_types/Topic.ts";
 
 
 interface IProjectFormData {
   name: string;
   description: string;
   startingURLs: string; // One per line
-  webpageKeywords: string; // One per line
+  topics: string;
+  searchTerms: string; // One per line
 }
 
 const ProjectForm: Component = () => {
@@ -26,7 +30,8 @@ const ProjectForm: Component = () => {
     name: "",
     description: "",
     startingURLs: "",
-    webpageKeywords: "",
+    topics: "",
+    searchTerms: "",
   });
   const title = "Create a project";
   const subtitle =
@@ -61,7 +66,21 @@ const ProjectForm: Component = () => {
             Link: {
               url,
             } as LinkWrite,
-          });
+          } as NodeWrite);
+        }
+        for (const topic of formData().topics.split(/[\r\n]+/)) {
+          if (!!topic) {
+            insertNode(item.uuid, {
+              Topic: topic as Topic,
+            } as NodeWrite);
+          }
+        }
+        for (const searchTerm of formData().searchTerms.split(/[\r\n]+/)) {
+          if (!!searchTerm) {
+            insertNode(item.uuid, {
+              SearchTerm: searchTerm as SearchTerm,
+            } as NodeWrite);
+          }
         }
 
         navigate(`/p/${item.uuid}/workflow`);
@@ -73,18 +92,21 @@ const ProjectForm: Component = () => {
     return (
       <div class="space-y-8">
         <div>
-          <Label label="Project name" />
+          <Label label="Project name" for="createProjectName" />
           <TextInput
+            id="createProjectName"
             name="name"
             isEditable
             onChange={handleChange}
             value={formData().name}
+            autocomplete={false}
           />
         </div>
 
         <div>
-          <Label label={`Starting URLs (one per line)`} />
+          <Label label={`Starting URLs (one per line)`} for="createProjectStartingURLs" />
           <TextArea
+            id="createProjectStartingURLs"
             name="startingURLs"
             isEditable
             onChange={handleChange}
@@ -93,12 +115,24 @@ const ProjectForm: Component = () => {
         </div>
 
         <div>
-          <Label label="Keywords of interest (one per line)" />
+          <Label label="Topics to track (one per line)" for="createProjectTopics" />
           <TextArea
-            name="webpageKeywords"
+            id="createProjectTopics"
+            name="topics"
             isEditable
             onChange={handleChange}
-            value={formData().webpageKeywords}
+            value={formData().topics}
+          />
+        </div>
+
+        <div>
+          <Label label="Search terms of interest (one per line)" for="createProjectSearchTerms" />
+          <TextArea
+            id="createProjectSearchTerms"
+            name="searchTerms"
+            isEditable
+            onChange={handleChange}
+            value={formData().searchTerms}
           />
         </div>
       </div>

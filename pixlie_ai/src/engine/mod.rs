@@ -6,8 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::entity::{
-    content::{Table, TableRow},
-    workflow::WorkflowStep,
+    content::{Table, TableRow}, topic::Topic, workflow::WorkflowStep
 };
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
@@ -44,6 +43,7 @@ pub enum Payload {
     Table(Table),
     TableRow(TableRow),
     SearchTerm(SearchTerm),
+    Topic(Topic),
 }
 
 pub enum FindNode<'a> {
@@ -62,16 +62,18 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
-    Domain,
-    Link,
-    RobotsTxt,
-    WebPage,
-    Title,
-    Heading,
-    Paragraph,
     BulletPoints,
+    Content,
+    Domain,
+    Heading,
+    Link,
     OrderedPoints,
+    Paragraph,
+    PartialContent,
+    RobotsTxt,
     SearchTerm,
+    Title,
+    WebPage,
 }
 
 #[derive(Display, TS)]
@@ -87,6 +89,11 @@ pub enum CommonEdgeLabels {
 
     OwnerOf, // When one node is the root path of another (like domain and path or folder and file)
     BelongsTo,
+
+    Suggests,  // When one node is suggested based on another
+    SuggestedFor,
+
+    EvaluatedFor, // When one node is evaluated for another
 }
 
 bitflags! {

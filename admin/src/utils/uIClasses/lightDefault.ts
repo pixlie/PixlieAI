@@ -1,4 +1,10 @@
-const lightDefault = {
+interface ITheme {
+  name: string;
+  type: string;
+  tailwindClasses: {[key: string]: string};
+}
+
+const lightDefault: ITheme = {
   name: "Light default",
   type: "light",
   tailwindClasses: {
