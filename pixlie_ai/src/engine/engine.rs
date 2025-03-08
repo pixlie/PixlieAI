@@ -343,7 +343,6 @@ impl Engine {
         // Store the node in the engine
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
-                nodes.save_item_chunk_to_disk(self.get_arced_db()?, &id)?;
                 nodes.data.insert(
                     arced_id.clone(),
                     Arc::new(NodeItem {
@@ -355,6 +354,7 @@ impl Engine {
                         written_at: Utc::now(),
                     }),
                 );
+                nodes.save_item_chunk_to_disk(self.get_arced_db()?, &id)?;
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
@@ -413,8 +413,6 @@ impl Engine {
         // Add a connection edge from the parent node to the new node and vice versa
         match self.edges.try_lock() {
             Ok(mut edges) => {
-                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
-                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
                 edges.data.entry(arced_node_ids.0.clone()).or_insert(vec![]);
                 edges.data.entry(arced_node_ids.1.clone()).or_insert(vec![]);
                 edges
@@ -427,6 +425,8 @@ impl Engine {
                     .get_mut(&arced_node_ids.1)
                     .unwrap()
                     .push((arced_node_ids.0.clone(), arced_edge_labels.1.clone()));
+                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
+                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
             }
             Err(err) => {
                 return Err(PiError::InternalError(format!(
@@ -441,8 +441,8 @@ impl Engine {
     pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
-                nodes.save_item_chunk_to_disk(self.get_arced_db()?, node_id)?;
                 nodes.update_node(node_id, payload)?;
+                nodes.save_item_chunk_to_disk(self.get_arced_db()?, node_id)?;
                 Ok(())
             }
             Err(err) => {

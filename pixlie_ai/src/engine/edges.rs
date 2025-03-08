@@ -92,87 +92,90 @@ mod tests {
     use crate::engine::CommonEdgeLabels;
     use rocksdb::DB;
 
-    // #[test]
-    // fn test_save_to_disk_and_load_from_disk() {
-    //     let mut node_id: NodeId = 0;
-    //     let mut edges: Vec<(NodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
-    //     edges.push((
-    //         node_id,
-    //         vec![(
-    //             Arc::new(node_id + 1),
-    //             Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-    //         )],
-    //     ));
-    //     node_id += 1;
-    //     edges.push((
-    //         node_id,
-    //         vec![(
-    //             Arc::new(node_id + 1),
-    //             Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-    //         )],
-    //     ));
-    //     node_id += 1;
-    //     edges.push((
-    //         node_id,
-    //         vec![
-    //             (
-    //                 Arc::new(node_id + 1),
-    //                 Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-    //             ),
-    //             (
-    //                 Arc::new(node_id + 2),
-    //                 Arc::new(CommonEdgeLabels::ChildOf.to_string()),
-    //             ),
-    //         ],
-    //     ));
-    //     node_id += 1;
-    //     edges.push((
-    //         node_id,
-    //         vec![
-    //             (
-    //                 Arc::new(node_id + 1),
-    //                 Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-    //             ),
-    //             (
-    //                 Arc::new(node_id + 2),
-    //                 Arc::new(CommonEdgeLabels::ChildOf.to_string()),
-    //             ),
-    //         ],
-    //     ));
-    //
-    //     let temp_dir = tempfile::Builder::new()
-    //         .prefix("_path_for_rocksdb_storage2")
-    //         .tempdir()
-    //         .expect("Failed to create temporary path for the _path_for_rocksdb_storage2.");
-    //     let db_path = temp_dir.path();
-    //
-    //     {
-    //         let db = DB::open_default(db_path).unwrap();
-    //         let mut db_edges: Edges = Edges::new();
-    //         // Insert all edges into the DB
-    //         for (node_id, edges) in edges.iter() {
-    //             db_edges
-    //                 .data
-    //                 .insert(Arc::new(node_id.clone()), edges.clone());
-    //         }
-    //
-    //         // Save the edges to disk
-    //         db_edges.save_item_chunk_to_disk(&db, &node_id).unwrap();
-    //     }
-    //
-    //     {
-    //         let mut db_edges = Edges::new();
-    //         // Load data from disk and check that it is the same as the original
-    //         db_edges.load_all_from_disk(&db_path).unwrap();
-    //
-    //         for (node_id, edges) in edges.iter() {
-    //             // Check the ID and payload of each node against the one in the DB
-    //             let db_edges = db_edges.data.get(node_id).unwrap();
-    //             assert_eq!(edges.len(), db_edges.len());
-    //             for (db_node_id, db_edge_label) in db_edges.iter() {
-    //                 assert!(edges.contains(&(db_node_id.clone(), db_edge_label.clone())));
-    //             }
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_save_to_disk_and_load_from_disk() {
+        let mut node_id: NodeId = 0;
+        let mut edges: Vec<(NodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
+        edges.push((
+            node_id,
+            vec![(
+                Arc::new(node_id + 1),
+                Arc::new(CommonEdgeLabels::ParentOf.to_string()),
+            )],
+        ));
+        node_id += 1;
+        edges.push((
+            node_id,
+            vec![(
+                Arc::new(node_id + 1),
+                Arc::new(CommonEdgeLabels::ParentOf.to_string()),
+            )],
+        ));
+        node_id += 1;
+        edges.push((
+            node_id,
+            vec![
+                (
+                    Arc::new(node_id + 1),
+                    Arc::new(CommonEdgeLabels::ParentOf.to_string()),
+                ),
+                (
+                    Arc::new(node_id + 2),
+                    Arc::new(CommonEdgeLabels::ChildOf.to_string()),
+                ),
+            ],
+        ));
+        node_id += 1;
+        edges.push((
+            node_id,
+            vec![
+                (
+                    Arc::new(node_id + 1),
+                    Arc::new(CommonEdgeLabels::ParentOf.to_string()),
+                ),
+                (
+                    Arc::new(node_id + 2),
+                    Arc::new(CommonEdgeLabels::ChildOf.to_string()),
+                ),
+            ],
+        ));
+
+        let temp_dir = tempfile::Builder::new()
+            .prefix("_path_for_rocksdb_storage2")
+            .tempdir()
+            .expect("Failed to create temporary path for the _path_for_rocksdb_storage2.");
+        let db_path = PathBuf::from(temp_dir.path());
+
+        {
+            let db = DB::open_default(db_path.clone()).unwrap();
+            let arced_db = Arc::new(db);
+            let mut db_edges: Edges = Edges::new();
+            // Insert all edges into the DB
+            for (node_id, edges) in edges.iter() {
+                db_edges
+                    .data
+                    .insert(Arc::new(node_id.clone()), edges.clone());
+            }
+
+            // Save the edges to disk
+            db_edges
+                .save_item_chunk_to_disk(arced_db.clone(), &node_id)
+                .unwrap();
+        }
+
+        {
+            let mut db_edges = Edges::new();
+            // Load data from disk and check that it is the same as the original
+            db_edges.load_all_from_disk(&db_path).unwrap();
+
+            for (node_id, edges) in edges.iter() {
+                // Check the ID and payload of each node against the one in the DB
+                let db_edges = db_edges.data.get(node_id).unwrap();
+                assert_eq!(edges.len(), db_edges.len());
+                for (db_node_id, db_edge_label) in db_edges.iter() {
+                    assert!(edges.contains(&(db_node_id.clone(), db_edge_label.clone())));
+                }
+            }
+        }
+    }
 }
