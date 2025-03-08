@@ -1,0 +1,1312 @@
+pub fn rlhfbook_index_page() -> &'static str {
+    r###"
+    <!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- Add Open Graph meta tags for share image -->
+  <meta property="og:image" content="https://github.com/natolambert/rlhf-book/blob/main/images/rlhf-book-share" />
+  <meta property="og:image:width" content="1920" />
+  <meta property="og:image:height" content="1080" />
+  
+  <!-- <meta property="og:title" content="A Little Bit of Reinforcement Learning from Human Feedback" /> -->
+  <meta property="og:title" content="Introduction | RLHF Book by Nathan Lambert" />
+  <meta property="og:description" content="The Reinforcement Learning from Human Feedback Book" />
+  <meta property="og:url" content="https://rlhfbook.com" />
+
+    <meta name="author" content="Nathan Lambert" />
+  <meta name="dcterms.date" content="2025-02-26" />
+  <!-- <title>RLHF Book</title> -->
+   <!-- SEO and Open Graph titles -->
+   <title>
+          Introduction | RLHF Book by Nathan Lambert
+      </title>
+  
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    div.abstract {
+      margin: 2em 2em 2em 2em;
+      text-align: left;
+      font-size: 85%;
+    }
+    div.abstract-title {
+      font-weight: bold;
+      text-align: center;
+      padding: 0;
+      margin-bottom: 0.5em;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for citations */
+    div.csl-bib-body { }
+    div.csl-entry {
+      clear: both;
+      margin-bottom: 0em;
+    }
+    .hanging-indent div.csl-entry {
+      margin-left:2em;
+      text-indent:-2em;
+    }
+    div.csl-left-margin {
+      min-width:2em;
+      float:left;
+    }
+    div.csl-right-inline {
+      margin-left:2em;
+      padding-left:1em;
+    }
+    div.csl-indent {
+      margin-left: 2em;
+    }    /*
+      * Custom CSS file. Override it as you like.
+      *
+      * Credits to @killercup (https://gist.github.com/killercup); Extracted from this Gist:
+      *   https://gist.github.com/killercup/5917178
+      * Substantial modifications made by natolambert
+      */
+
+     html {
+         font-size: 100%;
+         overflow-y: scroll;
+         -webkit-text-size-adjust: 100%;
+         -ms-text-size-adjust: 100%;
+     }
+
+     body {
+         color: #444;
+         font-family: Georgia, Palatino, 'Palatino Linotype', Times, 'Times New Roman', serif;
+         font-size: 12px;
+         line-height: 1.7;
+         padding: 1em;
+         margin: auto;
+         max-width: 42em;
+         background: #fefefe;
+     }
+
+     a {
+         color: #0645ad;
+         text-decoration: none;
+     }
+
+     a:visited {
+         color: #0b0080;
+     }
+
+     a:hover {
+         color: #06e;
+     }
+
+     a:active {
+         color: #faa700;
+     }
+
+     a:focus {
+         outline: thin dotted;
+     }
+
+     *::-moz-selection {
+         background: rgba(255, 255, 0, 0.3);
+         color: #000;
+     }
+
+     *::selection {
+         background: rgba(255, 255, 0, 0.3);
+         color: #000;
+     }
+
+     a::-moz-selection {
+         background: rgba(255, 255, 0, 0.3);
+         color: #0645ad;
+     }
+
+     a::selection {
+         background: rgba(255, 255, 0, 0.3);
+         color: #0645ad;
+     }
+
+     p {
+         margin: 1em 0;
+     }
+
+     img {
+         max-width: 100%;
+     }
+
+     h1,
+     h2,
+     h3,
+     h4,
+     h5,
+     h6 {
+         color: #111;
+         line-height: 125%;
+         margin-top: 2em;
+         font-weight: normal;
+     }
+
+     h4,
+     h5,
+     h6 {
+         font-weight: bold;
+     }
+
+     h1 {
+         font-size: 2.5em;
+     }
+
+     h2 {
+         font-size: 2em;
+     }
+
+     h3 {
+         font-size: 1.5em;
+     }
+
+     h4 {
+         font-size: 1.2em;
+     }
+
+     h5 {
+         font-size: 1em;
+     }
+
+     h6 {
+         font-size: 0.9em;
+     }
+
+     blockquote {
+         color: #666666;
+         margin: 0;
+         padding-left: 3em;
+         border-left: 0.5em #EEE solid;
+     }
+
+     hr {
+         display: block;
+         height: 2px;
+         border: 0;
+         border-top: 1px solid #aaa;
+         border-bottom: 1px solid #eee;
+         margin: 1em 0;
+         padding: 0;
+     }
+
+     pre,
+     code,
+     kbd,
+     samp {
+         color: #000;
+         font-family: monospace, monospace;
+         _font-family: 'courier new', monospace;
+         font-size: 0.98em;
+     }
+
+     pre {
+         white-space: pre;
+         white-space: pre-wrap;
+         word-wrap: break-word;
+     }
+
+     b,
+     strong {
+         font-weight: bold;
+     }
+
+     dfn {
+         font-style: italic;
+     }
+
+     ins {
+         background: #ff9;
+         color: #000;
+         text-decoration: none;
+     }
+
+     mark {
+         background: #ff0;
+         color: #000;
+         font-style: italic;
+         font-weight: bold;
+     }
+
+     sub,
+     sup {
+         font-size: 75%;
+         line-height: 0;
+         position: relative;
+         vertical-align: baseline;
+     }
+
+     sup {
+         top: -0.5em;
+     }
+
+     sub {
+         bottom: -0.25em;
+     }
+
+     ul,
+     ol {
+         margin: 1em 0;
+         padding: 0 0 0 2em;
+     }
+
+     li p:last-child {
+         margin-bottom: 0;
+     }
+
+     ul ul,
+     ol ol {
+         margin: .3em 0;
+     }
+
+     dl {
+         margin-bottom: 1em;
+     }
+
+     dt {
+         font-weight: bold;
+         margin-bottom: .8em;
+     }
+
+     dd {
+         margin: 0 0 .8em 2em;
+     }
+
+     dd:last-child {
+         margin-bottom: 0;
+     }
+
+     img {
+         border: 0;
+         -ms-interpolation-mode: bicubic;
+         vertical-align: middle;
+     }
+
+     figure {
+         display: block;
+         text-align: center;
+         margin: 1em 0;
+     }
+
+     figure img {
+         border: none;
+         margin: 0 auto;
+     }
+
+     figcaption {
+         font-size: 0.8em;
+         font-style: italic;
+         margin: 0 0 .8em;
+     }
+
+     /* for html tables */
+     table {
+         margin-bottom: 2em;
+         border-bottom: 1px solid #ddd;
+         border-right: 1px solid #ddd;
+         border-spacing: 0;
+         box-shadow: none;
+         border: none;
+         border-collapse: collapse;
+         margin-left: auto;
+         margin-right: auto;
+         width: auto; /* Ensures the table doesn't stretch full-width */
+         display: table;
+     }
+
+     th {
+         padding: 12px;
+         text-align: center;
+         background-color: #eee;
+         border: 1px solid #ddd;
+     }
+
+     td {
+         padding: 12px;
+         text-align: left; /* Keeps data cells left-aligned */
+         border: 1px solid #ddd;
+         vertical-align: top;
+     }
+
+     .author {
+         font-size: 1.2em;
+         text-align: center;
+     }
+
+     /* Target only mobile screens */
+     @media only screen and (max-width: 479px) {
+         body {
+             font-size: 14px;
+         }
+     }
+
+     @media only screen and (min-width: 480px) {
+         body {
+             font-size: 15px;
+         }
+     }
+
+     @media only screen and (min-width: 768px) {
+         body {
+             font-size: 16px;
+         }
+     }
+
+     @media print {
+         * {
+             background: transparent !important;
+             color: black !important;
+             filter: none !important;
+             -ms-filter: none !important;
+         }
+         body {
+             font-size: 12pt;
+             max-width: 100%;
+         }
+         a,
+         a:visited {
+             text-decoration: underline;
+         }
+         hr {
+             height: 1px;
+             border: 0;
+             border-bottom: 1px solid black;
+         }
+         a[href]:after {
+             content: " (" attr(href) ")";
+         }
+         abbr[title]:after {
+             content: " (" attr(title) ")";
+         }
+         .ir a:after,
+         a[href^="javascript:"]:after,
+         a[href^="#"]:after {
+             content: "";
+         }
+         pre,
+         blockquote {
+             border: 1px solid #999;
+             padding-right: 1em;
+             page-break-inside: avoid;
+         }
+         tr,
+         img {
+             page-break-inside: avoid;
+         }
+         img {
+             max-width: 100% !important;
+         }
+         @page :left {
+             margin: 15mm 20mm 15mm 10mm;
+         }
+         @page :right {
+             margin: 15mm 10mm 15mm 20mm;
+         }
+         p,
+         h2,
+         h3 {
+             orphans: 3;
+             widows: 3;
+         }
+         h2,
+         h3 {
+             page-break-after: avoid;
+         }
+     }
+
+     .dropdown-content {
+       display: none;
+     }
+
+
+
+     thead {
+         background-color: #f5f5f5;
+     }
+
+
+     .dropdown-content.open {
+       display: block;
+     }
+     /* Header Nav Block */
+         .chapter-nav {
+             display: grid;
+             grid-template-columns: repeat(3, 1fr);
+             /* grid-template-rows: auto auto;  */
+             gap: 0.5rem;
+             padding: 0.5rem;
+             max-width: 1200px;
+             text-align: left;
+         }  
+         .section {
+             background-color: #ffffff;
+             padding-top: 5px;
+             padding-right: 12px;
+             padding-bottom: 8px;
+             padding-left: 12px;
+             border-radius: 5px;
+             text-align: left;
+         }
+       .dropdown-content.open {
+         max-height: 2000px;
+       }
+       .dropdown-content {
+         max-height: 0;
+         overflow: hidden;
+         transition: max-height 0.3s ease-out;
+         background: #f8f8f8;  /* Unified with section background */
+       }
+       /* dropdown row */
+       .dropdown-button {
+         width: 100%;
+         text-align: left;
+         padding: 0.5rem;
+         background: #f8f8f8;
+         display: flex;
+         align-items: center;
+         gap: 0.5rem;
+         cursor: pointer;
+         border: none;
+         font-size: 0.9rem;
+       }
+       /* carrot button */
+       .dropdown-button .chevron {
+         width: 14px;
+         height: 14px;
+         transition: transform 0.2s;
+       }
+       /* dropdown animation */
+       .dropdown-button[aria-expanded="true"] .chevron {
+         transform: rotate(180deg);
+       }
+       .section h3 {
+         font-weight: bold;
+         font-size: 0.8rem;
+         margin-top: 5px;
+         margin-bottom: 5px;  /* or whatever bottom spacing you prefer */
+       }
+       .section ol, .section ul {
+         margin: 0;
+         padding-left: 20px;
+         text-align: left;
+       }
+       .section li {
+         font-size: 12px;
+         line-height: 1.3;
+         margin-bottom: 3px;
+         text-align: left;
+       }
+       .section a {
+         color: #0066cc;
+         text-decoration: none;
+       }
+       .section a:hover {
+         text-decoration: underline;
+       }
+
+       /* Mobile Responsiveness */
+       @media screen and (max-width: 768px) {
+         .chapter-nav {
+           grid-template-columns: 1fr;
+         }
+         .section {
+           margin-bottom: 10px;
+         }
+         .section p {
+           font-size: 16px;
+         }
+         .section li {
+           font-size: 14px;
+         }
+       }  </style>
+  <script
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"
+  type="text/javascript"></script>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+  
+
+<!-- custom js nav -->
+<script src="nav.js" defer></script>
+
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title"><a href="https://rlhfbook.com/" style="color: inherit; text-decoration: none;">A
+Little Bit of Reinforcement Learning from Human Feedback</a></h1>
+<p class="subtitle">A short introduction to RLHF and post-training
+focused on language models.</p>
+
+<p class="author">Nathan Lambert</p>
+
+<navigation-dropdown expanded="false"></navigation-dropdown>
+
+</header>
+<div> <h3> Chapter Contents </h3> </div>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#introduction" id="toc-introduction">Introduction</a>
+<ul>
+<li><a href="#what-does-rlhf-do" id="toc-what-does-rlhf-do">What Does
+RLHF Do?</a></li>
+<li><a href="#how-we-got-here" id="toc-how-we-got-here">How We Got
+Here</a></li>
+<li><a href="#scope-of-this-book" id="toc-scope-of-this-book">Scope of
+This Book</a>
+<ul>
+<li><a href="#chapter-summaries" id="toc-chapter-summaries">Chapter
+Summaries</a></li>
+<li><a href="#target-audience" id="toc-target-audience">Target
+Audience</a></li>
+<li><a href="#how-to-use-this-book" id="toc-how-to-use-this-book">How to
+Use This Book</a></li>
+<li><a href="#about-the-author" id="toc-about-the-author">About the
+Author</a></li>
+</ul></li>
+<li><a href="#future-of-rlhf" id="toc-future-of-rlhf">Future of
+RLHF</a></li>
+</ul></li>
+<li><a href="#bibliography" id="toc-bibliography">Bibliography</a></li>
+</ul>
+</nav>
+<div id="content">
+  <h1 id="introduction">Introduction</h1>
+  <p>Reinforcement learning from Human Feedback (RLHF) is a technique
+  used to incorporate human information into AI systems. RLHF emerged
+  primarily as a method to solve hard to specify problems. Its early
+  applications were often in control problems and other traditional
+  domains for reinforcement learning (RL). RLHF became most known
+  through the release of ChatGPT and the subsequent rapid development of
+  large language models (LLMs) and other foundation models.</p>
+  <p>The basic pipeline for RLHF involves three steps. First, a language
+  model that can follow user questions must be trained (see Chapter 9).
+  Second, human preference data must be collected for the training of a
+  reward model of human preferences (see Chapter 7). Finally, the
+  language model can be optimized with a RL optimizer of choice, by
+  sampling generations and rating them with respect to the reward model
+  (see Chapter 3 and 11). This book details key decisions and basic
+  implementation examples for each step in this process.</p>
+  <p>RLHF has been applied to many domains successfully, with complexity
+  increasing as the techniques have matured. Early breakthrough
+  experiments with RLHF were applied to deep reinforcement learning
+  <span class="citation" data-cites="christiano2017deep"><a
+  href="#ref-christiano2017deep" role="doc-biblioref">[1]</a></span>,
+  summarization <span class="citation"
+  data-cites="stiennon2020learning"><a href="#ref-stiennon2020learning"
+  role="doc-biblioref">[2]</a></span>, following instructions <span
+  class="citation" data-cites="ouyang2022training"><a
+  href="#ref-ouyang2022training" role="doc-biblioref">[3]</a></span>,
+  parsing web information for question answering <span class="citation"
+  data-cites="nakano2021webgpt"><a href="#ref-nakano2021webgpt"
+  role="doc-biblioref">[4]</a></span>, and “alignment” <span
+  class="citation" data-cites="bai2022training"><a
+  href="#ref-bai2022training" role="doc-biblioref">[5]</a></span>.</p>
+  <p>In modern language model training, RLHF is one component of
+  post-training. Post-training is a more complete set of techniques and
+  best-practices to make language models more useful for downstream
+  tasks <span class="citation" data-cites="lambert2024t"><a
+  href="#ref-lambert2024t" role="doc-biblioref">[6]</a></span>.
+  Post-training can be summarized as using three optimization
+  methods:</p>
+  <ol type="1">
+  <li>Instruction / Supervised Finetuning (IFT/SFT), where we teach
+  formatting and for base of instruction following abilities. This is
+  largely about learning <em>features</em> in language.</li>
+  <li>Preference Finetuning (PreFT),where we align to human preferences
+  (and get smaller bump in capabilities at the same time). This is
+  largely about <em>style</em> of language and subtle human preferences
+  that are hard to quantify.</li>
+  <li>Reinforcement Finetuning (RFT). The newest type of post-training
+  that boosts performance on verifiable domains.</li>
+  </ol>
+  <p>This book focuses on the second area, <strong>preference
+  finetuning</strong>, which has more complexity than instruction tuning
+  and is far more established than Reinforcement Finetuning. That being
+  said, RLHF colloquially <em>is</em> what led to modern post-training.
+  Soon after the release of ChatGPT, RLHF encompassed all of
+  post-training. The foundations of RLHF involve far more than
+  preferences alone and this book provides introductions to all the
+  related topics.</p>
+  <h2 id="what-does-rlhf-do">What Does RLHF Do?</h2>
+  <p>The biggest question around RLHF, yet one that is still hard to
+  answer, is “What does RLHF training offer models?” The core role of
+  this book, beyond teaching the techniques for doing RLHF, is to
+  distill intuition as to <em>why</em> RLHF is crucial to modern AI
+  models. In recent years, language models shifted from academic
+  experiments studied in the purview of benchmarks to general purpose
+  technology. RLHF is at the core of this transition.</p>
+  <p>The most compelling view of how RLHF works is to think of how
+  <em>style</em> applies to interactions you have with language models.
+  The style, or format, of information presented is crucial to how it is
+  learned. This has always been the case for examples such as
+  coursework, but is normally applied in the background and not
+  considered directly.</p>
+  <p>Modern research has established RLHF as a general method to
+  integrate subtle stylistic and related behavioral features into the
+  models. Compared to other techniques for post-training, such as
+  instruction finetuning, RLHF generalizes far better across domains
+  <span class="citation" data-cites="kirk2023understanding"><a
+  href="#ref-kirk2023understanding" role="doc-biblioref">[7]</a></span>
+  <span class="citation" data-cites="chu2025sft"><a
+  href="#ref-chu2025sft" role="doc-biblioref">[8]</a></span> – helping
+  create effective general purpose models.</p>
+  <p>Intuitively, this can be seen in how the optimization techniques
+  are applied. Instruction finetuning is training the model to predict
+  the next certain token when the text preceding is close to examples it
+  has seen. It is optimizing the model to more regularly output specific
+  features in text. This is a per-token update.</p>
+  <p>RLHF on the other hand tunes the responses on the response level
+  rather than looking at the next token specifically. Additionally, it
+  is telling the model what a <em>better</em> response looks like,
+  rather than a specific response it should learn. RLHF also shows a
+  model which type of response it should avoid, i.e. negative feedback.
+  The training to achieve this is often called a <em>contrastive</em>
+  loss function and is referenced throughout this book.</p>
+  <p>While this flexibility is a major advantage of RLHF, it comes with
+  implementation challenges. Largely, these center on <em>how to control
+  the optimization.</em> As we will cover in this book, implementing
+  RLHF often requires training a reward model, of which best practices
+  are not strongly established and depend on the area of application.
+  With this, the optimization itself is prone to
+  <em>over-optimization</em> because our reward signal is at best a
+  proxy objective, requiring regularization. With these limitations,
+  effective RLHF requires a strong starting point, so RLHF cannot be a
+  solution to every problem alone and needs to be approached in a
+  broader lens of post-training.</p>
+  <p>Due to this complexity, implementing RLHF is far more costly than
+  simple instruction finetuning and can come with unexpected challenges
+  such as length bias <span class="citation"
+  data-cites="singhal2023long"><a href="#ref-singhal2023long"
+  role="doc-biblioref">[9]</a></span> <span class="citation"
+  data-cites="park2024disentangling"><a
+  href="#ref-park2024disentangling"
+  role="doc-biblioref">[10]</a></span>. For projects where performance
+  matters, RLHF is established as being crucial to achieving a strong
+  finetuned model, but it is more expensive in compute, data costs, and
+  time.</p>
+  <h2 id="how-we-got-here">How We Got Here</h2>
+  <p>Why does this book make sense now? How much still will change?</p>
+  <p>Post-training, the craft of eliciting powerful behaviors from a raw
+  pretrained language model, has gone through many seasons and moods
+  since the release of ChatGPT that sparked the renewed interest in
+  RLHF. In the era of Alpaca <span class="citation"
+  data-cites="alpaca"><a href="#ref-alpaca"
+  role="doc-biblioref">[11]</a></span>, Vicuna <span class="citation"
+  data-cites="vicuna2023"><a href="#ref-vicuna2023"
+  role="doc-biblioref">[12]</a></span>, <span class="citation"
+  data-cites="koala_blogpost_2023"><a href="#ref-koala_blogpost_2023"
+  role="doc-biblioref">[13]</a></span>, and Dolly <span class="citation"
+  data-cites="DatabricksBlog2023DollyV1"><a
+  href="#ref-DatabricksBlog2023DollyV1"
+  role="doc-biblioref">[14]</a></span>, a limited number of human
+  datapoints with extended synthetic data in the style of Self-Instruct
+  were used to normally fine-tune the original LLaMA to get similar
+  behavior to ChatGPT. The benchmark for these early models was fully
+  vibes (and human evaluation) as we were all so captivated by the fact
+  that these small models can have such impressive behaviors across
+  domains. It was justified excitement.</p>
+  <p>Open post-training was moving faster, releasing more models, and
+  making more noise than its closed counterparts. Companies were
+  scrambling, e.g. DeepMind merging with Google or being started, and
+  taking time to follow it up. There are phases of open recipes surging
+  and then lagging behind.</p>
+  <p>The era following Alpaca et al., the first lag in open recipes, was
+  one defined by skepticism and doubt on reinforcement learning from
+  human feedback (RLHF), the technique OpenAI highlighted as crucial to
+  the success of the first ChatGPT. Many companies doubted that they
+  needed to do RLHF. A common phrase – “instruction tuning is enough for
+  alignment” – was so popular then that it still holds heavy weight
+  today despite heavy obvious pressures against it.</p>
+  <p>This doubt of RLHF lasted, especially in the open where groups
+  cannot afford data budgets on the order of $100K to $1M. The companies
+  that embraced it early ended up winning out. Anthropic published
+  extensive research on RLHF through 2022 and is now argued to have the
+  best post-training <span class="citation"
+  data-cites="askell2021general"><a href="#ref-askell2021general"
+  role="doc-biblioref">[15]</a></span> <span class="citation"
+  data-cites="bai2022training"><a href="#ref-bai2022training"
+  role="doc-biblioref">[5]</a></span> <span class="citation"
+  data-cites="bai2022constitutional"><a
+  href="#ref-bai2022constitutional"
+  role="doc-biblioref">[16]</a></span>. The delta between open groups,
+  struggling to reproduce, or even knowing basic closed techniques, is a
+  common theme.</p>
+  <p>The first shift in open alignment methods and post-training was the
+  story of Direct Preference Optimization (DPO) <span class="citation"
+  data-cites="rafailov2024direct"><a href="#ref-rafailov2024direct"
+  role="doc-biblioref">[17]</a></span>. The DPO paper, posted in May of
+  2023, didn’t have any clearly impactful models trained with it going
+  through the fall of 2023. This changed with the releases of a few
+  breakthrough DPO models – all contingent on finding a better, lower,
+  learning rate. Zephyr-Beta <span class="citation"
+  data-cites="tunstall2023zephyr"><a href="#ref-tunstall2023zephyr"
+  role="doc-biblioref">[18]</a></span>, Tülu 2 <span class="citation"
+  data-cites="ivison2023camels"><a href="#ref-ivison2023camels"
+  role="doc-biblioref">[19]</a></span>, and many other models showed
+  that the DPO era of post-training had begun. Chris Manning literally
+  thanked me for “saving DPO.” This is how fine the margins are on
+  evolutions of best practices with leading labs being locked down. Open
+  post-training was cruising again.</p>
+  <p>Preference-tuning was something you needed to do to meet the table
+  stakes of releasing a good model since late 2023. The DPO era
+  continued through 2024, in the form of never-ending variants on the
+  algorithm, but we were very far into another slump in open recipes.
+  Open post-training recipes had saturated the extent of knowledge and
+  resources available.<br />
+  A year after Zephyr and Tulu 2, the same breakout dataset,
+  UltraFeedback is arguably still state-of-the-art for preference tuning
+  in open recipes <span class="citation"
+  data-cites="cui2023ultrafeedback"><a href="#ref-cui2023ultrafeedback"
+  role="doc-biblioref">[20]</a></span>.</p>
+  <p>At the same time, the Llama 3.1 <span class="citation"
+  data-cites="dubey2024llama"><a href="#ref-dubey2024llama"
+  role="doc-biblioref">[21]</a></span> and Nemotron 4 340B <span
+  class="citation" data-cites="adler2024nemotron"><a
+  href="#ref-adler2024nemotron" role="doc-biblioref">[22]</a></span>
+  reports gave us substantive hints that large-scale post-training is
+  much more complex and impactful. The closed labs are doing full
+  post-training – a large multi-stage process of instruction tuning,
+  RLHF, prompt design, etc. – where academic papers are just scratching
+  the surface. Tülu 3 represented a comprehensive, open effort to build
+  the foundation of future academic post-training research <span
+  class="citation" data-cites="lambert2024t"><a href="#ref-lambert2024t"
+  role="doc-biblioref">[6]</a></span>.</p>
+  <p>Today, post-training is a complex process involving the
+  aforementioned training objectives applied in various orders in order
+  to target specific capabilities. This book is designed to give a
+  platform to understand all of these techniques, and in coming years
+  the best practices for how to interleave them will emerge.</p>
+  <p>The primary areas of innovation in post-training are now in
+  reinforcement finetuning, reasoning training, and related ideas. This
+  newer methods build extensively on the infrastructure and ideas of
+  RLHF, but are evolving far faster. This book is written to capture the
+  first stable literature for RLHF after its initial period of rapid
+  change.</p>
+  <h2 id="scope-of-this-book">Scope of This Book</h2>
+  <p>This book hopes to touch on each of the core steps of doing
+  canonical RLHF implementations. It will not cover all the history of
+  the components nor recent research methods, just techniques, problems,
+  and trade-offs that have been proven to occur again and again.</p>
+  <h3 id="chapter-summaries">Chapter Summaries</h3>
+  <p>This book has the following chapters:</p>
+  <h4 id="introductions">Introductions</h4>
+  <p>Reference material useful throughout the book.</p>
+  <ol type="1">
+  <li>Introduction: Overview of RLHF and what this book provides.</li>
+  <li>Seminal (Recent) Works: Key models and papers in the history of
+  RLHF techniques.</li>
+  <li>Definitions: Mathematical definitions for RL, language modeling,
+  and other ML techniques leveraged in this book.</li>
+  </ol>
+  <h4 id="problem-setup-context">Problem Setup &amp; Context</h4>
+  <p>Context for the big picture problem RLHF is trying to solve.</p>
+  <ol start="4" type="1">
+  <li>RLHF Training Overview: How the training objective for RLHF is
+  designed and basics of understanding it.</li>
+  <li>What are preferences?: Why human preference data is needed to fuel
+  and understand RLHF.</li>
+  <li>Preference Data: How preference data is collected for RLHF.</li>
+  </ol>
+  <h4 id="optimization-tools">Optimization Tools</h4>
+  <p>The suite of techniques used to optimize language models to align
+  them to human preferences. This is a serial presentation of the
+  techniques one can use to solve the problems proposed in the previous
+  chapters.</p>
+  <ol start="7" type="1">
+  <li>Reward Modeling: Training reward models from preference data that
+  act as an optimization target for RL training (or for use in data
+  filtering).</li>
+  <li>Regularization: Tools to constrain these optimization tools to
+  effective regions of the parameter space.</li>
+  <li>Instruction Tuning: Adapting language models to the
+  question-answer format.</li>
+  <li>Rejection Sampling: A basic technique for using a reward model
+  with instruction tuning to align models.</li>
+  <li>Policy Gradients: The core RL techniques used to optimize reward
+  models (and other signals) throughout RLHF.</li>
+  <li>Direct Alignment Algorithms: Algorithms that optimize the RLHF
+  objective direction from pairwise preference data rather than learning
+  a reward model first.</li>
+  </ol>
+  <h4 id="advanced-tbd">Advanced (TBD)</h4>
+  <p>Newer RLHF techniques and discussions that are not clearly
+  established, but are important to current generations of models.</p>
+  <ol start="13" type="1">
+  <li>Constitutional AI and AI Feedback</li>
+  <li>Reasoning and Reinforcement Finetuning</li>
+  <li>Synthetic Data</li>
+  <li>Evaluation</li>
+  </ol>
+  <h4 id="open-questions-tbd">Open Questions (TBD)</h4>
+  <p>Fundamental problems and discussions for the long-term evolution of
+  how RLHF is used.</p>
+  <ol start="16" type="1">
+  <li>Over-optimization</li>
+  <li>Style and Information</li>
+  </ol>
+  <h3 id="target-audience">Target Audience</h3>
+  <p>This book is intended for audiences with entry level experience
+  with language modeling, reinforcement learning, and general machine
+  learning. It will not have exhaustive documentation for all the
+  techniques, but just those crucial to understanding RLHF.</p>
+  <h3 id="how-to-use-this-book">How to Use This Book</h3>
+  <p>This book was largely created because there were no canonical
+  references for important topics in the RLHF workflow. The
+  contributions of this book are supposed to give you the minimum
+  knowledge needed to try a toy implementation or dive into the
+  literature. This is <em>not</em> a comprehensive textbook, but rather
+  a quick book for reminders and getting started. Additionally, given
+  the web-first nature of this book, it is expected that there are minor
+  typos and somewhat random progressions – please contribute by fixing
+  bugs or suggesting important content on <a
+  href="https://github.com/natolambert/rlhf-book">GitHub</a>.</p>
+  <h3 id="about-the-author">About the Author</h3>
+  <p>Dr. Nathan Lambert is a RLHF researcher contributing to the open
+  science of language model fine-tuning. He has released many models
+  trained with RLHF, their subsequent datasets, and training codebases
+  in his time at the Allen Institute for AI (Ai2) and HuggingFace.
+  Examples include <a
+  href="https://huggingface.co/HuggingFaceH4/zephyr-7b-beta">Zephyr-Beta</a>,
+  <a href="https://huggingface.co/allenai/tulu-2-dpo-70b">Tulu 2</a>, <a
+  href="https://huggingface.co/allenai/OLMo-7B-Instruct">OLMo</a>, <a
+  href="https://github.com/huggingface/trl">TRL</a>, <a
+  href="https://github.com/allenai/open-instruct">Open Instruct</a>, and
+  many more. He has written extensively on RLHF, including <a
+  href="https://www.interconnects.ai/t/rlhf">many blog posts</a> and <a
+  href="https://scholar.google.com/citations?hl=en&amp;user=O4jW7BsAAAAJ&amp;view_op=list_works&amp;sortby=pubdate">academic
+  papers</a>.</p>
+  <h2 id="future-of-rlhf">Future of RLHF</h2>
+  <p>With the investment in language modeling, many variations on the
+  traditional RLHF methods emerged. RLHF colloquially has become
+  synonymous with multiple overlapping approaches. RLHF is a subset of
+  preference fine-tuning (PreFT) techniques, including Direct Alignment
+  Algorithms (See Chapter 12). RLHF is the tool most associated with
+  rapid progress in “post-training” of language models, which
+  encompasses all training after the large-scale autoregressive training
+  on primarily web data. This textbook is a broad overview of RLHF and
+  its directly neighboring methods, such as instruction tuning and other
+  implementation details needed to set up a model for RLHF training.</p>
+  <p>As more successes of fine-tuning language models with RL emerge,
+  such as OpenAI’s o1 reasoning models, RLHF will be seen as the bridge
+  that enabled further investment of RL methods for fine-tuning large
+  base models.</p>
+  <!-- This is the first paragraph of the introduction chapter.
+
+  ## First: Images
+
+  This is the first subsection. Please, admire the gloriousnes of this seagull:
+
+  ![A cool seagull.](images/seagull.png)
+
+  A bigger seagull:
+
+  ![A cool big seagull.](images/seagull.png){ width=320px }
+
+  ## Second: Tables
+
+  This is the second subsection.
+
+
+  Please, check [First: Images] subsection.
+
+  Please, check [this](#first-images) subsection.
+
+  | Index | Name |
+  | ----- | ---- |
+  | 0     | AAA  |
+  | 1     | BBB  |
+  | ...   | ...  |
+
+  Table: This is an example table.
+
+  ## Third: Equations
+
+  Formula example: $\mu = \sum_{i=0}^{N} \frac{x_i}{N}$
+
+  Now, full size:
+
+  $$\mu = \sum_{i=0}^{N} \frac{x_i}{N}$$
+
+  And a code sample:
+
+  ```rb
+  def hello_world
+    puts "hello world!"
+  end
+
+  hello_world
+  ```
+
+  Check these unicode characters: ǽß¢ð€đŋμ
+
+  ## Fourth: Cross references
+
+  These cross references are disabled by default. To enable them, check the
+  _[Cross references](https://github.com/wikiti/pandoc-book-template#cross-references)_
+  section on the README.md file.
+
+  Here's a list of cross references:
+
+  - Check @fig:seagull.
+  - Check @tbl:table.
+  - Check @eq:equation.
+
+  ![A cool seagull](images/seagull.png){#fig:seagull}
+
+  $$ y = mx + b $$ {#eq:equation}
+
+  | Index | Name |
+  | ----- | ---- |
+  | 0     | AAA  |
+  | 1     | BBB  |
+  | ...   | ...  |
+
+  Table: This is an example table. {#tbl:table} -->
+  <h1 class="unnumbered" id="bibliography">Bibliography</h1>
+  <div id="refs" class="references csl-bib-body" data-entry-spacing="0"
+  role="list">
+  <div id="ref-christiano2017deep" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[1] </div><div
+  class="csl-right-inline">P. F. Christiano, J. Leike, T. Brown, M.
+  Martic, S. Legg, and D. Amodei, <span>“Deep reinforcement learning
+  from human preferences,”</span> <em>Advances in neural information
+  processing systems</em>, vol. 30, 2017.</div>
+  </div>
+  <div id="ref-stiennon2020learning" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[2] </div><div
+  class="csl-right-inline">N. Stiennon <em>et al.</em>, <span>“Learning
+  to summarize with human feedback,”</span> <em>Advances in Neural
+  Information Processing Systems</em>, vol. 33, pp. 3008–3021,
+  2020.</div>
+  </div>
+  <div id="ref-ouyang2022training" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[3] </div><div
+  class="csl-right-inline">L. Ouyang <em>et al.</em>, <span>“Training
+  language models to follow instructions with human feedback,”</span>
+  <em>Advances in neural information processing systems</em>, vol. 35,
+  pp. 27730–27744, 2022.</div>
+  </div>
+  <div id="ref-nakano2021webgpt" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[4] </div><div
+  class="csl-right-inline">R. Nakano <em>et al.</em>, <span>“Webgpt:
+  Browser-assisted question-answering with human feedback,”</span>
+  <em>arXiv preprint arXiv:2112.09332</em>, 2021.</div>
+  </div>
+  <div id="ref-bai2022training" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[5] </div><div
+  class="csl-right-inline">Y. Bai <em>et al.</em>, <span>“Training a
+  helpful and harmless assistant with reinforcement learning from human
+  feedback,”</span> <em>arXiv preprint arXiv:2204.05862</em>,
+  2022.</div>
+  </div>
+  <div id="ref-lambert2024t" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[6] </div><div
+  class="csl-right-inline">N. Lambert <em>et al.</em>, <span>“T<span
+  class="math inline">\(\backslash\)</span>" ULU 3: Pushing frontiers in
+  open language model post-training,”</span> <em>arXiv preprint
+  arXiv:2411.15124</em>, 2024.</div>
+  </div>
+  <div id="ref-kirk2023understanding" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[7] </div><div
+  class="csl-right-inline">R. Kirk <em>et al.</em>, <span>“Understanding
+  the effects of rlhf on llm generalisation and diversity,”</span>
+  <em>arXiv preprint arXiv:2310.06452</em>, 2023.</div>
+  </div>
+  <div id="ref-chu2025sft" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[8] </div><div
+  class="csl-right-inline">T. Chu <em>et al.</em>, <span>“Sft memorizes,
+  rl generalizes: A comparative study of foundation model
+  post-training,”</span> <em>arXiv preprint arXiv:2501.17161</em>,
+  2025.</div>
+  </div>
+  <div id="ref-singhal2023long" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[9] </div><div
+  class="csl-right-inline">P. Singhal, T. Goyal, J. Xu, and G. Durrett,
+  <span>“A long way to go: Investigating length correlations in
+  rlhf,”</span> <em>arXiv preprint arXiv:2310.03716</em>, 2023.</div>
+  </div>
+  <div id="ref-park2024disentangling" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[10] </div><div
+  class="csl-right-inline">R. Park, R. Rafailov, S. Ermon, and C. Finn,
+  <span>“Disentangling length from quality in direct preference
+  optimization,”</span> <em>arXiv preprint arXiv:2403.19159</em>,
+  2024.</div>
+  </div>
+  <div id="ref-alpaca" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[11] </div><div
+  class="csl-right-inline">R. Taori <em>et al.</em>, <span>“Stanford
+  alpaca: An instruction-following LLaMA model,”</span> <em>GitHub
+  repository</em>. <a
+  href="https://github.com/tatsu-lab/stanford_alpaca"
+  class="uri">https://github.com/tatsu-lab/stanford_alpaca</a>; GitHub,
+  2023.</div>
+  </div>
+  <div id="ref-vicuna2023" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[12] </div><div
+  class="csl-right-inline">W.-L. Chiang <em>et al.</em>, <span>“Vicuna:
+  An open-source chatbot impressing GPT-4 with 90%* ChatGPT
+  quality.”</span> 2023. Available: <a
+  href="https://lmsys.org/blog/2023-03-30-vicuna/">https://lmsys.org/blog/2023-03-30-vicuna/</a></div>
+  </div>
+  <div id="ref-koala_blogpost_2023" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[13] </div><div
+  class="csl-right-inline">X. Geng <em>et al.</em>, <span>“Koala: A
+  dialogue model for academic research.”</span> Blog post, 2023.
+  Accessed: Apr. 03, 2023. [Online]. Available: <a
+  href="https://bair.berkeley.edu/blog/2023/04/03/koala/">https://bair.berkeley.edu/blog/2023/04/03/koala/</a></div>
+  </div>
+  <div id="ref-DatabricksBlog2023DollyV1" class="csl-entry"
+  role="listitem">
+  <div class="csl-left-margin">[14] </div><div
+  class="csl-right-inline">M. Conover <em>et al.</em>, <span>“Hello
+  dolly: Democratizing the magic of ChatGPT with open models.”</span>
+  Accessed: Jun. 30, 2023. [Online]. Available: <a
+  href="https://www.databricks.com/blog/2023/03/24/hello-dolly-democratizing-magic-chatgpt-open-models.html">https://www.databricks.com/blog/2023/03/24/hello-dolly-democratizing-magic-chatgpt-open-models.html</a></div>
+  </div>
+  <div id="ref-askell2021general" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[15] </div><div
+  class="csl-right-inline">A. Askell <em>et al.</em>, <span>“A general
+  language assistant as a laboratory for alignment,”</span> <em>arXiv
+  preprint arXiv:2112.00861</em>, 2021.</div>
+  </div>
+  <div id="ref-bai2022constitutional" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[16] </div><div
+  class="csl-right-inline">Y. Bai <em>et al.</em>, <span>“Constitutional
+  ai: Harmlessness from ai feedback,”</span> <em>arXiv preprint
+  arXiv:2212.08073</em>, 2022.</div>
+  </div>
+  <div id="ref-rafailov2024direct" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[17] </div><div
+  class="csl-right-inline">R. Rafailov, A. Sharma, E. Mitchell, C. D.
+  Manning, S. Ermon, and C. Finn, <span>“Direct preference optimization:
+  Your language model is secretly a reward model,”</span> <em>Advances
+  in Neural Information Processing Systems</em>, vol. 36, 2024.</div>
+  </div>
+  <div id="ref-tunstall2023zephyr" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[18] </div><div
+  class="csl-right-inline">L. Tunstall <em>et al.</em>, <span>“Zephyr:
+  Direct distillation of lm alignment,”</span> <em>arXiv preprint
+  arXiv:2310.16944</em>, 2023.</div>
+  </div>
+  <div id="ref-ivison2023camels" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[19] </div><div
+  class="csl-right-inline">H. Ivison <em>et al.</em>, <span>“Camels in a
+  changing climate: Enhancing lm adaptation with tulu 2,”</span>
+  <em>arXiv preprint arXiv:2311.10702</em>, 2023.</div>
+  </div>
+  <div id="ref-cui2023ultrafeedback" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[20] </div><div
+  class="csl-right-inline">G. Cui <em>et al.</em>, <span>“Ultrafeedback:
+  Boosting language models with high-quality feedback,”</span>
+  2023.</div>
+  </div>
+  <div id="ref-dubey2024llama" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[21] </div><div
+  class="csl-right-inline">A. Dubey <em>et al.</em>, <span>“The llama 3
+  herd of models,”</span> <em>arXiv preprint arXiv:2407.21783</em>,
+  2024.</div>
+  </div>
+  <div id="ref-adler2024nemotron" class="csl-entry" role="listitem">
+  <div class="csl-left-margin">[22] </div><div
+  class="csl-right-inline">B. Adler <em>et al.</em>, <span>“Nemotron-4
+  340B technical report,”</span> <em>arXiv preprint
+  arXiv:2406.11704</em>, 2024.</div>
+  </div>
+  </div>
+</div>
+
+<div id="chapter-navigation" style="display: flex; justify-content: space-between; padding: 2em 0;">
+    <a href="https://rlhfbook.com/" class="prev-chapter">
+    ← Previous: Home
+  </a>
+    
+    <a href="02-related-works.html" class="next-chapter">
+    Next: Key Related Works →
+  </a>
+  </div>
+
+<footer style="padding: 20px; text-align: center;">
+  <hr>
+  Citation <br>
+  <div style="text-align: left; font-size: small; color: #888;">
+    @book{rlhf2024,<br>
+    &nbsp;&nbsp;author = {Nathan Lambert},<br>
+    &nbsp;&nbsp;title = {Reinforcement Learning from Human Feedback},<br>
+    &nbsp;&nbsp;year = {2024},<br>
+    &nbsp;&nbsp;publisher = {Online},<br>
+    &nbsp;&nbsp;url = {https://rlhfbook.com},<br>      }
+  </div>
+  <div>
+    <a href="https://github.com/natolambert/rlhf-book" target="_blank">
+      <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" style="width: 40px; height: 40px;">
+    </a>
+    <!-- Add more social links here -->
+  </div>
+  <p>&copy; 2024 RLHF Book Team</p>
+</footer>  
+</body>
+</html>
+    "###
+}

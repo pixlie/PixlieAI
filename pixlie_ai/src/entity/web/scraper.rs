@@ -10,6 +10,17 @@ use scraper::Html;
 use std::sync::Arc;
 use url::Url;
 
+fn clean_text(text: String) -> String {
+    let text: Vec<String> = text
+        .trim()
+        .replace("\n", " ")
+        .replace("\t", " ")
+        .split_whitespace()
+        .map(|x| x.to_string())
+        .collect();
+    text.join(" ")
+}
+
 impl WebPage {
     pub fn scrape(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
         // Find the Link node that is the parent of this WebPage node
@@ -60,14 +71,7 @@ impl WebPage {
                 "title" => {
                     let title_node_id = engine
                         .get_or_add_node(
-                            Payload::Text(
-                                child
-                                    .text()
-                                    .collect::<Vec<&str>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            ),
+                            Payload::Text(clean_text(child.text().collect::<Vec<&str>>().join(""))),
                             vec![
                                 CommonNodeLabels::Title.to_string(),
                                 CommonNodeLabels::PartialContent.to_string(),
@@ -87,14 +91,7 @@ impl WebPage {
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = engine
                         .get_or_add_node(
-                            Payload::Text(
-                                child
-                                    .text()
-                                    .collect::<Vec<&str>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            ),
+                            Payload::Text(clean_text(child.text().collect::<Vec<&str>>().join(""))),
                             vec![
                                 CommonNodeLabels::Heading.to_string(),
                                 CommonNodeLabels::PartialContent.to_string(),
@@ -114,15 +111,13 @@ impl WebPage {
                 "p" => {
                     let paragraph_node_id = engine
                         .get_or_add_node(
-                            Payload::Text(
+                            Payload::Text(clean_text(
                                 child
                                     .text()
                                     .map(|x| x.to_string())
                                     .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string(),
-                            ),
+                                    .join(""),
+                            )),
                             vec![
                                 CommonNodeLabels::Paragraph.to_string(),
                                 CommonNodeLabels::PartialContent.to_string(),
@@ -337,155 +332,119 @@ impl WebPage {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use log::info;
-//     use std::{env::current_dir, fs::read_to_string};
-//     use test_log::test;
-//
-//     #[test]
-//     fn test_webpage_scraper_basic_extraction() {
-//         let mut path = current_dir().unwrap();
-//         path.push("fixtures/test_pixlie_about_us.html");
-//         info!("Path: {}", path.display());
-//         let link = Link {
-//             url: "https://pixlie.com/about".to_string(),
-//             ..Default::default()
-//         };
-//         let webpage = WebPage {
-//             contents: read_to_string(path).unwrap(),
-//             ..Default::default()
-//         };
-//
-//         let parts = webpage.scrape(&link);
-//         // Check page title
-//         assert_eq!(
-//             parts
-//                 .iter()
-//                 .filter(|payload| match payload {
-//                     Payload::Title(ref title) => {
-//                         title.0 == "About us - Pixlie"
-//                     }
-//                     _ => false,
-//                 })
-//                 .count(),
-//             1
-//         );
-//         // Count a few headings
-//         assert_eq!(
-//             parts
-//                 .iter()
-//                 .filter(|payload| match payload {
-//                     Payload::Heading(ref heading) => {
-//                         vec![
-//                             "Driven by Innovation, Powered by People",
-//                             "Our values",
-//                             "Privacy-First",
-//                             "Transparency",
-//                         ]
-//                         .contains(&heading.0.as_str())
-//                     }
-//                     _ => false,
-//                 })
-//                 .count(),
-//             4
-//         );
-//         // Count the number of links
-//         assert_eq!(
-//             parts
-//                 .iter()
-//                 .filter(|payload| match payload {
-//                     Payload::Link(_) => true,
-//                     _ => false,
-//                 })
-//                 .count(),
-//             11
-//         );
-//     }
-//
-//     #[test]
-//     fn test_webpage_scraper_heading_paragraph() {
-//         let mut path = current_dir().unwrap();
-//         path.push("fixtures/test_content_list.html");
-//         info!("Path: {}", path.display());
-//         let link = Link {
-//             url: "https://growthlist.co/category/startups/".to_string(),
-//             ..Default::default()
-//         };
-//         let webpage = WebPage {
-//             contents: read_to_string(path).unwrap(),
-//             ..Default::default()
-//         };
-//
-//         let parts = webpage.get_page_parts(&link);
-//         // Check list item headings
-//         assert_eq!(
-//             parts
-//                 .iter()
-//                 .filter(|payload| match payload {
-//                     Payload::Heading(ref heading) => {
-//                         vec![
-//                             "List of Funded Healthcare Startups in NYC For 2024",
-//                             "40+ Startup Failure Statistics For 2024",
-//                             "List of Funded Mobile App Startups For 2024",
-//                             "List of Funded Legal Startups For 2024",
-//                         ]
-//                         .contains(&heading.0.as_str())
-//                     }
-//                     _ => false,
-//                 })
-//                 .count(),
-//             4
-//         );
-//
-//         // Check that the paragraph follows the heading
-//         let heading_index = parts
-//             .iter()
-//             .position(|payload| match payload {
-//                 Payload::Heading(ref heading) => {
-//                     heading.0.as_str() == "List of Funded Sports Startups For 2024"
-//                 }
-//                 _ => false,
-//             })
-//             .unwrap();
-//         let paragraph_index = parts
-//             .iter()
-//             .position(|payload| match payload {
-//                 Payload::Paragraph(ref paragraph) => paragraph
-//                     .0
-//                     .contains("Check out our database of sports-related"),
-//                 _ => false,
-//             })
-//             .unwrap();
-//         assert_eq!(heading_index + 3, paragraph_index);
-//
-//         let part = parts.get(heading_index + 1);
-//         assert!(part.is_some());
-//
-//         // Check the next element is the link after the above heading
-//         assert_eq!(
-//             match part.unwrap() {
-//                 Payload::Link(ref link) => {
-//                     Some(link.url.clone())
-//                 }
-//                 _ => None,
-//             },
-//             Some("https://growthlist.co/sports-startups/".to_string())
-//         );
-//
-//         let part = parts.get(heading_index + 2);
-//         assert!(part.is_some());
-//
-//         // Check the next element is the date after the above heading
-//         assert_eq!(
-//             match part.unwrap() {
-//                 Payload::Paragraph(ref paragraph) => {
-//                     Some(paragraph.0.clone())
-//                 }
-//                 _ => None,
-//             },
-//             Some("October 26, 2023".to_string())
-//         );
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::super::fixtures::rlhfbook_index_page;
+    use super::super::link::Link;
+    use super::*;
+    use crate::engine::engine::get_test_engine;
+    use crate::engine::CommonNodeLabels;
+
+    #[test]
+    fn test_webpage_scraper_basic_extraction() {
+        let test_engine = get_test_engine();
+        let arced_test_engine = Arc::new(&test_engine);
+        let link_node_id = Link::add_manually(
+            arced_test_engine,
+            &"https://rlhfbook.com/c/01-introduction.html".to_string(),
+        )
+        .unwrap();
+
+        let webpage = WebPage(rlhfbook_index_page().to_string());
+        let webpage_node_id = test_engine
+            .get_or_add_node(
+                Payload::FileHTML(webpage.clone()),
+                vec![
+                    CommonNodeLabels::Content.to_string(),
+                    CommonNodeLabels::WebPage.to_string(),
+                ],
+                true,
+                None,
+            )
+            .unwrap()
+            .get_node_id();
+        test_engine
+            .add_connection(
+                (link_node_id, webpage_node_id.clone()),
+                (
+                    CommonEdgeLabels::PathOf.to_string(),
+                    CommonEdgeLabels::ContentOf.to_string(),
+                ),
+            )
+            .unwrap();
+        test_engine.process_nodes();
+
+        let parent_of_webpage = test_engine
+            .get_node_ids_connected_with_label(
+                &webpage_node_id,
+                &CommonEdgeLabels::ContentOf.to_string(),
+            )
+            .unwrap();
+        assert_eq!(parent_of_webpage.len(), 1);
+
+        let children_of_webpage = test_engine
+            .get_node_ids_connected_with_label(
+                &webpage_node_id,
+                &CommonEdgeLabels::ParentOf.to_string(),
+            )
+            .unwrap();
+        assert_eq!(children_of_webpage.len(), 64);
+
+        let title_node = test_engine
+            .get_node_by_id(children_of_webpage.first().unwrap())
+            .unwrap();
+        assert_eq!(
+            match title_node.payload {
+                Payload::Text(ref text) => text.as_str(),
+                _ => "",
+            },
+            "Introduction | RLHF Book by Nathan Lambert"
+        );
+        assert_eq!(
+            title_node.labels,
+            vec![
+                CommonNodeLabels::Title.to_string(),
+                CommonNodeLabels::PartialContent.to_string(),
+                "Text".to_string()
+            ]
+        );
+
+        let heading_node = test_engine
+            .get_node_by_id(children_of_webpage.get(1).unwrap())
+            .unwrap();
+        assert_eq!(
+            match heading_node.payload {
+                Payload::Text(ref text) => text.as_str(),
+                _ => "",
+            },
+            "A Little Bit of Reinforcement Learning from Human Feedback"
+        );
+
+        let mut paragraph_nodes =
+            test_engine.get_node_ids_with_label(&CommonNodeLabels::Paragraph.to_string());
+        paragraph_nodes.sort();
+        assert_eq!(paragraph_nodes.len(), 37);
+
+        let paragraph = test_engine
+            .get_node_by_id(paragraph_nodes.get(2).unwrap())
+            .unwrap();
+        assert_eq!(
+            match paragraph.payload {
+                Payload::Text(ref text) => text.as_str(),
+                _ => "",
+            },
+            "Reinforcement learning from Human Feedback (RLHF) is a technique used to incorporate human information into AI systems. RLHF emerged primarily as a method to solve hard to specify problems. Its early applications were often in control problems and other traditional domains for reinforcement learning (RL). RLHF became most known through the release of ChatGPT and the subsequent rapid development of large language models (LLMs) and other foundation models."
+        );
+
+        let paragraph = test_engine
+            .get_node_by_id(paragraph_nodes.get(4).unwrap())
+            .unwrap();
+        assert_eq!(
+            match paragraph.payload {
+                Payload::Text(ref text) => text.as_str(),
+                _ => "",
+            },
+            "RLHF has been applied to many domains successfully, with complexity increasing as the techniques have matured. Early breakthrough experiments with RLHF were applied to deep reinforcement learning [1], summarization [2], following instructions [3], parsing web information for question answering [4], and “alignment” [5]."
+        );
+    }
+}
