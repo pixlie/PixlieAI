@@ -29,19 +29,20 @@ pub struct Engine {
     // node_ids_by_label: Mutex<NodeIdsByLabel>,
     last_node_id: AtomicU32,
     project_id: String,
-    project_path_on_disk: PathBuf,
+    path_to_storage_dir: PathBuf,
 
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
     fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
 
     count_open_fetch_requests: AtomicU32,
+    arced_db: Option<Arc<DB>>,
 }
 
 impl Engine {
     fn new(
         project_id: String,
-        storage_root: PathBuf,
+        path_to_storage_dir: PathBuf,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
@@ -52,49 +53,38 @@ impl Engine {
             // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
             last_node_id: AtomicU32::new(0),
             project_id,
-            project_path_on_disk: storage_root,
+            path_to_storage_dir,
 
             my_pi_channel,
             main_channel_tx,
             fetcher_tx,
 
             count_open_fetch_requests: AtomicU32::new(0),
+            arced_db: None,
         };
         engine
     }
 
     pub fn open_project(
-        storage_root: &String,
+        path_to_storage_dir: PathBuf,
         project_id: &String,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
-        let mut storage_path = PathBuf::from(storage_root);
-        storage_path.push(format!("{}.rocksdb", project_id));
-        let mut engine = Engine::new(
+        Engine::new(
             project_id.clone(),
-            storage_path.clone(),
+            path_to_storage_dir,
             my_pi_channel,
             main_channel_tx,
             fetcher_tx,
-        );
-        engine.load_from_disk().unwrap();
-        engine
+        )
     }
 
     pub fn ticker(&self) {
         loop {
-            thread::sleep(Duration::from_millis(5000));
+            thread::sleep(Duration::from_millis(2000));
             self.process_nodes();
-            // match self.save_to_disk() {
-            //     Ok(_) => {}
-            //     Err(err) => {
-            //         error!("Error saving to disk: {}", err);
-            //         self.exit();
-            //         return;
-            //     }
-            // }
         }
     }
 
@@ -309,7 +299,38 @@ impl Engine {
         }
     }
 
-    fn save_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) -> PiResult<()> {
+    fn get_db_path(&self) -> PathBuf {
+        let mut path_to_storage_dir = self.path_to_storage_dir.clone();
+        path_to_storage_dir.push(format!("{}.rocksdb", self.project_id));
+        path_to_storage_dir
+    }
+
+    pub fn init_db(&mut self) -> PiResult<()> {
+        match DB::open_default(self.get_db_path().as_os_str()) {
+            Ok(db) => {
+                self.arced_db = Some(Arc::new(db));
+                Ok(())
+            }
+            Err(err) => {
+                error!("Cannot open DB for project: {}", err);
+                Err(PiError::InternalError(format!(
+                    "Cannot open DB for project: {}",
+                    err
+                )))
+            }
+        }
+    }
+
+    fn get_arced_db(&self) -> PiResult<Arc<DB>> {
+        match self.arced_db.as_ref() {
+            Some(db) => Ok(db.clone()),
+            None => Err(PiError::InternalError(
+                "Cannot get DB: DB is not initialized".to_string(),
+            )),
+        }
+    }
+
+    fn create_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) -> PiResult<()> {
         let arced_id = Arc::new(id);
 
         // Add the payload.to_string() to the labels
@@ -319,6 +340,7 @@ impl Engine {
         // Store the node in the engine
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
+                nodes.save_item_chunk_to_disk(self.get_arced_db()?, &id)?;
                 nodes.data.insert(
                     arced_id.clone(),
                     Arc::new(NodeItem {
@@ -330,7 +352,6 @@ impl Engine {
                         written_at: Utc::now(),
                     }),
                 );
-                nodes.save_item_chunk_to_disk(&self.get_db()?, &id)?;
             }
             Err(err) => {
                 error!("Error locking nodes: {}", err);
@@ -369,7 +390,7 @@ impl Engine {
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         };
 
-        match self.save_node(id, payload, labels) {
+        match self.create_node(id, payload, labels) {
             Ok(_) => {}
             Err(err) => {
                 error!("Error saving node: {}", err);
@@ -389,6 +410,8 @@ impl Engine {
         // Add a connection edge from the parent node to the new node and vice versa
         match self.edges.try_lock() {
             Ok(mut edges) => {
+                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
+                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
                 edges.data.entry(arced_node_ids.0.clone()).or_insert(vec![]);
                 edges.data.entry(arced_node_ids.1.clone()).or_insert(vec![]);
                 edges
@@ -396,37 +419,26 @@ impl Engine {
                     .get_mut(&arced_node_ids.0)
                     .unwrap()
                     .push((arced_node_ids.1.clone(), arced_edge_labels.0.clone()));
-                debug!(
-                    "Added {} edge from node {} to node {}",
-                    arced_edge_labels.0, node_ids.0, node_ids.1
-                );
                 edges
                     .data
                     .get_mut(&arced_node_ids.1)
                     .unwrap()
                     .push((arced_node_ids.0.clone(), arced_edge_labels.1.clone()));
-                debug!(
-                    "Added {} edge from node {} to node {}",
-                    arced_edge_labels.1, node_ids.1, node_ids.0
-                );
-                edges.save_item_chunk_to_disk(&self.get_db()?, &node_ids.0)?;
-                edges.save_item_chunk_to_disk(&self.get_db()?, &node_ids.1)?;
             }
             Err(err) => {
-                error!("Error locking edges: {}", err);
                 return Err(PiError::InternalError(format!(
                     "Error locking edges: {}",
                     err
                 )));
             }
         };
-        // self.tick_me_later();
         Ok(())
     }
 
     pub fn update_node(&self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
         match self.nodes.try_lock() {
             Ok(mut nodes) => {
+                nodes.save_item_chunk_to_disk(self.get_arced_db()?, node_id)?;
                 nodes.update_node(node_id, payload)?;
                 Ok(())
             }
@@ -458,45 +470,9 @@ impl Engine {
         }
     }
 
-    fn get_db(&self) -> PiResult<DB> {
-        match DB::open_default(self.project_path_on_disk.as_os_str()) {
-            Ok(db) => Ok(db),
-            Err(err) => {
-                error!("Error opening DB: {}", err);
-                Err(PiError::InternalError(format!("Error opening DB: {}", err)))
-            }
-        }
-    }
-
-    // fn save_to_disk(&self) -> PiResult<()> {
-    //     // We use RocksDB to store the graph
-    //     let db = self.get_db()?;
-    //     match self.nodes.try_lock() {
-    //         Ok(nodes) => {
-    //             nodes.save_all_to_disk(&db)?;
-    //         }
-    //         Err(err) => {
-    //             error!("Error locking nodes: {}", err);
-    //             return Err(PiError::InternalError(format!(
-    //                 "Error locking nodes: {}",
-    //                 err
-    //             )));
-    //         }
-    //     }
-    //     match self.edges.try_lock() {
-    //         Ok(edges) => {
-    //             edges.save_all_to_disk(&db)?;
-    //         }
-    //         Err(err) => {
-    //             error!("Error locking edges: {}", err);
-    //         }
-    //     }
-    //     Ok(())
-    // }
-
-    fn load_from_disk(&mut self) -> PiResult<()> {
+    pub fn load_from_disk(&mut self) -> PiResult<()> {
         let last_node_id = match self.nodes.lock() {
-            Ok(mut nodes) => nodes.load_all_from_disk(&self.project_path_on_disk.as_path())?,
+            Ok(mut nodes) => nodes.load_all_from_disk(&self.get_db_path())?,
             Err(err) => {
                 error!("Error locking nodes: {}", err);
                 return Err(PiError::InternalError(format!(
@@ -509,7 +485,7 @@ impl Engine {
             .store(last_node_id, std::sync::atomic::Ordering::Relaxed);
         match self.edges.lock() {
             Ok(mut edges) => {
-                edges.load_all_from_disk(&self.project_path_on_disk.as_path())?;
+                edges.load_all_from_disk(&self.get_db_path())?;
             }
             Err(err) => {
                 error!("Error locking edges: {}", err);

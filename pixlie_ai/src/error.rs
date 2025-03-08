@@ -59,13 +59,6 @@ pub enum PiError {
     #[error("Error from Actix Web Blocking Error: {0}")]
     ActixWebError(#[from] actix_web::error::BlockingError),
 
-    // #[error("Error reading guarded HashMap: {0}")]
-    // PoisonError(
-    //     #[from]
-    //     std::sync::PoisonError<
-    //         std::sync::RwLockReadGuard<'static, HashMap<NodeLabel, Vec<NodeId>>>,
-    //     >,
-    // ),
     #[error("Error in CRUD: {0}")]
     CrudError(String),
 
