@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@sentry/solid": "^8.55.0",
+    "@solid-primitives/resize-observer": "^2.1.0",
     "@solidjs/router": "^0.15.3",
     "marked": "^15.0.7",
     "prettier": "^3.5.3",

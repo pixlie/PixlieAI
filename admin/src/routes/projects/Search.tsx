@@ -6,6 +6,7 @@ import TextInput from "../../widgets/interactable/TextInput";
 import { APINodeItem } from "../../api_types/APINodeItem";
 import SearchResults from "../../widgets/node/SearchResult";
 import { IFormFieldValue } from "../../utils/types";
+import Collapsible from "../../widgets/interactable/Collapsible";
 
 interface IFormData {
   searchTerm: string;
@@ -49,6 +50,7 @@ const Search: Component = () => {
 
   const handleClickSavedSearchTerm = (data: string) => {
     setSearchTerm(data);
+    setFormData({ ...formData, searchTerm: data });
   };
 
   return (
@@ -64,21 +66,26 @@ const Search: Component = () => {
       />
 
       <Heading size={5}>Saved search terms</Heading>
-      <div class="flex flex-row space-x-2">
-        <For each={getSearchTerms()}>
-          {(node) => (
-            <span
-              class="bg-indigo-700 text-white px-2 rounded cursor-pointer"
-              onClick={() =>
-                handleClickSavedSearchTerm(node.payload.data as string)
-              }
-            >
-              {node.payload.data as string}
-            </span>
-          )}
-        </For>
-      </div>
-
+      <Collapsible expandText="See all search terms">
+        <div>
+          <For each={getSearchTerms()}>
+            {(node) => (
+              <span
+                class="inline-block mr-1 mb-1 px-2 rounded cursor-pointer"
+                classList={{
+                  "bg-gray-300 text-gray-900": !searchTerm() || (node.payload.data as string) !== searchTerm(),
+                  "bg-indigo-600 text-white": !!searchTerm() && (node.payload.data as string) === searchTerm(),
+                }}
+                onClick={() =>
+                  handleClickSavedSearchTerm(node.payload.data as string)
+                }
+              >
+                {node.payload.data as string}
+              </span>
+            )}
+          </For>
+        </div>
+      </Collapsible>
       {!!searchTerm() && (
         <>
           <Heading size={5}>Searching for {searchTerm()}</Heading>
