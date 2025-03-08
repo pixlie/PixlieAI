@@ -36,8 +36,24 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
     <>
       {!!getDomain() && getDomain()!.is_allowed_to_crawl ? (
         <>
-          <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-            {getDomain()!.name}
+          <span>
+            <span
+              class="w-[20px] inline-block text-center mr-2"
+              classList={{
+                [getColors()["textSuccess"]]: props.flags.includes(
+                  "IsProcessed" as APINodeFlags
+                ),
+                [getColors()["textMuted"]]: !props.flags.includes(
+                  "IsProcessed" as APINodeFlags
+                ),
+              }}
+            >
+              {props.flags.includes("IsProcessed" as APINodeFlags) ? "✓" : ""}
+              {props.flags.includes("IsRequesting" as APINodeFlags) ? "⌛" : ""}
+            </span>
+            <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
+              {getDomain()!.name}
+            </span>
           </span>
           <a
             href={`https://${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
@@ -49,13 +65,7 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
           >
             {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
           </a>
-          <span class="text-xs">
-            {/*{props.flags.includes("IsProcessed" as APINodeFlags) &&*/}
-            {/*!props.flags.includes("IsRequesting")*/}
-            {/*  ? "Fetched"*/}
-            {/*  : "Not Fetched"}*/}
-            {props.flags.join(", ")}
-          </span>
+          <span></span>
         </>
       ) : (
         <></>
