@@ -6,7 +6,7 @@ use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
-use std::process::exit;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use threadpool::ThreadPool;
@@ -25,7 +25,8 @@ fn main() {
                         ..Default::default()
                     },
                 ));
-                debug!("Sentry initialized for this CLI application, you can see errors at https://pixlie.sentry.io/issues/?project=4508832865648720");
+                debug!("Sentry initialized for this CLI application, you can see errors at \
+                https://pixlie.sentry.io/issues/?project=4508832865648720");
             }
         }
         Err(_) => {}
@@ -131,29 +132,43 @@ fn main() {
                         return;
                     }
                 };
-                let project_id = project_id.clone();
                 let settings: Settings = match Settings::get_cli_settings() {
                     Ok(settings) => settings,
                     Err(err) => {
                         error!("Error reading settings: {}", err);
-                        exit(1);
+                        return;
                     }
                 };
                 let path_to_storage_dir = match settings.path_to_storage_dir {
-                    Some(ref path) => path.clone(),
+                    Some(path) => PathBuf::from(path),
                     None => {
                         error!("Cannot find path to storage directory");
                         return;
                     }
                 };
 
-                let arced_engine = Arc::new(Engine::open_project(
-                    &path_to_storage_dir,
+                let mut engine = Engine::open_project(
+                    path_to_storage_dir,
                     &project_id,
                     my_pi_channel.clone(),
                     pi_channel_tx,
                     fetcher_tx,
-                ));
+                );
+                match engine.load_from_disk() {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error loading from disk: {}", err);
+                        return;
+                    }
+                };
+                match engine.init_db() {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Error initializing DB: {}", err);
+                        return;
+                    }
+                };
+                let arced_engine = Arc::new(engine);
                 {
                     let arced_engine = arced_engine.clone();
                     pool.execute(move || {

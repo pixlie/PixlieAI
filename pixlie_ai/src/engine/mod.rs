@@ -206,7 +206,36 @@ impl ExistingOrNewNodeId {
     }
 }
 
-pub(super) fn get_chunk_id_and_node_ids(id: &u32) -> (u32, Vec<u32>) {
-    let chunk_id = id / 100;
+pub(super) fn get_chunk_id_and_node_ids(node_id: &u32) -> (u32, Vec<u32>) {
+    let chunk_id = node_id / 100;
     (chunk_id, (chunk_id * 100..(chunk_id * 100 + 100)).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_chunk_id_and_node_ids() {
+        let node_id = 0;
+        let (chunk_id, node_ids) = get_chunk_id_and_node_ids(&node_id);
+        assert_eq!(chunk_id, 0);
+        assert_eq!(node_ids.len(), 100);
+        assert_eq!(node_ids[0], 0);
+        assert_eq!(node_ids[99], 99);
+
+        let node_id = 100;
+        let (chunk_id, node_ids) = get_chunk_id_and_node_ids(&node_id);
+        assert_eq!(chunk_id, 1);
+        assert_eq!(node_ids.len(), 100);
+        assert_eq!(node_ids[0], 100);
+        assert_eq!(node_ids[99], 199);
+
+        let node_id = 10011;
+        let (chunk_id, node_ids) = get_chunk_id_and_node_ids(&node_id);
+        assert_eq!(chunk_id, 100);
+        assert_eq!(node_ids.len(), 100);
+        assert_eq!(node_ids[0], 10000);
+        assert_eq!(node_ids[99], 10099);
+    }
 }

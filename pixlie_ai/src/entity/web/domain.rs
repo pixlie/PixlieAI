@@ -31,22 +31,14 @@ impl Node for Domain {
             Some(external_data) => match external_data {
                 ExternalData::Response(response) => {
                     // We have received the contents of the `robots.txt` from the previous request
-                    // debug!("Fetched robots.txt from {}", &self.name);
-                    let content_node_id = match engine.get_or_add_node(
-                        Payload::Text(response.contents),
-                        vec![CommonNodeLabels::RobotsTxt.to_string()],
-                        true,
-                        None,
-                    ) {
-                        Ok(existing_or_new_node_id) => match existing_or_new_node_id {
-                            ExistingOrNewNodeId::Existing(id) => id,
-                            ExistingOrNewNodeId::New(id) => id,
-                        },
-                        Err(err) => {
-                            error!("Error adding node: {}", err);
-                            return Err(err);
-                        }
-                    };
+                    let content_node_id = engine
+                        .get_or_add_node(
+                            Payload::Text(response.contents),
+                            vec![CommonNodeLabels::RobotsTxt.to_string()],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), content_node_id),
                         (
@@ -57,21 +49,15 @@ impl Node for Domain {
                     engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {
-                    let content_node_id = match engine.get_or_add_node(
-                        Payload::Text("".to_string()),
-                        vec![CommonNodeLabels::RobotsTxt.to_string()],
-                        true,
-                        None,
-                    ) {
-                        Ok(existing_or_new_node_id) => match existing_or_new_node_id {
-                            ExistingOrNewNodeId::Existing(id) => id,
-                            ExistingOrNewNodeId::New(id) => id,
-                        },
-                        Err(err) => {
-                            error!("Error adding node: {}", err);
-                            return Err(err);
-                        }
-                    };
+                    // TODO: Make sure to not save timeout or other errors as blank robots.txt
+                    let content_node_id = engine
+                        .get_or_add_node(
+                            Payload::Text("".to_string()),
+                            vec![CommonNodeLabels::RobotsTxt.to_string()],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
                     engine.add_connection(
                         (node_id.clone(), content_node_id),
                         (
@@ -124,9 +110,10 @@ impl Domain {
                     &CommonEdgeLabels::BelongsTo.to_string(),
                 )?;
                 let first_belongs_to = belongs_to.first().ok_or_else(|| {
-                    PiError::InternalError(
-                        format!("Could not find Domain node for given node with ID {}", node_id),
-                    )
+                    PiError::InternalError(format!(
+                        "Could not find Domain node for given node with ID {}",
+                        node_id
+                    ))
                 })?;
                 match engine.get_node_by_id(first_belongs_to) {
                     Some(node) => match node.payload {
