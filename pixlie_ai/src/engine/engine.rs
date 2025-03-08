@@ -266,6 +266,9 @@ impl Engine {
                 return;
             }
         };
+        if node_ids.len() > 200 {
+            return;
+        }
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
                 match node.payload {
@@ -481,8 +484,10 @@ impl Engine {
                 )));
             }
         };
-        self.last_node_id
-            .store(last_node_id, std::sync::atomic::Ordering::Relaxed);
+        if last_node_id != 0 {
+            self.last_node_id
+                .store(last_node_id + 1, std::sync::atomic::Ordering::Relaxed);
+        }
         match self.edges.lock() {
             Ok(mut edges) => {
                 edges.load_all_from_disk(&self.get_db_path())?;

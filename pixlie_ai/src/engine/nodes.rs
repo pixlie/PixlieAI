@@ -3,9 +3,9 @@ use crate::engine::{
 };
 use crate::error::{PiError, PiResult};
 use chrono::Utc;
-use log::error;
+use log::{error, info};
 use postcard::{from_bytes, to_allocvec};
-use rocksdb::{Options, SliceTransform, DB};
+use rocksdb::{ErrorKind, Options, SliceTransform, DB};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,10 +28,19 @@ impl Nodes {
         // in the chunk corresponding to the node ID divided by 100
         // Create a chunk of data from the start node ID to the end node ID of this chunk
         let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
-        let chunk: Vec<(&NodeId, &ArcedNodeItem)> = node_ids
+        let chunk: Vec<(NodeId, NodeItem)> = node_ids
             .iter()
             .filter_map(|x_node_id| match self.data.get(x_node_id) {
-                Some(node) => Some((x_node_id, node)),
+                Some(node) => Some((
+                    *x_node_id,
+                    NodeItem {
+                        id: *x_node_id,
+                        payload: node.payload.clone(),
+                        labels: node.labels.clone(),
+                        flags: node.flags.clone(),
+                        written_at: node.written_at.clone(),
+                    },
+                )),
                 None => None,
             })
             .collect();
@@ -39,24 +48,38 @@ impl Nodes {
             format!("{}{}", NODES_CHUNK_PREFIX, chunk_id),
             to_allocvec(&chunk)?,
         )?;
-        // debug!("Saved chunk {} of length {} to DB", chunk_id, chunk.len());
         Ok(())
     }
 
     pub(super) fn load_all_from_disk(&mut self, db_path: &PathBuf) -> PiResult<u32> {
         let prefix_extractor = SliceTransform::create_fixed_prefix(NODES_CHUNK_PREFIX.len());
         let mut opts = Options::default();
-        // TODO: Remove this and make sure that loading from disk is not called for new projects
-        opts.create_if_missing(true);
+        opts.create_if_missing(false);
         opts.set_prefix_extractor(prefix_extractor);
-        let db = DB::open(&opts, db_path)?;
+        let db = match DB::open(&opts, db_path) {
+            Ok(db) => db,
+            Err(err) => {
+                return if err.kind() == ErrorKind::InvalidArgument
+                    && err.to_string().contains("does not exist")
+                {
+                    Ok(0)
+                } else {
+                    Err(PiError::InternalError(
+                        "Database does not exist".to_string(),
+                    ))
+                }
+            }
+        };
         let mut last_node_id: NodeId = 0;
         for chunk in db.prefix_iterator(NODES_CHUNK_PREFIX) {
             match chunk {
                 Ok(chunk) => {
                     let data: Vec<(NodeId, NodeItem)> = from_bytes(&chunk.1)?;
                     last_node_id = data.last().unwrap().0;
-                    for (node_id, node) in data {
+                    for (node_id, mut node) in data {
+                        if node.flags.contains(NodeFlags::IS_REQUESTING) {
+                            node.flags.toggle(NodeFlags::IS_REQUESTING);
+                        }
                         self.data.insert(Arc::new(node_id), Arc::new(node));
                     }
                 }
