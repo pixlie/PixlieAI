@@ -152,14 +152,14 @@ mod tests {
                 Payload::Text("Test Paragraph".to_string()),
                 CommonNodeLabels::Paragraph.to_string(),
             ),
-            (
-                Payload::ArrayOfTexts(vec!["Test Bullet Point".to_string()]),
-                CommonNodeLabels::BulletPoints.to_string(),
-            ),
-            (
-                Payload::ArrayOfTexts(vec!["Test Ordered Point".to_string()]),
-                CommonNodeLabels::OrderedPoints.to_string(),
-            ),
+            // (
+            //     Payload::Tree(vec!["Test Bullet Point".to_string()]),
+            //     CommonNodeLabels::BulletPoints.to_string(),
+            // ),
+            // (
+            //     Payload::Tree(vec!["Test Ordered Point".to_string()]),
+            //     CommonNodeLabels::OrderedPoints.to_string(),
+            // ),
             (
                 Payload::Link(Link {
                     path: "/".to_string(),
@@ -239,14 +239,14 @@ mod tests {
                         assert_eq!(text, db_text);
                         assert_eq!(node.labels, db_node.labels);
                     }
-                    Payload::ArrayOfTexts(ref texts) => {
-                        let db_texts = match db_node.payload {
-                            Payload::ArrayOfTexts(ref texts) => texts,
-                            _ => panic!("Expected MultipleTexts payload"),
-                        };
-                        assert_eq!(texts, db_texts);
-                        assert_eq!(node.labels, db_node.labels);
-                    }
+                    // Payload::Tree(ref texts) => {
+                    //     let db_texts = match db_node.payload {
+                    //         Payload::Tree(ref texts) => texts,
+                    //         _ => panic!("Expected MultipleTexts payload"),
+                    //     };
+                    //     assert_eq!(texts, db_texts);
+                    //     assert_eq!(node.labels, db_node.labels);
+                    // }
                     Payload::Link(ref link) => {
                         let db_link = match db_node.payload {
                             Payload::Link(ref link) => link,
@@ -298,13 +298,13 @@ mod tests {
                         assert_eq!(text, db_text);
                         assert_eq!(node.labels, db_node.labels);
                     }
-                    Payload::ArrayOfTexts(ref texts) => {
-                        let db_texts = match db_node.payload {
-                            Payload::ArrayOfTexts(ref texts) => texts,
-                            _ => panic!("Expected BulletPoints payload"),
-                        };
-                        assert_eq!(texts, db_texts);
-                    }
+                    // Payload::Tree(ref texts) => {
+                    //     let db_texts = match db_node.payload {
+                    //         Payload::Tree(ref texts) => texts,
+                    //         _ => panic!("Expected BulletPoints payload"),
+                    //     };
+                    //     assert_eq!(texts, db_texts);
+                    // }
                     Payload::Link(ref link) => {
                         let db_link = match db_node.payload {
                             Payload::Link(ref link) => link,

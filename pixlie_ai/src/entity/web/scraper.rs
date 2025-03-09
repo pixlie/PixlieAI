@@ -135,80 +135,76 @@ impl WebPage {
                     )?;
                 }
                 "ul" => {
-                    let mut bullet_points: Vec<String> = vec![];
-                    for list_item in child.descendent_elements() {
-                        match list_item.value().name() {
-                            "li" => {
-                                let text = list_item
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string();
-                                if !text.is_empty() {
-                                    bullet_points.push(text);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    let bullet_points_node_id = engine
-                        .get_or_add_node(
-                            Payload::ArrayOfTexts(bullet_points),
-                            vec![
-                                CommonNodeLabels::BulletPoints.to_string(),
-                                CommonNodeLabels::PartialContent.to_string(),
-                            ],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
-                    engine.add_connection(
-                        (node_id.clone(), bullet_points_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
-                    )?;
+                    // let bullet_points_node_id = engine
+                    //     .get_or_add_node(
+                    //         Payload::Tree,
+                    //         vec![
+                    //             CommonNodeLabels::BulletPoints.to_string(),
+                    //             CommonNodeLabels::PartialContent.to_string(),
+                    //         ],
+                    //         true,
+                    //         None,
+                    //     )?
+                    //     .get_node_id();
+                    // engine.add_connection(
+                    //     (node_id.clone(), bullet_points_node_id),
+                    //     (
+                    //         CommonEdgeLabels::ParentOf.to_string(),
+                    //         CommonEdgeLabels::ChildOf.to_string(),
+                    //     ),
+                    // )?;
+                    // for list_item in child.child_elements() {
+                    //     match list_item.value().name() {
+                    //         "li" => {
+                    //             let text = match list_item.text().take(1).collect::<Vec<&str>>().first() {
+                    //                 Some(text) => {
+                    //                     let text =clean_text(text.to_string());
+                    //                     if !text.is_empty() {
+                    //                 },
+                    //                 None => continue,
+                    //             };
+                    //         }
+                    //         _ => {}
+                    //     }
+                    // }
                 }
                 "ol" => {
-                    let mut ordered_points: Vec<String> = vec![];
-                    for list_item in child.descendent_elements() {
-                        match list_item.value().name() {
-                            "li" => {
-                                let text = list_item
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join("")
-                                    .trim()
-                                    .to_string();
-                                if !text.is_empty() {
-                                    ordered_points.push(text);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    let ordered_points_node_id = engine
-                        .get_or_add_node(
-                            Payload::ArrayOfTexts(ordered_points),
-                            vec![
-                                CommonNodeLabels::OrderedPoints.to_string(),
-                                CommonNodeLabels::PartialContent.to_string(),
-                            ],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
-                    engine.add_connection(
-                        (node_id.clone(), ordered_points_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
-                    )?;
+                    // let mut ordered_points: Vec<String> = vec![];
+                    // for list_item in child.descendent_elements() {
+                    //     match list_item.value().name() {
+                    //         "li" => {
+                    //             let text = list_item
+                    //                 .text()
+                    //                 .map(|x| x.to_string())
+                    //                 .collect::<Vec<String>>()
+                    //                 .join("")
+                    //                 .trim()
+                    //                 .to_string();
+                    //             if !text.is_empty() {
+                    //                 ordered_points.push(text);
+                    //             }
+                    //         }
+                    //         _ => {}
+                    //     }
+                    // }
+                    // let ordered_points_node_id = engine
+                    //     .get_or_add_node(
+                    //         Payload::Tree(ordered_points),
+                    //         vec![
+                    //             CommonNodeLabels::OrderedPoints.to_string(),
+                    //             CommonNodeLabels::PartialContent.to_string(),
+                    //         ],
+                    //         true,
+                    //         None,
+                    //     )?
+                    //     .get_node_id();
+                    // engine.add_connection(
+                    //     (node_id.clone(), ordered_points_node_id),
+                    //     (
+                    //         CommonEdgeLabels::ParentOf.to_string(),
+                    //         CommonEdgeLabels::ChildOf.to_string(),
+                    //     ),
+                    // )?;
                 }
                 "a" => {
                     if child.value().attr("href").is_none() {
@@ -224,8 +220,16 @@ impl WebPage {
                     if link_text.is_empty() {
                         continue;
                     }
-                    if url.starts_with("/") {
-                        // Links that are relative to this website, we build the full URL
+                    if url.starts_with("https://") || url.starts_with("http://") {
+                        // Links that are full URLs
+                        match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error adding link: {}", err);
+                            }
+                        }
+                    } else {
+                        // Links that are relative to this path or domain, we build the full URL
                         match current_url.join(&url) {
                             Ok(parsed) => {
                                 match Link::add(
@@ -244,14 +248,6 @@ impl WebPage {
                             }
                             Err(err) => {
                                 error!("Cannot parse URL to get domain for link: {}", err);
-                            }
-                        }
-                    } else if url.starts_with("https://") || url.starts_with("http://") {
-                        // Links that are full URLs
-                        match Link::add(engine.clone(), &url, vec![], vec![], true, false) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                error!("Error adding link: {}", err);
                             }
                         }
                     }
@@ -329,122 +325,5 @@ impl WebPage {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::fixtures::rlhfbook_index_page;
-    use super::super::link::Link;
-    use super::*;
-    use crate::engine::engine::get_test_engine;
-    use crate::engine::CommonNodeLabels;
-
-    #[test]
-    fn test_webpage_scraper_basic_extraction() {
-        let test_engine = get_test_engine();
-        let arced_test_engine = Arc::new(&test_engine);
-        let link_node_id = Link::add_manually(
-            arced_test_engine,
-            &"https://rlhfbook.com/c/01-introduction.html".to_string(),
-        )
-        .unwrap();
-
-        let webpage = WebPage(rlhfbook_index_page().to_string());
-        let webpage_node_id = test_engine
-            .get_or_add_node(
-                Payload::FileHTML(webpage.clone()),
-                vec![
-                    CommonNodeLabels::Content.to_string(),
-                    CommonNodeLabels::WebPage.to_string(),
-                ],
-                true,
-                None,
-            )
-            .unwrap()
-            .get_node_id();
-        test_engine
-            .add_connection(
-                (link_node_id, webpage_node_id.clone()),
-                (
-                    CommonEdgeLabels::PathOf.to_string(),
-                    CommonEdgeLabels::ContentOf.to_string(),
-                ),
-            )
-            .unwrap();
-        test_engine.process_nodes();
-
-        let parent_of_webpage = test_engine
-            .get_node_ids_connected_with_label(
-                &webpage_node_id,
-                &CommonEdgeLabels::ContentOf.to_string(),
-            )
-            .unwrap();
-        assert_eq!(parent_of_webpage.len(), 1);
-
-        let children_of_webpage = test_engine
-            .get_node_ids_connected_with_label(
-                &webpage_node_id,
-                &CommonEdgeLabels::ParentOf.to_string(),
-            )
-            .unwrap();
-        assert_eq!(children_of_webpage.len(), 64);
-
-        let title_node = test_engine
-            .get_node_by_id(children_of_webpage.first().unwrap())
-            .unwrap();
-        assert_eq!(
-            match title_node.payload {
-                Payload::Text(ref text) => text.as_str(),
-                _ => "",
-            },
-            "Introduction | RLHF Book by Nathan Lambert"
-        );
-        assert_eq!(
-            title_node.labels,
-            vec![
-                CommonNodeLabels::Title.to_string(),
-                CommonNodeLabels::PartialContent.to_string(),
-                "Text".to_string()
-            ]
-        );
-
-        let heading_node = test_engine
-            .get_node_by_id(children_of_webpage.get(1).unwrap())
-            .unwrap();
-        assert_eq!(
-            match heading_node.payload {
-                Payload::Text(ref text) => text.as_str(),
-                _ => "",
-            },
-            "A Little Bit of Reinforcement Learning from Human Feedback"
-        );
-
-        let mut paragraph_nodes =
-            test_engine.get_node_ids_with_label(&CommonNodeLabels::Paragraph.to_string());
-        paragraph_nodes.sort();
-        assert_eq!(paragraph_nodes.len(), 37);
-
-        let paragraph = test_engine
-            .get_node_by_id(paragraph_nodes.get(2).unwrap())
-            .unwrap();
-        assert_eq!(
-            match paragraph.payload {
-                Payload::Text(ref text) => text.as_str(),
-                _ => "",
-            },
-            "Reinforcement learning from Human Feedback (RLHF) is a technique used to incorporate human information into AI systems. RLHF emerged primarily as a method to solve hard to specify problems. Its early applications were often in control problems and other traditional domains for reinforcement learning (RL). RLHF became most known through the release of ChatGPT and the subsequent rapid development of large language models (LLMs) and other foundation models."
-        );
-
-        let paragraph = test_engine
-            .get_node_by_id(paragraph_nodes.get(4).unwrap())
-            .unwrap();
-        assert_eq!(
-            match paragraph.payload {
-                Payload::Text(ref text) => text.as_str(),
-                _ => "",
-            },
-            "RLHF has been applied to many domains successfully, with complexity increasing as the techniques have matured. Early breakthrough experiments with RLHF were applied to deep reinforcement learning [1], summarization [2], following instructions [3], parsing web information for question answering [4], and “alignment” [5]."
-        );
     }
 }

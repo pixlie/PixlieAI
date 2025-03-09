@@ -80,12 +80,12 @@ pub enum APIPayload {
     Domain(Domain),
     Link(Link),
     Text(String),
-    ArrayOfTexts(Vec<String>),
+    Tree(String),
     FileHTML(String),
     Table(Table),
     TableRow(TableRow),
     SearchTerm(SearchTerm),
-    Topic(Topic)
+    Topic(Topic),
 }
 
 impl APIPayload {
@@ -95,7 +95,8 @@ impl APIPayload {
             Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
             Payload::Text(text) => APIPayload::Text(text),
-            Payload::ArrayOfTexts(texts) => APIPayload::ArrayOfTexts(texts),
+            // The empty string is garbage, just to keep the type system happy
+            Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
             Payload::Table(table) => APIPayload::Table(table),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
