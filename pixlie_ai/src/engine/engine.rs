@@ -540,24 +540,26 @@ impl Engine {
 
     pub fn get_node_ids_connected_with_label(
         &self,
-        starting_node_id: &NodeId,
-        label: &EdgeLabel,
+        my_node_id: &NodeId,
+        my_edge_to_other: &EdgeLabel,
     ) -> PiResult<Vec<ArcedNodeId>> {
         match self.edges.try_lock() {
             Ok(edges) => {
-                let mut connnected_node_ids: Vec<ArcedNodeId> = vec![];
+                let mut connected_node_ids: Vec<ArcedNodeId> = vec![];
 
-                match edges.data.get(starting_node_id) {
+                match edges.data.get(my_node_id) {
                     Some(edges_from_node) => {
                         for (node_id, node_label) in edges_from_node {
-                            if **node_label == *label && !connnected_node_ids.contains(node_id) {
-                                connnected_node_ids.push(node_id.clone());
+                            if **node_label == *my_edge_to_other
+                                && !connected_node_ids.contains(node_id)
+                            {
+                                connected_node_ids.push(node_id.clone());
                             }
                         }
                     }
                     None => {}
                 };
-                Ok(connnected_node_ids)
+                Ok(connected_node_ids)
             }
             Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
         }
