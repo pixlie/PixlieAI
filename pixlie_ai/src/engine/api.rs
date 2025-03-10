@@ -1,5 +1,5 @@
 use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
-use crate::entity::content::{Table, TableRow};
+use crate::entity::content::TableRow;
 use crate::entity::search::SearchTerm;
 use crate::entity::topic::Topic;
 use crate::entity::web::domain::Domain;
@@ -82,7 +82,6 @@ pub enum APIPayload {
     Text(String),
     Tree(String),
     FileHTML(String),
-    Table(Table),
     TableRow(TableRow),
     SearchTerm(SearchTerm),
     Topic(Topic),
@@ -98,7 +97,6 @@ impl APIPayload {
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
-            Payload::Table(table) => APIPayload::Table(table),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
             Payload::SearchTerm(search_term) => APIPayload::SearchTerm(search_term),
             Payload::Topic(topic) => APIPayload::Topic(topic),

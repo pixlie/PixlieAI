@@ -5,11 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::entity::{
-    content::{Table, TableRow},
-    topic::Topic,
-    workflow::WorkflowStep,
-};
+use crate::entity::{content::TableRow, topic::Topic, workflow::WorkflowStep};
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -42,7 +38,6 @@ pub enum Payload {
     Text(String),
     Tree, // Tree can contain nodes of any payload type, including other trees
     FileHTML(WebPage),
-    Table(Table),
     TableRow(TableRow),
     SearchTerm(SearchTerm),
     Topic(Topic),
@@ -64,17 +59,18 @@ pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 #[ts(export)]
 pub enum CommonNodeLabels {
     AddedByUser,
-    BulletPoints,
     Content,
     Domain,
     Heading,
     Link,
+    ListItem,
     OrderedPoints,
     Paragraph,
-    PartialContent,
+    Partial,
     RobotsTxt,
     SearchTerm,
     Title,
+    UnorderedPoints,
     WebPage,
 }
 
