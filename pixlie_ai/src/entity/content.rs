@@ -49,9 +49,3 @@ pub enum CellData {
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct TableRow(pub Vec<CellData>);
-
-// Headings are part of Table node
-// Has part nodes to TableRow(s)
-#[derive(Clone, Deserialize, Serialize, TS)]
-#[ts(export)]
-pub struct Table(pub Vec<String>);

@@ -27,3 +27,6 @@ src/config/test.toml
 # TS bindings should not be here; created when running `cargo test`
 # Run gen_ts_api_types.sh in project root to generate TS types
 bindings/
+
+# Not including local cargo config for now
+.cargo/
