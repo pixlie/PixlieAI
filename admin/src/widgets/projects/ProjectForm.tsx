@@ -11,31 +11,24 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import { SearchTerm } from "../../api_types/SearchTerm.ts";
 import { Topic } from "../../api_types/Topic.ts";
-
+import Paragraph from "../typography/Paragraph.tsx";
 
 interface IProjectFormData {
-  name: string;
-  description: string;
+  objective: string;
   startingURLs: string; // One per line
-  topics: string;
-  searchTerms: string; // One per line
 }
 
 const ProjectForm: Component = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = createSignal<IProjectFormData>({
-    name: "",
-    description: "",
+    objective: "",
     startingURLs: "",
-    topics: "",
-    searchTerms: "",
   });
-  const title = "Create a project";
+  const title = "Start a web research project";
   const subtitle =
-    "Create a project to crawl website(s); monitor keywords or semantic information and extract them.";
+    "Set an objective which will guide the crawler and data extraction.";
 
   const handleChange = (name: string, value: IFormFieldValue) => {
     setFormData({
@@ -51,10 +44,7 @@ const ProjectForm: Component = () => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name: formData().name,
-        description: formData().description,
-      } as ProjectCreate),
+      body: JSON.stringify({} as ProjectCreate),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save settings");
@@ -68,17 +58,10 @@ const ProjectForm: Component = () => {
             } as LinkWrite,
           } as NodeWrite);
         }
-        for (const topic of formData().topics.split(/[\r\n]+/)) {
+        for (const topic of formData().objective.split(/[\r\n]+/)) {
           if (!!topic) {
             insertNode(item.uuid, {
               Topic: topic as Topic,
-            } as NodeWrite);
-          }
-        }
-        for (const searchTerm of formData().searchTerms.split(/[\r\n]+/)) {
-          if (!!searchTerm) {
-            insertNode(item.uuid, {
-              SearchTerm: searchTerm as SearchTerm,
             } as NodeWrite);
           }
         }
@@ -91,48 +74,35 @@ const ProjectForm: Component = () => {
   const Content: Component = () => {
     return (
       <div class="space-y-8">
+        <Paragraph size="sm">
+          What do you want to extract from the web? You may state this in plain
+          English. Feel free to use keywords, topics, or search terms. Pixlie
+          will crawl the web and extract information that relates to your
+          objective.
+        </Paragraph>
+
         <div>
-          <Label label="Project name" for="createProjectName" />
-          <TextInput
-            id="createProjectName"
-            name="name"
+          <Label label="Objective" for="projectObjective" />
+          <TextArea
+            id="projectObjective"
+            name="objective"
             isEditable
             onChange={handleChange}
-            value={formData().name}
-            autocomplete={false}
+            value={formData().objective}
           />
         </div>
 
         <div>
-          <Label label={`Starting URLs (one per line)`} for="createProjectStartingURLs" />
+          <Label
+            label={`Starting URLs (optional, one per line)`}
+            for="createProjectStartingURLs"
+          />
           <TextArea
             id="createProjectStartingURLs"
             name="startingURLs"
             isEditable
             onChange={handleChange}
             value={formData().startingURLs}
-          />
-        </div>
-
-        <div>
-          <Label label="Topics to track (one per line)" for="createProjectTopics" />
-          <TextArea
-            id="createProjectTopics"
-            name="topics"
-            isEditable
-            onChange={handleChange}
-            value={formData().topics}
-          />
-        </div>
-
-        <div>
-          <Label label="Search terms of interest (one per line)" for="createProjectSearchTerms" />
-          <TextArea
-            id="createProjectSearchTerms"
-            name="searchTerms"
-            isEditable
-            onChange={handleChange}
-            value={formData().searchTerms}
           />
         </div>
       </div>

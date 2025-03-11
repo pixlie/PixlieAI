@@ -19,28 +19,29 @@ use crate::{
 
 #[derive(Clone, Deserialize, Serialize, TS)]
 #[ts(export)]
-pub struct Topic(pub String);
+pub struct Objective(pub String);
 
-impl Topic {
+impl Objective {
     pub fn add_manually(engine: Arc<&Engine>, topic: &String) -> PiResult<()> {
         engine.get_or_add_node(
-            Payload::Topic(Topic(topic.to_string())),
+            Payload::Objective(Objective(topic.to_string())),
             vec![CommonNodeLabels::AddedByUser.to_string()],
             true,
             None,
         )?;
         Ok(())
     }
+    
     pub fn find_existing(
         engine: Arc<&Engine>,
         topic: &String,
     ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
         let existing_node_ids: Vec<ArcedNodeId> =
-            engine.get_node_ids_with_label(&Topic::get_label());
+            engine.get_node_ids_with_label(&Objective::get_label());
         for node_id in existing_node_ids {
             match engine.get_node_by_id(&node_id) {
                 Some(node) => match &node.payload {
-                    Payload::Topic(payload) => {
+                    Payload::Objective(payload) => {
                         if &payload.0 == topic {
                             return Ok(Some((node, node_id)));
                         }
@@ -54,7 +55,7 @@ impl Topic {
     }
 }
 
-impl Node for Topic {
+impl Node for Objective {
     fn get_label() -> String {
         "Topic".to_string()
     }
