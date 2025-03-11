@@ -2,19 +2,8 @@
 import type { Domain } from "./Domain";
 import type { Link } from "./Link";
 import type { SearchTerm } from "./SearchTerm";
-import type { Table } from "./Table";
 import type { TableRow } from "./TableRow";
 import type { Topic } from "./Topic";
 import type { WorkflowStep } from "./WorkflowStep";
 
-export type APIPayload =
-  | { type: "Step"; data: WorkflowStep }
-  | { type: "Domain"; data: Domain }
-  | { type: "Link"; data: Link }
-  | { type: "Text"; data: string }
-  | { type: "ArrayOfTexts"; data: Array<string> }
-  | { type: "FileHTML"; data: string }
-  | { type: "Table"; data: Table }
-  | { type: "TableRow"; data: TableRow }
-  | { type: "SearchTerm"; data: SearchTerm }
-  | { type: "Topic"; data: Topic };
+export type APIPayload = { "type": "Step", "data": WorkflowStep } | { "type": "Domain", "data": Domain } | { "type": "Link", "data": Link } | { "type": "Text", "data": string } | { "type": "Tree", "data": string } | { "type": "FileHTML", "data": string } | { "type": "TableRow", "data": TableRow } | { "type": "SearchTerm", "data": SearchTerm } | { "type": "Topic", "data": Topic };

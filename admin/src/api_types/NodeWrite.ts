@@ -3,7 +3,4 @@ import type { LinkWrite } from "./LinkWrite";
 import type { SearchTerm } from "./SearchTerm";
 import type { Topic } from "./Topic";
 
-export type NodeWrite =
-  | { Link: LinkWrite }
-  | { SearchTerm: SearchTerm }
-  | { Topic: Topic };
+export type NodeWrite = { "Link": LinkWrite } | { "SearchTerm": SearchTerm } | { "Topic": Topic };

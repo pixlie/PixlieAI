@@ -2,10 +2,4 @@
 import type { APINodeFlags } from "./APINodeFlags";
 import type { APIPayload } from "./APIPayload";
 
-export type APINodeItem = {
-  id: number;
-  labels: Array<string>;
-  payload: APIPayload;
-  flags: Array<APINodeFlags>;
-  written_at: string;
-};
+export type APINodeItem = { id: number, labels: Array<string>, payload: APIPayload, flags: Array<APINodeFlags>, written_at: string, };
