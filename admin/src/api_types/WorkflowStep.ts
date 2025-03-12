@@ -2,4 +2,7 @@
 import type { WorkflowCondition } from "./WorkflowCondition";
 import type { WorkflowProcess } from "./WorkflowProcess";
 
-export type WorkflowStep = { process: WorkflowProcess, conditions: WorkflowCondition, };
+export type WorkflowStep = {
+  process: WorkflowProcess;
+  conditions: WorkflowCondition;
+};

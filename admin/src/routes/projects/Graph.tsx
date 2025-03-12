@@ -3,6 +3,7 @@ import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
 import Heading from "../../widgets/typography/Heading.tsx";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
 
 const labelTypes: string[] = [
   "Title",
@@ -36,7 +37,7 @@ const Graph: Component = () => {
       // Only select nodes that have AddedByUser label
       if (typeof searchParams.label === "string") {
         return Object.values(getProject()!.nodes)
-          .filter((x) => x.labels.includes(searchParams.label as string))
+          .filter((x) => x.labels.includes(searchParams.label as NodeLabel))
           .map((x) => x.id);
       } else if (Array.isArray(searchParams.label)) {
         return Object.values(getProject()!.nodes)

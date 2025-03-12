@@ -1,6 +1,7 @@
 use crate::utils::crud::{Crud, CrudItem};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use crate::error::PiResult;
 
 pub mod api;
 
@@ -34,6 +35,23 @@ impl CrudItem for Workspace {
 }
 
 pub struct WorkspaceCollection {}
+
+impl WorkspaceCollection {
+    pub fn get_default() -> PiResult<Workspace> {
+        let items = Self::read_list()?;
+        if items.len() == 0 {
+            let item: Workspace = Workspace {
+                uuid: uuid::Uuid::new_v4().to_string(),
+                name: "Default".to_string(),
+                description: None,
+                anthropic_api_key: None,
+            };
+            Ok(WorkspaceCollection::create(item)?)
+        } else {
+            Ok(items[0].clone())
+        }
+    }
+}
 
 impl Crud for WorkspaceCollection {
     type Item = Workspace;

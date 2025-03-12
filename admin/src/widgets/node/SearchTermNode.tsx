@@ -2,7 +2,6 @@ import { Component, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { useParams } from "@solidjs/router";
 import { IEngine, INodeItemDisplayProps } from "../../utils/types";
-import { SearchTerm } from "../../api_types/SearchTerm";
 
 const SearchTermNode: Component<INodeItemDisplayProps> = (props) => {
   const [engine] = useEngine();
@@ -15,9 +14,9 @@ const SearchTermNode: Component<INodeItemDisplayProps> = (props) => {
     return undefined;
   });
 
-  const getPayload = createMemo<SearchTerm | undefined>(() => {
+  const getPayload = createMemo<string | undefined>(() => {
     if (getProject() && props.nodeId in getProject()!.nodes) {
-      return getProject()!.nodes[props.nodeId].payload.data as SearchTerm;
+      return getProject()!.nodes[props.nodeId].payload.data as string;
     }
     return undefined;
   });

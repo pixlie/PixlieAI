@@ -76,6 +76,9 @@ pub enum PiError {
 
     #[error("Feature is not available: {0}")]
     NotAvailable(String),
+
+    #[error("Could not parse NodeLabel from string: {0}")]
+    CouldNotParseNodeLabel(#[from] strum::ParseError),
 }
 
 impl ResponseError for PiError {

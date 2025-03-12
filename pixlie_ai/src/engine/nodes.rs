@@ -1,6 +1,5 @@
-use crate::engine::{
-    get_chunk_id_and_node_ids, ArcedNodeId, ArcedNodeItem, NodeFlags, NodeId, NodeItem, Payload,
-};
+use crate::engine::node::{ArcedNodeId, ArcedNodeItem, NodeId, NodeItem, Payload};
+use crate::engine::{get_chunk_id_and_node_ids, NodeFlags};
 use crate::error::{PiError, PiResult};
 use chrono::Utc;
 use log::error;
@@ -126,8 +125,9 @@ impl Nodes {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::node::{NodeLabel, Payload};
     use crate::engine::nodes::Nodes;
-    use crate::engine::{CommonNodeLabels, NodeFlags, Payload};
+    use crate::engine::NodeFlags;
     use crate::entity::search::SearchTerm;
     use crate::entity::web::domain::Domain;
     use crate::entity::web::link::Link;
@@ -139,18 +139,15 @@ mod tests {
     #[test]
     fn test_save_to_disk_and_load_from_disk() {
         let mut node_id: NodeId = 0;
-        let payloads: Vec<(Payload, String)> = vec![
-            (
-                Payload::Text("Test Title".to_string()),
-                CommonNodeLabels::Title.to_string(),
-            ),
+        let payloads: &[(Payload, &[NodeLabel])] = &[
+            (Payload::Text("Test Title".to_string()), &[NodeLabel::Title]),
             (
                 Payload::Text("Test Heading".to_string()),
-                CommonNodeLabels::Heading.to_string(),
+                &[NodeLabel::Heading],
             ),
             (
                 Payload::Text("Test Paragraph".to_string()),
-                CommonNodeLabels::Paragraph.to_string(),
+                &[NodeLabel::Paragraph],
             ),
             // (
             //     Payload::Tree(vec!["Test Bullet Point".to_string()]),
@@ -165,23 +162,17 @@ mod tests {
                     path: "/".to_string(),
                     ..Default::default()
                 }),
-                CommonNodeLabels::Link.to_string(),
+                &[NodeLabel::Link],
             ),
             (
-                Payload::FileHTML(WebPage("<html></html>".to_string())),
-                CommonNodeLabels::WebPage.to_string(),
+                Payload::Text("<html></html>".to_string()),
+                &[NodeLabel::WebPage, NodeLabel::Content],
             ),
             (
-                Payload::Domain(Domain {
-                    name: "google.com".to_string(),
-                    ..Default::default()
-                }),
-                CommonNodeLabels::Domain.to_string(),
+                Payload::Text("google.com".to_string()),
+                &[NodeLabel::Domain],
             ),
-            (
-                Payload::SearchTerm(SearchTerm("test".to_string())),
-                CommonNodeLabels::SearchTerm.to_string(),
-            ),
+            (Payload::Text("test".to_string()), &[NodeLabel::SearchTerm]),
         ];
 
         let nodes: Vec<NodeItem> = payloads
@@ -190,7 +181,7 @@ mod tests {
                 let node = NodeItem {
                     id: node_id,
                     payload: payload.0.clone(),
-                    labels: vec![payload.1.clone()],
+                    labels: payload.1.to_vec(),
                     flags: NodeFlags::default(),
                     written_at: Utc::now(),
                 };
@@ -255,21 +246,6 @@ mod tests {
                         assert_eq!(link.path, db_link.path);
                         assert_eq!(link.query, db_link.query);
                     }
-                    Payload::Domain(ref domain) => {
-                        let db_domain = match db_node.payload {
-                            Payload::Domain(ref domain) => domain,
-                            _ => panic!("Expected Domain payload"),
-                        };
-                        assert_eq!(domain.name, db_domain.name);
-                        assert_eq!(domain.is_allowed_to_crawl, db_domain.is_allowed_to_crawl);
-                    }
-                    Payload::FileHTML(ref web_page) => {
-                        let db_web_page = match db_node.payload {
-                            Payload::FileHTML(ref web_page) => web_page,
-                            _ => panic!("Expected FileHTML payload"),
-                        };
-                        assert_eq!(web_page.0, db_web_page.0);
-                    }
                     _ => {}
                 }
             }
@@ -312,21 +288,6 @@ mod tests {
                         };
                         assert_eq!(link.path, db_link.path);
                         assert_eq!(link.query, db_link.query);
-                    }
-                    Payload::Domain(ref domain) => {
-                        let db_domain = match db_node.payload {
-                            Payload::Domain(ref domain) => domain,
-                            _ => panic!("Expected Domain payload"),
-                        };
-                        assert_eq!(domain.name, db_domain.name);
-                        assert_eq!(domain.is_allowed_to_crawl, db_domain.is_allowed_to_crawl);
-                    }
-                    Payload::FileHTML(ref web_page) => {
-                        let db_web_page = match db_node.payload {
-                            Payload::FileHTML(ref web_page) => web_page,
-                            _ => panic!("Expected FileHTML payload"),
-                        };
-                        assert_eq!(web_page.0, db_web_page.0);
                     }
                     _ => {}
                 }

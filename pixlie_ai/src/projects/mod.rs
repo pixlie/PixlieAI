@@ -16,7 +16,7 @@ pub enum ProjectOwner {
 #[ts(export)]
 pub struct Project {
     pub uuid: String,
-    pub name: String,
+    pub name: Option<String>,
     pub description: Option<String>,
     pub owner: ProjectOwner,
 }
@@ -24,12 +24,12 @@ pub struct Project {
 #[derive(Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct ProjectCreate {
-    pub name: String,
+    pub name: Option<String>,
     pub description: Option<String>,
 }
 
 impl Project {
-    pub fn new(name: String, description: Option<String>, owner: ProjectOwner) -> Project {
+    pub fn new(name: Option<String>, description: Option<String>, owner: ProjectOwner) -> Project {
         Project {
             uuid: uuid::Uuid::new_v4().to_string(),
             name,
