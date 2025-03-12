@@ -11,7 +11,7 @@ interface IFormData {
   topic: string;
 }
 
-const TopicForm: Component = () => {
+const ObjectiveForm: Component = () => {
   const params = useParams();
   const [formData, setFormData] = createStore<IFormData>({
     topic: "",
@@ -26,7 +26,7 @@ const TopicForm: Component = () => {
 
   const handleSubmit = async () => {
     insertNode(params.projectId, {
-      Topic: formData.topic,
+      Objective: formData.topic,
     } as NodeWrite);
   };
 
@@ -45,4 +45,4 @@ const TopicForm: Component = () => {
   );
 };
 
-export default TopicForm;
+export default ObjectiveForm;

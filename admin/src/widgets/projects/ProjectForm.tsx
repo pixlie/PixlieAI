@@ -11,9 +11,6 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import { SearchTerm } from "../../api_types/SearchTerm.ts";
-import { Topic } from "../../api_types/Topic.ts";
-
 
 interface IProjectFormData {
   name: string;
@@ -71,14 +68,14 @@ const ProjectForm: Component = () => {
         for (const topic of formData().topics.split(/[\r\n]+/)) {
           if (!!topic) {
             insertNode(item.uuid, {
-              Topic: topic as Topic,
+              Objective: topic as string,
             } as NodeWrite);
           }
         }
         for (const searchTerm of formData().searchTerms.split(/[\r\n]+/)) {
           if (!!searchTerm) {
             insertNode(item.uuid, {
-              SearchTerm: searchTerm as SearchTerm,
+              SearchTerm: searchTerm as string,
             } as NodeWrite);
           }
         }
@@ -104,7 +101,10 @@ const ProjectForm: Component = () => {
         </div>
 
         <div>
-          <Label label={`Starting URLs (one per line)`} for="createProjectStartingURLs" />
+          <Label
+            label={`Starting URLs (one per line)`}
+            for="createProjectStartingURLs"
+          />
           <TextArea
             id="createProjectStartingURLs"
             name="startingURLs"
@@ -115,7 +115,10 @@ const ProjectForm: Component = () => {
         </div>
 
         <div>
-          <Label label="Topics to track (one per line)" for="createProjectTopics" />
+          <Label
+            label="Topics to track (one per line)"
+            for="createProjectTopics"
+          />
           <TextArea
             id="createProjectTopics"
             name="topics"
@@ -126,7 +129,10 @@ const ProjectForm: Component = () => {
         </div>
 
         <div>
-          <Label label="Search terms of interest (one per line)" for="createProjectSearchTerms" />
+          <Label
+            label="Search terms of interest (one per line)"
+            for="createProjectSearchTerms"
+          />
           <TextArea
             id="createProjectSearchTerms"
             name="searchTerms"

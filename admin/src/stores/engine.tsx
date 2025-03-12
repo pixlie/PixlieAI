@@ -113,20 +113,6 @@ const makeStore = () => {
     return [];
   };
 
-  const toggleCrawl = (projectId: string, nodeId: number) => {
-    setStore("projects", projectId, "nodes", nodeId, "isFetching", true);
-    let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/domain/${nodeId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-    }).then((response) => {
-      if (!response.ok) {
-        setStore("projects", projectId, "nodes", nodeId, "isFetching", false);
-        throw new Error("Failed to toggle crawl");
-      }
-    });
-  };
-
   return [
     store,
     {
@@ -134,7 +120,6 @@ const makeStore = () => {
       fetchNodes,
       fetchEdges,
       getRelatedNodes,
-      toggleCrawl,
     },
   ] as const; // `as const` forces tuple type inference
 };
