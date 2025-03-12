@@ -3,7 +3,6 @@ use crate::engine::node::{
 };
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
-use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
 use log::{debug, error};
@@ -53,7 +52,7 @@ impl Link {
                 None,
             )?
             .get_node_id();
-        
+
         let extra_labels = if extra_labels.contains(&NodeLabel::Link) {
             extra_labels
         } else {

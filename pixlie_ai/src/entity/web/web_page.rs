@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{ArcedNodeItem, NodeId, NodeItem, NodeLabel, Payload};
+use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::web::link::Link;
 use crate::entity::web::scraper::scrape;
@@ -73,35 +73,35 @@ impl WebPage {
         content
     }
 
-    pub fn get_partial_content_nodes(
-        &self,
-        engine: Arc<&Engine>,
-        node_id: &NodeId,
-    ) -> PiResult<Vec<ArcedNodeItem>> {
-        match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ParentOf.to_string())
-        {
-            Ok(partial_content_node_ids) => Ok(partial_content_node_ids
-                .iter()
-                .filter_map(|partial_content_node_id| {
-                    match engine.get_node_by_id(partial_content_node_id) {
-                        Some(node) => {
-                            if node.labels.contains(&NodeLabel::Partial) {
-                                Some(node)
-                            } else {
-                                None
-                            }
-                        }
-                        None => None,
-                    }
-                })
-                .collect::<Vec<ArcedNodeItem>>()),
-            Err(err) => {
-                error!("Error getting partial content nodes: {}", err);
-                Err(err)
-            }
-        }
-    }
+    // pub fn get_partial_content_nodes(
+    //     &self,
+    //     engine: Arc<&Engine>,
+    //     node_id: &NodeId,
+    // ) -> PiResult<Vec<ArcedNodeItem>> {
+    //     match engine
+    //         .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ParentOf.to_string())
+    //     {
+    //         Ok(partial_content_node_ids) => Ok(partial_content_node_ids
+    //             .iter()
+    //             .filter_map(|partial_content_node_id| {
+    //                 match engine.get_node_by_id(partial_content_node_id) {
+    //                     Some(node) => {
+    //                         if node.labels.contains(&NodeLabel::Partial) {
+    //                             Some(node)
+    //                         } else {
+    //                             None
+    //                         }
+    //                     }
+    //                     None => None,
+    //                 }
+    //             })
+    //             .collect::<Vec<ArcedNodeItem>>()),
+    //         Err(err) => {
+    //             error!("Error getting partial content nodes: {}", err);
+    //             Err(err)
+    //         }
+    //     }
+    // }
 
     // fn _classify(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<()> {
     //     Classify the web page using Anthropic
