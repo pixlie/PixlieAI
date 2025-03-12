@@ -145,13 +145,13 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
             ))
             .route(web::get().to(engine::api::search_results)),
         )
-        .service(
-            web::resource(format!(
-                "{}/engine/{{project_id}}/domain/{{node_id}}",
-                API_ROOT
-            ))
-            .route(web::put().to(engine::api::toggle_crawl))
-        )
+        // .service(
+        //     web::resource(format!(
+        //         "{}/engine/{{project_id}}/domain/{{node_id}}",
+        //         API_ROOT
+        //     ))
+        //     .route(web::put().to(engine::api::toggle_crawl))
+        // )
         .service(
             web::resource(format!("{}/projects", API_ROOT))
                 .route(web::get().to(projects::api::read_projects))

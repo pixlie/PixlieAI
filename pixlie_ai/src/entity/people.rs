@@ -30,7 +30,7 @@ pub enum ContactType {
     Phone(PhoneNumber),
     WhatsApp(PhoneNumber),
     Telegram(PhoneNumber),
-    AddressSigle(String),
+    AddressSingle(String),
     Address(Address),
     Twitter,
     Facebook,

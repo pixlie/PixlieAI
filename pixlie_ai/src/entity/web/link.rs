@@ -1,7 +1,7 @@
-use crate::engine::{
-    ArcedNodeId, ArcedNodeItem, CommonEdgeLabels, CommonNodeLabels, Engine, ExistingOrNewNodeId,
-    Node, NodeFlags, NodeId, NodeLabel, Payload,
+use crate::engine::node::{
+    ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
+use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::web_page::WebPage;
 use crate::error::{PiError, PiResult};
@@ -26,7 +26,6 @@ impl Link {
         extra_labels: Vec<NodeLabel>,
         domain_extra_labels: Vec<NodeLabel>,
         should_add_new_domain: bool,
-        is_domain_allowed_to_crawl: bool,
     ) -> PiResult<NodeId> {
         // When we add a link to the graph, we check:
         // - if the domain already exists (no duplicates)
@@ -40,17 +39,26 @@ impl Link {
         let domain = parsed.domain().ok_or_else(|| {
             PiError::InternalError(format!("Cannot parse URL {} to get domain", &url))
         })?;
+
+        let domain_extra_labels = if domain_extra_labels.contains(&NodeLabel::Domain) {
+            domain_extra_labels
+        } else {
+            [domain_extra_labels, vec![NodeLabel::Domain]].concat()
+        };
         let domain_node_id: NodeId = engine
             .get_or_add_node(
-                Payload::Domain(Domain {
-                    name: domain.to_string(),
-                    is_allowed_to_crawl: is_domain_allowed_to_crawl,
-                }),
+                Payload::Text(domain.to_string()),
                 domain_extra_labels,
                 should_add_new_domain,
                 None,
             )?
             .get_node_id();
+        
+        let extra_labels = if extra_labels.contains(&NodeLabel::Link) {
+            extra_labels
+        } else {
+            [extra_labels, vec![NodeLabel::Link]].concat()
+        };
         let link_node_id = engine
             .get_or_add_node(
                 Payload::Link(Link {
@@ -78,9 +86,8 @@ impl Link {
         Self::add(
             engine.clone(),
             url,
-            vec![CommonNodeLabels::AddedByUser.to_string()],
+            vec![NodeLabel::AddedByUser],
             vec![],
-            true,
             true,
         )
     }
@@ -98,10 +105,10 @@ impl Link {
         engine: Arc<&Engine>,
         url: &str,
         find_related_to: Option<NodeId>,
-    ) -> PiResult<Option<(ArcedNodeItem, ArcedNodeId)>> {
-        let (domain_node, domain_node_id) = match find_related_to {
+    ) -> PiResult<Option<ArcedNodeItem>> {
+        let domain_node: ArcedNodeItem = match find_related_to {
             Some(node_id) => match engine.get_node_by_id(&node_id) {
-                Some(node) => (node, node_id),
+                Some(node) => node,
                 None => {
                     error!("Cannot find node with ID {} for URL {}", node_id, url);
                     return Err(PiError::InternalError(format!(
@@ -118,7 +125,7 @@ impl Link {
                             engine.clone(),
                             FindDomainOf::DomainName(domain),
                         )? {
-                            Some((domain_node, domain_node_id)) => (domain_node, *domain_node_id),
+                            Some(domain_node) => domain_node,
                             None => {
                                 error!("Cannot find exiting domain node for URL {}", url);
                                 return Err(PiError::InternalError(format!(
@@ -146,15 +153,23 @@ impl Link {
             },
         };
 
-        let url = match domain_node.payload {
-            Payload::Domain(ref domain) => format!("https://{}{}", domain.name, url),
-            _ => {
-                error!("Cannot find domain node for URL {}", url);
-                return Err(PiError::InternalError(format!(
-                    "Cannot find domain node for URL {}",
-                    url
-                )));
+        let url: String = if domain_node.labels.contains(&NodeLabel::Domain) {
+            match domain_node.payload {
+                Payload::Text(ref domain) => format!("https://{}{}", domain, url),
+                _ => {
+                    error!("Cannot find domain node for URL {}", &url);
+                    return Err(PiError::InternalError(format!(
+                        "Cannot find domain node for URL {}",
+                        &url
+                    )));
+                }
             }
+        } else {
+            error!("Cannot find domain node for URL {}", url);
+            return Err(PiError::InternalError(format!(
+                "Cannot find domain node for URL {}",
+                &url
+            )));
         };
 
         // We found an existing domain node, now we check if the link exists
@@ -168,7 +183,7 @@ impl Link {
                 // We get all node IDs connected with the domain node
                 let connected_node_ids: Vec<ArcedNodeId> = match engine
                     .get_node_ids_connected_with_label(
-                        &domain_node_id,
+                        &domain_node.id,
                         &CommonEdgeLabels::OwnerOf.to_string(),
                     ) {
                     Ok(connected_node_ids) => connected_node_ids,
@@ -183,7 +198,7 @@ impl Link {
                         match &node.payload {
                             Payload::Link(link) => {
                                 if link.path == path && link.query == query {
-                                    return Ok(Some((node, node_id.clone())));
+                                    return Ok(Some(node));
                                 }
                             }
                             _ => {}
@@ -201,32 +216,30 @@ impl Link {
         };
         Ok(None)
     }
-}
 
-impl Node for Link {
-    fn get_label() -> String {
-        "Link".to_string()
-    }
-
-    fn process(
-        &self,
+    pub fn process(
+        node: &NodeItem,
         engine: Arc<&Engine>,
-        node_id: &NodeId,
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
         // Download the linked URL and add a new WebPage node
-        let url = self.get_full_link();
+        let url = match &node.payload {
+            Payload::Link(link) => link.get_full_link(),
+            _ => {
+                return Err(PiError::InternalError(format!(
+                    "Expected Payload::Link, got {}",
+                    node.payload.to_string()
+                )));
+            }
+        };
         match data_from_previous_request {
             Some(external_data) => match external_data {
                 ExternalData::Response(response) => {
                     // We have received the contents of the URL from the previous request
                     debug!("Fetched HTML from {}", &url);
                     let content_node_id = match engine.get_or_add_node(
-                        Payload::FileHTML(WebPage(response.contents)),
-                        vec![
-                            CommonNodeLabels::Content.to_string(),
-                            CommonNodeLabels::WebPage.to_string(),
-                        ],
+                        Payload::Text(response.contents),
+                        vec![NodeLabel::Content, NodeLabel::WebPage],
                         true,
                         None,
                     ) {
@@ -240,17 +253,17 @@ impl Node for Link {
                         }
                     };
                     engine.add_connection(
-                        (node_id.clone(), content_node_id),
+                        (node.id.clone(), content_node_id),
                         (
                             CommonEdgeLabels::PathOf.to_string(),
                             CommonEdgeLabels::ContentOf.to_string(),
                         ),
                     )?;
-                    engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
+                    engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {}
             },
-            None => engine.fetch(&url, &node_id)?,
+            None => engine.fetch(&url, &node.id)?,
         }
         Ok(())
     }
