@@ -2,10 +2,10 @@ import { Component, createMemo } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { useEngine } from "../../stores/engine.tsx";
 import { Link } from "../../api_types/Link.ts";
-import { Domain } from "../../api_types/Domain.ts";
 import { useParams } from "@solidjs/router";
 import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
 
 interface ILinkPayloadProps {
   id: number;
@@ -18,15 +18,15 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
   const [_, { getColors }] = useUIClasses();
   const params = useParams();
 
-  const getDomain = createMemo<Domain | undefined>(() => {
+  const getDomain = createMemo<string | undefined>(() => {
     let relatedDomains = getRelatedNodes(
       params.projectId,
       props.id,
       "BelongsTo",
     );
     if (relatedDomains.length > 0) {
-      if (relatedDomains[0].payload.type === "Domain") {
-        return relatedDomains[0].payload.data as Domain;
+      if (relatedDomains[0].labels.includes("Domain" as NodeLabel)) {
+        return relatedDomains[0].payload.data as string;
       }
     }
     return undefined;
@@ -34,17 +34,17 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
   return (
     <>
-      {!!getDomain() && getDomain()!.is_allowed_to_crawl ? (
+      {!!getDomain() ? (
         <>
           <span>
             <span
               class="w-[20px] inline-block text-center mr-2"
               classList={{
                 [getColors()["textSuccess"]]: props.flags.includes(
-                  "IsProcessed" as APINodeFlags
+                  "IsProcessed" as APINodeFlags,
                 ),
                 [getColors()["textMuted"]]: !props.flags.includes(
-                  "IsProcessed" as APINodeFlags
+                  "IsProcessed" as APINodeFlags,
                 ),
               }}
             >
@@ -52,11 +52,11 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
               {props.flags.includes("IsRequesting" as APINodeFlags) ? "⌛" : ""}
             </span>
             <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-              {getDomain()!.name}
+              {getDomain()!}
             </span>
           </span>
           <a
-            href={`https://${!!getDomain() ? getDomain()!.name : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
+            href={`https://${!!getDomain() ? getDomain()! : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
             class={
               "text-sm text-nowrap overflow-hidden text-ellipsis " +
               getColors().link

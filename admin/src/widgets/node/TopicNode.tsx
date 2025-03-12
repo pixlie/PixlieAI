@@ -2,7 +2,6 @@ import { Component, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { useParams } from "@solidjs/router";
 import { IEngine, INodeItemDisplayProps } from "../../utils/types";
-import { Topic } from "../../api_types/Topic";
 import Heading from "../typography/Heading";
 
 const TopicNode: Component<INodeItemDisplayProps> = (props) => {
@@ -16,9 +15,9 @@ const TopicNode: Component<INodeItemDisplayProps> = (props) => {
     return undefined;
   });
 
-  const getPayload = createMemo<Topic | undefined>(() => {
+  const getPayload = createMemo<string | undefined>(() => {
     if (getProject() && props.nodeId in getProject()!.nodes) {
-      return getProject()!.nodes[props.nodeId].payload.data as Topic;
+      return getProject()!.nodes[props.nodeId].payload.data as string;
     }
     return undefined;
   });
@@ -30,9 +29,7 @@ const TopicNode: Component<INodeItemDisplayProps> = (props) => {
           <div class="flex flex-col mb-3">
             <Heading size={5}>{getPayload()}</Heading>
           </div>
-          <small>
-          __ search terms discovered 
-          </small>
+          <small>__ search terms discovered</small>
         </>
       ) : null}
     </>

@@ -1,8 +1,8 @@
-use super::{EdgeLabel, Engine, Node, NodeFlags, NodeId, NodeItem, NodeLabel, Payload};
+use super::{EdgeLabel, Engine, NodeFlags};
+use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
+use crate::entity::objective::Objective;
 use crate::entity::search::SearchTerm;
-use crate::entity::topic::Topic;
-use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
@@ -13,6 +13,7 @@ use chrono::{DateTime, Utc};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
@@ -34,8 +35,8 @@ pub struct LinkWrite {
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
-    SearchTerm(SearchTerm),
-    Topic(Topic),
+    SearchTerm(String),
+    Objective(String),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -47,8 +48,10 @@ pub enum EngineRequestPayload {
     GetAllNodes,
     GetAllEdges,
     CreateNode(NodeWrite),
-    Query(u32), // Some nodes allow a "query", which can generate any number of nodes, like a search
-    ToggleCrawl(u32),
+
+    // Some nodes allow a "query", which can generate any number of nodes, like a search
+    Query(u32),
+    // ToggleCrawl(u32),
 }
 
 #[derive(Clone, Default, Serialize, TS)]
@@ -77,29 +80,21 @@ pub enum EngineResponsePayload {
 pub enum APIPayload {
     // StepPrompt(String),
     Step(WorkflowStep),
-    Domain(Domain),
     Link(Link),
     Text(String),
     Tree(String),
-    FileHTML(String),
     TableRow(TableRow),
-    SearchTerm(SearchTerm),
-    Topic(Topic),
 }
 
 impl APIPayload {
     pub fn from_payload(payload: Payload) -> APIPayload {
         match payload {
             Payload::Step(step) => APIPayload::Step(step),
-            Payload::Domain(domain) => APIPayload::Domain(domain),
             Payload::Link(link) => APIPayload::Link(link),
             Payload::Text(text) => APIPayload::Text(text),
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
-            Payload::FileHTML(_web_page) => APIPayload::FileHTML("".to_string()),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
-            Payload::SearchTerm(search_term) => APIPayload::SearchTerm(search_term),
-            Payload::Topic(topic) => APIPayload::Topic(topic),
         }
     }
 }
@@ -434,48 +429,48 @@ pub async fn search_results(
     }
 }
 
-pub async fn toggle_crawl(
-    path: web::Path<(String, u32)>,
-    api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let (project_id, node_id) = path.into_inner();
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::ToggleCrawl(node_id),
-        },
-    ))?;
-
-    debug!("Waiting for response for request {}", request_id);
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while response_opt.is_none() {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
-}
+// pub async fn toggle_crawl(
+//     path: web::Path<(String, u32)>,
+//     api_state: web::Data<ApiState>,
+// ) -> PiResult<impl Responder> {
+//     let request_id = api_state.req_id.fetch_add(1);
+//     let (project_id, node_id) = path.into_inner();
+//     // Subscribe to the API channel, so we can receive the response
+//     let mut rx = api_state.api_channel_tx.subscribe();
+//
+//     api_state.main_tx.send(PiEvent::APIRequest(
+//         project_id.clone(),
+//         EngineRequest {
+//             request_id: request_id.clone(),
+//             project_id: project_id.clone(),
+//             payload: EngineRequestPayload::ToggleCrawl(node_id),
+//         },
+//     ))?;
+//
+//     debug!("Waiting for response for request {}", request_id);
+//     let mut response_opt: Option<EngineResponsePayload> = None;
+//     while response_opt.is_none() {
+//         match rx.recv().await {
+//             Ok(event) => match event {
+//                 PiEvent::APIResponse(p_id, response) => {
+//                     if p_id == project_id && response.request_id == request_id {
+//                         response_opt = Some(response.payload.clone());
+//                     }
+//                 }
+//                 _ => {}
+//             },
+//             Err(_err) => {}
+//         }
+//     }
+//
+//     debug!("Got response for request {}", request_id);
+//     match response_opt {
+//         Some(response) => Ok(web::Json(response)),
+//         None => Ok(web::Json(EngineResponsePayload::Error(
+//             "Could not get a response".to_string(),
+//         ))),
+//     }
+// }
 
 pub fn handle_engine_api_request(
     request: EngineRequest,
@@ -491,7 +486,7 @@ pub fn handle_engine_api_request(
             })
         }
         EngineRequestPayload::GetNodesWithLabel(label) => {
-            let node_ids_with_label = engine.get_node_ids_with_label(&label);
+            let node_ids_with_label = engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
             let mut nodes: Vec<APINodeItem> = node_ids_with_label
                 .iter()
                 .filter_map(|node_id| match engine.get_node_by_id(node_id) {
@@ -566,60 +561,69 @@ pub fn handle_engine_api_request(
                 NodeWrite::Link(link_write) => {
                     Link::add_manually(engine.clone(), &link_write.url)?;
                 }
-                NodeWrite::SearchTerm(search_term) => {
-                    SearchTerm::add_manually(engine.clone(), &search_term.0)?;
+                NodeWrite::SearchTerm(text) => {
+                    SearchTerm::add_manually(engine.clone(), &text)?;
                 }
-                NodeWrite::Topic(topic) => {
-                    Topic::add_manually(engine.clone(), &topic.0)?;
+                NodeWrite::Objective(text) => {
+                    Objective::add_manually(engine.clone(), &text)?;
                 }
             }
             EngineResponsePayload::Success
         }
         EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {
-            Some(node) => match node.payload {
-                Payload::SearchTerm(ref search_term) => {
-                    let mut results: Vec<NodeItem> =
-                        search_term.query(engine.clone(), &node_id.into())?;
-                    results.sort_by(|a, b| a.id.cmp(&b.id));
+            Some(node) => {
+                if node.labels.contains(&NodeLabel::SearchTerm) {
+                    match &node.payload {
+                        Payload::Text(_) => {
+                            let mut results: Vec<NodeItem> =
+                                SearchTerm::query(&node, engine.clone(), &node_id.into())?;
+                            results.sort_by(|a, b| a.id.cmp(&b.id));
 
-                    EngineResponsePayload::Results(EngineResponseResults {
-                        nodes: results
-                            .iter()
-                            .map(|x| APINodeItem {
-                                id: x.id.clone(),
-                                labels: x.labels.clone(),
-                                payload: APIPayload::from_payload(x.payload.clone()),
-                                flags: APINodeFlags::from_node_flags(x.flags.clone()),
-                                written_at: x.written_at.clone(),
+                            EngineResponsePayload::Results(EngineResponseResults {
+                                nodes: results
+                                    .iter()
+                                    .map(|x| APINodeItem {
+                                        id: x.id.clone(),
+                                        labels: x.labels.clone(),
+                                        payload: APIPayload::from_payload(x.payload.clone()),
+                                        flags: APINodeFlags::from_node_flags(x.flags.clone()),
+                                        written_at: x.written_at.clone(),
+                                    })
+                                    .collect::<Vec<APINodeItem>>(),
+                                ..Default::default()
                             })
-                            .collect::<Vec<APINodeItem>>(),
-                        ..Default::default()
-                    })
+                        }
+                        _ => EngineResponsePayload::Error(format!(
+                            "Query only works on search terms, not on {}",
+                            node.payload.to_string()
+                        )),
+                    }
+                } else {
+                    EngineResponsePayload::Error(format!(
+                        "Query only works on search terms, not on {}",
+                        node.payload.to_string()
+                    ))
                 }
-                _ => EngineResponsePayload::Error(format!(
-                    "Query only works on search terms, not on {}",
-                    node.payload.to_string()
-                )),
-            },
+            }
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
-        EngineRequestPayload::ToggleCrawl(node_id) => match engine.get_node_by_id(&node_id) {
-            Some(node) => match node.payload {
-                Payload::Domain(ref domain) => {
-                    engine.update_node(
-                        &node_id,
-                        Payload::Domain(Domain {
-                            name: domain.name.clone(),
-                            is_allowed_to_crawl: !domain.is_allowed_to_crawl,
-                        }),
-                    )?;
-                    engine.toggle_flag(&node_id, NodeFlags::IS_BLOCKED)?;
-                    EngineResponsePayload::Success
-                }
-                _ => EngineResponsePayload::Error(format!("Node {} is not a domain", node_id)),
-            },
-            None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
-        },
+        // EngineRequestPayload::ToggleCrawl(node_id) => match engine.get_node_by_id(&node_id) {
+        //     Some(node) => match node.payload {
+        //         Payload::Domain(ref domain) => {
+        //             engine.update_node(
+        //                 &node_id,
+        //                 Payload::Domain(Domain {
+        //                     name: domain.name.clone(),
+        //                     is_allowed_to_crawl: !domain.is_allowed_to_crawl,
+        //                 }),
+        //             )?;
+        //             engine.toggle_flag(&node_id, NodeFlags::IS_BLOCKED)?;
+        //             EngineResponsePayload::Success
+        //         }
+        //         _ => EngineResponsePayload::Error(format!("Node {} is not a domain", node_id)),
+        //     },
+        //     None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
+        // },
     };
 
     main_channel_tx.send(PiEvent::APIResponse(

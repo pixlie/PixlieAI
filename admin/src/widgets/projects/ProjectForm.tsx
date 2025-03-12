@@ -1,5 +1,4 @@
 import { Component, createSignal } from "solid-js";
-import TextInput from "../interactable/TextInput.tsx";
 import TextArea from "../interactable/TextArea.tsx";
 import Drawer from "../overlay/Drawer.tsx";
 import { IFormFieldValue } from "../../utils/types.tsx";
@@ -11,7 +10,6 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
 import { Project } from "../../api_types/Project.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import { Topic } from "../../api_types/Topic.ts";
 import Paragraph from "../typography/Paragraph.tsx";
 
 interface IProjectFormData {
@@ -61,7 +59,7 @@ const ProjectForm: Component = () => {
         for (const topic of formData().objective.split(/[\r\n]+/)) {
           if (!!topic) {
             insertNode(item.uuid, {
-              Topic: topic as Topic,
+              Objective: topic as string,
             } as NodeWrite);
           }
         }

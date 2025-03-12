@@ -1,9 +1,8 @@
-use crate::engine::{CommonEdgeLabels, CommonNodeLabels, Engine, NodeId, Payload};
-use crate::entity::content::CellData;
-use crate::entity::content::{TableRow, TypedData};
+use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
+use crate::engine::{CommonEdgeLabels, Engine};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
-use crate::entity::web::web_page::WebPage;
+use crate::entity::web::web_page::get_link_of_webpage;
 use crate::error::{PiError, PiResult};
 use log::error;
 use scraper::{ElementRef, Html};
@@ -44,10 +43,7 @@ impl<'a> Traverser<'a> {
                             Payload::Text(clean_text(
                                 element.text().collect::<Vec<&str>>().join(""),
                             )),
-                            vec![
-                                CommonNodeLabels::Title.to_string(),
-                                CommonNodeLabels::Partial.to_string(),
-                            ],
+                            vec![NodeLabel::Title, NodeLabel::Partial],
                             true,
                             None,
                         )?
@@ -67,10 +63,7 @@ impl<'a> Traverser<'a> {
                             Payload::Text(clean_text(
                                 element.text().collect::<Vec<&str>>().join(""),
                             )),
-                            vec![
-                                CommonNodeLabels::Heading.to_string(),
-                                CommonNodeLabels::Partial.to_string(),
-                            ],
+                            vec![NodeLabel::Heading, NodeLabel::Partial],
                             true,
                             None,
                         )?
@@ -94,10 +87,7 @@ impl<'a> Traverser<'a> {
                                     .collect::<Vec<String>>()
                                     .join(""),
                             )),
-                            vec![
-                                CommonNodeLabels::Paragraph.to_string(),
-                                CommonNodeLabels::Partial.to_string(),
-                            ],
+                            vec![NodeLabel::Paragraph, NodeLabel::Partial],
                             true,
                             None,
                         )?
@@ -118,10 +108,7 @@ impl<'a> Traverser<'a> {
                         .arced_engine
                         .get_or_add_node(
                             Payload::Tree,
-                            vec![
-                                CommonNodeLabels::UnorderedPoints.to_string(),
-                                CommonNodeLabels::Partial.to_string(),
-                            ],
+                            vec![NodeLabel::UnorderedPoints, NodeLabel::Partial],
                             true,
                             None,
                         )?
@@ -145,7 +132,7 @@ impl<'a> Traverser<'a> {
                     self.traverse(
                         element,
                         Some(bullet_points_node_id),
-                        Some(CommonNodeLabels::UnorderedPoints.to_string()),
+                        Some(NodeLabel::UnorderedPoints.to_string()),
                     )?;
                 }
                 "ol" => {
@@ -156,10 +143,7 @@ impl<'a> Traverser<'a> {
                         .arced_engine
                         .get_or_add_node(
                             Payload::Tree,
-                            vec![
-                                CommonNodeLabels::OrderedPoints.to_string(),
-                                CommonNodeLabels::Partial.to_string(),
-                            ],
+                            vec![NodeLabel::OrderedPoints, NodeLabel::Partial],
                             true,
                             None,
                         )?
@@ -183,8 +167,8 @@ impl<'a> Traverser<'a> {
                 }
                 "li" => {
                     // List items are stored only when parent is present and is either an ordered or an unordered list
-                    if parent_node_label == Some(CommonNodeLabels::UnorderedPoints.to_string())
-                        || parent_node_label == Some(CommonNodeLabels::OrderedPoints.to_string())
+                    if parent_node_label == Some(NodeLabel::UnorderedPoints.to_string())
+                        || parent_node_label == Some(NodeLabel::OrderedPoints.to_string())
                     {
                         if let Some(parent_node_id) = parent_node_id {
                             let list_item_node_id = self
@@ -193,10 +177,7 @@ impl<'a> Traverser<'a> {
                                     Payload::Text(clean_text(
                                         element.text().take(1).collect::<Vec<&str>>().join(""),
                                     )),
-                                    vec![
-                                        CommonNodeLabels::ListItem.to_string(),
-                                        CommonNodeLabels::Partial.to_string(),
-                                    ],
+                                    vec![NodeLabel::ListItem, NodeLabel::Partial],
                                     true,
                                     None,
                                 )?
@@ -228,7 +209,7 @@ impl<'a> Traverser<'a> {
                     // We are only handling links which use https at this moment
                     let link_node_id = if url.starts_with("https://") {
                         // Links that are full URLs
-                        Link::add(self.arced_engine.clone(), &url, vec![], vec![], true, false)?
+                        Link::add(self.arced_engine.clone(), &url, vec![], vec![], true)?
                     } else {
                         // Links that are relative to this path or domain, we build the full URL
                         match self.webpage_url.join(&url) {
@@ -237,7 +218,6 @@ impl<'a> Traverser<'a> {
                                 &parsed.to_string(),
                                 vec![],
                                 vec![],
-                                false,
                                 false,
                             )?,
                             Err(err) => {
@@ -333,56 +313,51 @@ impl<'a> Traverser<'a> {
     }
 }
 
-impl WebPage {
-    pub fn scrape(&self, engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<()> {
-        // Find the Link node that is the parent of this WebPage node
-        let (current_link, current_link_node_id) = self.get_link(engine.clone(), node_id)?;
-        let existing_domain =
-            Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
-        if existing_domain.is_none() {
-            error!(
-                "Cannot find domain node for URL {}",
-                &current_link.get_full_link()
-            );
+pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
+    // Find the Link node that is the parent of this WebPage node
+    let (current_link, current_link_node_id) = get_link_of_webpage(engine.clone(), &node.id)?;
+    let existing_domain =
+        Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
+    if existing_domain.is_none() {
+        error!(
+            "Cannot find domain node for URL {}",
+            &current_link.get_full_link()
+        );
+        return Err(PiError::InternalError(format!(
+            "Cannot find domain node for URL {}",
+            &current_link.get_full_link()
+        )));
+    }
+    let domain_name = Domain::get_domain_name(&existing_domain.unwrap())?;
+    // TODO: Use protocol from original link instead of https only
+    let full_url = format!("https://{}{}", domain_name, current_link.get_full_link());
+    let current_url = match Url::parse(&full_url) {
+        Ok(url) => url,
+        Err(err) => {
+            error!("Cannot parse URL {}: {}", &full_url, err);
             return Err(PiError::InternalError(format!(
-                "Cannot find domain node for URL {}",
-                &current_link.get_full_link()
+                "Cannot parse URL {}: {}",
+                &full_url, err
             )));
         }
-        let existing_domain = existing_domain.unwrap();
-        let (domain_payload, _domain_node_id) = match existing_domain.0.payload {
-            Payload::Domain(ref payload) => (payload.clone(), existing_domain.1.clone()),
-            _ => {
-                error!("Expected Domain type payload");
-                return Err(PiError::GraphError(
-                    "Expected Domain type payload".to_string(),
-                ));
-            }
-        };
-        // TODO: Use protocol from original link instead of https only
-        let full_url = format!(
-            "https://{}{}",
-            domain_payload.name,
-            current_link.get_full_link()
-        );
-        let current_url = match Url::parse(&full_url) {
-            Ok(url) => url,
-            Err(err) => {
-                error!("Cannot parse URL {}: {}", &full_url, err);
-                return Err(PiError::InternalError(format!(
-                    "Cannot parse URL {}: {}",
-                    &full_url, err
-                )));
-            }
-        };
+    };
 
-        let document = Html::parse_document(&self.0);
-        let traverser = Traverser {
-            webpage_node_id: node_id.clone(),
-            webpage_url: current_url,
-            arced_engine: engine,
-        };
-        traverser.traverse(document.root_element(), None, None)?;
-        Ok(())
+    match &node.payload {
+        Payload::Text(payload) => {
+            let document = Html::parse_document(&payload);
+            let traverser = Traverser {
+                webpage_node_id: node.id.clone(),
+                webpage_url: current_url,
+                arced_engine: engine,
+            };
+            traverser.traverse(document.root_element(), None, None)?;
+        }
+        _ => {
+            return Err(PiError::InternalError(format!(
+                "Expected Payload::FileHTML, got {}",
+                node.payload.to_string()
+            )));
+        }
     }
+    Ok(())
 }

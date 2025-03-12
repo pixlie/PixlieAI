@@ -1,4 +1,5 @@
-use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, ArcedNodeId, EdgeLabel, NodeId};
+use crate::engine::node::{ArcedNodeId, NodeId};
+use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, EdgeLabel};
 use crate::error::{PiError, PiResult};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
