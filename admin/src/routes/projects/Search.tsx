@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, For, onMount } from "solid-js";
+import { Component, createMemo, createSignal, For } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading";
 import { useParams } from "@solidjs/router";
@@ -13,17 +13,12 @@ interface IFormData {
 }
 
 const Search: Component = () => {
-  const [engine, { fetchNodes, fetchEdges }] = useEngine();
+  const [engine] = useEngine();
   const params = useParams();
   const [formData, setFormData] = createSignal<IFormData>({
     searchTerm: "",
   });
   const [searchTerm, setSearchTerm] = createSignal<string>("");
-
-  onMount(() => {
-    fetchNodes(params.projectId);
-    fetchEdges(params.projectId);
-  });
 
   const getSearchTerms = createMemo<Array<APINodeItem>>(() => {
     if (!!params.projectId && params.projectId in engine.projects) {
@@ -73,8 +68,12 @@ const Search: Component = () => {
               <span
                 class="inline-block mr-1 mb-1 px-2 rounded cursor-pointer"
                 classList={{
-                  "bg-gray-300 text-gray-900": !searchTerm() || (node.payload.data as string) !== searchTerm(),
-                  "bg-indigo-600 text-white": !!searchTerm() && (node.payload.data as string) === searchTerm(),
+                  "bg-gray-300 text-gray-900":
+                    !searchTerm() ||
+                    (node.payload.data as string) !== searchTerm(),
+                  "bg-indigo-600 text-white":
+                    !!searchTerm() &&
+                    (node.payload.data as string) === searchTerm(),
                 }}
                 onClick={() =>
                   handleClickSavedSearchTerm(node.payload.data as string)

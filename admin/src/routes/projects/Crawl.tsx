@@ -2,8 +2,9 @@ import { Component, createMemo, createSignal, onMount } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
-import Heading from "../../widgets/typography/Heading.tsx";
-import Paragraph from "../../widgets/typography/Paragraph.tsx";
+import Heading from "../../widgets/typography/Heading";
+import Paragraph from "../../widgets/typography/Paragraph";
+import { NodeLabel } from "../../api_types/NodeLabel";
 
 const labelTypes: string[] = ["Domain", "Link"];
 type LabelType = (typeof labelTypes)[number];
@@ -32,16 +33,16 @@ const Crawl: Component = () => {
 
     if (getProject() && !!searchParams.label) {
       items = Object.values(getProject()!.nodes)
-        .filter((x) => x.payload.type === searchParams.label)
+        .filter((x) => x.labels.includes(searchParams.label as NodeLabel))
         .map((x) => x.id);
-      }
-      if (searchParams.label === "Link") {
-        setLinkCount(items.length);
-      }
-      if (searchParams.label === "Domain") {
-        setDomainCount(items.length);
-      }
-      return items;
+    }
+    if (searchParams.label === "Link") {
+      setLinkCount(items.length);
+    }
+    if (searchParams.label === "Domain") {
+      setDomainCount(items.length);
+    }
+    return items;
   });
 
   const getNodeTypeFromSearchParam = createMemo(() => {
@@ -53,11 +54,16 @@ const Crawl: Component = () => {
 
   return (
     <>
-      {searchParams.label === "Link" && <Heading size={3}>Links found: {linkCount()}</Heading>}
+      {searchParams.label === "Link" && (
+        <Heading size={3}>Links found: {linkCount()}</Heading>
+      )}
       {searchParams.label === "Domain" && (
         <Heading size={3}>Domains found: {domainCount()}</Heading>
       )}
-      <Paragraph>{searchParams.label?searchParams.label + "s":"Domains or links"} found while crawling.</Paragraph>
+      <Paragraph>
+        {searchParams.label ? searchParams.label + "s" : "Domains or links"}{" "}
+        found while crawling.
+      </Paragraph>
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}

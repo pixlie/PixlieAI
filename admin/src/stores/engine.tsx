@@ -8,17 +8,21 @@ import { APINodeItem } from "../api_types/APINodeItem.ts";
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
     projects: {},
+    sync: [],
   });
 
   const setProjectId = (projectId: string) => {
+    if (!!store.projects[projectId]) {
+      return;
+    }
     setStore((existing: IEngineStore) => ({
       ...existing,
       projects: {
         ...existing.projects,
         [projectId]: {
           nodes: {},
-          nodeIdsByLabel: {},
           edges: {},
+          isFetching: false,
         },
       },
     }));
@@ -113,12 +117,83 @@ const makeStore = () => {
     return [];
   };
 
+  const sync = (projectId: string) => {
+    // The sync function keeps calling fetchNodes and fetchEdges for the given projectId and updates the store
+    // const timer = (projectId: string, start: boolean = false) => {
+    //   if (!store.projects[projectId]) {
+    //     return;
+    //   }
+    //   if (store.sync[projectId] || start) {
+    //     // Set a timeout to call the inner function after a delay
+    //     setStore((existing: IEngineStore) => ({
+    //       ...existing,
+    //       projects: {
+    //         ...existing.projects,
+    //         timeouts: {
+    //           ...existing.projects.timeouts,
+    //           [projectId]: window.setTimeout(fetcher(projectId), 2000),
+    //         },
+    //       },
+    //     }));
+    //   }
+    // };
+
+    const fetcher = (projectId: string) => {
+      return () => {
+        if (!store.projects[projectId]) {
+          return;
+        }
+        if (store.projects[projectId].isFetching) {
+          return;
+        }
+        setStore((existing: IEngineStore) => ({
+          ...existing,
+          projects: {
+            ...existing.projects,
+            [projectId]: {
+              ...existing.projects[projectId],
+              isFetching: true,
+            },
+          },
+        }));
+        fetchNodes(projectId);
+        fetchEdges(projectId);
+        setStore((existing: IEngineStore) => ({
+          ...existing,
+          projects: {
+            ...existing.projects,
+            [projectId]: {
+              ...existing.projects[projectId],
+              isFetching: false,
+            },
+          },
+        }));
+        if (store.sync.filter((x) => x === projectId).length > 0) {
+          window.setTimeout(fetcher(projectId), 2000);
+        }
+      };
+    };
+
+    setStore((existing: IEngineStore) => ({
+      ...existing,
+      sync: [...existing.sync, projectId],
+    }));
+    window.setTimeout(fetcher(projectId), 100);
+  };
+
+  const stopSync = (projectId: string) => {
+    setStore((existing: IEngineStore) => ({
+      ...existing,
+      sync: [...existing.sync.filter((x) => x !== projectId)],
+    }));
+  };
+
   return [
     store,
     {
       setProjectId,
-      fetchNodes,
-      fetchEdges,
+      sync,
+      stopSync,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference

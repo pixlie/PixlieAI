@@ -1,16 +1,15 @@
 import { Component, createSignal } from "solid-js";
-import TextArea from "../interactable/TextArea.tsx";
-import Drawer from "../overlay/Drawer.tsx";
-import { IFormFieldValue } from "../../utils/types.tsx";
-import Button from "../interactable/Button.tsx";
-import Label from "../interactable/Label.tsx";
-import { ProjectCreate } from "../../api_types/ProjectCreate.ts";
-import { LinkWrite } from "../../api_types/LinkWrite.ts";
+import TextArea from "../interactable/TextArea";
+import Drawer from "../overlay/Drawer";
+import { IFormFieldValue } from "../../utils/types";
+import Button from "../interactable/Button";
+import Label from "../interactable/Label";
+import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { getPixlieAIAPIRoot, insertNode } from "../../utils/api.ts";
-import { Project } from "../../api_types/Project.ts";
-import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import Paragraph from "../typography/Paragraph.tsx";
+import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
+import { Project } from "../../api_types/Project";
+import { NodeWrite } from "../../api_types/NodeWrite";
+import Paragraph from "../typography/Paragraph";
 
 interface IProjectFormData {
   objective: string;
@@ -48,14 +47,6 @@ const ProjectForm: Component = () => {
         throw new Error("Failed to save settings");
       }
       response.json().then((item: Project) => {
-        for (const url of formData().startingURLs.split(/[\r\n]+/)) {
-          if (!url || url.length === 0) continue;
-          insertNode(item.uuid, {
-            Link: {
-              url,
-            } as LinkWrite,
-          } as NodeWrite);
-        }
         for (const topic of formData().objective.split(/[\r\n]+/)) {
           if (!!topic) {
             insertNode(item.uuid, {
@@ -71,38 +62,35 @@ const ProjectForm: Component = () => {
 
   const Content: Component = () => {
     return (
-      <div class="space-y-8">
+      <div class="space-y-2">
+        <Label label="Objective" for="projectObjective" />
         <Paragraph size="sm">
           What do you want to extract from the web? You may state this in plain
-          English. Feel free to use keywords, topics, or search terms. Pixlie
-          will crawl the web and extract information that relates to your
+          English. Feel free to use topics and keywords that you care about.
+          Pixlie will continue crawling the web as long as pages match your
           objective.
         </Paragraph>
+        <TextArea
+          id="projectObjective"
+          name="objective"
+          isEditable
+          onChange={handleChange}
+          value={formData().objective}
+        />
 
-        <div>
-          <Label label="Objective" for="projectObjective" />
-          <TextArea
-            id="projectObjective"
-            name="objective"
-            isEditable
-            onChange={handleChange}
-            value={formData().objective}
-          />
-        </div>
-
-        <div>
-          <Label
-            label={`Starting URLs (optional, one per line)`}
-            for="createProjectStartingURLs"
-          />
-          <TextArea
-            id="createProjectStartingURLs"
-            name="startingURLs"
-            isEditable
-            onChange={handleChange}
-            value={formData().startingURLs}
-          />
-        </div>
+        {/*<div>*/}
+        {/*  <Label*/}
+        {/*    label={`Starting URLs (optional, one per line)`}*/}
+        {/*    for="createProjectStartingURLs"*/}
+        {/*  />*/}
+        {/*  <TextArea*/}
+        {/*    id="createProjectStartingURLs"*/}
+        {/*    name="startingURLs"*/}
+        {/*    isEditable*/}
+        {/*    onChange={handleChange}*/}
+        {/*    value={formData().startingURLs}*/}
+        {/*  />*/}
+        {/*</div>*/}
       </div>
     );
   };
@@ -110,12 +98,7 @@ const ProjectForm: Component = () => {
   const Footer: Component = () => {
     return (
       <div class="space-x-3">
-        <Button
-          size="sm"
-          label="Cancel"
-          color="bg-red-500"
-          onClick={() => navigate(location.pathname)}
-        />
+        <Button size="sm" label="Cancel" color="bg-red-500" href="/" />
         <Button size="sm" label="Save" onClick={handleFormSubmit} />
       </div>
     );

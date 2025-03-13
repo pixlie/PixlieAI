@@ -3,6 +3,7 @@ import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { useEngine } from "../../stores/engine.tsx";
 import { useParams } from "@solidjs/router";
 import { IEngine } from "../../utils/types.tsx";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
 
 interface IDomainNodeProps {
   nodeId: number;
@@ -21,8 +22,16 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
   });
 
   const getPayload = createMemo<string | undefined>(() => {
+    console.log(props.nodeId);
     if (getProject() && props.nodeId in getProject()!.nodes) {
-      return getProject()!.nodes[props.nodeId].payload.data as string;
+      let node = getProject()!.nodes[props.nodeId];
+      if (
+        node.labels.includes("Domain" as NodeLabel) &&
+        node.payload.type === "Text"
+      ) {
+        return node.payload.data as string;
+      }
+      return undefined;
     }
     return undefined;
   });

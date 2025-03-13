@@ -26,10 +26,12 @@ interface INodeItem extends APINodeItem {
 interface IEngine {
   nodes: { [nodeId: number]: INodeItem };
   edges: { [nodeId: number]: Array<[number, string]> };
+  isFetching: boolean;
 }
 
 interface IEngineStore {
   projects: { [projectId: string]: IEngine };
+  sync: Array<string>;
 }
 
 type IFormFieldValue = string | number | Array<string> | undefined;
