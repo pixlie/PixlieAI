@@ -6,7 +6,6 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::PiEvent;
-use actix_web::ResponseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -79,9 +78,15 @@ pub enum PiError {
 
     #[error("Could not parse NodeLabel from string: {0}")]
     CouldNotParseNodeLabel(#[from] strum::ParseError),
+
+    #[error("Could not generate TypeScript schema: {0}")]
+    CouldNotGenerateTypeScriptSchema(#[from] ts_rs::ExportError),
+
+    #[error("Error in serde_json: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
 }
 
-impl ResponseError for PiError {
+impl actix_web::ResponseError for PiError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
             // PiError::CannotReadConfigFile => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

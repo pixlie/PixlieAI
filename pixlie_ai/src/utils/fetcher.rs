@@ -1,6 +1,7 @@
 use crate::{FetchError, FetchResponse, PiEvent};
 use log::{debug, error};
-use reqwest::StatusCode;
+use reqwest::header::HeaderMap;
+use reqwest::{Client, Method, Request, RequestBuilder, StatusCode, Url};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
@@ -90,30 +91,40 @@ enum FetchResult {
     Error(String),
 }
 
-async fn fetch_url(url: &str) -> FetchResult {
-    match reqwest::Client::builder()
+async fn fetch(method: Method, url: &str, headers: HeaderMap) -> FetchResult {
+    let client = match Client::builder()
         .user_agent("Pixlie AI bot (https://pixlie.com)")
         .timeout(Duration::from_secs(2))
         .build()
     {
-        Ok(client) => {
-            let response = client.get(url).send().await;
-            match response {
-                Ok(response) => {
-                    let status = response.status();
-                    if status.is_success() {
-                        match response.text().await {
-                            Ok(contents) => FetchResult::Contents(status, contents),
-                            Err(err) => FetchResult::Error(err.to_string()),
-                        }
-                    } else {
-                        FetchResult::Error("Fetch response status is not success".to_string())
-                    }
+        Ok(client) => client,
+        Err(err) => {
+            return FetchResult::Error(format!(
+                "Error building client to fetch URL {}: {}",
+                &url, err
+            ));
+        }
+    };
+    let url = match Url::parse(url) {
+        Ok(url) => url,
+        Err(err) => {
+            return FetchResult::Error(format!("Error parsing URL {} to fetch URL: {}", &url, err));
+        }
+    };
+    let request = RequestBuilder::from_parts(client, Request::new(method, url));
+    match request.headers(headers).send().await {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() {
+                match response.text().await {
+                    Ok(contents) => FetchResult::Contents(status, contents),
+                    Err(err) => FetchResult::Error(err.to_string()),
                 }
-                Err(err) => FetchResult::Error(format!("Error getting response: {}", err)),
+            } else {
+                FetchResult::Error("Fetch response status is not success".to_string())
             }
         }
-        Err(err) => FetchResult::Error(format!("Error building reqwest client: {}", err)),
+        Err(err) => FetchResult::Error(format!("Error getting response: {}", err)),
     }
 }
 
@@ -144,24 +155,27 @@ pub fn fetcher_runtime(
                                     node_id: request.node_id,
                                     error: err,
                                 }),
-                                CanCrawl::Yes => match fetch_url(&request.url).await {
-                                    FetchResult::Contents(_status, contents) => {
-                                        PiEvent::FetchResponse(FetchResponse {
-                                            project_id: request.project_id.clone(),
-                                            node_id: request.node_id,
-                                            url: request.url.clone(),
-                                            contents,
-                                        })
+                                CanCrawl::Yes => {
+                                    match fetch(request.method, &request.url, request.headers).await
+                                    {
+                                        FetchResult::Contents(_status, contents) => {
+                                            PiEvent::FetchResponse(FetchResponse {
+                                                project_id: request.project_id.clone(),
+                                                node_id: request.node_id,
+                                                url: request.url.clone(),
+                                                contents,
+                                            })
+                                        }
+                                        FetchResult::Error(err) => {
+                                            error!("Error fetching URL: {}", err);
+                                            PiEvent::FetchError(FetchError {
+                                                project_id: request.project_id.clone(),
+                                                node_id: request.node_id,
+                                                error: err,
+                                            })
+                                        }
                                     }
-                                    FetchResult::Error(err) => {
-                                        error!("Error fetching URL: {}", err);
-                                        PiEvent::FetchError(FetchError {
-                                            project_id: request.project_id.clone(),
-                                            node_id: request.node_id,
-                                            error: err,
-                                        })
-                                    }
-                                },
+                                }
                             }
                         };
 

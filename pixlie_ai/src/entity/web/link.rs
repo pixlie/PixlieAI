@@ -4,7 +4,7 @@ use crate::engine::node::{
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::error::{PiError, PiResult};
-use crate::ExternalData;
+use crate::{ExternalData, FetchRequest};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -262,7 +262,7 @@ impl Link {
                 }
                 ExternalData::Error(_error) => {}
             },
-            None => engine.fetch(&url, &node.id)?,
+            None => engine.fetch(FetchRequest::new(node.id, &url))?,
         }
         Ok(())
     }
