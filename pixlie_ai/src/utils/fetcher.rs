@@ -1,5 +1,5 @@
-use crate::{FetchError, FetchResponse, PiEvent};
-use log::{debug, error};
+use crate::{CrawlOrAPIRequest, FetchError, FetchResponse, InternalFetchRequest, PiEvent};
+use log::{debug, error, info};
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Request, RequestBuilder, StatusCode, Url};
 use std::collections::HashMap;
@@ -91,10 +91,14 @@ enum FetchResult {
     Error(String),
 }
 
-async fn fetch(method: Method, url: &str, headers: HeaderMap) -> FetchResult {
+async fn fetch(request: InternalFetchRequest) -> FetchResult {
+    let url = request.crawl_or_api_request.get_url();
     let client = match Client::builder()
         .user_agent("Pixlie AI bot (https://pixlie.com)")
-        .timeout(Duration::from_secs(2))
+        .timeout(Duration::from_secs(match request.crawl_or_api_request {
+            CrawlOrAPIRequest::Crawl(_) => 5,
+            CrawlOrAPIRequest::API(_) => 60,
+        }))
         .build()
     {
         Ok(client) => client,
@@ -105,14 +109,20 @@ async fn fetch(method: Method, url: &str, headers: HeaderMap) -> FetchResult {
             ));
         }
     };
-    let url = match Url::parse(url) {
+    let url = match Url::parse(&url) {
         Ok(url) => url,
         Err(err) => {
             return FetchResult::Error(format!("Error parsing URL {} to fetch URL: {}", &url, err));
         }
     };
-    let request = RequestBuilder::from_parts(client, Request::new(method, url));
-    match request.headers(headers).send().await {
+
+    let request_builder = RequestBuilder::from_parts(client, Request::new(request.method, url));
+    let request_builder = request_builder.headers(request.headers);
+    let request_builder = match request.body {
+        Some(body) => request_builder.body(body),
+        None => request_builder,
+    };
+    match request_builder.send().await {
         Ok(response) => {
             let status = response.status();
             if status.is_success() {
@@ -121,10 +131,16 @@ async fn fetch(method: Method, url: &str, headers: HeaderMap) -> FetchResult {
                     Err(err) => FetchResult::Error(err.to_string()),
                 }
             } else {
-                FetchResult::Error("Fetch response status is not success".to_string())
+                FetchResult::Error(format!(
+                    "Fetch response status is not success, got response {}",
+                    response.text().await.unwrap_or_else(|_| "".to_string())
+                ))
             }
         }
-        Err(err) => FetchResult::Error(format!("Error getting response: {}", err)),
+        Err(error) => {
+            info!("Error {:?}", error);
+            FetchResult::Error(format!("Error getting response: {}", error))
+        }
     }
 }
 
@@ -143,40 +159,41 @@ pub fn fetcher_runtime(
     };
 
     rt.block_on(async {
+        async fn make_request(request: InternalFetchRequest) -> PiEvent {
+            match fetch(request.clone()).await {
+                FetchResult::Contents(_status, contents) => PiEvent::FetchResponse(FetchResponse {
+                    project_id: request.project_id.clone(),
+                    node_id: request.node_id,
+                    url: request.crawl_or_api_request.get_url(),
+                    contents,
+                }),
+                FetchResult::Error(err) => PiEvent::FetchError(FetchError {
+                    project_id: request.project_id.clone(),
+                    node_id: request.node_id,
+                    error: err,
+                }),
+            }
+        }
+
         loop {
             let event = fetch_rx.recv().await;
             match event {
                 Some(event) => match event {
                     PiEvent::FetchRequest(request) => {
-                        let fetch_response: PiEvent = {
-                            match check_logs(&request.domain, &request.url, &mut domain_logs) {
+                        let fetch_response: PiEvent = match &request.crawl_or_api_request {
+                            CrawlOrAPIRequest::Crawl(crawl_request) => match check_logs(
+                                &crawl_request.domain,
+                                &crawl_request.url,
+                                &mut domain_logs,
+                            ) {
                                 CanCrawl::No(err) => PiEvent::FetchError(FetchError {
                                     project_id: request.project_id.clone(),
                                     node_id: request.node_id,
                                     error: err,
                                 }),
-                                CanCrawl::Yes => {
-                                    match fetch(request.method, &request.url, request.headers).await
-                                    {
-                                        FetchResult::Contents(_status, contents) => {
-                                            PiEvent::FetchResponse(FetchResponse {
-                                                project_id: request.project_id.clone(),
-                                                node_id: request.node_id,
-                                                url: request.url.clone(),
-                                                contents,
-                                            })
-                                        }
-                                        FetchResult::Error(err) => {
-                                            error!("Error fetching URL: {}", err);
-                                            PiEvent::FetchError(FetchError {
-                                                project_id: request.project_id.clone(),
-                                                node_id: request.node_id,
-                                                error: err,
-                                            })
-                                        }
-                                    }
-                                }
-                            }
+                                CanCrawl::Yes => make_request(request).await,
+                            },
+                            CrawlOrAPIRequest::API(_) => make_request(request).await,
                         };
 
                         match main_tx.send(fetch_response) {

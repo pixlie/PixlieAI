@@ -22,17 +22,11 @@ pub enum PiError {
     #[error("Cannot read or write to storage directory")]
     CannotReadOrWriteToStorageDirectory,
 
-    #[error("Config error: {0}")]
-    SettingsError(#[from] config::ConfigError),
-
     #[error("Failed to write config file: {0}")]
     FailedToWriteConfigFile(String),
 
     #[error("API key not configured")]
     ApiKeyNotConfigured,
-
-    #[error("Error from reqwest: {0}")]
-    ReqwestError(#[from] reqwest::Error),
 
     #[error("Failed to fetch after retries")]
     FetchFailedAfterRetries,
@@ -43,8 +37,23 @@ pub enum PiError {
     #[error("Could not classify text")]
     CouldNotClassifyText,
 
+    #[error("Error from Actix Web Blocking Error: {0}")]
+    ActixWebError(#[from] actix_web::error::BlockingError),
+
+    #[error("Error from Anthropic Service: {0}")]
+    AnthropicServiceError(String),
+
+    #[error("Error in CRUD: {0}")]
+    CrudError(String),
+
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("Error from reqwest: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error("Config error: {0}")]
+    SettingsError(#[from] config::ConfigError),
 
     #[error("Error sending to crossbeam channel: {0}")]
     CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
@@ -54,15 +63,6 @@ pub enum PiError {
 
     #[error("Error from rocksdb: {0}")]
     RocksdbError(#[from] rocksdb::Error),
-
-    #[error("Error from Actix Web Blocking Error: {0}")]
-    ActixWebError(#[from] actix_web::error::BlockingError),
-
-    #[error("Error from Anthropic Service: {0}")]
-    AnthropicServiceError(String),
-
-    #[error("Error in CRUD: {0}")]
-    CrudError(String),
 
     #[error("Internal error: {0}")]
     InternalError(String),

@@ -94,6 +94,12 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
+        } else if self.labels.contains(&NodeLabel::Objective) {
+            Objective::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response)),
+            )?;
         }
         Ok(())
     }
@@ -107,11 +113,11 @@ impl NodeItem {
             Domain::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::Link) {
             Link::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
+        } else if self.labels.contains(&NodeLabel::Objective) {
+            Objective::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         }
         Ok(())
     }
-
-    // pub fn find_existing()
 }
 
 impl NodeItem {

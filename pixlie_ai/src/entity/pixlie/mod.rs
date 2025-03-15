@@ -23,7 +23,7 @@ pub enum ContinueCrawl {
 #[derive(Deserialize, TS)]
 pub struct Crawl {
     pub starting_urls: Vec<String>,
-    pub web_search_keywords: Option<String>,
+    pub web_search_keywords: Vec<String>,
     pub continue_crawl: Option<ContinueCrawl>,
 }
 

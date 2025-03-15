@@ -5,8 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::Engine;
-use crate::services::llm::LLM;
+use crate::services::llm::{LLMResponse, LLM};
 use crate::workspace::WorkspaceCollection;
 use crate::{
     entity::ExtractedEntity,
@@ -14,12 +13,11 @@ use crate::{
     services::extract_entites_from_lines,
     FetchRequest,
 };
-use itertools::Itertools;
-use log::{debug, error};
+use log::debug;
 use reqwest::blocking::Client;
-use reqwest::{Method, RequestBuilder};
+use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 pub struct ClaudeResponse {
@@ -92,7 +90,7 @@ impl LLM for Anthropic {
         I have the following objective:
         {}
 
-        Please respond in JSON with LLMResponse
+        Please respond in JSON with LLMResponse:
         "#,
             pixlie_schema, objective
         ))
@@ -124,14 +122,14 @@ impl LLM for Anthropic {
         let mut request =
             FetchRequest::new(calling_node_id, "https://api.anthropic.com/v1/messages");
         request.method = Method::POST;
-        request
-            .headers
-            .insert("content-type", "application/json".parse().unwrap());
-        request
-            .headers
-            .insert("anthropic-version", "2023-06-01".parse().unwrap());
-        request.headers.insert("x-api-key", key.parse().unwrap());
-
+        request.headers = HeaderMap::from_iter(vec![
+            (CONTENT_TYPE, "application/json".parse().unwrap()),
+            (
+                "anthropic-version".parse().unwrap(),
+                "2023-06-01".parse().unwrap(),
+            ),
+            ("x-api-key".parse().unwrap(), key.parse().unwrap()),
+        ]);
         let payload = ClaudeChat {
             model: LL_MODEL_HAIKU,
             max_tokens: 1024,
@@ -145,6 +143,16 @@ impl LLM for Anthropic {
         let serialized_payload = serde_json::to_string(&payload)?;
         request.body = Some(serialized_payload);
         Ok(request)
+    }
+
+    fn parse_response(response: &str) -> PiResult<Vec<LLMResponse>> {
+        let claude_response: ClaudeResponse = serde_json::from_str(response)?;
+        Ok(claude_response.content.into_iter().map(|claude_response_content| {
+            LLMResponse {
+                content_type: claude_response_content._type,
+                content: claude_response_content.text,
+            }
+        }).collect())
     }
 }
 

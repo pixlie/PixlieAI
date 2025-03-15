@@ -632,7 +632,6 @@ impl Engine {
                 )));
             }
         };
-        debug!("Domain {} is allowed to crawl", &domain_name);
 
         self.toggle_flag(&fetch_request.requesting_node_id, NodeFlags::IS_REQUESTING)?;
         self.count_open_fetch_requests
@@ -642,17 +641,67 @@ impl Engine {
         debug!("Fetching URL {}", &full_url);
 
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
-            InternalFetchRequest::from_request_to_engine(
+            InternalFetchRequest::from_crawl_request(
                 fetch_request,
                 self.project_id.clone(),
                 domain_name,
             ),
         )) {
-            Ok(_) => {
-                debug!("Sent fetch request for url {}", &full_url);
-            }
+            Ok(_) => {}
             Err(err) => {
-                error!("Error sending request to fetcher: {}", err);
+                return Err(PiError::FetchError(format!(
+                    "Error sending request to fetcher: {}",
+                    err
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn fetch_api(&self, fetch_request: FetchRequest) -> PiResult<()> {
+        if self
+            .count_open_fetch_requests
+            .load(std::sync::atomic::Ordering::Relaxed)
+            >= 5
+        {
+            return Ok(());
+        }
+        let engine = Arc::new(self);
+        let calling_node = match engine.get_node_by_id(&fetch_request.requesting_node_id) {
+            Some(node) => node,
+            None => {
+                error!("Cannot find link node for URL {}", &fetch_request.url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find link node for URL {}",
+                    &fetch_request.url
+                )));
+            }
+        };
+        if calling_node.flags.contains(NodeFlags::IS_REQUESTING) {
+            debug!(
+                "Cannot fetch URL {} since it is already fetching",
+                &fetch_request.url
+            );
+            return Ok(());
+        }
+        if calling_node.flags.contains(NodeFlags::IS_BLOCKED) {
+            // debug!("Cannot fetch URL {} since it is blocked", &url);
+            return Err(PiError::FetchError(format!(
+                "Cannot fetch URL {} since it is blocked",
+                &fetch_request.url
+            )));
+        }
+
+        self.toggle_flag(&fetch_request.requesting_node_id, NodeFlags::IS_REQUESTING)?;
+        self.count_open_fetch_requests
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        debug!("Fetching URL {}", &fetch_request.url);
+
+        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
+            InternalFetchRequest::from_api_request(fetch_request, self.project_id.clone()),
+        )) {
+            Ok(_) => {}
+            Err(err) => {
                 return Err(PiError::FetchError(format!(
                     "Error sending request to fetcher: {}",
                     err

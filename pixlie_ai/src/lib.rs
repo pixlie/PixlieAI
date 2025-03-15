@@ -41,28 +41,71 @@ pub enum ExternalData {
 }
 
 #[derive(Clone)]
+pub struct CrawRequest {
+    pub domain: String,
+    pub url: String,
+}
+
+#[derive(Clone)]
+pub struct APIRequest {
+    pub url: String,
+}
+
+#[derive(Clone)]
+pub enum CrawlOrAPIRequest {
+    Crawl(CrawRequest),
+    API(APIRequest),
+}
+
+impl CrawlOrAPIRequest {
+    pub fn get_url(&self) -> String {
+        match self {
+            CrawlOrAPIRequest::Crawl(crawl_request) => crawl_request.url.clone(),
+            CrawlOrAPIRequest::API(api_request) => api_request.url.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct InternalFetchRequest {
     pub project_id: String,
     pub node_id: u32,
     pub method: Method,
-    pub domain: String,
-    pub url: String,
+    pub crawl_or_api_request: CrawlOrAPIRequest,
     pub headers: HeaderMap,
     pub body: Option<String>,
 }
 
 impl InternalFetchRequest {
-    pub fn from_request_to_engine(
+    pub fn from_crawl_request(
         request: FetchRequest,
         project_id: String,
         domain: String,
-    ) -> InternalFetchRequest {
-        InternalFetchRequest {
+    ) -> Self {
+        Self {
             project_id,
             node_id: request.requesting_node_id,
             method: request.method,
-            domain,
-            url: request.url,
+            crawl_or_api_request: CrawlOrAPIRequest::Crawl(CrawRequest {
+                domain,
+                url: request.url,
+            }),
+            headers: request.headers,
+            body: request.body,
+        }
+    }
+    
+    pub fn from_api_request(
+        request: FetchRequest,
+        project_id: String,
+    ) -> Self {
+        Self {
+            project_id,
+            node_id: request.requesting_node_id,
+            method: request.method,
+            crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest {
+                url: request.url,
+            }),
             headers: request.headers,
             body: request.body,
         }
