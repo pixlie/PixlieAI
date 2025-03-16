@@ -48,8 +48,8 @@ pub struct WorkspaceUpdate {
     pub name: Option<String>,        // Not used yet
     pub description: Option<String>, // Not used yet
 
-    #[ts(type = "{ [key: APIProvider]: string }")]
-    pub api_keys: HashMap<APIProvider, String>,
+    pub anthropic_api_key: Option<String>,
+    pub brave_search_api_key: Option<String>,
 }
 
 impl CrudItem for Workspace {

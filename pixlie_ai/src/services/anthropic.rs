@@ -75,7 +75,7 @@ pub struct SearchTermPromptInput {
     pub content: Vec<SearchTermPromptInputContent>,
 }
 
-const LL_MODEL_SONNET: &str = "claude-3-7-sonnet-latest";
+// const LL_MODEL_SONNET: &str = "claude-3-7-sonnet-latest";
 const LL_MODEL_HAIKU: &str = "claude-3-5-haiku-latest";
 
 pub struct Anthropic;

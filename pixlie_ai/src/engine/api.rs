@@ -559,7 +559,13 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    Link::add_manually(engine.clone(), &link_write.url)?;
+                    Link::add(
+                        engine.clone(),
+                        &link_write.url,
+                        vec![NodeLabel::AddedByUser],
+                        vec![],
+                        true,
+                    )?;
                 }
                 NodeWrite::SearchTerm(text) => {
                     SavedSearch::add_manually(engine.clone(), &text)?;

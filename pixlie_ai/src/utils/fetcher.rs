@@ -1,7 +1,6 @@
 use crate::{CrawlOrAPIRequest, FetchError, FetchResponse, InternalFetchRequest, PiEvent};
 use log::{debug, error, info};
-use reqwest::header::HeaderMap;
-use reqwest::{Client, Method, Request, RequestBuilder, StatusCode, Url};
+use reqwest::{Client, Request, RequestBuilder, StatusCode, Url};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;

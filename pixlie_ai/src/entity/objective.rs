@@ -1,5 +1,5 @@
 use crate::engine::node::{NodeItem, NodeLabel};
-use crate::engine::Engine;
+use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::pixlie::Crawl;
 use crate::entity::pixlie::{ContinueCrawl, Feature, LLMResponse};
 use crate::entity::text::Text;
@@ -77,24 +77,62 @@ impl Objective {
                             Feature::Crawl(crawl) => {
                                 for starting_url in crawl.starting_urls {
                                     // Create a Link node for each starting URL
-                                    Link::add(
+                                    let link_node_id = Link::add(
                                         engine.clone(),
                                         &starting_url,
                                         vec![NodeLabel::AddedByAI],
                                         vec![],
                                         true,
                                     )?;
+                                    engine.add_connection(
+                                        (node.id, link_node_id),
+                                        (
+                                            CommonEdgeLabels::Suggests.to_string(),
+                                            CommonEdgeLabels::SuggestedFor.to_string(),
+                                        ),
+                                    )?;
                                 }
                                 for web_search_keywords in crawl.web_search_keywords {
-                                    Text::add(
+                                    let web_search_node_id = Text::add(
                                         engine.clone(),
                                         &web_search_keywords,
                                         vec![NodeLabel::AddedByAI, NodeLabel::WebSearch],
                                     )?;
+                                    engine.add_connection(
+                                        (node.id, web_search_node_id),
+                                        (
+                                            CommonEdgeLabels::Suggests.to_string(),
+                                            CommonEdgeLabels::SuggestedFor.to_string(),
+                                        ),
+                                    )?;
+                                }
+                                if let Some(continue_crawl) = crawl.continue_crawl {
+                                    match continue_crawl {
+                                        ContinueCrawl::IfContentHasKeywords(keywords) => {
+                                            for crawl_condition in keywords {
+                                                let crawl_condition_node_id = Text::add(
+                                                    engine.clone(),
+                                                    &crawl_condition,
+                                                    vec![
+                                                        NodeLabel::AddedByAI,
+                                                        NodeLabel::CrawlCondition,
+                                                    ],
+                                                )?;
+                                                engine.add_connection(
+                                                    (node.id, crawl_condition_node_id),
+                                                    (
+                                                        CommonEdgeLabels::Suggests.to_string(),
+                                                        CommonEdgeLabels::SuggestedFor.to_string(),
+                                                    ),
+                                                )?;
+                                            }
+                                        }
+                                    };
                                 }
                             }
                         }
                     }
+                    engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {}
             },

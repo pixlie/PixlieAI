@@ -12,8 +12,6 @@ use crate::error::{PiError, PiResult};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
-use reqwest::header::HeaderMap;
-use reqwest::Method;
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU32;
@@ -205,6 +203,7 @@ impl Engine {
             NodeLabel::Domain,
             NodeLabel::WebPage,
             NodeLabel::Objective,
+            NodeLabel::WebSearch,
         ];
         let flags_to_be_skipped = vec![
             NodeFlags::IS_PROCESSED,

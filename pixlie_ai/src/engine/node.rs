@@ -33,6 +33,7 @@ pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub enum NodeLabel {
     AddedByUser,
     AddedByAI,
+    AddedByWebSearch,
     Content,
     Domain,
     Heading,
@@ -48,6 +49,7 @@ pub enum NodeLabel {
     UnorderedPoints,
     WebPage,
     WebSearch,
+    CrawlCondition,
 }
 
 impl Default for NodeFlags {
@@ -105,6 +107,12 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
+        } else if self.labels.contains(&NodeLabel::WebSearch) {
+            WebSearch::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response)),
+            )?;
         }
         Ok(())
     }
@@ -120,6 +128,8 @@ impl NodeItem {
             Link::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
+        } else if self.labels.contains(&NodeLabel::WebSearch) {
+            WebSearch::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         }
         Ok(())
     }
