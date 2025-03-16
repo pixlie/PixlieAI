@@ -17,7 +17,7 @@ const Navbar: Component = () => {
         <a
           href="/"
           class={
-            "text-4xl font-bold flex items-center gap-6 " +
+            "text-4xl font-bold flex items-center gap-6 no-underline " +
             getColors()["navBar.logo"]
           }
         >

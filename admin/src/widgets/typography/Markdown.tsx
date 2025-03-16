@@ -26,7 +26,7 @@ const Markdown: Component<IPropTypes> = (props) => {
   };
   const paragraphClasses = `${getSizeClass(
     props.size,
-  )} text-gray-300 select-none cursor-default ${getColors().text}`;
+  )} text-gray-300 select-none cursor-default ${getColors().text} markdown`;
 
   onMount(() => {
     const parsed = marked.parse(props.text);

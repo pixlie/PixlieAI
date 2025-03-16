@@ -10,6 +10,7 @@ import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
 import { Project } from "../api_types/Project";
 import { Workspace } from "../api_types/Workspace";
+import { WorkspaceUpdate } from "../api_types/WorkspaceUpdate.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -80,7 +81,7 @@ const makeStore = () => {
     });
   };
 
-  const saveWorkspace = (workspace: Partial<Workspace>) => {
+  const saveWorkspace = (update: Partial<WorkspaceUpdate>) => {
     if (!store.workspace || !store.workspace.uuid) {
       return;
     }
@@ -90,12 +91,12 @@ const makeStore = () => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(snakeCasedKeys(workspace)),
+      body: JSON.stringify(snakeCasedKeys(update)),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save workspace");
       }
-      setStore("workspace", workspace);
+      fetchWorkspace();
     });
   };
 

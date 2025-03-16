@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, onMount } from "solid-js";
+import { Component, createMemo, createSignal } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
@@ -10,16 +10,11 @@ const labelTypes: string[] = ["Domain", "Link"];
 type LabelType = (typeof labelTypes)[number];
 
 const Crawl: Component = () => {
-  const [engine, { fetchNodes, fetchEdges }] = useEngine();
+  const [engine] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
   const [linkCount, setLinkCount] = createSignal(0);
   const [domainCount, setDomainCount] = createSignal(0);
-
-  onMount(() => {
-    fetchNodes(params.projectId);
-    fetchEdges(params.projectId);
-  });
 
   const getProject = createMemo(() => {
     if (!!params.projectId && params.projectId in engine.projects) {
