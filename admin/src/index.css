@@ -3,3 +3,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+p.markdown a {
+    color: steelblue;
+    text-decoration: underline;
+    text-underline: steelblue;
+}

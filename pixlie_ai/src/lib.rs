@@ -7,6 +7,8 @@
 
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crossbeam_channel::unbounded;
+use reqwest::header::HeaderMap;
+use reqwest::Method;
 use strum::Display;
 
 pub mod api;
@@ -39,11 +41,95 @@ pub enum ExternalData {
 }
 
 #[derive(Clone)]
-pub struct FetchRequest {
-    pub project_id: String,
-    pub node_id: u32,
+pub struct CrawRequest {
     pub domain: String,
     pub url: String,
+}
+
+#[derive(Clone)]
+pub struct APIRequest {
+    pub url: String,
+}
+
+#[derive(Clone)]
+pub enum CrawlOrAPIRequest {
+    Crawl(CrawRequest),
+    API(APIRequest),
+}
+
+impl CrawlOrAPIRequest {
+    pub fn get_url(&self) -> String {
+        match self {
+            CrawlOrAPIRequest::Crawl(crawl_request) => crawl_request.url.clone(),
+            CrawlOrAPIRequest::API(api_request) => api_request.url.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct InternalFetchRequest {
+    pub project_id: String,
+    pub node_id: u32,
+    pub method: Method,
+    pub crawl_or_api_request: CrawlOrAPIRequest,
+    pub headers: HeaderMap,
+    pub body: Option<String>,
+}
+
+impl InternalFetchRequest {
+    pub fn from_crawl_request(
+        request: FetchRequest,
+        project_id: String,
+        domain: String,
+    ) -> Self {
+        Self {
+            project_id,
+            node_id: request.requesting_node_id,
+            method: request.method,
+            crawl_or_api_request: CrawlOrAPIRequest::Crawl(CrawRequest {
+                domain,
+                url: request.url,
+            }),
+            headers: request.headers,
+            body: request.body,
+        }
+    }
+    
+    pub fn from_api_request(
+        request: FetchRequest,
+        project_id: String,
+    ) -> Self {
+        Self {
+            project_id,
+            node_id: request.requesting_node_id,
+            method: request.method,
+            crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest {
+                url: request.url,
+            }),
+            headers: request.headers,
+            body: request.body,
+        }
+    }
+}
+
+pub struct FetchRequest {
+    pub requesting_node_id: u32,
+    pub method: Method,
+    pub url: String,
+    pub headers: HeaderMap,
+    pub body: Option<String>,
+}
+
+impl FetchRequest {
+    pub fn new(node_id: u32, url: &str) -> FetchRequest {
+        FetchRequest {
+            requesting_node_id: node_id,
+            method: Method::GET,
+            url: url.to_string(),
+            headers: HeaderMap::new(),
+            body: None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -70,13 +156,13 @@ pub enum PiEvent {
     APIRequest(String, EngineRequest), // Actual payload is share using PiStore
     APIResponse(String, EngineResponse),
 
-    FetchRequest(FetchRequest),
+    FetchRequest(InternalFetchRequest),
     FetchResponse(FetchResponse),
     FetchError(FetchError),
 
     NeedsToTick,
     // TickMeLater(String), // This is sent from engine to main thread
-    EngineExit(String),  // The engine has nothing else to do, so it gives up
+    EngineExit(String), // The engine has nothing else to do, so it gives up
 
     Shutdown,
 }

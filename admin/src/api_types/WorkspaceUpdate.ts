@@ -4,4 +4,5 @@ export type WorkspaceUpdate = {
   name: string | null;
   description: string | null;
   anthropic_api_key: string | null;
+  brave_search_api_key: string | null;
 };

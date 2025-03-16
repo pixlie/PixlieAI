@@ -10,20 +10,20 @@ import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
 
 const help = `
-Pixlie only supports using Anthropic Claude as an AI model at this moment.
+Pixlie AI uses Brave Search API to search the web.
 
 Please copy and paste your API key. You can obtain one by signing up
-on [Anthropic Console](https://www.anthropic.com/api).
+on [Brave Search API](https://brave.com/search/api/).
 `;
 
 interface IFormData {
-  anthropicApiKey: string;
+  braveSearchApiKey: string;
 }
 
-const Anthropic: Component = () => {
+const BraveSearch: Component = () => {
   const [workspace, { fetchWorkspace, saveWorkspace }] = useWorkspace();
   const [formData, setFormData] = createStore<IFormData>({
-    anthropicApiKey: "",
+    braveSearchApiKey: "",
   });
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
@@ -38,19 +38,19 @@ const Anthropic: Component = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.anthropicApiKey) {
+    if (!formData.braveSearchApiKey) {
       setErrorMessage("Please enter an API key");
       return;
     }
     if (
-      formData.anthropicApiKey.length < 64 ||
-      !formData.anthropicApiKey.startsWith("sk-ant-")
+      formData.braveSearchApiKey.length < 30 ||
+      !formData.braveSearchApiKey.startsWith("BSA")
     ) {
-      setErrorMessage("Please enter a valid Anthropic API key");
+      setErrorMessage("Please enter a valid Brave Search API key");
       return;
     }
     saveWorkspace({
-      anthropic_api_key: formData.anthropicApiKey,
+      brave_search_api_key: formData.braveSearchApiKey,
     });
     fetchWorkspace();
   };
@@ -59,41 +59,41 @@ const Anthropic: Component = () => {
     fetchWorkspace();
   });
 
-  const getAnthropicApiKey = createMemo<string | undefined>(() => {
+  const getBraveSearchApiKey = createMemo<string | undefined>(() => {
     if (workspace.workspace?.apiKeys) {
-      return workspace.workspace.apiKeys["Anthropic" as APIProvider];
+      return workspace.workspace.apiKeys["BraveSearch" as APIProvider];
     }
     return undefined;
   });
 
   return (
     <div class="flex flex-col gap-y-2">
-      <Heading size={3}>Anthropic API Key</Heading>
+      <Heading size={3}>Brave Search API Key</Heading>
       <Markdown text={help} />
 
       {workspace.isFetching ? (
         <div>Loading...</div>
       ) : (
         <>
-          {getAnthropicApiKey() && (
+          {getBraveSearchApiKey() && (
             <small class={getColors()["textInfo"]}>
-              You already have an Anthropic API key saved. You can replace it by
-              entering a new one.
+              You already have an Brave Search API key saved. You can replace it
+              by entering a new one.
             </small>
           )}
           <TextInput
-            name="anthropicApiKey"
-            placeholder={getAnthropicApiKey() || "Your Anthropic API Key"}
+            name="braveSearchApiKey"
+            placeholder={getBraveSearchApiKey() || "Your Brave Search API Key"}
             isEditable
             onChange={handleChange}
-            value={formData.anthropicApiKey}
+            value={formData.braveSearchApiKey}
           />
           {!!errorMessage && (
             <small class={getColors()["textDanger"]}>{errorMessage()}</small>
           )}
           <div>
             <Button
-              label={`${getAnthropicApiKey() ? "Update" : "Save"} Anthropic API key`}
+              label={`${getBraveSearchApiKey() ? "Update" : "Save"} Brave Search API key`}
               onClick={handleSubmit}
             />
           </div>
@@ -103,4 +103,4 @@ const Anthropic: Component = () => {
   );
 };
 
-export default Anthropic;
+export default BraveSearch;

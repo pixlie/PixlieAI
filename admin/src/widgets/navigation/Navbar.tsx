@@ -1,6 +1,6 @@
 import { Component } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
-import DropDown from "./DropDown";
+import NavbarMenu from "./NavbarMenu.tsx";
 import ToolTip from "./ToolTip";
 
 const Navbar: Component = () => {
@@ -17,7 +17,7 @@ const Navbar: Component = () => {
         <a
           href="/"
           class={
-            "text-4xl font-bold flex items-center gap-6 " +
+            "text-4xl font-bold flex items-center gap-6 no-underline " +
             getColors()["navBar.logo"]
           }
         >
@@ -100,7 +100,7 @@ const Navbar: Component = () => {
             </svg>
           </a>
         </ToolTip>
-        <DropDown />
+        <NavbarMenu />
       </nav>
     </div>
   );

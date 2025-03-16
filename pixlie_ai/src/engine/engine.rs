@@ -5,11 +5,11 @@ use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::nodes::Nodes;
-use crate::entity::search::SearchTerm;
+use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::{FetchRequest, PiChannel, PiEvent};
+use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
 use rocksdb::DB;
@@ -203,6 +203,7 @@ impl Engine {
             NodeLabel::Domain,
             NodeLabel::WebPage,
             NodeLabel::Objective,
+            NodeLabel::WebSearch,
         ];
         let flags_to_be_skipped = vec![
             NodeFlags::IS_PROCESSED,
@@ -424,7 +425,7 @@ impl Engine {
             }
         } else if labels.contains(&NodeLabel::SearchTerm) {
             match payload {
-                Payload::Text(search_term) => SearchTerm::find_existing(engine, search_term),
+                Payload::Text(search_term) => SavedSearch::find_existing(engine, search_term),
                 _ => Ok(None),
             }
         } else {
@@ -485,7 +486,7 @@ impl Engine {
         }
     }
 
-    pub fn fetch(&self, url: &str, calling_node_id: &NodeId) -> PiResult<()> {
+    pub fn fetch(&self, fetch_request: FetchRequest) -> PiResult<()> {
         // Calling node is usually a Link,
         // but it can also be a Domain when Domain is fetching `robots.txt`
         // We have only a limited number of open fetch requests at a time
@@ -498,25 +499,28 @@ impl Engine {
         }
 
         let engine = Arc::new(self);
-        let calling_node = match engine.get_node_by_id(calling_node_id) {
+        let calling_node = match engine.get_node_by_id(&fetch_request.requesting_node_id) {
             Some(node) => node,
             None => {
-                error!("Cannot find link node for URL {}", url);
+                error!("Cannot find link node for URL {}", &fetch_request.url);
                 return Err(PiError::GraphError(format!(
                     "Cannot find link node for URL {}",
-                    url
+                    &fetch_request.url
                 )));
             }
         };
         if calling_node.flags.contains(NodeFlags::IS_REQUESTING) {
-            debug!("Cannot fetch URL {} since it is already fetching", &url);
+            debug!(
+                "Cannot fetch URL {} since it is already fetching",
+                &fetch_request.url
+            );
             return Ok(());
         }
         if calling_node.flags.contains(NodeFlags::IS_BLOCKED) {
             // debug!("Cannot fetch URL {} since it is blocked", &url);
             return Err(PiError::FetchError(format!(
                 "Cannot fetch URL {} since it is blocked",
-                &url
+                &fetch_request.url
             )));
         }
 
@@ -525,15 +529,15 @@ impl Engine {
                 Payload::Link(_) => {
                     let existing_domain: Option<ArcedNodeItem> = Domain::find_existing(
                         engine.clone(),
-                        FindDomainOf::Node(calling_node_id.clone()),
+                        FindDomainOf::Node(fetch_request.requesting_node_id.clone()),
                     )?;
                     match existing_domain {
                         Some(existing_domain) => existing_domain,
                         None => {
-                            error!("Cannot find domain node for URL {}", url);
+                            error!("Cannot find domain node for URL {}", &fetch_request.url);
                             return Err(PiError::GraphError(format!(
                                 "Cannot find domain node for URL {}",
-                                url
+                                &fetch_request.url
                             )));
                         }
                     }
@@ -544,10 +548,10 @@ impl Engine {
             match calling_node.payload {
                 Payload::Text(_) => calling_node.clone(),
                 _ => {
-                    error!("Cannot find domain node for URL {}", url);
+                    error!("Cannot find domain node for URL {}", &fetch_request.url);
                     return Err(PiError::GraphError(format!(
                         "Cannot find domain node for URL {}",
-                        url
+                        &fetch_request.url
                     )));
                 }
             }
@@ -591,7 +595,7 @@ impl Engine {
                                                 Err(err) => {
                                                     error!(
                                                     "Error parsing robots.txt for domain {}: {}",
-                                                    url, err
+                                                    &fetch_request.url, err
                                                 );
                                                     return Err(PiError::FetchError(
                                                         "Error parsing robots.txt".to_string(),
@@ -599,14 +603,14 @@ impl Engine {
                                                 }
                                             };
                                         // Check if we can crawl
-                                        if !robot.allowed(&url) {
+                                        if !robot.allowed(&fetch_request.url) {
                                             debug!(
                                                 "URL {} is not allowed to crawl by robots.txt",
-                                                &url
+                                                &fetch_request.url
                                             );
                                             return Err(PiError::FetchError(format!(
                                                 "URL {} is not allowed to crawl by robots.txt",
-                                                &url,
+                                                &fetch_request.url,
                                             )));
                                         }
                                         break;
@@ -623,32 +627,80 @@ impl Engine {
             _ => {
                 return Err(PiError::GraphError(format!(
                     "Cannot find domain node for URL {}",
-                    url
+                    &fetch_request.url
                 )));
             }
         };
-        debug!("Domain {} is allowed to crawl", &domain_name);
 
-        self.toggle_flag(calling_node_id, NodeFlags::IS_REQUESTING)?;
+        self.toggle_flag(&fetch_request.requesting_node_id, NodeFlags::IS_REQUESTING)?;
         self.count_open_fetch_requests
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        let full_url = format!("https://{}{}", domain_name, url);
+        let full_url = format!("https://{}{}", domain_name, &fetch_request.url);
         debug!("Fetching URL {}", &full_url);
 
-        match self
-            .fetcher_tx
-            .blocking_send(PiEvent::FetchRequest(FetchRequest {
-                project_id: self.project_id.clone(),
-                node_id: *calling_node_id,
-                domain: domain_name.clone(),
-                url: full_url.clone(),
-            })) {
-            Ok(_) => {
-                debug!("Sent fetch request for url {}", &full_url);
-            }
+        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
+            InternalFetchRequest::from_crawl_request(
+                fetch_request,
+                self.project_id.clone(),
+                domain_name,
+            ),
+        )) {
+            Ok(_) => {}
             Err(err) => {
-                error!("Error sending request to fetcher: {}", err);
+                return Err(PiError::FetchError(format!(
+                    "Error sending request to fetcher: {}",
+                    err
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn fetch_api(&self, fetch_request: FetchRequest) -> PiResult<()> {
+        if self
+            .count_open_fetch_requests
+            .load(std::sync::atomic::Ordering::Relaxed)
+            >= 5
+        {
+            return Ok(());
+        }
+        let engine = Arc::new(self);
+        let calling_node = match engine.get_node_by_id(&fetch_request.requesting_node_id) {
+            Some(node) => node,
+            None => {
+                error!("Cannot find link node for URL {}", &fetch_request.url);
+                return Err(PiError::GraphError(format!(
+                    "Cannot find link node for URL {}",
+                    &fetch_request.url
+                )));
+            }
+        };
+        if calling_node.flags.contains(NodeFlags::IS_REQUESTING) {
+            debug!(
+                "Cannot fetch URL {} since it is already fetching",
+                &fetch_request.url
+            );
+            return Ok(());
+        }
+        if calling_node.flags.contains(NodeFlags::IS_BLOCKED) {
+            // debug!("Cannot fetch URL {} since it is blocked", &url);
+            return Err(PiError::FetchError(format!(
+                "Cannot fetch URL {} since it is blocked",
+                &fetch_request.url
+            )));
+        }
+
+        self.toggle_flag(&fetch_request.requesting_node_id, NodeFlags::IS_REQUESTING)?;
+        self.count_open_fetch_requests
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        debug!("Fetching URL {}", &fetch_request.url);
+
+        match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
+            InternalFetchRequest::from_api_request(fetch_request, self.project_id.clone()),
+        )) {
+            Ok(_) => {}
+            Err(err) => {
                 return Err(PiError::FetchError(format!(
                     "Error sending request to fetcher: {}",
                     err

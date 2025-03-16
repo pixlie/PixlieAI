@@ -10,6 +10,7 @@ use serde::Serialize;
 
 pub mod anthropic;
 // pub mod gliner;
+pub mod llm;
 pub mod ollama;
 
 pub enum EntityExtractionProvider {

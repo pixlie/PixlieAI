@@ -1,7 +1,7 @@
 interface ITheme {
   name: string;
   type: string;
-  tailwindClasses: {[key: string]: string};
+  tailwindClasses: { [key: string]: string };
 }
 
 const lightDefault: ITheme = {
@@ -27,7 +27,7 @@ const lightDefault: ITheme = {
     mainContent: "bg-white",
     heading: "text-gray-800",
 
-    label: "text-gray-600",
+    label: "text-gray-800",
     text: "text-gray-700",
     textSuccess: "text-green-600",
     textInfo: "text-blue-600",

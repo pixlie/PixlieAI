@@ -5,13 +5,18 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use crate::services::llm::{LLMResponse, LLM};
+use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
     entity::ExtractedEntity,
     error::{PiError, PiResult},
     services::extract_entites_from_lines,
+    FetchRequest,
 };
 use log::debug;
 use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -32,17 +37,17 @@ pub struct ClaudeResponseContent {
 //     pub requests: Vec<ClaudeBatchItem>,
 // }
 
-#[derive(Serialize)]
-pub struct ClaudeBatchItem {
-    pub custom_id: String,
-    pub params: ClaudeChat,
-}
+// #[derive(Serialize)]
+// pub struct ClaudeBatchItem {
+//     pub custom_id: String,
+//     pub params: ClaudeChat,
+// }
 
 #[derive(Serialize)]
-pub struct ClaudeChat {
-    pub model: &'static str,
+pub struct ClaudeChat<'a> {
+    pub model: &'a str,
     pub max_tokens: u32,
-    pub messages: Vec<ClaudeChatMessage>,
+    pub messages: Vec<ClaudeChatMessage<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -50,19 +55,19 @@ pub struct ClaudeChat {
 }
 
 #[derive(Serialize)]
-pub struct ClaudeChatMessage {
-    pub role: &'static str,
+pub struct ClaudeChatMessage<'a> {
+    pub role: &'a str,
     pub content: String,
 }
 
 #[derive(Serialize)]
-pub struct  SearchTermPromptInputContent {
+pub struct SearchTermPromptInputContent {
     pub content_type: String,
     pub content: String,
 }
 
 #[derive(Deserialize)]
-pub struct  SearchTermPromptOutputItem(pub String);
+pub struct SearchTermPromptOutputItem(pub String);
 
 #[derive(Serialize)]
 pub struct SearchTermPromptInput {
@@ -70,7 +75,75 @@ pub struct SearchTermPromptInput {
     pub content: Vec<SearchTermPromptInputContent>,
 }
 
-const LL_MODEL: &str = "claude-3-5-haiku-20241022";
+// const LL_MODEL_SONNET: &str = "claude-3-7-sonnet-latest";
+const LL_MODEL_HAIKU: &str = "claude-3-5-haiku-latest";
+
+pub struct Anthropic;
+
+impl LLM for Anthropic {
+    fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
+        Ok(format!(
+            r#"
+        I have a software that you can interact with using this schema:
+        {}
+
+        I have the following objective:
+        {}
+
+        Please respond in JSON with LLMResponse:
+        "#,
+            pixlie_schema, objective
+        ))
+    }
+
+    fn get_request(
+        pixlie_schema: &String,
+        objective: &String,
+        calling_node_id: u32,
+    ) -> PiResult<FetchRequest> {
+        // Skip if there is no Anthropic API key
+        let key = match WorkspaceCollection::get_default()?.get_api_key(&APIProvider::Anthropic) {
+            Some(key) => key.to_string(),
+            None => return Err(PiError::ApiKeyNotConfigured("Anthropic".to_string())),
+        };
+        let mut request =
+            FetchRequest::new(calling_node_id, "https://api.anthropic.com/v1/messages");
+        request.method = Method::POST;
+        request.headers = HeaderMap::from_iter(vec![
+            (CONTENT_TYPE, "application/json".parse().unwrap()),
+            (
+                "anthropic-version".parse().unwrap(),
+                "2023-06-01".parse().unwrap(),
+            ),
+            ("x-api-key".parse().unwrap(), key.parse().unwrap()),
+        ]);
+        let payload = ClaudeChat {
+            model: LL_MODEL_HAIKU,
+            max_tokens: 1024,
+            temperature: None,
+            system: None,
+            messages: vec![ClaudeChatMessage {
+                role: "user",
+                content: Self::get_prompt_for_objective(pixlie_schema, objective)?,
+            }],
+        };
+        let serialized_payload = serde_json::to_string(&payload)?;
+        request.body = Some(serialized_payload);
+        Ok(request)
+    }
+
+    fn parse_response(response: &str) -> PiResult<Vec<LLMResponse>> {
+        let claude_response: ClaudeResponse = serde_json::from_str(response)?;
+        Ok(claude_response
+            .content
+            .into_iter()
+            .map(|claude_response_content| LLMResponse {
+                content_type: claude_response_content._type,
+                content: claude_response_content.text,
+            })
+            .collect())
+    }
+}
 
 fn get_prompt_to_extract_entities(text: String, labels: &Vec<String>) -> String {
     format!(
@@ -82,8 +155,6 @@ fn get_prompt_to_extract_entities(text: String, labels: &Vec<String>) -> String 
 
     Use these as possible EntityType:
     {}
-
-    Exctract EntityType and MatchingText from the following:
 
     -------------------------------------------------
 
@@ -100,7 +171,7 @@ pub fn extract_entities(
     api_key: &str,
 ) -> PiResult<Vec<ExtractedEntity>> {
     let payload = ClaudeChat {
-        model: LL_MODEL,
+        model: LL_MODEL_HAIKU,
         max_tokens: 1024,
         temperature: None,
         system: None,
@@ -146,7 +217,7 @@ fn get_prompt_to_classify(text: &String, labels: &Vec<String>) -> String {
 
 pub fn classify(text: &String, labels: &Vec<String>, api_key: &str) -> PiResult<String> {
     let payload = ClaudeChat {
-        model: LL_MODEL,
+        model: LL_MODEL_HAIKU,
         max_tokens: 1024,
         temperature: None,
         system: None,
@@ -178,7 +249,6 @@ pub fn classify(text: &String, labels: &Vec<String>, api_key: &str) -> PiResult<
 }
 
 pub fn get_prompt_to_extract_search_terms(input: &SearchTermPromptInput) -> (String, String) {
-
     let system_prompt = format!(
         r#"
 You are a data professional and a linguistic expert specializing in semantic analysis.
@@ -213,15 +283,18 @@ pub fn extract_search_terms(
     content: &Vec<(String, String)>,
     api_key: &str,
 ) -> PiResult<Vec<SearchTermPromptOutputItem>> {
-    let (system_prompt, user_prompt) = get_prompt_to_extract_search_terms(&SearchTermPromptInput{
+    let (system_prompt, user_prompt) = get_prompt_to_extract_search_terms(&SearchTermPromptInput {
         topic,
-        content: content.iter().map(|content_item| SearchTermPromptInputContent {
-            content_type: content_item.0.to_string(),
-            content: content_item.1.to_string(),
-        }).collect()
+        content: content
+            .iter()
+            .map(|content_item| SearchTermPromptInputContent {
+                content_type: content_item.0.to_string(),
+                content: content_item.1.to_string(),
+            })
+            .collect(),
     });
     let payload = ClaudeChat {
-        model: LL_MODEL,
+        model: LL_MODEL_HAIKU,
         max_tokens: 1024,
         system: Some(system_prompt),
         temperature: Some(0.1),
@@ -244,34 +317,40 @@ pub fn extract_search_terms(
     let response = match response.json::<ClaudeResponse>() {
         Ok(response) => response,
         Err(e) => {
-            debug!("Failed to parse response for Search Term Extraction from Claude as JSON: {}", e);
+            debug!(
+                "Failed to parse response for Search Term Extraction from Claude as JSON: {}",
+                e
+            );
             return Err(PiError::AnthropicServiceError(
-                "Failed to parse response for Search Term Extraction from Claude as JSON".to_string()
+                "Failed to parse response for Search Term Extraction from Claude as JSON"
+                    .to_string(),
             ));
         }
     };
-    Ok(match serde_json::from_str::<Vec<serde_json::Value>>(response.content[0].text.as_str()) {
-        Ok(prompt_response_json_object) => {
-            prompt_response_json_object.iter().filter_map(|search_term| {
-                match search_term.as_str() {
-                    Some(search_term) => {
-                        Some(SearchTermPromptOutputItem(search_term.to_string()))
-                    }
+    Ok(
+        match serde_json::from_str::<Vec<serde_json::Value>>(response.content[0].text.as_str()) {
+            Ok(prompt_response_json_object) => prompt_response_json_object
+                .iter()
+                .filter_map(|search_term| match search_term.as_str() {
+                    Some(search_term) => Some(SearchTermPromptOutputItem(search_term.to_string())),
                     None => {
-                        debug!("Failed to parse search term from Claude response: {}", search_term);
+                        debug!(
+                            "Failed to parse search term from Claude response: {}",
+                            search_term
+                        );
                         None
                     }
-                }
-            }).collect::<Vec<SearchTermPromptOutputItem>>()
+                })
+                .collect::<Vec<SearchTermPromptOutputItem>>(),
+            Err(_) => {
+                debug!(
+                    "Failed to parse response for Search Term Extraction from Claude as JSON: {}",
+                    response.content[0].text
+                );
+                return Ok(vec![]);
+            }
         },
-        Err(_) => {
-            debug!(
-                "Failed to parse response for Search Term Extraction from Claude as JSON: {}",
-                response.content[0].text
-            );
-            return Ok(vec![]);
-        }
-    })
+    )
 }
 
 // pub fn extract_entities_in_batch(

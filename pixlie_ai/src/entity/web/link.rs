@@ -4,7 +4,7 @@ use crate::engine::node::{
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::error::{PiError, PiResult};
-use crate::ExternalData;
+use crate::{ExternalData, FetchRequest};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -39,6 +39,7 @@ impl Link {
             PiError::InternalError(format!("Cannot parse URL {} to get domain", &url))
         })?;
 
+        // TODO: Remove this and add the Domain label from all the calling functions
         let domain_extra_labels = if domain_extra_labels.contains(&NodeLabel::Domain) {
             domain_extra_labels
         } else {
@@ -53,6 +54,7 @@ impl Link {
             )?
             .get_node_id();
 
+        // TODO: Remove this and add the Link label from all the calling functions
         let extra_labels = if extra_labels.contains(&NodeLabel::Link) {
             extra_labels
         } else {
@@ -79,16 +81,6 @@ impl Link {
             ),
         )?;
         Ok(link_node_id)
-    }
-
-    pub fn add_manually(engine: Arc<&Engine>, url: &String) -> PiResult<NodeId> {
-        Self::add(
-            engine.clone(),
-            url,
-            vec![NodeLabel::AddedByUser],
-            vec![],
-            true,
-        )
     }
 
     pub fn get_full_link(&self) -> String {
@@ -262,7 +254,7 @@ impl Link {
                 }
                 ExternalData::Error(_error) => {}
             },
-            None => engine.fetch(&url, &node.id)?,
+            None => engine.fetch(FetchRequest::new(node.id, &url))?,
         }
         Ok(())
     }

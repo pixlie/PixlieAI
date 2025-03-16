@@ -21,7 +21,7 @@ pub mod setup;
 use crate::engine::api::{EngineRequest, EngineResponse};
 pub use engine::Engine;
 
-pub(crate) type EdgeLabel = String;
+pub(crate) type EdgeLabel = String; // TODO: Use enum
 
 pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 

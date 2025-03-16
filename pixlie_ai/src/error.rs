@@ -6,7 +6,6 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::PiEvent;
-use actix_web::ResponseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,29 +22,44 @@ pub enum PiError {
     #[error("Cannot read or write to storage directory")]
     CannotReadOrWriteToStorageDirectory,
 
-    #[error("Config error: {0}")]
-    SettingsError(#[from] config::ConfigError),
-
     #[error("Failed to write config file: {0}")]
     FailedToWriteConfigFile(String),
 
-    #[error("API key not configured")]
-    ApiKeyNotConfigured,
-
-    #[error("Error from reqwest: {0}")]
-    ReqwestError(#[from] reqwest::Error),
-
-    #[error("Failed to fetch after retries")]
-    FetchFailedAfterRetries,
-
-    #[error("Not configured properly")]
-    NotConfiguredProperly,
+    #[error("API key for {0} not configured")]
+    ApiKeyNotConfigured(String),
 
     #[error("Could not classify text")]
     CouldNotClassifyText,
 
+    #[error("Error in fetching external data: {0}")]
+    FetchError(String),
+
+    #[error("Internal error: {0}")]
+    InternalError(String),
+
+    #[error("Error in graph reading or writing: {0}")]
+    GraphError(String),
+
+    #[error("Feature is not available: {0}")]
+    NotAvailable(String),
+
+    // #[error("Error from Actix Web Blocking Error: {0}")]
+    // ActixWebError(#[from] actix_web::error::BlockingError),
+
+    #[error("Error from Anthropic Service: {0}")]
+    AnthropicServiceError(String),
+
+    #[error("Error in CRUD: {0}")]
+    CrudError(String),
+
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("Error from reqwest: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error("Config error: {0}")]
+    SettingsError(#[from] config::ConfigError),
 
     #[error("Error sending to crossbeam channel: {0}")]
     CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
@@ -56,32 +70,20 @@ pub enum PiError {
     #[error("Error from rocksdb: {0}")]
     RocksdbError(#[from] rocksdb::Error),
 
-    #[error("Error from Actix Web Blocking Error: {0}")]
-    ActixWebError(#[from] actix_web::error::BlockingError),
-
-    #[error("Error from Anthropic Service: {0}")]
-    AnthropicServiceError(String),
-
-    #[error("Error in CRUD: {0}")]
-    CrudError(String),
-
-    #[error("Internal error: {0}")]
-    InternalError(String),
-
-    #[error("Error in fetching external data: {0}")]
-    FetchError(String),
-
-    #[error("Error in graph reading or writing: {0}")]
-    GraphError(String),
-
-    #[error("Feature is not available: {0}")]
-    NotAvailable(String),
-
     #[error("Could not parse NodeLabel from string: {0}")]
     CouldNotParseNodeLabel(#[from] strum::ParseError),
+
+    #[error("Could not generate TypeScript schema: {0}")]
+    CouldNotGenerateTypeScriptSchema(#[from] ts_rs::ExportError),
+
+    #[error("Error in serde_json: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("Error in URL parsing: {0}")]
+    UrlParseError(#[from] url::ParseError),
 }
 
-impl ResponseError for PiError {
+impl actix_web::ResponseError for PiError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
             // PiError::CannotReadConfigFile => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

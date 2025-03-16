@@ -1,7 +1,7 @@
 use crate::engine::node::{ArcedNodeItem, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
 use crate::error::{PiError, PiResult};
-use crate::ExternalData;
+use crate::{ExternalData, FetchRequest};
 use log::error;
 use std::sync::Arc;
 
@@ -140,7 +140,7 @@ impl Domain {
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
             },
-            None => engine.fetch("/robots.txt", &node.id)?,
+            None => engine.fetch(FetchRequest::new(node.id, "/robots.txt"))?,
         };
         Ok(())
     }

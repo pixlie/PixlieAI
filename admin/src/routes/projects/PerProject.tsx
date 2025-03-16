@@ -7,22 +7,26 @@ interface IPerProjectInnerProps {
 }
 
 const PerProjectInner: Component<IPerProjectInnerProps> = (props) => {
-  const [_, { setProjectId, fetchNodes, fetchEdges }] = useEngine();
+  const [_, { setProjectId, sync, stopSync }] = useEngine();
   const params = useParams();
 
   onMount(() => {
-    setProjectId(params.projectId);
-    fetchNodes(params.projectId);
-    fetchEdges(params.projectId);
-  });
-
-  createEffect(() => {
-    if (params.projectId) {
+    if (!!params.projectId) {
       setProjectId(params.projectId);
-      fetchNodes(params.projectId);
-      fetchEdges(params.projectId);
+      sync(params.projectId);
     }
   });
+
+  createEffect((prevProjectId: string | void) => {
+    if (!!params.projectId && prevProjectId !== params.projectId) {
+      setProjectId(params.projectId);
+      sync(params.projectId);
+    }
+    if (!!prevProjectId && prevProjectId !== params.projectId) {
+      stopSync(prevProjectId);
+    }
+    return params.projectId;
+  }, params.projectId);
 
   return <>{props.children}</>;
 };

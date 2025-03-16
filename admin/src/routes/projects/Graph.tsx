@@ -1,4 +1,4 @@
-import { Component, createMemo, onMount } from "solid-js";
+import { Component, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
@@ -16,14 +16,9 @@ const labelTypes: string[] = [
 type LabelType = (typeof labelTypes)[number];
 
 const Graph: Component = () => {
-  const [engine, { fetchNodes, fetchEdges }] = useEngine();
+  const [engine] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
-
-  onMount(() => {
-    fetchNodes(params.projectId);
-    fetchEdges(params.projectId);
-  });
 
   const getProject = createMemo(() => {
     if (!!params.projectId && params.projectId in engine.projects) {

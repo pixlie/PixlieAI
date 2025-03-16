@@ -2,7 +2,7 @@ use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::objective::Objective;
-use crate::entity::search::SearchTerm;
+use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
 use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
@@ -559,10 +559,16 @@ pub fn handle_engine_api_request(
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
                 NodeWrite::Link(link_write) => {
-                    Link::add_manually(engine.clone(), &link_write.url)?;
+                    Link::add(
+                        engine.clone(),
+                        &link_write.url,
+                        vec![NodeLabel::AddedByUser],
+                        vec![],
+                        true,
+                    )?;
                 }
                 NodeWrite::SearchTerm(text) => {
-                    SearchTerm::add_manually(engine.clone(), &text)?;
+                    SavedSearch::add_manually(engine.clone(), &text)?;
                 }
                 NodeWrite::Objective(text) => {
                     Objective::add_manually(engine.clone(), &text)?;
@@ -576,7 +582,7 @@ pub fn handle_engine_api_request(
                     match &node.payload {
                         Payload::Text(_) => {
                             let mut results: Vec<NodeItem> =
-                                SearchTerm::query(&node, engine.clone(), &node_id.into())?;
+                                SavedSearch::query(&node, engine.clone(), &node_id.into())?;
                             results.sort_by(|a, b| a.id.cmp(&b.id));
 
                             EngineResponsePayload::Results(EngineResponseResults {

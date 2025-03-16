@@ -12,9 +12,12 @@ use url::Url;
 fn test_webpage_scraper_rlhf_book() {
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
-    let link_node_id = Link::add_manually(
+    let link_node_id = Link::add(
         arced_test_engine,
         &"https://rlhfbook.com/c/01-introduction.html".to_string(),
+        vec![NodeLabel::AddedByUser],
+        vec![],
+        true,
     )
     .unwrap();
 
@@ -748,9 +751,12 @@ fn test_extraction_from_hn_homepage() {
 
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
-    let link_node_id = Link::add_manually(
+    let link_node_id = Link::add(
         arced_test_engine,
         &"https://news.ycombinator.com".to_string(),
+        vec![NodeLabel::AddedByUser],
+        vec![],
+        true,
     )
     .unwrap();
 

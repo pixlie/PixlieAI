@@ -18,7 +18,7 @@ const Heading: Component<IPropTypes> = (props): JSX.Element => {
       case 4:
         return "text-3xl font-normal leading-tight";
       case 3:
-        return "text-4xl font-thin leading-snug mb-3";
+        return "text-4xl font-thin leading-snug";
       case 2:
         return "text-5xl font-thin leading-snug";
       case 1:
