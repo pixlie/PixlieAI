@@ -3,6 +3,6 @@ cd pixlie_ai && \
     cargo test && \
     cd ..
 
-[ -e admin/src/api_types ] && rm -rf src/admin/api_types
+[ -e admin/src/api_types ] && rm -r src/admin/api_types
 cd admin &&
     pnpm prettier src/api_types --write
