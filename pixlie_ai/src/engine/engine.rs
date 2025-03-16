@@ -5,7 +5,7 @@ use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::nodes::Nodes;
-use crate::entity::search::SearchTerm;
+use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
@@ -426,7 +426,7 @@ impl Engine {
             }
         } else if labels.contains(&NodeLabel::SearchTerm) {
             match payload {
-                Payload::Text(search_term) => SearchTerm::find_existing(engine, search_term),
+                Payload::Text(search_term) => SavedSearch::find_existing(engine, search_term),
                 _ => Ok(None),
             }
         } else {

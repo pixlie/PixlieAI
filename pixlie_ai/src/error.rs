@@ -25,20 +25,26 @@ pub enum PiError {
     #[error("Failed to write config file: {0}")]
     FailedToWriteConfigFile(String),
 
-    #[error("API key not configured")]
-    ApiKeyNotConfigured,
-
-    #[error("Failed to fetch after retries")]
-    FetchFailedAfterRetries,
-
-    #[error("Not configured properly")]
-    NotConfiguredProperly,
+    #[error("API key for {0} not configured")]
+    ApiKeyNotConfigured(String),
 
     #[error("Could not classify text")]
     CouldNotClassifyText,
 
-    #[error("Error from Actix Web Blocking Error: {0}")]
-    ActixWebError(#[from] actix_web::error::BlockingError),
+    #[error("Error in fetching external data: {0}")]
+    FetchError(String),
+
+    #[error("Internal error: {0}")]
+    InternalError(String),
+
+    #[error("Error in graph reading or writing: {0}")]
+    GraphError(String),
+
+    #[error("Feature is not available: {0}")]
+    NotAvailable(String),
+
+    // #[error("Error from Actix Web Blocking Error: {0}")]
+    // ActixWebError(#[from] actix_web::error::BlockingError),
 
     #[error("Error from Anthropic Service: {0}")]
     AnthropicServiceError(String),
@@ -64,18 +70,6 @@ pub enum PiError {
     #[error("Error from rocksdb: {0}")]
     RocksdbError(#[from] rocksdb::Error),
 
-    #[error("Internal error: {0}")]
-    InternalError(String),
-
-    #[error("Error in fetching external data: {0}")]
-    FetchError(String),
-
-    #[error("Error in graph reading or writing: {0}")]
-    GraphError(String),
-
-    #[error("Feature is not available: {0}")]
-    NotAvailable(String),
-
     #[error("Could not parse NodeLabel from string: {0}")]
     CouldNotParseNodeLabel(#[from] strum::ParseError),
 
@@ -84,6 +78,9 @@ pub enum PiError {
 
     #[error("Error in serde_json: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("Error in URL parsing: {0}")]
+    UrlParseError(#[from] url::ParseError),
 }
 
 impl actix_web::ResponseError for PiError {

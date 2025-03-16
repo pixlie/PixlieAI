@@ -1,9 +1,17 @@
+use crate::error::PiResult;
 use crate::utils::crud::{Crud, CrudItem};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use ts_rs::TS;
-use crate::error::PiResult;
 
 pub mod api;
+
+#[derive(Clone, Deserialize, Eq, Hash, PartialEq, Serialize, TS)]
+#[ts(export)]
+pub enum APIProvider {
+    Anthropic,
+    BraveSearch,
+}
 
 // A workspace is the set of settings that affect external services,
 // permissions and other configuration.
@@ -17,7 +25,21 @@ pub struct Workspace {
     pub name: String,
     pub description: Option<String>,
 
-    pub anthropic_api_key: Option<String>,
+    pub api_keys: HashMap<APIProvider, String>,
+}
+
+impl Workspace {
+    pub fn get_api_key(&self, provider: &APIProvider) -> Option<&String> {
+        if let Some(key) = self.api_keys.get(&provider) {
+            if key.is_empty() {
+                None
+            } else {
+                Some(key)
+            }
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, TS)]
@@ -25,7 +47,9 @@ pub struct Workspace {
 pub struct WorkspaceUpdate {
     pub name: Option<String>,        // Not used yet
     pub description: Option<String>, // Not used yet
-    pub anthropic_api_key: Option<String>,
+
+    #[ts(type = "{ [key: APIProvider]: string }")]
+    pub api_keys: HashMap<APIProvider, String>,
 }
 
 impl CrudItem for Workspace {
@@ -44,7 +68,7 @@ impl WorkspaceCollection {
                 uuid: uuid::Uuid::new_v4().to_string(),
                 name: "Default".to_string(),
                 description: None,
-                anthropic_api_key: None,
+                api_keys: HashMap::new(),
             };
             Ok(WorkspaceCollection::create(item)?)
         } else {

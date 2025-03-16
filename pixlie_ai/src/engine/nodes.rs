@@ -128,7 +128,7 @@ mod tests {
     use crate::engine::node::{NodeLabel, Payload};
     use crate::engine::nodes::Nodes;
     use crate::engine::NodeFlags;
-    use crate::entity::search::SearchTerm;
+    use crate::entity::search::saved_search::SavedSearch;
     use crate::entity::web::domain::Domain;
     use crate::entity::web::link::Link;
     use crate::entity::web::web_page::WebPage;

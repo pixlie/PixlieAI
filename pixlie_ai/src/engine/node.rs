@@ -1,6 +1,7 @@
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::content::TableRow;
 use crate::entity::objective::Objective;
+use crate::entity::search::web_search::WebSearch;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
@@ -31,6 +32,7 @@ pub(crate) type ArcedNodeId = Arc<NodeId>;
 #[ts(export)]
 pub enum NodeLabel {
     AddedByUser,
+    AddedByAI,
     Content,
     Domain,
     Heading,
@@ -45,6 +47,7 @@ pub enum NodeLabel {
     Title,
     UnorderedPoints,
     WebPage,
+    WebSearch,
 }
 
 impl Default for NodeFlags {
@@ -73,6 +76,8 @@ impl NodeItem {
             WebPage::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), None)?;
+        } else if self.labels.contains(&NodeLabel::WebSearch) {
+            WebSearch::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }

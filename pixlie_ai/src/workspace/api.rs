@@ -17,7 +17,7 @@ pub async fn update_workspace(
     WorkspaceCollection::update(
         &item.get_id(),
         Workspace {
-            anthropic_api_key: update.anthropic_api_key.clone(),
+            api_keys: update.api_keys.clone(),
             ..item
         },
     )?;

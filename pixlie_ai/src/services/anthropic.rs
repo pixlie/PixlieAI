@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::services::llm::{LLMResponse, LLM};
-use crate::workspace::WorkspaceCollection;
+use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
     entity::ExtractedEntity,
     error::{PiError, PiResult},
@@ -101,23 +101,10 @@ impl LLM for Anthropic {
         objective: &String,
         calling_node_id: u32,
     ) -> PiResult<FetchRequest> {
-        let default_workspace = WorkspaceCollection::get_default()?;
-
-        // Skip if there is no API key
-        let key = match default_workspace.anthropic_api_key {
-            Some(key) => {
-                if key.is_empty() {
-                    return Err(PiError::InternalError(
-                        "Default workspace does not have Anthropic API key".to_string(),
-                    ));
-                }
-                key.to_string()
-            }
-            None => {
-                return Err(PiError::InternalError(
-                    "Default workspace does not have Anthropic API key".to_string(),
-                ));
-            }
+        // Skip if there is no Anthropic API key
+        let key = match WorkspaceCollection::get_default()?.get_api_key(&APIProvider::Anthropic) {
+            Some(key) => key.to_string(),
+            None => return Err(PiError::ApiKeyNotConfigured("Anthropic".to_string())),
         };
         let mut request =
             FetchRequest::new(calling_node_id, "https://api.anthropic.com/v1/messages");
@@ -147,12 +134,14 @@ impl LLM for Anthropic {
 
     fn parse_response(response: &str) -> PiResult<Vec<LLMResponse>> {
         let claude_response: ClaudeResponse = serde_json::from_str(response)?;
-        Ok(claude_response.content.into_iter().map(|claude_response_content| {
-            LLMResponse {
+        Ok(claude_response
+            .content
+            .into_iter()
+            .map(|claude_response_content| LLMResponse {
                 content_type: claude_response_content._type,
                 content: claude_response_content.text,
-            }
-        }).collect())
+            })
+            .collect())
     }
 }
 

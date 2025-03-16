@@ -3,10 +3,9 @@ use crate::engine::Engine;
 use crate::error::{PiError, PiResult};
 use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct SearchTerm;
+pub struct SavedSearch;
 
-impl SearchTerm {
+impl SavedSearch {
     pub fn add_manually(engine: Arc<&Engine>, search_term: &str) -> PiResult<()> {
         engine.get_or_add_node(
             Payload::Text(search_term.to_string()),
@@ -16,6 +15,7 @@ impl SearchTerm {
         )?;
         Ok(())
     }
+
     pub fn find_existing(
         engine: Arc<&Engine>,
         search_term: &str,
