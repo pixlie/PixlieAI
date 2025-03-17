@@ -1,7 +1,6 @@
 use crate::engine::node::{NodeItem, NodeLabel};
 use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
-use crate::entity::pixlie::Crawl;
-use crate::entity::pixlie::{ContinueCrawl, Feature, LLMResponse};
+use crate::entity::pixlie::{ContinueCrawl, Crawl, Feature, LLMResponse};
 use crate::entity::text::Text;
 use crate::entity::web::link::Link;
 use crate::error::PiError;
@@ -127,9 +126,11 @@ impl Objective {
                                                 )?;
                                             }
                                         }
+                                        _ => {}
                                     };
                                 }
                             }
+                            _ => {}
                         }
                     }
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
@@ -142,12 +143,14 @@ impl Objective {
     }
 
     fn request_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
+        // let ts_named_entity = clean_ts_type(&NamedEntity::export_to_string()?);
         let ts_continue_crawl = clean_ts_type(&ContinueCrawl::export_to_string()?);
         let ts_crawl = clean_ts_type(&Crawl::export_to_string()?);
         let ts_feature = clean_ts_type(&Feature::export_to_string()?);
         let ts_llm_response = clean_ts_type(&LLMResponse::export_to_string()?);
         let pixlie_schema = format!(
             "\n{}\n{}\n{}\n{}",
+            // ts_named_entity.trim(),
             ts_continue_crawl.trim(),
             ts_crawl.trim(),
             ts_feature.trim(),

@@ -5,7 +5,7 @@ use crate::error::{PiError, PiResult};
 use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{ExternalData, FetchRequest};
 use reqwest::header::{HeaderMap, ACCEPT};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
 use url::Url;
@@ -28,9 +28,10 @@ impl WebSearch {
                             match serde_json::from_str(&response.contents) {
                                 Ok(response) => response,
                                 Err(err) => {
-                                    return Err(PiError::InternalError(
-                                        format!("Failed to parse Brave Search response: {}", err),
-                                    ));
+                                    return Err(PiError::InternalError(format!(
+                                        "Failed to parse Brave Search response: {}",
+                                        err
+                                    )));
                                 }
                             };
                         for result in response.web.results {
@@ -89,46 +90,34 @@ impl WebSearch {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct BraveSearchResponse {
-    pub query: Query,
-    pub mixed: Mixed,
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub videos: Videos,
+    // pub query: Query,
+    // pub mixed: Mixed,
+    // #[serde(rename = "type")]
+    // pub type_field: String,
+    // pub videos: Videos,
     pub web: Web,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Query {
     pub original: String,
-    #[serde(rename = "show_strict_warning")]
     pub show_strict_warning: bool,
-    #[serde(rename = "is_navigational")]
     pub is_navigational: bool,
-    #[serde(rename = "is_news_breaking")]
     pub is_news_breaking: bool,
-    #[serde(rename = "spellcheck_off")]
     pub spellcheck_off: bool,
     pub country: String,
-    #[serde(rename = "bad_results")]
     pub bad_results: bool,
-    #[serde(rename = "should_fallback")]
     pub should_fallback: bool,
-    #[serde(rename = "postal_code")]
     pub postal_code: String,
     pub city: String,
-    #[serde(rename = "header_country")]
     pub header_country: String,
-    #[serde(rename = "more_results_available")]
     pub more_results_available: bool,
     pub state: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Mixed {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -137,8 +126,7 @@ pub struct Mixed {
     pub side: Vec<Value>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Main {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -146,18 +134,15 @@ pub struct Main {
     pub all: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Videos {
     #[serde(rename = "type")]
     pub type_field: String,
     pub results: Vec<VideoResult>,
-    #[serde(rename = "mutated_by_goggles")]
     pub mutated_by_goggles: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct VideoResult {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -165,16 +150,13 @@ pub struct VideoResult {
     pub title: String,
     pub description: String,
     pub age: Option<String>,
-    #[serde(rename = "page_age")]
     pub page_age: Option<String>,
     pub video: Video,
-    #[serde(rename = "meta_url")]
     pub meta_url: MetaUrl,
     pub thumbnail: Thumbnail,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Video {
     pub duration: Option<String>,
     pub views: Option<i64>,
@@ -182,8 +164,7 @@ pub struct Video {
     pub publisher: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct MetaUrl {
     pub scheme: String,
     pub netloc: String,
@@ -192,62 +173,49 @@ pub struct MetaUrl {
     pub path: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Thumbnail {
     pub src: String,
     pub original: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Web {
     #[serde(rename = "type")]
     pub type_field: String,
     pub results: Vec<WebResult>,
-    #[serde(rename = "family_friendly")]
     pub family_friendly: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct WebResult {
     pub title: String,
     pub url: String,
-    #[serde(rename = "is_source_local")]
     pub is_source_local: bool,
-    #[serde(rename = "is_source_both")]
     pub is_source_both: bool,
-    pub description: String,
-    #[serde(rename = "page_age")]
-    pub page_age: String,
-    pub profile: Profile,
-    pub language: String,
-    #[serde(rename = "family_friendly")]
+    pub description: Option<String>,
+    pub page_age: Option<String>,
+    pub profile: Option<Profile>,
+    pub language: Option<String>,
     pub family_friendly: bool,
     #[serde(rename = "type")]
     pub type_field: String,
     pub subtype: String,
-    #[serde(rename = "is_live")]
     pub is_live: bool,
-    #[serde(rename = "meta_url")]
-    pub meta_url: MetaUrl2,
+    pub meta_url: Option<MetaUrl2>,
     pub thumbnail: Option<Thumbnail2>,
-    pub age: String,
+    pub age: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Profile {
     pub name: String,
     pub url: String,
-    #[serde(rename = "long_name")]
     pub long_name: String,
     pub img: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct MetaUrl2 {
     pub scheme: String,
     pub netloc: String,
@@ -256,8 +224,7 @@ pub struct MetaUrl2 {
     pub path: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct Thumbnail2 {
     pub src: String,
     pub original: String,

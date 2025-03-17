@@ -1,6 +1,6 @@
 import { Component, createMemo, createSignal, For, Show } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
-import { useParams } from "@solidjs/router";
+import { A, useParams } from "@solidjs/router";
 
 const NavbarMenu: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -63,7 +63,7 @@ const NavbarMenu: Component = () => {
             aria-labelledby="options-menu"
           >
             <div class="p-1.5 flex flex-col" role="none">
-              <a
+              <A
                 href="/p/create"
                 onClick={() => setVisible(false)}
                 class="flex items-center rounded p-1.5 pl-1 gap-0.5 text-blue-600 hover:bg-blue-100"
@@ -84,7 +84,7 @@ const NavbarMenu: Component = () => {
                   ></path>
                 </svg>
                 <p class="text-sm font-semibold">New Project</p>
-              </a>
+              </A>
               <Show
                 when={!!workspace.projects && workspace.projects.length > 1}
               >
@@ -96,7 +96,7 @@ const NavbarMenu: Component = () => {
                 )}
               >
                 {(project) => (
-                  <a
+                  <A
                     href={`/p/${project.uuid}/workflow`}
                     onClick={() => setVisible(false)}
                     class="block w-full rounded p-1.5 hover:bg-gray-100"
@@ -105,7 +105,7 @@ const NavbarMenu: Component = () => {
                     <p class="flex-1 truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">
                       {project.name}
                     </p>
-                  </a>
+                  </A>
                 )}
               </For>
             </div>

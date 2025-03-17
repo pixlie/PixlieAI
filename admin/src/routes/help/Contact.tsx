@@ -1,5 +1,6 @@
 import { RouteSectionProps } from "@solidjs/router";
 import { Component } from "solid-js";
+import Heading from "../../widgets/typography/Heading.tsx";
 
 const Contact: Component<RouteSectionProps> = () => {
   const options = [
@@ -25,7 +26,7 @@ const Contact: Component<RouteSectionProps> = () => {
 
   return (
     <>
-      <p class="text-lg font-medium">Need help?</p>
+      <Heading size={3}>Need help?</Heading>
       <div class="grid grid-cols-3 gap-6">
         {options.map(({ link, icon, title, subtitle }) => (
           <a

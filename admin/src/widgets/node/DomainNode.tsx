@@ -22,7 +22,6 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
   });
 
   const getPayload = createMemo<string | undefined>(() => {
-    console.log(props.nodeId);
     if (getProject() && props.nodeId in getProject()!.nodes) {
       let node = getProject()!.nodes[props.nodeId];
       if (
