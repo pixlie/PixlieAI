@@ -2,6 +2,7 @@ import { Component } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
 import NavbarMenu from "./NavbarMenu.tsx";
 import ToolTip from "./ToolTip";
+import { A } from "@solidjs/router";
 
 const Navbar: Component = () => {
   const [_, { getColors }] = useUIClasses();
@@ -14,7 +15,7 @@ const Navbar: Component = () => {
       }
     >
       <div class="flex items-center gap-6">
-        <a
+        <A
           href="/"
           class={
             "text-4xl font-bold flex items-center gap-6 no-underline " +
@@ -24,10 +25,10 @@ const Navbar: Component = () => {
           <img
             class="h-auto w-8"
             src="https://pixlie.com/images/logo.png"
-            alt="Pixlie AI"
+            alt="Pixlie"
           />
-          Pixlie AI
-        </a>
+          Pixlie
+        </A>
       </div>
 
       <nav class="flex items-center justify-center">
@@ -68,7 +69,7 @@ const Navbar: Component = () => {
 
       <nav class="flex items-center justify-end gap-6">
         <ToolTip text="Help">
-          <a href={`${location.pathname}#help`}>
+          <A href={`${location.pathname}#help`}>
             <svg
               class="w-6 h-6"
               viewBox="0 0 24 24"
@@ -82,10 +83,10 @@ const Navbar: Component = () => {
               <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
               <path d="M12 17h.01" />
             </svg>
-          </a>
+          </A>
         </ToolTip>
         <ToolTip text="Settings">
-          <a href="/settings">
+          <A href="/settings">
             <svg
               class="w-6 h-6"
               viewBox="0 0 24 24"
@@ -98,7 +99,7 @@ const Navbar: Component = () => {
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
-          </a>
+          </A>
         </ToolTip>
         <NavbarMenu />
       </nav>

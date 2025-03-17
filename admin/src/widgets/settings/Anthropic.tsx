@@ -77,8 +77,8 @@ const Anthropic: Component = () => {
         <>
           {getAnthropicApiKey() && (
             <small class={getColors()["textInfo"]}>
-              You already have an Anthropic API key saved. You can replace it by
-              entering a new one.
+              You have already saved an Anthropic API key. You can replace it by
+              entering entering a new one.
             </small>
           )}
           <TextInput

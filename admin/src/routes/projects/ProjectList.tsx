@@ -23,7 +23,7 @@ const ProjectList: Component = () => {
       <div class="h-full w-full flex overflow-hidden">
         <img
           src="https://pixlie.com/_astro/hero-image.DdgBYhys_WvsQV.webp"
-          alt="Pixlie AI"
+          alt="Pixlie"
           height="100%"
           style={{
             "object-fit": "contain",

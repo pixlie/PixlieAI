@@ -1,5 +1,4 @@
 import { Component } from "solid-js";
-// import Ollama from "../../widgets/settings/Ollama";
 import Markdown from "../../widgets/typography/Markdown";
 import StorageDir from "../../widgets/settings/StorageDir";
 import { useWorkspace } from "../../stores/workspace";
@@ -7,7 +6,7 @@ import Anthropic from "../../widgets/settings/Anthropic";
 import BraveSearch from "../../widgets/settings/BraveSearch";
 
 const help = `
-To run Pixlie AI, we need a storage space on your computer and access to Anthropic. Soon, we will also support Ollama.
+To run Pixlie, we need a storage space on your computer and access to Anthropic. Soon, we will also support Ollama.
 `;
 
 const Setup: Component = () => {

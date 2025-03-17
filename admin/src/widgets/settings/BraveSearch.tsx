@@ -10,7 +10,7 @@ import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
 
 const help = `
-Pixlie AI uses Brave Search API to search the web.
+Pixlie uses Brave Search API to search the web.
 
 Please copy and paste your API key. You can obtain one by signing up
 on [Brave Search API](https://brave.com/search/api/).
@@ -77,8 +77,8 @@ const BraveSearch: Component = () => {
         <>
           {getBraveSearchApiKey() && (
             <small class={getColors()["textInfo"]}>
-              You already have an Brave Search API key saved. You can replace it
-              by entering a new one.
+              You have already saved a Brave Search API key. You can replace it
+              by entering entering a new one.
             </small>
           )}
           <TextInput
