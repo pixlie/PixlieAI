@@ -5,7 +5,7 @@ import { IFormFieldValue } from "../../utils/types";
 import Button from "../interactable/Button";
 import Label from "../interactable/Label";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
-import { useLocation, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
 import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
@@ -18,7 +18,6 @@ interface IProjectFormData {
 
 const ProjectForm: Component = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [formData, setFormData] = createSignal<IProjectFormData>({
     objective: "",
     startingURLs: "",
@@ -112,7 +111,7 @@ const ProjectForm: Component = () => {
           subtitle={subtitle}
           content={<Content />}
           footer={<Footer />}
-          onClose={() => navigate(location.pathname)}
+          onClose={() => navigate("/")}
         />
       </div>
     </>

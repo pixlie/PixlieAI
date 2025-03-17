@@ -18,7 +18,7 @@ const Navbar: Component = () => {
         <A
           href="/"
           class={
-            "text-4xl font-bold flex items-center gap-6 no-underline " +
+            "text-3xl font-bold flex items-center gap-6 no-underline " +
             getColors()["navBar.logo"]
           }
         >
@@ -31,41 +31,7 @@ const Navbar: Component = () => {
         </A>
       </div>
 
-      <nav class="flex items-center justify-center">
-        {/* <Breadcrumb /> */}
-        {/* <Show
-          when={
-            workspace.isReady &&
-            workspace.settingsStatus?.type === "Complete" &&
-            !!params.projectId
-          }
-        >
-          <For each={[
-            {
-              label: "Workflow",
-              href: "/workflow",
-            },
-            {
-              label: "Graph",
-              href: "/graph",
-            },
-            {
-              label: "Crawl",
-              href: "/crawl",
-            },
-          ]}>
-            {(item) => (
-              <NavbarLink
-                label={item.label}
-                href={`/p/${params.projectId}${item.href}`}
-                isActive={location.pathname.startsWith(
-                  `/p/${params.projectId}${item.href}`
-                )}
-              />
-            )}
-          </For>
-        </Show> */}
-      </nav>
+      <nav class="flex items-center justify-center"></nav>
 
       <nav class="flex items-center justify-end gap-6">
         <ToolTip text="Help">

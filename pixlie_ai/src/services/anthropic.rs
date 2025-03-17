@@ -13,7 +13,7 @@ use crate::{
     services::extract_entites_from_lines,
     FetchRequest,
 };
-use log::debug;
+use log::{debug, info};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use reqwest::Method;
@@ -82,7 +82,7 @@ pub struct Anthropic;
 
 impl LLM for Anthropic {
     fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
-        Ok(format!(
+        let prompt = format!(
             r#"
         I have a software that you can interact with using this schema:
         {}
@@ -93,7 +93,9 @@ impl LLM for Anthropic {
         Please respond in JSON with LLMResponse:
         "#,
             pixlie_schema, objective
-        ))
+        );
+        info!("LLM prompt: {}", prompt);
+        Ok(prompt)
     }
 
     fn get_request(

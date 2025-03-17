@@ -11,6 +11,10 @@ use ts_rs::TS;
 //     Event,
 //     Date,
 //     Location,
+//     PressRelease,
+//     Product,
+//     Currency,
+//     Price,
 // }
 
 #[derive(Deserialize, TS)]

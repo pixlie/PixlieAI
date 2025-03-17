@@ -12,7 +12,7 @@ const lightDefault: ITheme = {
 
     navBar: "bg-white",
     // "navBar.logo": "text-blue-700",
-    "navBar.logo": "text-violet-800",
+    "navBar.logo": "text-violet-700 hover:text-violet-900",
     "navBar.icon": "text-gray-800",
     "navBar.link": "text-gray-800",
     "navBar.link.active": "bg-gray-300",
