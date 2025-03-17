@@ -29,7 +29,7 @@ impl WebSearch {
                                 Ok(response) => response,
                                 Err(err) => {
                                     return Err(PiError::InternalError(
-                                        "Failed to parse Brave Search response".to_string(),
+                                        format!("Failed to parse Brave Search response: {}", err),
                                     ));
                                 }
                             };
