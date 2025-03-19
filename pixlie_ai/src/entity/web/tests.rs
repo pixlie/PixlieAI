@@ -15,7 +15,7 @@ fn test_webpage_scraper_rlhf_book() {
     let link_node_id = Link::add(
         arced_test_engine,
         &"https://rlhfbook.com/c/01-introduction.html".to_string(),
-        vec![NodeLabel::AddedByUser],
+        vec![NodeLabel::AddedByUser, NodeLabel::Link],
         vec![],
         true,
     )
@@ -754,7 +754,7 @@ fn test_extraction_from_hn_homepage() {
     let link_node_id = Link::add(
         arced_test_engine,
         &"https://news.ycombinator.com".to_string(),
-        vec![NodeLabel::AddedByUser],
+        vec![NodeLabel::AddedByUser, NodeLabel::Link],
         vec![],
         true,
     )

@@ -10,7 +10,7 @@ use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
 use chrono::{DateTime, Utc};
-use log::debug;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -54,23 +54,18 @@ pub enum EngineRequestPayload {
     // ToggleCrawl(u32),
 }
 
-#[derive(Clone, Default, Serialize, TS)]
-#[ts(export)]
-pub struct EngineResponseResults {
-    pub nodes: Vec<APINodeItem>,
-    pub labels: Vec<String>,
-    #[ts(type = "{ [node_id: number]: Array<[number, string]> }")]
-    pub edges: HashMap<NodeId, Vec<(NodeId, EdgeLabel)>>,
-    #[ts(type = "{ [label: string]: Array<number> }")]
-    pub node_ids_by_label: HashMap<String, Vec<u32>>,
-}
+#[derive(Clone, Serialize, TS)]
+#[ts(type = "{ [node_id: number]: Array<[number, string]> }")]
+pub struct APIEdges(HashMap<NodeId, Vec<(NodeId, EdgeLabel)>>);
 
 #[derive(Clone, Serialize, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum EngineResponsePayload {
     Success,
-    Results(EngineResponseResults),
+    Nodes(Vec<APINodeItem>),
+    Labels(Vec<String>),
+    Edges(APIEdges),
     Error(String),
 }
 
@@ -480,10 +475,7 @@ pub fn handle_engine_api_request(
     let response: EngineResponsePayload = match request.payload {
         EngineRequestPayload::GetLabels => {
             let labels = engine.get_all_node_labels();
-            EngineResponsePayload::Results(EngineResponseResults {
-                labels: labels.iter().map(|x| x.to_string()).collect(),
-                ..Default::default()
-            })
+            EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())
         }
         EngineRequestPayload::GetNodesWithLabel(label) => {
             let node_ids_with_label = engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
@@ -501,11 +493,7 @@ pub fn handle_engine_api_request(
                 })
                 .collect();
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
-            EngineResponsePayload::Results(EngineResponseResults {
-                node_ids_by_label: HashMap::from([(label, nodes.iter().map(|x| x.id).collect())]),
-                nodes,
-                ..Default::default()
-            })
+            EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetNodesWithIds(node_ids) => {
             let mut nodes: Vec<APINodeItem> = vec![];
@@ -521,11 +509,7 @@ pub fn handle_engine_api_request(
                 }
             }
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-            EngineResponsePayload::Results(EngineResponseResults {
-                nodes,
-                ..Default::default()
-            })
+            EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetAllNodes => {
             let mut nodes: Vec<APINodeItem> = engine
@@ -541,20 +525,16 @@ pub fn handle_engine_api_request(
                 .collect();
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
-            EngineResponsePayload::Results(EngineResponseResults {
-                nodes,
-                ..Default::default()
-            })
+            EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetAllEdges => {
             let edges = engine.get_all_edges();
-            EngineResponsePayload::Results(EngineResponseResults {
-                edges: edges
+            EngineResponsePayload::Edges(APIEdges(
+                edges
                     .iter()
                     .map(|(k, v)| (**k, v.iter().map(|x| (*x.0, x.1.to_string())).collect()))
                     .collect(),
-                ..Default::default()
-            })
+            ))
         }
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
@@ -562,7 +542,7 @@ pub fn handle_engine_api_request(
                     Link::add(
                         engine.clone(),
                         &link_write.url,
-                        vec![NodeLabel::AddedByUser],
+                        vec![NodeLabel::AddedByUser, NodeLabel::Link],
                         vec![],
                         true,
                     )?;
@@ -585,8 +565,8 @@ pub fn handle_engine_api_request(
                                 SavedSearch::query(&node, engine.clone(), &node_id.into())?;
                             results.sort_by(|a, b| a.id.cmp(&b.id));
 
-                            EngineResponsePayload::Results(EngineResponseResults {
-                                nodes: results
+                            EngineResponsePayload::Nodes(
+                                results
                                     .iter()
                                     .map(|x| APINodeItem {
                                         id: x.id.clone(),
@@ -596,8 +576,7 @@ pub fn handle_engine_api_request(
                                         written_at: x.written_at.clone(),
                                     })
                                     .collect::<Vec<APINodeItem>>(),
-                                ..Default::default()
-                            })
+                            )
                         }
                         _ => EngineResponsePayload::Error(format!(
                             "Query only works on search terms, not on {}",

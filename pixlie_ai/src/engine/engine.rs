@@ -1,5 +1,5 @@
 use super::{ArcedEdgeLabel, CommonEdgeLabels, EdgeLabel, NodeFlags};
-use crate::engine::api::handle_engine_api_request;
+use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
 use crate::engine::edges::Edges;
 use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
@@ -110,14 +110,26 @@ impl Engine {
             match event {
                 PiEvent::APIRequest(project_id, request) => {
                     if self.project_id == project_id {
+                        let request_id = request.request_id;
                         match handle_engine_api_request(
                             request,
                             arced_self.clone(),
                             self.main_channel_tx.clone(),
                         ) {
                             Ok(_) => {}
-                            Err(err) => {
-                                error!("Error handling API request: {}", err);
+                            Err(error) => {
+                                match self.main_channel_tx.send(PiEvent::APIResponse(
+                                    project_id,
+                                    EngineResponse {
+                                        request_id,
+                                        payload: EngineResponsePayload::Error(error.to_string()),
+                                    },
+                                )) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!("Error sending PiEvent in Engine: {}", err);
+                                    }
+                                }
                             }
                         }
                     }
@@ -198,19 +210,32 @@ impl Engine {
 
     pub fn process_nodes(&self) {
         let arced_self = Arc::new(self);
-        let labels_to_be_processed = vec![
-            NodeLabel::Link,
-            NodeLabel::Domain,
-            NodeLabel::WebPage,
-            NodeLabel::Objective,
-            NodeLabel::WebSearch,
-        ];
+
         let flags_to_be_skipped = vec![
             NodeFlags::IS_PROCESSED,
             NodeFlags::IS_REQUESTING,
             NodeFlags::IS_BLOCKED,
+            NodeFlags::HAD_ERROR,
         ];
-        let node_ids: Vec<NodeId> = match self.nodes.try_lock() {
+
+        // When the number of the nodes to be processed is large,
+        // we do not process nodes that generate more nodes. WebPage nodes are like that.
+        let limited_labels_to_be_processed = 
+            vec![
+                NodeLabel::Domain,
+                NodeLabel::Objective,
+                NodeLabel::WebSearch,
+            ];
+        let all_labels_to_be_processed =
+            vec![
+                NodeLabel::Link,
+                NodeLabel::Domain,
+                NodeLabel::WebPage,
+                NodeLabel::Objective,
+                NodeLabel::WebSearch,
+            ];
+        let mut node_count: usize = 0;
+        let mut node_ids: Vec<NodeId> = match self.nodes.try_lock() {
             Ok(nodes) => nodes
                 .data
                 .iter()
@@ -221,10 +246,13 @@ impl Engine {
                     {
                         None
                     } else {
-                        if labels_to_be_processed
+                        if node_count < 100 && all_labels_to_be_processed
                             .iter()
                             .any(|label| item.1.labels.contains(label))
                         {
+                            node_count += 1;
+                            Some(item.1.id)
+                        } else if limited_labels_to_be_processed.iter().any(|label| item.1.labels.contains(label)) {
                             Some(item.1.id)
                         } else {
                             None
@@ -237,9 +265,9 @@ impl Engine {
                 return;
             }
         };
-        if node_ids.len() > 200 {
-            return;
-        }
+        node_ids.sort();
+
+        info!("Processing {} nodes", node_ids.len());
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
                 match node.process(arced_self.clone()) {
@@ -295,7 +323,7 @@ impl Engine {
                         id,
                         payload,
 
-                        labels: labels.clone(),
+                        labels,
                         flags: NodeFlags::default(),
                         written_at: Utc::now(),
                     }),
@@ -795,6 +823,10 @@ impl Engine {
                 HashMap::new()
             }
         }
+    }
+
+    pub fn get_project_id(&self) -> String {
+        self.project_id.clone()
     }
 
     pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {

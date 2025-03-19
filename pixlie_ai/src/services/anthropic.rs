@@ -83,18 +83,17 @@ pub struct Anthropic;
 impl LLM for Anthropic {
     fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
         let prompt = format!(
-            r#"
-        I have a software that you can interact with using this schema:
-        {}
+            r#"I am a bot who can understand JSON in the following schema:
+```typescript
+{}
+```
 
-        I have the following objective:
-        {}
+I have the following objective:
+{}
 
-        Please respond in JSON with LLMResponse:
-        "#,
+Please respond in JSON with `LLMResponse` to achieve the objective."#,
             pixlie_schema, objective
         );
-        info!("LLM prompt: {}", prompt);
         Ok(prompt)
     }
 

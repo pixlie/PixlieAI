@@ -209,19 +209,34 @@ impl<'a> Traverser<'a> {
                     // We are only handling links which use https at this moment
                     let link_node_id = if url.starts_with("https://") {
                         // Links that are full URLs
-                        Link::add(self.arced_engine.clone(), &url, vec![], vec![], true)?
+                        match Link::add(
+                            self.arced_engine.clone(),
+                            &url,
+                            vec![NodeLabel::Link],
+                            vec![],
+                            true,
+                        ) {
+                            Ok(link_node_id) => link_node_id,
+                            Err(_) => {
+                                continue;
+                            }
+                        }
                     } else {
                         // Links that are relative to this path or domain, we build the full URL
                         match self.webpage_url.join(&url) {
-                            Ok(parsed) => Link::add(
+                            Ok(parsed) => match Link::add(
                                 self.arced_engine.clone(),
                                 &parsed.to_string(),
-                                vec![],
+                                vec![NodeLabel::Link],
                                 vec![],
                                 false,
-                            )?,
-                            Err(err) => {
-                                error!("Cannot parse URL to get domain for link: {}", err);
+                            ) {
+                                Ok(link_node_id) => link_node_id,
+                                Err(_) => {
+                                    continue;
+                                }
+                            },
+                            Err(_) => {
                                 continue;
                             }
                         }

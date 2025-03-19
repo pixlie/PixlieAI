@@ -61,7 +61,7 @@ impl Default for NodeFlags {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NodeItem {
     pub id: NodeId,
-    pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags, indexed by relevance
+    pub labels: Vec<NodeLabel>, // A node can have multiple labels, like tags
     pub payload: Payload,
 
     pub flags: NodeFlags,

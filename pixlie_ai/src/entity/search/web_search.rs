@@ -38,7 +38,7 @@ impl WebSearch {
                             let link_node_id = Link::add(
                                 engine.clone(),
                                 &result.url,
-                                vec![NodeLabel::AddedByWebSearch],
+                                vec![NodeLabel::AddedByWebSearch, NodeLabel::Link],
                                 vec![],
                                 true,
                             )?;

@@ -58,6 +58,10 @@ bitflags! {
         // For example, if a domain is not set to be crawled, then we cannot fetch any URLs from it
         // In that case all Link nodes belonging to that domain will have this flag set
         const IS_BLOCKED = 1 << 2;
+
+        // This flag says that a node had an error and cannot be processed unless some code
+        // or condition changes
+        const HAD_ERROR = 1 << 3;
     }
 }
 
