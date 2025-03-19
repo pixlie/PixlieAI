@@ -80,11 +80,11 @@ const CytoscapeGraph = () => {
 
   const getRootId = createMemo(() => {
     const nodes: APINodeItem[] = getNodes();
-    return nodes
-      ?.find((node: APINodeItem) =>
+    return `${
+      nodes?.find((node: APINodeItem) =>
         node.labels?.some((label: NodeLabel) => label === "Objective")
-      )
-      ?.id.toString();
+      )?.id
+    }`;
   });
 
   const getElements = createMemo(() => {
