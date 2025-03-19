@@ -56,8 +56,29 @@ const Graph: Component = () => {
     }
     return undefined;
   });
-
-  return <CytocapeGraph />;
+  return (
+    <>
+      {searchParams.label === "Title" && <Heading size={3}>Titles</Heading>}
+      {searchParams.label === "Paragraph" && (
+        <Heading size={3}>Paragraphs</Heading>
+      )}
+      {searchParams.label === "Heading" && <Heading size={3}>Headings</Heading>}
+      {searchParams.label === "BulletPoint" && (
+        <Heading size={3}>Bullet points</Heading>
+      )}
+      {searchParams.label === "OrderedPoint" && (
+        <Heading size={3}>Ordered points</Heading>
+      )}
+      {!!searchParams.label && !!getNodeTypeFromSearchParam() ? (
+        <NodeGrid
+          nodeType={getNodeTypeFromSearchParam()}
+          source={getSelectNodeIds}
+        />
+      ) : (
+        <CytocapeGraph />
+      )}
+    </>
+  );
 };
 
 export default Graph;
