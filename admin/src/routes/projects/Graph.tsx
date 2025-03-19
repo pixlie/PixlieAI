@@ -4,6 +4,7 @@ import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
 import Heading from "../../widgets/typography/Heading.tsx";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import CytocapeGraph from "../../widgets/node/CytoscapeGraph.tsx";
 
 const labelTypes: string[] = [
   "Title",
@@ -55,7 +56,6 @@ const Graph: Component = () => {
     }
     return undefined;
   });
-
   return (
     <>
       {searchParams.label === "Title" && <Heading size={3}>Titles</Heading>}
@@ -69,10 +69,14 @@ const Graph: Component = () => {
       {searchParams.label === "OrderedPoint" && (
         <Heading size={3}>Ordered points</Heading>
       )}
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-      />
+      {!!searchParams.label && !!getNodeTypeFromSearchParam() ? (
+        <NodeGrid
+          nodeType={getNodeTypeFromSearchParam()}
+          source={getSelectNodeIds}
+        />
+      ) : (
+        <CytocapeGraph />
+      )}
     </>
   );
 };

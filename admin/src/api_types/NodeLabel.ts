@@ -3,6 +3,7 @@
 export type NodeLabel =
   | "AddedByUser"
   | "AddedByAI"
+  | "AddedByWebSearch"
   | "Content"
   | "Domain"
   | "Heading"
@@ -17,4 +18,5 @@ export type NodeLabel =
   | "Title"
   | "UnorderedPoints"
   | "WebPage"
-  | "WebSearch";
+  | "WebSearch"
+  | "CrawlCondition";
