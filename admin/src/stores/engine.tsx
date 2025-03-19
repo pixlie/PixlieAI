@@ -4,6 +4,7 @@ import { IEngineStore, INodeItem, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
+import { APIEdges } from "../api_types/APIEdges.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -39,7 +40,7 @@ const makeStore = () => {
         throw new Error("Failed to fetch nodes");
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
-        if (responsePayload.type === "Results") {
+        if (responsePayload.type === "Nodes") {
           setStore((existing: IEngineStore) => ({
             ...existing,
             projects: {
@@ -48,7 +49,7 @@ const makeStore = () => {
                 ...existing.projects[projectId],
                 nodes: {
                   ...existing.projects[projectId].nodes,
-                  ...responsePayload.data.nodes.reduce(
+                  ...responsePayload.data.reduce(
                     (map: { [k: number]: INodeItem }, item) => ({
                       ...map,
                       [item.id]: {
@@ -78,14 +79,14 @@ const makeStore = () => {
         throw new Error("Failed to fetch edges");
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
-        if (responsePayload.type === "Results") {
+        if (responsePayload.type === "Edges") {
           setStore((existing: IEngineStore) => ({
             ...existing,
             projects: {
               ...existing.projects,
               [projectId]: {
                 ...existing.projects[projectId],
-                edges: responsePayload.data.edges,
+                edges: responsePayload.data as APIEdges,
               },
             },
           }));
@@ -118,26 +119,6 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
-    // The sync function keeps calling fetchNodes and fetchEdges for the given projectId and updates the store
-    // const timer = (projectId: string, start: boolean = false) => {
-    //   if (!store.projects[projectId]) {
-    //     return;
-    //   }
-    //   if (store.sync[projectId] || start) {
-    //     // Set a timeout to call the inner function after a delay
-    //     setStore((existing: IEngineStore) => ({
-    //       ...existing,
-    //       projects: {
-    //         ...existing.projects,
-    //         timeouts: {
-    //           ...existing.projects.timeouts,
-    //           [projectId]: window.setTimeout(fetcher(projectId), 2000),
-    //         },
-    //       },
-    //     }));
-    //   }
-    // };
-
     const fetcher = (projectId: string) => {
       return () => {
         if (!store.projects[projectId]) {

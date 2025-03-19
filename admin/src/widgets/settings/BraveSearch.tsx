@@ -52,6 +52,7 @@ const BraveSearch: Component = () => {
     saveWorkspace({
       brave_search_api_key: formData.braveSearchApiKey,
     });
+    setFormData("braveSearchApiKey", "");
     fetchWorkspace();
   };
 
