@@ -70,7 +70,7 @@ const CytoscapeGraph = () => {
 
   const getNodes = createMemo(() => {
     const project = getProject();
-    return project ? project.nodes : [];
+    return project ? Object.values(project.nodes) : [];
   });
 
   const getEdges = createMemo(() => {
@@ -81,12 +81,10 @@ const CytoscapeGraph = () => {
   const getRootId = createMemo(() => {
     const nodes: APINodeItem[] = getNodes();
     return nodes
-      ? Object.values(nodes)
-          ?.find((node: APINodeItem) =>
-            node.labels?.some((label: NodeLabel) => label === "Objective")
-          )
-          ?.id.toString()
-      : undefined;
+      ?.find((node: APINodeItem) =>
+        node.labels?.some((label: NodeLabel) => label === "Objective")
+      )
+      ?.id.toString();
   });
 
   const getElements = createMemo(() => {
@@ -96,7 +94,7 @@ const CytoscapeGraph = () => {
 
     if (!rootId) return [];
 
-    const formattedNodes: TElement[] = Object.values(nodes)
+    const formattedNodes: TElement[] = nodes
       ?.filter((node: APINodeItem) =>
         node.labels?.every(
           (label) => label !== "Domain" && label !== "CrawlCondition"
