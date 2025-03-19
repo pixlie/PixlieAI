@@ -44,6 +44,22 @@ const CytoscapeGraph = () => {
   const params = useParams();
 
   const [elements, setElements] = createSignal<TElement[]>([]);
+  const [depth, setDepth] = createSignal<number>(0);
+
+  const legend = [
+    {
+      color: "#05df72",
+      label: "Added by User",
+    },
+    {
+      color: "#b28aff",
+      label: "Added by AI",
+    },
+    {
+      color: "#ff9e66",
+      label: "Added by Web Search",
+    },
+  ];
 
   const getProject = createMemo(() => {
     if (!!params.projectId && params.projectId in engine.projects) {
@@ -78,6 +94,8 @@ const CytoscapeGraph = () => {
     const edges: { [node_id: number]: [number, string][] } = getEdges();
     const rootId: string = getRootId();
 
+    if (!rootId) return [];
+
     const formattedNodes: TElement[] = Object.values(nodes)
       ?.filter((node: APINodeItem) =>
         node.labels?.every(
@@ -91,24 +109,31 @@ const CytoscapeGraph = () => {
           color: getNodeLabelColor(node.labels),
         },
       }));
-    const firstLevelIds = new Set(
-      edges[Number(rootId)]
-        ?.filter(([target]) =>
-          formattedNodes?.some((node) => node.data.id === target.toString())
-        )
-        ?.map(([target]) => target.toString())
-    );
-    const secondLevelIds = new Set(
-      [...firstLevelIds]?.flatMap((parentId) =>
-        edges[Number(parentId)]
-          ?.filter(([target]) =>
-            formattedNodes?.some((node) => node.data.id === target.toString())
-          )
-          ?.map(([target]) => target.toString())
-      )
-    );
 
-    const visibleIds = new Set([rootId, ...firstLevelIds, ...secondLevelIds]);
+    let visibleIds = new Set([rootId]);
+    let currentLevelIds = new Set([rootId]);
+
+    for (let level = 0; level < depth(); level++) {
+      const nextLevelIds = new Set(
+        [...currentLevelIds]
+          .flatMap((parentId) =>
+            edges[Number(parentId)]
+              ?.filter(([target]) =>
+                formattedNodes?.some(
+                  (node) => node.data.id === target.toString()
+                )
+              )
+              ?.map(([target]) => target.toString())
+          )
+          .filter(Boolean) // Remove undefined values
+      );
+
+      if (nextLevelIds.size === 0) break; // Stop if no more levels exist
+
+      visibleIds = new Set([...visibleIds, ...nextLevelIds]);
+      currentLevelIds = nextLevelIds;
+    }
+
     const visibleNodes = formattedNodes?.filter((node) =>
       visibleIds?.has(node.data.id)
     );
@@ -168,12 +193,10 @@ const CytoscapeGraph = () => {
       layout: {
         name: "breadthfirst",
         directed: true,
+        fit: true,
         roots: [getRootId()],
       },
     });
-    
-    cy!.fit();
-    cy!.center();
 
     onCleanup(() => {
       cy?.destroy();
@@ -205,15 +228,51 @@ const CytoscapeGraph = () => {
       cy.layout({
         name: "breadthfirst",
         directed: true,
+        fit: true,
         roots: [getRootId()],
       }).run();
-      cy.fit();
-      cy.center();
     }
   });
 
   return (
     <div class="relative flex-1">
+      <div class="absolute top-0 left-0 z-10 bg-white p-2 rounded shadow-md flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <label for="depth">Depth: </label>
+          <input
+            id="depth"
+            min="0"
+            max="10"
+            value={depth()}
+            onInput={(e) => {
+              if (e.currentTarget.value === "") {
+                setDepth(0);
+                return;
+              }
+              if (parseInt(e.currentTarget.value) < 0) {
+                setDepth(0);
+                return;
+              }
+              if (parseInt(e.currentTarget.value) > 10) {
+                setDepth(10);
+                return;
+              }
+              setDepth(parseInt(e.currentTarget.value));
+            }}
+            class="border px-2 py-1 rounded w-12"
+          />
+        </div>
+          {legend.map(({ color, label }) => (
+            <div class="flex items-center gap-2">
+              <span
+                class="w-4 h-4 rounded"
+                style={{ "background-color": color }}
+              />
+              <span class="text-xs">{label}</span>
+            </div>
+          ))}
+      </div>
+
       <div ref={(el) => (containerRef = el)} class="absolute w-full h-full" />
     </div>
   );
