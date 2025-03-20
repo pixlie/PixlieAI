@@ -22,7 +22,7 @@ const Workflow: Component = () => {
   });
 
   const getObjectives = createMemo<Array<APINodeItem> | undefined>(() => {
-    if (getProject()) {
+    if (!!getProject()) {
       return Object.values(getProject()!.nodes).filter((x) =>
         x.labels.includes("Objective"),
       );

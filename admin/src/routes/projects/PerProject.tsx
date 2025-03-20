@@ -1,5 +1,5 @@
 import { RouteSectionProps, useParams } from "@solidjs/router";
-import { Component, createEffect, JSX, onMount } from "solid-js";
+import { Component, createEffect, JSX, onCleanup, onMount } from "solid-js";
 import { EngineProvider, useEngine } from "../../stores/engine.tsx";
 
 interface IPerProjectInnerProps {
@@ -27,6 +27,10 @@ const PerProjectInner: Component<IPerProjectInnerProps> = (props) => {
     }
     return params.projectId;
   }, params.projectId);
+
+  onCleanup(() => {
+    stopSync();
+  });
 
   return <>{props.children}</>;
 };

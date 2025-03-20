@@ -134,6 +134,10 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
+    if (store.sync.filter((x) => x === projectId).length > 0) {
+      return;
+    }
+
     const fetcher = (projectId: string) => {
       return () => {
         if (!store.projects[projectId]) {
@@ -164,7 +168,10 @@ const makeStore = () => {
             },
           },
         }));
-        if (store.sync.filter((x) => x === projectId).length > 0) {
+        if (
+          store.sync.length > 0 &&
+          store.sync.filter((x) => x === projectId).length > 0
+        ) {
           window.setTimeout(fetcher(projectId), 2000);
         }
       };
@@ -177,11 +184,18 @@ const makeStore = () => {
     window.setTimeout(fetcher(projectId), 100);
   };
 
-  const stopSync = (projectId: string) => {
-    setStore((existing: IEngineStore) => ({
-      ...existing,
-      sync: [...existing.sync.filter((x) => x !== projectId)],
-    }));
+  const stopSync = (projectId?: string) => {
+    if (!!projectId) {
+      setStore((existing: IEngineStore) => ({
+        ...existing,
+        sync: [...existing.sync.filter((x) => x !== projectId)],
+      }));
+    } else {
+      setStore((existing: IEngineStore) => ({
+        ...existing,
+        sync: [],
+      }));
+    }
   };
 
   return [

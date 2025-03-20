@@ -49,7 +49,6 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
           .find((node) => node.labels.includes("RobotsTxt"));
 
         if (robotsTxtNode) {
-          console.log(robotsTxtNode.flags.join(", "));
           if (
             robotsTxtNode.flags.filter((flag) => flag === "IsRequesting")
               .length > 0
