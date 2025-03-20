@@ -13,7 +13,7 @@ use crate::{
     services::extract_entites_from_lines,
     FetchRequest,
 };
-use log::{debug, info};
+use log::debug;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use reqwest::Method;
@@ -82,7 +82,7 @@ pub struct Anthropic;
 
 impl LLM for Anthropic {
     fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
-        let prompt = format!(
+        Ok(format!(
             r#"I am a bot who can understand JSON in the following schema:
 ```typescript
 {}
@@ -93,8 +93,7 @@ I have the following objective:
 
 Please respond in JSON with `LLMResponse` to achieve the objective."#,
             pixlie_schema, objective
-        );
-        Ok(prompt)
+        ))
     }
 
     fn get_request(

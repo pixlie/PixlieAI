@@ -1,4 +1,4 @@
-use super::{ArcedEdgeLabel, CommonEdgeLabels, EdgeLabel, NodeFlags};
+use super::{EdgeLabel, NodeEdges, NodeFlags};
 use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
 use crate::engine::edges::Edges;
 use crate::engine::node::{
@@ -13,6 +13,7 @@ use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
 use rocksdb::DB;
+use std::cmp::PartialEq;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU32;
 use std::time::Duration;
@@ -220,20 +221,18 @@ impl Engine {
 
         // When the number of the nodes to be processed is large,
         // we do not process nodes that generate more nodes. WebPage nodes are like that.
-        let limited_labels_to_be_processed = 
-            vec![
-                NodeLabel::Domain,
-                NodeLabel::Objective,
-                NodeLabel::WebSearch,
-            ];
-        let all_labels_to_be_processed =
-            vec![
-                NodeLabel::Link,
-                NodeLabel::Domain,
-                NodeLabel::WebPage,
-                NodeLabel::Objective,
-                NodeLabel::WebSearch,
-            ];
+        let limited_labels_to_be_processed = vec![
+            NodeLabel::Domain,
+            NodeLabel::Objective,
+            NodeLabel::WebSearch,
+        ];
+        let all_labels_to_be_processed = vec![
+            NodeLabel::Domain,
+            NodeLabel::Link,
+            NodeLabel::Objective,
+            NodeLabel::WebPage,
+            NodeLabel::WebSearch,
+        ];
         let mut node_count: usize = 0;
         let mut node_ids: Vec<NodeId> = match self.nodes.try_lock() {
             Ok(nodes) => nodes
@@ -246,13 +245,17 @@ impl Engine {
                     {
                         None
                     } else {
-                        if node_count < 100 && all_labels_to_be_processed
-                            .iter()
-                            .any(|label| item.1.labels.contains(label))
+                        if node_count < 100
+                            && all_labels_to_be_processed
+                                .iter()
+                                .any(|label| item.1.labels.contains(label))
                         {
                             node_count += 1;
                             Some(item.1.id)
-                        } else if limited_labels_to_be_processed.iter().any(|label| item.1.labels.contains(label)) {
+                        } else if limited_labels_to_be_processed
+                            .iter()
+                            .any(|label| item.1.labels.contains(label))
+                        {
                             Some(item.1.id)
                         } else {
                             None
@@ -383,22 +386,45 @@ impl Engine {
         edge_labels: (EdgeLabel, EdgeLabel),
     ) -> PiResult<()> {
         let arced_node_ids = (Arc::new(node_ids.0), Arc::new(node_ids.1));
-        let arced_edge_labels = (Arc::new(edge_labels.0), Arc::new(edge_labels.1));
+        // let arced_edge_labels = (edge_labels.0, edge_labels.1);
         // Add a connection edge from the parent node to the new node and vice versa
         match self.edges.try_lock() {
             Ok(mut edges) => {
-                edges.data.entry(arced_node_ids.0.clone()).or_insert(vec![]);
-                edges.data.entry(arced_node_ids.1.clone()).or_insert(vec![]);
+                edges
+                    .data
+                    .entry(arced_node_ids.0.clone())
+                    .or_insert(NodeEdges {
+                        edges: vec![],
+                        written_at: Utc::now(),
+                    });
+                edges
+                    .data
+                    .entry(arced_node_ids.1.clone())
+                    .or_insert(NodeEdges {
+                        edges: vec![],
+                        written_at: Utc::now(),
+                    });
+                // Update connections data for the parent node
                 edges
                     .data
                     .get_mut(&arced_node_ids.0)
                     .unwrap()
-                    .push((arced_node_ids.1.clone(), arced_edge_labels.0.clone()));
+                    .edges
+                    .push((*arced_node_ids.1, edge_labels.0));
+                // Update the last written time for the parent node
+                edges.data.get_mut(&arced_node_ids.0).unwrap().written_at =
+                    Utc::now();
+                
+                // Update connections data for the child node
                 edges
                     .data
                     .get_mut(&arced_node_ids.1)
                     .unwrap()
-                    .push((arced_node_ids.0.clone(), arced_edge_labels.1.clone()));
+                    .edges
+                    .push((*arced_node_ids.0, edge_labels.1));
+                // Update the last written time for the child node
+                edges.data.get_mut(&arced_node_ids.1).unwrap().written_at =
+                    Utc::now();
                 edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
                 edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
             }
@@ -491,15 +517,15 @@ impl Engine {
         &self,
         my_node_id: &NodeId,
         my_edge_to_other: &EdgeLabel,
-    ) -> PiResult<Vec<ArcedNodeId>> {
+    ) -> PiResult<Vec<NodeId>> {
         match self.edges.try_lock() {
             Ok(edges) => {
-                let mut connected_node_ids: Vec<ArcedNodeId> = vec![];
+                let mut connected_node_ids: Vec<NodeId> = vec![];
 
                 match edges.data.get(my_node_id) {
                     Some(edges_from_node) => {
-                        for (node_id, node_label) in edges_from_node {
-                            if **node_label == *my_edge_to_other
+                        for (node_id, node_label) in edges_from_node.edges.iter() {
+                            if node_label == my_edge_to_other
                                 && !connected_node_ids.contains(node_id)
                             {
                                 connected_node_ids.push(node_id.clone());
@@ -600,17 +626,15 @@ impl Engine {
         match &domain.payload {
             Payload::Text(text) => {
                 if calling_node.id != domain.id {
-                    let connected_node_ids = self.get_node_ids_connected_with_label(
-                        &domain.id,
-                        &CommonEdgeLabels::OwnerOf.to_string(),
-                    )?;
+                    let connected_node_ids =
+                        self.get_node_ids_connected_with_label(&domain.id, &EdgeLabel::OwnerOf)?;
                     if connected_node_ids.len() == 0 {
                         // We will try to fetch the robots.txt file in the next tick
                         debug!("robots.txt node not found for domain {}", text);
                         return Ok(());
                     }
                     for connected_node_id in connected_node_ids {
-                        match self.get_node_by_id(&*connected_node_id) {
+                        match self.get_node_by_id(&connected_node_id) {
                             Some(node) => match node.payload {
                                 Payload::Text(ref robots_txt) => {
                                     if robots_txt.is_empty() {
@@ -811,7 +835,7 @@ impl Engine {
         }
     }
 
-    pub fn get_all_edges(&self) -> HashMap<ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>> {
+    pub fn get_all_edges(&self) -> HashMap<ArcedNodeId, NodeEdges> {
         match self.edges.try_lock() {
             Ok(edges) => edges
                 .data

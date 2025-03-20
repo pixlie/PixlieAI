@@ -76,11 +76,14 @@ const makeStore = () => {
 
   const fetchEdges = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
-      headers: {
-        "Content-Type": "application/json",
+    fetch(
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/edges?since=${store.projects[projectId].edgesFetchedAt}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    }).then((response) => {
+    ).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch edges");
       }
@@ -92,9 +95,13 @@ const makeStore = () => {
               ...existing.projects,
               [projectId]: {
                 ...existing.projects[projectId],
-                edges: responsePayload.data as {
-                  [nodeId: number]: APINodeEdges;
+                edges: {
+                  ...existing.projects[projectId].edges,
+                  ...(responsePayload.data as {
+                    [nodeId: number]: APINodeEdges;
+                  }),
                 },
+                edgesFetchedAt: Date.now(),
               },
             },
           }));

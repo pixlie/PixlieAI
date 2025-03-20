@@ -4,7 +4,6 @@ use crate::entity::content::TableRow;
 use crate::entity::objective::Objective;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
-use crate::entity::workflow::WorkflowStep;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
@@ -45,18 +44,25 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
-    GetAllNodes,
-    GetAllEdges,
+    GetAllNodes(Option<DateTime<Utc>>),
+    GetAllEdges(Option<DateTime<Utc>>),
     CreateNode(NodeWrite),
 
     // Some nodes allow a "query", which can generate any number of nodes, like a search
     Query(u32),
-    // ToggleCrawl(u32),
 }
 
 #[derive(Clone, Serialize, TS)]
-#[ts(type = "{ [node_id: number]: Array<[number, string]> }")]
-pub struct APIEdges(HashMap<NodeId, Vec<(NodeId, EdgeLabel)>>);
+#[ts(export)]
+pub struct APINodeEdges {
+    #[ts(type = "Array<[number, string]>")]
+    pub edges: Vec<(NodeId, String)>,
+    pub written_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Serialize, TS)]
+#[ts(export)]
+pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 
 #[derive(Clone, Serialize, TS)]
 #[serde(tag = "type", content = "data")]
@@ -73,8 +79,6 @@ pub enum EngineResponsePayload {
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum APIPayload {
-    // StepPrompt(String),
-    Step(WorkflowStep),
     Link(Link),
     Text(String),
     Tree(String),
@@ -84,7 +88,6 @@ pub enum APIPayload {
 impl APIPayload {
     pub fn from_payload(payload: Payload) -> APIPayload {
         match payload {
-            Payload::Step(step) => APIPayload::Step(step),
             Payload::Link(link) => APIPayload::Link(link),
             Payload::Text(text) => APIPayload::Text(text),
             // The empty string is garbage, just to keep the type system happy
@@ -142,6 +145,12 @@ pub struct EngineResponse {
 pub struct QueryNodes {
     label: Option<String>,
     ids: Option<String>,
+    since: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct QueryEdges {
+    since: Option<i64>,
 }
 
 pub async fn get_labels(
@@ -240,6 +249,21 @@ pub async fn get_nodes(
                 payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
             },
         ))?;
+    } else if let Some(since) = &params.since {
+        // Read the nodes written since the given timestamp
+        debug!(
+            "API request {} for project {} to get nodes since {}",
+            request_id, project_id, since
+        );
+        let since = DateTime::from_timestamp_millis(*since);
+        api_state.main_tx.send(PiEvent::APIRequest(
+            project_id.clone(),
+            EngineRequest {
+                request_id: request_id.clone(),
+                project_id: project_id.clone(),
+                payload: EngineRequestPayload::GetAllNodes(since),
+            },
+        ))?;
     } else {
         debug!(
             "API request {} for project {} to get all nodes",
@@ -251,7 +275,7 @@ pub async fn get_nodes(
             EngineRequest {
                 request_id: request_id.clone(),
                 project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetAllNodes,
+                payload: EngineRequestPayload::GetAllNodes(None),
             },
         ))?;
     }
@@ -283,6 +307,7 @@ pub async fn get_nodes(
 
 pub async fn get_edges(
     project_id: web::Path<String>,
+    params: web::Query<QueryEdges>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
     let request_id = api_state.req_id.fetch_add(1);
@@ -294,12 +319,17 @@ pub async fn get_edges(
     // Subscribe to the API channel, so we can receive the response
     let mut rx = api_state.api_channel_tx.subscribe();
 
+    let since = if let Some(since) = params.since {
+        DateTime::<Utc>::from_timestamp_millis(since)
+    } else {
+        None
+    };
     api_state.main_tx.send(PiEvent::APIRequest(
         project_id.clone(),
         EngineRequest {
             request_id: request_id.clone(),
             project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetAllEdges,
+            payload: EngineRequestPayload::GetAllEdges(since),
         },
     ))?;
 
@@ -424,49 +454,6 @@ pub async fn search_results(
     }
 }
 
-// pub async fn toggle_crawl(
-//     path: web::Path<(String, u32)>,
-//     api_state: web::Data<ApiState>,
-// ) -> PiResult<impl Responder> {
-//     let request_id = api_state.req_id.fetch_add(1);
-//     let (project_id, node_id) = path.into_inner();
-//     // Subscribe to the API channel, so we can receive the response
-//     let mut rx = api_state.api_channel_tx.subscribe();
-//
-//     api_state.main_tx.send(PiEvent::APIRequest(
-//         project_id.clone(),
-//         EngineRequest {
-//             request_id: request_id.clone(),
-//             project_id: project_id.clone(),
-//             payload: EngineRequestPayload::ToggleCrawl(node_id),
-//         },
-//     ))?;
-//
-//     debug!("Waiting for response for request {}", request_id);
-//     let mut response_opt: Option<EngineResponsePayload> = None;
-//     while response_opt.is_none() {
-//         match rx.recv().await {
-//             Ok(event) => match event {
-//                 PiEvent::APIResponse(p_id, response) => {
-//                     if p_id == project_id && response.request_id == request_id {
-//                         response_opt = Some(response.payload.clone());
-//                     }
-//                 }
-//                 _ => {}
-//             },
-//             Err(_err) => {}
-//         }
-//     }
-//
-//     debug!("Got response for request {}", request_id);
-//     match response_opt {
-//         Some(response) => Ok(web::Json(response)),
-//         None => Ok(web::Json(EngineResponsePayload::Error(
-//             "Could not get a response".to_string(),
-//         ))),
-//     }
-// }
-
 pub fn handle_engine_api_request(
     request: EngineRequest,
     engine: Arc<&Engine>,
@@ -511,30 +498,85 @@ pub fn handle_engine_api_request(
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
             EngineResponsePayload::Nodes(nodes)
         }
-        EngineRequestPayload::GetAllNodes => {
-            let mut nodes: Vec<APINodeItem> = engine
-                .get_all_nodes()
-                .iter()
-                .map(|node| APINodeItem {
-                    id: node.id.clone(),
-                    labels: node.labels.clone(),
-                    payload: APIPayload::from_payload(node.payload.clone()),
-                    flags: APINodeFlags::from_node_flags(node.flags.clone()),
-                    written_at: node.written_at.clone(),
-                })
-                .collect();
+        EngineRequestPayload::GetAllNodes(since) => {
+            let mut nodes: Vec<APINodeItem> = match since {
+                Some(since) => engine
+                    .get_all_nodes()
+                    .iter()
+                    .filter_map(|node| {
+                        if node.written_at > since {
+                            Some(APINodeItem {
+                                id: node.id.clone(),
+                                labels: node.labels.clone(),
+                                payload: APIPayload::from_payload(node.payload.clone()),
+                                flags: APINodeFlags::from_node_flags(node.flags.clone()),
+                                written_at: node.written_at.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+
+                None => engine
+                    .get_all_nodes()
+                    .iter()
+                    .map(|node| APINodeItem {
+                        id: node.id.clone(),
+                        labels: node.labels.clone(),
+                        payload: APIPayload::from_payload(node.payload.clone()),
+                        flags: APINodeFlags::from_node_flags(node.flags.clone()),
+                        written_at: node.written_at.clone(),
+                    })
+                    .collect(),
+            };
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
             EngineResponsePayload::Nodes(nodes)
         }
-        EngineRequestPayload::GetAllEdges => {
-            let edges = engine.get_all_edges();
-            EngineResponsePayload::Edges(APIEdges(
-                edges
+        EngineRequestPayload::GetAllEdges(since) => {
+            let edges: HashMap<NodeId, APINodeEdges> = match since {
+                Some(since) => engine
+                    .get_all_edges()
                     .iter()
-                    .map(|(k, v)| (**k, v.iter().map(|x| (*x.0, x.1.to_string())).collect()))
+                    .filter_map(|(node_id, node_edges)| {
+                        if node_edges.written_at > since {
+                            Some((
+                                **node_id,
+                                APINodeEdges {
+                                    edges: node_edges
+                                        .edges
+                                        .iter()
+                                        .map(|x| (x.0, x.1.to_string()))
+                                        .collect(),
+                                    written_at: node_edges.written_at.clone(),
+                                },
+                            ))
+                        } else {
+                            None
+                        }
+                    })
                     .collect(),
-            ))
+                None => engine
+                    .get_all_edges()
+                    .iter()
+                    .map(|(node_id, node_edges)| {
+                        (
+                            **node_id,
+                            APINodeEdges {
+                                edges: node_edges
+                                    .edges
+                                    .iter()
+                                    .map(|x| (x.0, x.1.to_string()))
+                                    .collect(),
+                                written_at: node_edges.written_at.clone(),
+                            },
+                        )
+                    })
+                    .collect(),
+            };
+
+            EngineResponsePayload::Edges(APIEdges(edges))
         }
         EngineRequestPayload::CreateNode(node_write) => {
             match node_write {
@@ -592,23 +634,6 @@ pub fn handle_engine_api_request(
             }
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
-        // EngineRequestPayload::ToggleCrawl(node_id) => match engine.get_node_by_id(&node_id) {
-        //     Some(node) => match node.payload {
-        //         Payload::Domain(ref domain) => {
-        //             engine.update_node(
-        //                 &node_id,
-        //                 Payload::Domain(Domain {
-        //                     name: domain.name.clone(),
-        //                     is_allowed_to_crawl: !domain.is_allowed_to_crawl,
-        //                 }),
-        //             )?;
-        //             engine.toggle_flag(&node_id, NodeFlags::IS_BLOCKED)?;
-        //             EngineResponsePayload::Success
-        //         }
-        //         _ => EngineResponsePayload::Error(format!("Node {} is not a domain", node_id)),
-        //     },
-        //     None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
-        // },
     };
 
     main_channel_tx.send(PiEvent::APIResponse(

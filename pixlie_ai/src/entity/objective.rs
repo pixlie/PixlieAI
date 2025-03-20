@@ -1,8 +1,7 @@
 use crate::engine::node::{NodeItem, NodeLabel};
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::pixlie::{ContinueCrawl, CrawlSpecification, Feature, LLMResponse};
 use crate::entity::text::Text;
-use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
 use crate::services::anthropic::Anthropic;
@@ -96,10 +95,7 @@ impl Objective {
                                     )?;
                                     engine.add_connection(
                                         (node.id, web_search_node_id),
-                                        (
-                                            CommonEdgeLabels::Suggests.to_string(),
-                                            CommonEdgeLabels::SuggestedFor.to_string(),
-                                        ),
+                                        (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                                     )?;
                                 }
                                 if let Some(continue_crawl) = crawl.conditions_to_continue_crawling
@@ -117,18 +113,13 @@ impl Objective {
                                                 )?;
                                                 engine.add_connection(
                                                     (node.id, crawl_condition_node_id),
-                                                    (
-                                                        CommonEdgeLabels::Suggests.to_string(),
-                                                        CommonEdgeLabels::SuggestedFor.to_string(),
-                                                    ),
+                                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                                                 )?;
                                             }
                                         }
-                                        _ => {}
                                     };
                                 }
                             }
-                            _ => {}
                         }
                     }
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;

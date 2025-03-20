@@ -1,7 +1,7 @@
 use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
@@ -69,10 +69,7 @@ impl Link {
             .get_node_id();
         engine.add_connection(
             (domain_node_id, link_node_id.clone()),
-            (
-                CommonEdgeLabels::OwnerOf.to_string(),
-                CommonEdgeLabels::BelongsTo.to_string(),
-            ),
+            (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
         )?;
         Ok(link_node_id)
     }
@@ -166,11 +163,9 @@ impl Link {
                 let query = parsed.query().map(|q| q.to_string());
 
                 // We get all node IDs connected with the domain node
-                let connected_node_ids: Vec<ArcedNodeId> = match engine
-                    .get_node_ids_connected_with_label(
-                        &domain_node.id,
-                        &CommonEdgeLabels::OwnerOf.to_string(),
-                    ) {
+                let connected_node_ids: Vec<NodeId> = match engine
+                    .get_node_ids_connected_with_label(&domain_node.id, &EdgeLabel::OwnerOf)
+                {
                     Ok(connected_node_ids) => connected_node_ids,
                     Err(err) => {
                         error!("Error getting connected node IDs: {}", err);
@@ -239,10 +234,7 @@ impl Link {
                     };
                     engine.add_connection(
                         (node.id.clone(), content_node_id),
-                        (
-                            CommonEdgeLabels::PathOf.to_string(),
-                            CommonEdgeLabels::ContentOf.to_string(),
-                        ),
+                        (EdgeLabel::PathOf, EdgeLabel::ContentOf),
                     )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }

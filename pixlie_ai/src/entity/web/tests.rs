@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 use crate::engine::engine::get_test_engine;
 use crate::engine::node::{ArcedNodeItem, NodeItem, NodeLabel, Payload};
-use crate::engine::CommonEdgeLabels;
+use crate::engine::EdgeLabel;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
 use std::sync::Arc;
@@ -34,27 +34,18 @@ fn test_webpage_scraper_rlhf_book() {
     test_engine
         .add_connection(
             (link_node_id, webpage_node_id.clone()),
-            (
-                CommonEdgeLabels::PathOf.to_string(),
-                CommonEdgeLabels::ContentOf.to_string(),
-            ),
+            (EdgeLabel::PathOf, EdgeLabel::ContentOf),
         )
         .unwrap();
     test_engine.process_nodes();
 
     let parent_of_webpage = test_engine
-        .get_node_ids_connected_with_label(
-            &webpage_node_id,
-            &CommonEdgeLabels::ContentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ContentOf)
         .unwrap();
     assert_eq!(parent_of_webpage.len(), 1);
 
     let children_of_webpage = test_engine
-        .get_node_ids_connected_with_label(
-            &webpage_node_id,
-            &CommonEdgeLabels::ParentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(children_of_webpage.len(), 82);
 
@@ -157,7 +148,7 @@ fn test_webpage_scraper_rlhf_book() {
                                 let link_node_ids = test_engine
                                     .get_node_ids_connected_with_label(
                                         &domain_node.id,
-                                        &CommonEdgeLabels::OwnerOf.to_string(),
+                                        &EdgeLabel::OwnerOf,
                                     )
                                     .unwrap();
                                 let link_nodes = link_node_ids
@@ -211,10 +202,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
 
     let list_item_node_ids = test_engine
-        .get_node_ids_connected_with_label(
-            &first_bullet_point_node.id,
-            &CommonEdgeLabels::ParentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&first_bullet_point_node.id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(list_item_node_ids.len(), 2);
     let list_item_nodes = list_item_node_ids
@@ -242,10 +230,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
 
     let list_item_node_ids = test_engine
-        .get_node_ids_connected_with_label(
-            &second_bullet_point_node.id,
-            &CommonEdgeLabels::ParentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&second_bullet_point_node.id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(list_item_node_ids.len(), 4);
     let list_item_nodes = list_item_node_ids
@@ -278,10 +263,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
 
     let list_item_node_ids = test_engine
-        .get_node_ids_connected_with_label(
-            &third_bullet_point_node.id,
-            &CommonEdgeLabels::ParentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&third_bullet_point_node.id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(list_item_node_ids.len(), 4);
     let list_item_nodes = list_item_node_ids
@@ -744,7 +726,6 @@ RLHF</a></li>
 #[test]
 fn test_extraction_from_hn_homepage() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::CommonEdgeLabels;
     use crate::entity::web::link::Link;
     use crate::entity::web::web_page::WebPage;
     use std::sync::Arc;
@@ -772,19 +753,13 @@ fn test_extraction_from_hn_homepage() {
     test_engine
         .add_connection(
             (link_node_id, webpage_node_id.clone()),
-            (
-                CommonEdgeLabels::PathOf.to_string(),
-                CommonEdgeLabels::ContentOf.to_string(),
-            ),
+            (EdgeLabel::PathOf, EdgeLabel::ContentOf),
         )
         .unwrap();
     test_engine.process_nodes();
 
     let children_of_webpage = test_engine
-        .get_node_ids_connected_with_label(
-            &webpage_node_id,
-            &CommonEdgeLabels::ParentOf.to_string(),
-        )
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(children_of_webpage.len(), 222);
 

@@ -5,7 +5,6 @@ use crate::entity::search::web_search::WebSearch;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::WebPage;
-use crate::entity::workflow::WorkflowStep;
 use crate::error::PiResult;
 use crate::{ExternalData, FetchError, FetchResponse};
 use chrono::{DateTime, Utc};
@@ -17,8 +16,6 @@ use ts_rs::TS;
 
 #[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
-    // StepPrompt(String),
-    Step(WorkflowStep),
     Link(Link),
     Text(String),
     Tree, // Tree can contain nodes of any payload type, including other trees

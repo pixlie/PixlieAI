@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
 use crate::entity::web::scraper::scrape;
 use crate::error::{PiError, PiResult};
@@ -18,15 +18,15 @@ pub struct WebPage;
 
 pub fn get_link_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Link, NodeId)> {
     // Each WebPage node has a parent Link node, if not this is an error
-    let related_node_ids = engine
-        .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ContentOf.to_string())?;
+    let related_node_ids =
+        engine.get_node_ids_connected_with_label(node_id, &EdgeLabel::ContentOf)?;
     let first_related_node_id = related_node_ids.first().ok_or_else(|| {
         PiError::InternalError("No related node ids found for WebPage node".to_string())
     })?;
 
     match engine.get_node_by_id(first_related_node_id) {
         Some(node) => match node.payload {
-            Payload::Link(ref link) => Ok((link.clone(), **first_related_node_id)),
+            Payload::Link(ref link) => Ok((link.clone(), *first_related_node_id)),
             _ => Err(PiError::GraphError(
                 "Cannot find parent Link node for WebPage node".to_string(),
             )),
@@ -42,15 +42,14 @@ pub fn get_link_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(
 
 impl WebPage {
     fn _get_content(&self, engine: Arc<&Engine>, node_id: &NodeId) -> String {
-        let part_node_ids = match engine
-            .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ChildOf.to_string())
-        {
-            Ok(part_node_ids) => part_node_ids,
-            Err(err) => {
-                error!("Error getting part node ids: {}", err);
-                return "".to_string();
-            }
-        };
+        let part_node_ids =
+            match engine.get_node_ids_connected_with_label(node_id, &EdgeLabel::ChildOf) {
+                Ok(part_node_ids) => part_node_ids,
+                Err(err) => {
+                    error!("Error getting part node ids: {}", err);
+                    return "".to_string();
+                }
+            };
 
         let mut content = String::new();
         for node_id in part_node_ids {
@@ -79,7 +78,7 @@ impl WebPage {
     //     node_id: &NodeId,
     // ) -> PiResult<Vec<ArcedNodeItem>> {
     //     match engine
-    //         .get_node_ids_connected_with_label(node_id, &CommonEdgeLabels::ParentOf.to_string())
+    //         .get_node_ids_connected_with_label(node_id, &EdgeLabel::ParentOf)
     //     {
     //         Ok(partial_content_node_ids) => Ok(partial_content_node_ids
     //             .iter()

@@ -1,5 +1,5 @@
 use crate::engine::node::{ArcedNodeId, NodeId};
-use crate::engine::{get_chunk_id_and_node_ids, ArcedEdgeLabel, EdgeLabel};
+use crate::engine::{get_chunk_id_and_node_ids, EdgeLabel, NodeEdges};
 use crate::error::{PiError, PiResult};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
@@ -11,7 +11,7 @@ use std::sync::Arc;
 const EDGES_CHUNK_PREFIX: &str = "edges/chunk/";
 
 pub(super) struct Edges {
-    pub(super) data: HashMap<ArcedNodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>>,
+    pub(super) data: HashMap<ArcedNodeId, NodeEdges>,
 }
 
 impl Edges {
@@ -26,16 +26,10 @@ impl Edges {
         // in the chunk corresponding to the node ID divided by 100
         // Create a chunk of data from the start node ID to the end node ID of this chunk
         let (chunk_id, node_ids) = get_chunk_id_and_node_ids(node_id);
-        let chunk: Vec<(NodeId, Vec<(NodeId, EdgeLabel)>)> = node_ids
+        let chunk: Vec<(NodeId, NodeEdges)> = node_ids
             .iter()
             .filter_map(|x_node_id| match self.data.get(x_node_id) {
-                Some(edges) => Some((
-                    *x_node_id,
-                    edges
-                        .iter()
-                        .map(|(y_node_id, y_label)| (**y_node_id, y_label.to_string()))
-                        .collect(),
-                )),
+                Some(node_edges) => Some((*x_node_id, node_edges.clone())),
                 None => None,
             })
             .collect();
@@ -68,8 +62,7 @@ impl Edges {
         for chunk in db.prefix_iterator(EDGES_CHUNK_PREFIX) {
             match chunk {
                 Ok(chunk) => {
-                    let data: Vec<(NodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>)> =
-                        from_bytes(&chunk.1)?;
+                    let data: Vec<(NodeId, NodeEdges)> = from_bytes(&chunk.1)?;
                     for (node_id, edges) in data {
                         self.data.insert(Arc::new(node_id), edges);
                     }
@@ -90,55 +83,50 @@ impl Edges {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::CommonEdgeLabels;
+    use crate::engine::EdgeLabel;
+    use chrono::Utc;
     use rocksdb::DB;
 
     #[test]
     fn test_save_to_disk_and_load_from_disk() {
         let mut node_id: NodeId = 0;
-        let mut edges: Vec<(NodeId, Vec<(ArcedNodeId, ArcedEdgeLabel)>)> = vec![];
+        let mut edges: Vec<(NodeId, NodeEdges)> = vec![];
         edges.push((
             node_id,
-            vec![(
-                Arc::new(node_id + 1),
-                Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-            )],
+            NodeEdges {
+                edges: vec![(node_id + 1, EdgeLabel::ParentOf)],
+                written_at: Utc::now(),
+            },
         ));
         node_id += 1;
         edges.push((
             node_id,
-            vec![(
-                Arc::new(node_id + 1),
-                Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-            )],
+            NodeEdges {
+                edges: vec![(node_id + 1, EdgeLabel::ParentOf)],
+                written_at: Utc::now(),
+            },
         ));
         node_id += 1;
         edges.push((
             node_id,
-            vec![
-                (
-                    Arc::new(node_id + 1),
-                    Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-                ),
-                (
-                    Arc::new(node_id + 2),
-                    Arc::new(CommonEdgeLabels::ChildOf.to_string()),
-                ),
-            ],
+            NodeEdges {
+                edges: vec![
+                    (node_id + 1, EdgeLabel::ParentOf),
+                    (node_id + 2, EdgeLabel::ChildOf),
+                ],
+                written_at: Utc::now(),
+            },
         ));
         node_id += 1;
         edges.push((
             node_id,
-            vec![
-                (
-                    Arc::new(node_id + 1),
-                    Arc::new(CommonEdgeLabels::ParentOf.to_string()),
-                ),
-                (
-                    Arc::new(node_id + 2),
-                    Arc::new(CommonEdgeLabels::ChildOf.to_string()),
-                ),
-            ],
+            NodeEdges {
+                edges: vec![
+                    (node_id + 1, EdgeLabel::ParentOf),
+                    (node_id + 2, EdgeLabel::ChildOf),
+                ],
+                written_at: Utc::now(),
+            },
         ));
 
         let temp_dir = tempfile::Builder::new()
@@ -152,10 +140,10 @@ mod tests {
             let arced_db = Arc::new(db);
             let mut db_edges: Edges = Edges::new();
             // Insert all edges into the DB
-            for (node_id, edges) in edges.iter() {
+            for (node_id, node_edges) in edges.iter() {
                 db_edges
                     .data
-                    .insert(Arc::new(node_id.clone()), edges.clone());
+                    .insert(Arc::new(node_id.clone()), node_edges.clone());
             }
 
             // Save the edges to disk
@@ -169,12 +157,15 @@ mod tests {
             // Load data from disk and check that it is the same as the original
             db_edges.load_all_from_disk(&db_path).unwrap();
 
-            for (node_id, edges) in edges.iter() {
+            for (node_id, node_edges) in edges.iter() {
                 // Check the ID and payload of each node against the one in the DB
                 let db_edges = db_edges.data.get(node_id).unwrap();
-                assert_eq!(edges.len(), db_edges.len());
-                for (db_node_id, db_edge_label) in db_edges.iter() {
-                    assert!(edges.contains(&(db_node_id.clone(), db_edge_label.clone())));
+                assert_eq!(node_edges.edges.len(), db_edges.edges.len());
+                assert_eq!(node_edges.written_at, db_edges.written_at);
+                for (db_node_id, db_edge_label) in db_edges.edges.iter() {
+                    assert!(node_edges
+                        .edges
+                        .contains(&(db_node_id.clone(), db_edge_label.clone())));
                 }
             }
         }

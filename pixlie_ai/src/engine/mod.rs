@@ -6,6 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use bitflags::bitflags;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use strum::Display;
@@ -19,15 +20,15 @@ mod nodes;
 pub mod setup;
 
 use crate::engine::api::{EngineRequest, EngineResponse};
+use crate::engine::node::{ArcedNodeId, NodeId};
 pub use engine::Engine;
+// pub(crate) type EdgeLabel = String; // TODO: Use enum
 
-pub(crate) type EdgeLabel = String; // TODO: Use enum
+// pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 
-pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
-
-#[derive(Display, TS)]
+#[derive(Clone, Deserialize, Display, PartialEq, Serialize, TS)]
 #[ts(export)]
-pub enum CommonEdgeLabels {
+pub enum EdgeLabel {
     RelatedTo,
 
     ParentOf, // When one node is like a container of the other
@@ -43,6 +44,12 @@ pub enum CommonEdgeLabels {
     SuggestedFor,
 
     EvaluatedFor, // When one node is evaluated for another
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct NodeEdges {
+    pub edges: Vec<(NodeId, EdgeLabel)>,
+    pub written_at: DateTime<Utc>,
 }
 
 bitflags! {
