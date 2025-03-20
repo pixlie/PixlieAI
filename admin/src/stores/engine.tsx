@@ -4,7 +4,7 @@ import { IEngineStore, INodeItem, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
-import { APIEdges } from "../api_types/APIEdges.ts";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -23,6 +23,8 @@ const makeStore = () => {
         [projectId]: {
           nodes: {},
           edges: {},
+          nodesFetchedAt: 0,
+          edgesFetchedAt: 0,
           isFetching: false,
         },
       },
@@ -31,11 +33,14 @@ const makeStore = () => {
 
   const fetchNodes = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
-      headers: {
-        "Content-Type": "application/json",
+    fetch(
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?since=${store.projects[projectId].nodesFetchedAt}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    }).then((response) => {
+    ).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch nodes");
       }
@@ -60,6 +65,7 @@ const makeStore = () => {
                     {},
                   ),
                 },
+                nodesFetchedAt: Date.now(),
               },
             },
           }));
@@ -86,7 +92,9 @@ const makeStore = () => {
               ...existing.projects,
               [projectId]: {
                 ...existing.projects[projectId],
-                edges: responsePayload.data as APIEdges,
+                edges: responsePayload.data as {
+                  [nodeId: number]: APINodeEdges;
+                },
               },
             },
           }));
@@ -103,7 +111,7 @@ const makeStore = () => {
     if (nodeId in store.projects[projectId].nodes) {
       if (nodeId in store.projects[projectId].edges) {
         let nodes: Array<APINodeItem> = [];
-        for (const edge of store.projects[projectId].edges[nodeId]) {
+        for (const edge of store.projects[projectId].edges[nodeId]?.edges!) {
           let [nId, edgeLabel]: [number, string] = edge;
           if (edgeLabel === relatedNodeType) {
             if (nId in store.projects[projectId].nodes) {

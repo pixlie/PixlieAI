@@ -39,7 +39,7 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
     if (getDomain() && engine.projects[params.projectId].edges) {
       let domain = getProject()!.nodes[props.nodeId];
       if (domain.id in engine.projects[params.projectId].edges) {
-        let edges = engine.projects[params.projectId].edges[domain.id];
+        let edges = engine.projects[params.projectId].edges[domain.id].edges;
         let ownerOfNodeIds = edges
           .filter((edge) => edge[1] === "OwnerOf")
           .map((edge) => edge[0]);

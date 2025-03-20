@@ -1,4 +1,4 @@
-import { Component, For } from "solid-js";
+import { Component, createMemo, For } from "solid-js";
 import LinkNode from "./LinkNode";
 import DomainNode from "./DomainNode";
 import SearchTermNode from "./SearchTermNode";
@@ -11,13 +11,17 @@ interface NodeListItemProps {
 }
 
 const NodeGrid: Component<NodeListItemProps> = (props) => {
+  const getN = createMemo<Array<number>>(() => {
+    return props.source().slice(0, 100);
+  });
+
   return (
     <>
       {props.nodeType ? (
         <>
           {props.nodeType === "Link" && (
             <div class="grid grid-cols-[auto_1fr_auto] gap-2">
-              <For each={props.source()}>
+              <For each={getN()}>
                 {(nodeId) => <LinkNode nodeId={nodeId} />}
               </For>
             </div>
