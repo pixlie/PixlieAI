@@ -3,8 +3,7 @@ Pixlie AI is built to be run by anyone on their own computer or on the cloud. Yo
 
 Alternatively, you can use a mix of cloud services for the GPU intensive tasks.
 
-## Beta Mode
-We are currently in Beta Mode, meaning you can use Pixlie but you won't be able to download it. This guide will walk you through how to set up Pixlie. You don't need to be a developer to follow along, but some basic comfort with using a terminal/command prompt will be helpful.
+At this time you cannot download Pixlie. This feature will be available in the near future, but if you are eager to test it out before you can download it, this guide will walk you through how to set up Pixlie. You don't need to be a developer to follow along, but some basic comfort with using a terminal/command prompt will be helpful.
 
 ## System Requirements
 
