@@ -25,21 +25,20 @@ pub enum ContinueCrawl {
 }
 
 #[derive(Deserialize, TS)]
-pub struct Crawl {
-    pub starting_urls: Vec<String>,
-    pub web_search_keywords: Vec<String>,
-    pub continue_crawl: Option<ContinueCrawl>,
+pub struct CrawlSpecification {
+    pub web_search_keywords_for_objective: Vec<String>,
+    pub conditions_to_continue_crawling: Option<ContinueCrawl>,
 }
 
 // Features that are available in Pixlie for an AI agent
 #[derive(Deserialize, TS)]
 pub enum Feature {
-    Crawl(Crawl),
-    // ExtractNamedEntities(Vec<NamedEntity>),
+    Crawler(CrawlSpecification),
+    // NamedEntityExtraction(Vec<NamedEntity>),
 }
 
 #[derive(Deserialize, TS)]
 pub struct LLMResponse {
-    pub short_project_name: String,
-    pub features: Vec<Feature>,
+    pub short_project_name_with_spaces: String,
+    pub features_needed_to_accomplish_objective: Vec<Feature>,
 }

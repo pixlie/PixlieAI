@@ -5,5 +5,4 @@ export type EngineResponseResults = {
   nodes: Array<APINodeItem>;
   labels: Array<string>;
   edges: { [node_id: number]: Array<[number, string]> };
-  node_ids_by_label: { [label: string]: Array<number> };
 };

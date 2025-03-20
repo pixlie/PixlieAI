@@ -4,9 +4,9 @@ import { useParams } from "@solidjs/router";
 import NodeGrid from "../../widgets/node/NodeGrid";
 import Paragraph from "../../widgets/typography/Paragraph";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
-import SearchTermForm from "../../widgets/nodeForm/SearchTermForm";
+// import SearchTermForm from "../../widgets/nodeForm/SearchTermForm";
 import Heading from "../../widgets/typography/Heading.tsx";
-import ObjectiveForm from "../../widgets/nodeForm/ObjectiveForm.tsx";
+// import ObjectiveForm from "../../widgets/nodeForm/ObjectiveForm.tsx";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
 
@@ -22,19 +22,23 @@ const Workflow: Component = () => {
   });
 
   const getObjectives = createMemo<Array<APINodeItem> | undefined>(() => {
-    if (getProject()) {
+    if (!!getProject()) {
       return Object.values(getProject()!.nodes).filter((x) =>
         x.labels.includes("Objective"),
       );
     }
   });
 
-  const getSelectLinkIds = createMemo<number[]>(() => {
+  const getStartingLinkIds = createMemo<number[]>(() => {
     if (getProject()) {
       // Only select nodes that have AddedByUser label
       return Object.values(getProject()!.nodes)
         .filter(
-          (x) => x.labels.includes("AddedByUser") && x.labels.includes("Link"),
+          (x) =>
+            x.labels.includes("Link" as NodeLabel) &&
+            (x.labels.includes("AddedByUser" as NodeLabel) ||
+              x.labels.includes("AddedByAI" as NodeLabel) ||
+              x.labels.includes("AddedByWebSearch" as NodeLabel)),
         )
         .map((x) => x.id);
     } else {
@@ -42,34 +46,34 @@ const Workflow: Component = () => {
     }
   });
 
-  const getSelectSearchTermIds = createMemo<number[]>(() => {
-    if (getProject()) {
-      // Only select nodes that have AddedByUser label
-      return Object.values(getProject()!.nodes)
-        .filter(
-          (x) =>
-            x.labels.includes("AddedByUser") && x.labels.includes("SearchTerm"),
-        )
-        .map((x) => x.id);
-    } else {
-      return [];
-    }
-  });
+  // const getSelectSearchTermIds = createMemo<number[]>(() => {
+  //   if (getProject()) {
+  //     // Only select nodes that have AddedByUser label
+  //     return Object.values(getProject()!.nodes)
+  //       .filter(
+  //         (x) =>
+  //           x.labels.includes("AddedByUser") && x.labels.includes("SearchTerm"),
+  //       )
+  //       .map((x) => x.id);
+  //   } else {
+  //     return [];
+  //   }
+  // });
 
-  const getSelectTopicIds = createMemo<number[]>(() => {
-    if (getProject()) {
-      // Only select nodes that have AddedByUser label
-      return Object.values(getProject()!.nodes)
-        .filter(
-          (x) =>
-            x.labels.includes("AddedByUser" as NodeLabel) &&
-            x.labels.includes("Topic" as NodeLabel),
-        )
-        .map((x) => x.id);
-    } else {
-      return [];
-    }
-  });
+  // const getSelectTopicIds = createMemo<number[]>(() => {
+  //   if (getProject()) {
+  //     // Only select nodes that have AddedByUser label
+  //     return Object.values(getProject()!.nodes)
+  //       .filter(
+  //         (x) =>
+  //           x.labels.includes("AddedByUser" as NodeLabel) &&
+  //           x.labels.includes("Topic" as NodeLabel),
+  //       )
+  //       .map((x) => x.id);
+  //   } else {
+  //     return [];
+  //   }
+  // });
 
   return (
     <div class="flex">
@@ -83,27 +87,27 @@ const Workflow: Component = () => {
 
         <div>
           <Heading size={3}>Starting links</Heading>
-          <NodeGrid nodeType={"Link"} source={getSelectLinkIds} />
-          <div class="max-w-screen-sm">
+          <NodeGrid nodeType={"Link"} source={getStartingLinkIds} />
+          <div class="max-w-screen-sm pt-6">
             <LinkForm />
           </div>
         </div>
 
-        <div>
-          <Heading size={3}>Saved search terms</Heading>
-          <NodeGrid nodeType={"SearchTerm"} source={getSelectSearchTermIds} />
-          <div class="max-w-screen-sm">
-            <SearchTermForm />
-          </div>
-        </div>
+        {/*<div>*/}
+        {/*  <Heading size={3}>Saved search terms</Heading>*/}
+        {/*  <NodeGrid nodeType={"SearchTerm"} source={getSelectSearchTermIds} />*/}
+        {/*  <div class="max-w-screen-sm">*/}
+        {/*    <SearchTermForm />*/}
+        {/*  </div>*/}
+        {/*</div>*/}
 
-        <div>
-          <Heading size={3}>Saved topics</Heading>
-          <NodeGrid nodeType={"Topic"} source={getSelectTopicIds} />
-          <div class="max-w-screen-sm">
-            <ObjectiveForm />
-          </div>
-        </div>
+        {/*<div>*/}
+        {/*  <Heading size={3}>Saved topics</Heading>*/}
+        {/*  <NodeGrid nodeType={"Topic"} source={getSelectTopicIds} />*/}
+        {/*  <div class="max-w-screen-sm">*/}
+        {/*    <ObjectiveForm />*/}
+        {/*  </div>*/}
+        {/*</div>*/}
       </div>
 
       <div class="w-96 bg-stone-100 rounded-md p-6 drop-shadow flex flex-col gap-6">

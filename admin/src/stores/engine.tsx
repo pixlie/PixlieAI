@@ -4,6 +4,7 @@ import { IEngineStore, INodeItem, IProviderPropTypes } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -22,6 +23,8 @@ const makeStore = () => {
         [projectId]: {
           nodes: {},
           edges: {},
+          nodesFetchedAt: 0,
+          edgesFetchedAt: 0,
           isFetching: false,
         },
       },
@@ -30,16 +33,19 @@ const makeStore = () => {
 
   const fetchNodes = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
-      headers: {
-        "Content-Type": "application/json",
+    fetch(
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?since=${store.projects[projectId].nodesFetchedAt}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    }).then((response) => {
+    ).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch nodes");
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
-        if (responsePayload.type === "Results") {
+        if (responsePayload.type === "Nodes") {
           setStore((existing: IEngineStore) => ({
             ...existing,
             projects: {
@@ -48,7 +54,7 @@ const makeStore = () => {
                 ...existing.projects[projectId],
                 nodes: {
                   ...existing.projects[projectId].nodes,
-                  ...responsePayload.data.nodes.reduce(
+                  ...responsePayload.data.reduce(
                     (map: { [k: number]: INodeItem }, item) => ({
                       ...map,
                       [item.id]: {
@@ -59,6 +65,7 @@ const makeStore = () => {
                     {},
                   ),
                 },
+                nodesFetchedAt: Date.now(),
               },
             },
           }));
@@ -69,23 +76,32 @@ const makeStore = () => {
 
   const fetchEdges = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
-      headers: {
-        "Content-Type": "application/json",
+    fetch(
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/edges?since=${store.projects[projectId].edgesFetchedAt}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    }).then((response) => {
+    ).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch edges");
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
-        if (responsePayload.type === "Results") {
+        if (responsePayload.type === "Edges") {
           setStore((existing: IEngineStore) => ({
             ...existing,
             projects: {
               ...existing.projects,
               [projectId]: {
                 ...existing.projects[projectId],
-                edges: responsePayload.data.edges,
+                edges: {
+                  ...existing.projects[projectId].edges,
+                  ...(responsePayload.data as {
+                    [nodeId: number]: APINodeEdges;
+                  }),
+                },
+                edgesFetchedAt: Date.now(),
               },
             },
           }));
@@ -102,7 +118,7 @@ const makeStore = () => {
     if (nodeId in store.projects[projectId].nodes) {
       if (nodeId in store.projects[projectId].edges) {
         let nodes: Array<APINodeItem> = [];
-        for (const edge of store.projects[projectId].edges[nodeId]) {
+        for (const edge of store.projects[projectId].edges[nodeId]?.edges!) {
           let [nId, edgeLabel]: [number, string] = edge;
           if (edgeLabel === relatedNodeType) {
             if (nId in store.projects[projectId].nodes) {
@@ -118,25 +134,9 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
-    // The sync function keeps calling fetchNodes and fetchEdges for the given projectId and updates the store
-    // const timer = (projectId: string, start: boolean = false) => {
-    //   if (!store.projects[projectId]) {
-    //     return;
-    //   }
-    //   if (store.sync[projectId] || start) {
-    //     // Set a timeout to call the inner function after a delay
-    //     setStore((existing: IEngineStore) => ({
-    //       ...existing,
-    //       projects: {
-    //         ...existing.projects,
-    //         timeouts: {
-    //           ...existing.projects.timeouts,
-    //           [projectId]: window.setTimeout(fetcher(projectId), 2000),
-    //         },
-    //       },
-    //     }));
-    //   }
-    // };
+    if (store.sync.filter((x) => x === projectId).length > 0) {
+      return;
+    }
 
     const fetcher = (projectId: string) => {
       return () => {
@@ -168,7 +168,10 @@ const makeStore = () => {
             },
           },
         }));
-        if (store.sync.filter((x) => x === projectId).length > 0) {
+        if (
+          store.sync.length > 0 &&
+          store.sync.filter((x) => x === projectId).length > 0
+        ) {
           window.setTimeout(fetcher(projectId), 2000);
         }
       };
@@ -181,11 +184,18 @@ const makeStore = () => {
     window.setTimeout(fetcher(projectId), 100);
   };
 
-  const stopSync = (projectId: string) => {
-    setStore((existing: IEngineStore) => ({
-      ...existing,
-      sync: [...existing.sync.filter((x) => x !== projectId)],
-    }));
+  const stopSync = (projectId?: string) => {
+    if (!!projectId) {
+      setStore((existing: IEngineStore) => ({
+        ...existing,
+        sync: [...existing.sync.filter((x) => x !== projectId)],
+      }));
+    } else {
+      setStore((existing: IEngineStore) => ({
+        ...existing,
+        sync: [],
+      }));
+    }
   };
 
   return [

@@ -60,8 +60,8 @@ pub enum CrawlOrAPIRequest {
 impl CrawlOrAPIRequest {
     pub fn get_url(&self) -> String {
         match self {
-            CrawlOrAPIRequest::Crawl(crawl_request) => crawl_request.url.clone(),
-            CrawlOrAPIRequest::API(api_request) => api_request.url.clone(),
+            CrawlOrAPIRequest::Crawl(crawl_request) => format!("https://{}{}", crawl_request.domain, crawl_request.url),
+            CrawlOrAPIRequest::API(api_request) => api_request.url.to_string(),
         }
     }
 }

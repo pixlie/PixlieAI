@@ -1,11 +1,13 @@
 import { Component, createMemo, createSignal, For, Show } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
-import { A, useParams } from "@solidjs/router";
+import { A, useNavigate, useParams } from "@solidjs/router";
 
 const NavbarMenu: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
   const [workspace] = useWorkspace();
   const params = useParams();
+  const navigate = useNavigate();
+
   const getProject = createMemo(() => {
     if (params.projectId && workspace.isReady && workspace.projects) {
       return workspace.projects.find(
@@ -13,6 +15,7 @@ const NavbarMenu: Component = () => {
       );
     }
   });
+
   return (
     <div class="relative w-48">
       <Show
@@ -98,13 +101,17 @@ const NavbarMenu: Component = () => {
                 {(project) => (
                   <A
                     href={`/p/${project.uuid}/workflow`}
-                    onClick={() => setVisible(false)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setVisible(false);
+                      navigate(`/p/${project.uuid}/workflow`);
+                    }}
                     class="block w-full rounded p-1.5 hover:bg-gray-100"
                     role="menuitem"
                   >
-                    <p class="flex-1 truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">
+                    <span class="block truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">
                       {project.name}
-                    </p>
+                    </span>
                   </A>
                 )}
               </For>

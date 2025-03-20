@@ -1,9 +1,9 @@
 import { Component, createMemo } from "solid-js";
-import { useUIClasses } from "../../stores/UIClasses.tsx";
-import { useEngine } from "../../stores/engine.tsx";
+import { useUIClasses } from "../../stores/UIClasses";
+import { useEngine } from "../../stores/engine";
 import { useParams } from "@solidjs/router";
-import { IEngine } from "../../utils/types.tsx";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import { IEngine } from "../../utils/types";
+import { NodeLabel } from "../../api_types/NodeLabel";
 
 interface IDomainNodeProps {
   nodeId: number;
@@ -21,7 +21,7 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
     return undefined;
   });
 
-  const getPayload = createMemo<string | undefined>(() => {
+  const getDomain = createMemo<string | undefined>(() => {
     if (getProject() && props.nodeId in getProject()!.nodes) {
       let node = getProject()!.nodes[props.nodeId];
       if (
@@ -35,19 +35,52 @@ const DomainNode: Component<IDomainNodeProps> = (props) => {
     return undefined;
   });
 
+  const getRobotsTxtStatus = createMemo<string>(() => {
+    if (getDomain() && engine.projects[params.projectId].edges) {
+      let domain = getProject()!.nodes[props.nodeId];
+      if (domain.id in engine.projects[params.projectId].edges) {
+        let edges = engine.projects[params.projectId].edges[domain.id].edges;
+        let ownerOfNodeIds = edges
+          .filter((edge) => edge[1] === "OwnerOf")
+          .map((edge) => edge[0]);
+
+        let robotsTxtNode = ownerOfNodeIds
+          .map((nodeId) => engine.projects[params.projectId].nodes[nodeId])
+          .find((node) => node.labels.includes("RobotsTxt"));
+
+        if (robotsTxtNode) {
+          if (
+            robotsTxtNode.flags.filter((flag) => flag === "IsRequesting")
+              .length > 0
+          ) {
+            return "Requesting robots.txt";
+          } else if (
+            robotsTxtNode.flags.filter((flag) => flag === "IsBlocked").length >
+            0
+          ) {
+            return "Found robots.txt";
+          }
+        }
+      }
+    }
+    return "";
+  });
+
   return (
     <>
-      {!!getPayload() ? (
-        <div class="flex items-center gap-5">
+      {!!getDomain() ? (
+        <>
           <a
             class={getColors().link}
-            href={`https://${getPayload()!}`}
+            href={`https://${getDomain()!}`}
             target="_blank"
             rel="noreferrer"
           >
-            {getPayload()!}
+            {getDomain()!}
           </a>
-        </div>
+
+          <span>{getRobotsTxtStatus()}</span>
+        </>
       ) : null}
     </>
   );

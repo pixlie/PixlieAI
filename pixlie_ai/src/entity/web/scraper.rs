@@ -1,5 +1,5 @@
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
-use crate::engine::{CommonEdgeLabels, Engine};
+use crate::engine::{EdgeLabel, Engine};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::get_link_of_webpage;
@@ -50,10 +50,7 @@ impl<'a> Traverser<'a> {
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), title_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
@@ -70,10 +67,7 @@ impl<'a> Traverser<'a> {
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), heading_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
                 "p" => {
@@ -94,10 +88,7 @@ impl<'a> Traverser<'a> {
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), paragraph_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
                 "ul" => {
@@ -115,18 +106,12 @@ impl<'a> Traverser<'a> {
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), bullet_points_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                     if let Some(parent_node_id) = parent_node_id {
                         self.arced_engine.add_connection(
                             (parent_node_id, bullet_points_node_id.clone()),
-                            (
-                                CommonEdgeLabels::ParentOf.to_string(),
-                                CommonEdgeLabels::ChildOf.to_string(),
-                            ),
+                            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                         )?;
                     }
                     self.traverse(
@@ -150,18 +135,12 @@ impl<'a> Traverser<'a> {
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), bullet_points_node_id),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                     if let Some(parent_node_id) = parent_node_id {
                         self.arced_engine.add_connection(
                             (parent_node_id, bullet_points_node_id.clone()),
-                            (
-                                CommonEdgeLabels::ParentOf.to_string(),
-                                CommonEdgeLabels::ChildOf.to_string(),
-                            ),
+                            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                         )?;
                     }
                 }
@@ -184,10 +163,7 @@ impl<'a> Traverser<'a> {
                                 .get_node_id();
                             self.arced_engine.add_connection(
                                 (parent_node_id, list_item_node_id.clone()),
-                                (
-                                    CommonEdgeLabels::ParentOf.to_string(),
-                                    CommonEdgeLabels::ChildOf.to_string(),
-                                ),
+                                (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                             )?;
                         }
                     }
@@ -209,29 +185,41 @@ impl<'a> Traverser<'a> {
                     // We are only handling links which use https at this moment
                     let link_node_id = if url.starts_with("https://") {
                         // Links that are full URLs
-                        Link::add(self.arced_engine.clone(), &url, vec![], vec![], true)?
+                        match Link::add(
+                            self.arced_engine.clone(),
+                            &url,
+                            vec![NodeLabel::Link],
+                            vec![],
+                            true,
+                        ) {
+                            Ok(link_node_id) => link_node_id,
+                            Err(_) => {
+                                continue;
+                            }
+                        }
                     } else {
                         // Links that are relative to this path or domain, we build the full URL
                         match self.webpage_url.join(&url) {
-                            Ok(parsed) => Link::add(
+                            Ok(parsed) => match Link::add(
                                 self.arced_engine.clone(),
                                 &parsed.to_string(),
-                                vec![],
+                                vec![NodeLabel::Link],
                                 vec![],
                                 false,
-                            )?,
-                            Err(err) => {
-                                error!("Cannot parse URL to get domain for link: {}", err);
+                            ) {
+                                Ok(link_node_id) => link_node_id,
+                                Err(_) => {
+                                    continue;
+                                }
+                            },
+                            Err(_) => {
                                 continue;
                             }
                         }
                     };
                     self.arced_engine.add_connection(
                         (self.webpage_node_id, link_node_id.clone()),
-                        (
-                            CommonEdgeLabels::ParentOf.to_string(),
-                            CommonEdgeLabels::ChildOf.to_string(),
-                        ),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
                 // "table" => {

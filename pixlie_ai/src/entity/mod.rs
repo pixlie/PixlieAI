@@ -21,7 +21,6 @@ pub mod pixlie;
 pub(crate) mod search;
 pub(crate) mod text;
 pub(crate) mod web;
-pub mod workflow;
 
 // This is the struct used to extract entities from the data using any of the entity extraction providers
 #[derive(Default)]

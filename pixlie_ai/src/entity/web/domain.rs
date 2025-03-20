@@ -1,5 +1,5 @@
 use crate::engine::node::{ArcedNodeItem, NodeId, NodeItem, NodeLabel, Payload};
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
 use log::error;
@@ -42,10 +42,8 @@ impl Domain {
             }
             FindDomainOf::Node(node_id) => {
                 // TODO: Implement and use better graph query API: https://github.com/pixlie/PixlieAI/issues/90, point 1
-                let belongs_to = engine.get_node_ids_connected_with_label(
-                    &node_id,
-                    &CommonEdgeLabels::BelongsTo.to_string(),
-                )?;
+                let belongs_to =
+                    engine.get_node_ids_connected_with_label(&node_id, &EdgeLabel::BelongsTo)?;
                 let first_belongs_to = belongs_to.first().ok_or_else(|| {
                     PiError::InternalError(format!(
                         "Could not find Domain node for given node with ID {}",
@@ -113,10 +111,7 @@ impl Domain {
                         .get_node_id();
                     engine.add_connection(
                         (node.id.clone(), content_node_id),
-                        (
-                            CommonEdgeLabels::OwnerOf.to_string(),
-                            CommonEdgeLabels::BelongsTo.to_string(),
-                        ),
+                        (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
                     )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
@@ -132,10 +127,7 @@ impl Domain {
                         .get_node_id();
                     engine.add_connection(
                         (node.id.clone(), content_node_id),
-                        (
-                            CommonEdgeLabels::OwnerOf.to_string(),
-                            CommonEdgeLabels::BelongsTo.to_string(),
-                        ),
+                        (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
                     )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }

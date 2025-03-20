@@ -52,6 +52,7 @@ const Anthropic: Component = () => {
     saveWorkspace({
       anthropic_api_key: formData.anthropicApiKey,
     });
+    setFormData("anthropicApiKey", "");
     fetchWorkspace();
   };
 

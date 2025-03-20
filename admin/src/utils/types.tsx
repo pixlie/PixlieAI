@@ -4,6 +4,7 @@ import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Project } from "../api_types/Project";
 import { APINodeItem } from "../api_types/APINodeItem";
 import { Workspace } from "../api_types/Workspace";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 
 interface IProviderPropTypes {
   children: JSX.Element;
@@ -25,7 +26,9 @@ interface INodeItem extends APINodeItem {
 
 interface IEngine {
   nodes: { [nodeId: number]: INodeItem };
-  edges: { [nodeId: number]: Array<[number, string]> };
+  edges: { [nodeId: number]: APINodeEdges };
+  nodesFetchedAt: number;
+  edgesFetchedAt: number;
   isFetching: boolean;
 }
 

@@ -1,5 +1,5 @@
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::workspace::{APIProvider, WorkspaceCollection};
@@ -38,16 +38,13 @@ impl WebSearch {
                             let link_node_id = Link::add(
                                 engine.clone(),
                                 &result.url,
-                                vec![NodeLabel::AddedByWebSearch],
+                                vec![NodeLabel::AddedByWebSearch, NodeLabel::Link],
                                 vec![],
                                 true,
                             )?;
                             engine.add_connection(
                                 (node.id.clone(), link_node_id.clone()),
-                                (
-                                    CommonEdgeLabels::Suggests.to_string(),
-                                    CommonEdgeLabels::SuggestedFor.to_string(),
-                                ),
+                                (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                             )?;
                         }
                         engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;

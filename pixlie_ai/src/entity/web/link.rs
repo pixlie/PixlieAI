@@ -1,7 +1,7 @@
 use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
-use crate::engine::{CommonEdgeLabels, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
@@ -22,7 +22,7 @@ impl Link {
     pub fn add(
         engine: Arc<&Engine>,
         url: &String,
-        extra_labels: Vec<NodeLabel>,
+        labels: Vec<NodeLabel>,
         domain_extra_labels: Vec<NodeLabel>,
         should_add_new_domain: bool,
     ) -> PiResult<NodeId> {
@@ -33,7 +33,7 @@ impl Link {
         // We do not store fragment
         // The link node only stores the path and query, domain is stored in the domain node
         let parsed = Url::parse(url).map_err(|err| {
-            PiError::InternalError(format!("Cannot parse URL {} to get domain: {}", &url, err))
+            PiError::GraphError(format!("Cannot parse URL {} to get domain: {}", &url, err))
         })?;
         let domain = parsed.domain().ok_or_else(|| {
             PiError::InternalError(format!("Cannot parse URL {} to get domain", &url))
@@ -54,12 +54,6 @@ impl Link {
             )?
             .get_node_id();
 
-        // TODO: Remove this and add the Link label from all the calling functions
-        let extra_labels = if extra_labels.contains(&NodeLabel::Link) {
-            extra_labels
-        } else {
-            [extra_labels, vec![NodeLabel::Link]].concat()
-        };
         let link_node_id = engine
             .get_or_add_node(
                 Payload::Link(Link {
@@ -67,7 +61,7 @@ impl Link {
                     query: parsed.query().map(|x| x.to_string()),
                     ..Default::default()
                 }),
-                extra_labels,
+                labels,
                 true,
                 // Engine will find possible existing Link rooted to this domain
                 Some(domain_node_id),
@@ -75,10 +69,7 @@ impl Link {
             .get_node_id();
         engine.add_connection(
             (domain_node_id, link_node_id.clone()),
-            (
-                CommonEdgeLabels::OwnerOf.to_string(),
-                CommonEdgeLabels::BelongsTo.to_string(),
-            ),
+            (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
         )?;
         Ok(link_node_id)
     }
@@ -172,11 +163,9 @@ impl Link {
                 let query = parsed.query().map(|q| q.to_string());
 
                 // We get all node IDs connected with the domain node
-                let connected_node_ids: Vec<ArcedNodeId> = match engine
-                    .get_node_ids_connected_with_label(
-                        &domain_node.id,
-                        &CommonEdgeLabels::OwnerOf.to_string(),
-                    ) {
+                let connected_node_ids: Vec<NodeId> = match engine
+                    .get_node_ids_connected_with_label(&domain_node.id, &EdgeLabel::OwnerOf)
+                {
                     Ok(connected_node_ids) => connected_node_ids,
                     Err(err) => {
                         error!("Error getting connected node IDs: {}", err);
@@ -245,14 +234,13 @@ impl Link {
                     };
                     engine.add_connection(
                         (node.id.clone(), content_node_id),
-                        (
-                            CommonEdgeLabels::PathOf.to_string(),
-                            CommonEdgeLabels::ContentOf.to_string(),
-                        ),
+                        (EdgeLabel::PathOf, EdgeLabel::ContentOf),
                     )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
-                ExternalData::Error(_error) => {}
+                ExternalData::Error(_error) => {
+                    engine.toggle_flag(&node.id, NodeFlags::HAD_ERROR)?;
+                }
             },
             None => engine.fetch(FetchRequest::new(node.id, &url))?,
         }
