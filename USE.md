@@ -41,6 +41,7 @@ At this time you cannot download Pixlie. This feature will be available in the n
    ```
 
 ### For Windows Users
+(We have not tested this ourselves...)
 
 1. **Install Git for Windows**
    
