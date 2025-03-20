@@ -2,8 +2,8 @@ import { Component, createMemo, For } from "solid-js";
 import LinkNode from "./LinkNode";
 import DomainNode from "./DomainNode";
 import SearchTermNode from "./SearchTermNode";
-import ContentNode from "./ContentNode";
 import TopicNode from "./TopicNode";
+import ContentContainerNode from "./ContentContainerNode.tsx";
 
 interface NodeListItemProps {
   nodeType?: string;
@@ -28,7 +28,7 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
           )}
           {props.nodeType === "Domain" && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
-              <For each={props.source()}>
+              <For each={getN()}>
                 {(nodeId) => <DomainNode nodeId={nodeId} />}
               </For>
             </div>
@@ -47,12 +47,10 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
               </For>
             </div>
           )}
-          {(props.nodeType === "Title" ||
-            props.nodeType === "Heading" ||
-            props.nodeType === "Paragraph") && (
-            <div class="grid grid-cols-1 gap-2">
+          {props.nodeType === "WebPage" && (
+            <div class="grid grid-cols-2 gap-6">
               <For each={props.source()}>
-                {(nodeId) => <ContentNode nodeId={nodeId} />}
+                {(nodeId) => <ContentContainerNode nodeId={nodeId} />}
               </For>
             </div>
           )}

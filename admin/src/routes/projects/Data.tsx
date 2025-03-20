@@ -15,7 +15,7 @@ const labelTypes: string[] = [
 ];
 type LabelType = (typeof labelTypes)[number];
 
-const Graph: Component = () => {
+const Data: Component = () => {
   const [engine] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
@@ -29,18 +29,9 @@ const Graph: Component = () => {
 
   const getSelectNodeIds = createMemo<number[]>(() => {
     if (getProject() && !!searchParams.label) {
-      // Only select nodes that have AddedByUser label
-      if (typeof searchParams.label === "string") {
+      if (searchParams.label === "WebPage") {
         return Object.values(getProject()!.nodes)
-          .filter((x) => x.labels.includes(searchParams.label as NodeLabel))
-          .map((x) => x.id);
-      } else if (Array.isArray(searchParams.label)) {
-        return Object.values(getProject()!.nodes)
-          .filter((x) =>
-            x.labels.filter((label) =>
-              (searchParams.label as string[]).includes(label),
-            ),
-          )
+          .filter((x) => x.labels.includes("WebPage" as NodeLabel))
           .map((x) => x.id);
       }
       return [];
@@ -58,16 +49,8 @@ const Graph: Component = () => {
 
   return (
     <>
-      {searchParams.label === "Title" && <Heading size={3}>Titles</Heading>}
-      {searchParams.label === "Paragraph" && (
-        <Heading size={3}>Paragraphs</Heading>
-      )}
-      {searchParams.label === "Heading" && <Heading size={3}>Headings</Heading>}
-      {searchParams.label === "BulletPoint" && (
-        <Heading size={3}>Bullet points</Heading>
-      )}
-      {searchParams.label === "OrderedPoint" && (
-        <Heading size={3}>Ordered points</Heading>
+      {searchParams.label === "WebPage" && (
+        <Heading size={3}>Web pages</Heading>
       )}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
@@ -77,4 +60,4 @@ const Graph: Component = () => {
   );
 };
 
-export default Graph;
+export default Data;

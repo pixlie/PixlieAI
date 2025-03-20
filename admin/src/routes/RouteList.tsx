@@ -121,22 +121,16 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
-            label: "Graph",
-            href: `/p/${params.projectId}/graph`,
+            label: "Data",
+            href: `/p/${params.projectId}/data`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/graph`,
+              `/p/${params.projectId}/data`,
             ),
-            children: [
-              "Title",
-              "Paragraph",
-              "Heading",
-              "BulletPoint",
-              "OrderedPoint",
-            ].map((label) => ({
-              label: `${label}s`,
-              href: `/p/${params.projectId}/graph?label=${label}`,
+            children: ["WebPage"].map((label) => ({
+              label: `${label}(s)`,
+              href: `/p/${params.projectId}/data?label=${label}`,
               isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/graph?label=${label}`,
+                `/p/${params.projectId}/data?label=${label}`,
               ),
             })),
           },

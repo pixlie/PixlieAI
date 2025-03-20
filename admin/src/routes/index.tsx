@@ -4,7 +4,7 @@ import Setup from "./settings/Setup";
 import SettingsContainer from "./settings/SettingsContainer";
 import Workflow from "./projects/Workflow";
 import Insights from "./projects/Insights";
-import Graph from "./projects/Graph";
+import Data from "./projects/Data.tsx";
 import Crawl from "./projects/Crawl";
 import Search from "./projects/Search";
 import PerProjectWrapper from "./projects/PerProject";
@@ -24,7 +24,7 @@ const Routes: Component = () => {
           <Route path="/:projectId" component={PerProjectWrapper}>
             <Route path="/workflow" component={Workflow} />
             <Route path="/insights" component={Insights} />
-            <Route path="/graph" component={Graph} />
+            <Route path="/data" component={Data} />
             <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
           </Route>
