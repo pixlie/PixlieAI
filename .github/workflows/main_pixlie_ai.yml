@@ -1,8 +1,14 @@
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main", "ci/macos-builds"]
+    paths:
+      - "pixlie_ai/**"
+      - ".github/workflows/main_pixlie_ai.yml"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+    paths:
+      - "pixlie_ai/**"
+      - ".github/workflows/main_pixlie_ai.yml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,9 +18,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            artifact_name: pixlie
-            asset_name: pixlie-linux-amd64
+          # - os: ubuntu-latest
+          #   artifact_name: pixlie
+          #   asset_name: pixlie-linux-amd64
           - os: macos-latest
             artifact_name: pixlie
             asset_name: pixlie-macos-amd64
@@ -23,10 +29,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-#      - name: Test pixlie_ai
-#        working-directory: "./pixlie_ai"
-#        run: cargo test --verbose
-#
-#      - name: Build release
-#        working-directory: "./pixlie_ai"
-#        run: cargo build --release
+      - name: Test pixlie_ai
+        working-directory: "./pixlie_ai"
+        run: cargo test --verbose
+
+      - name: Build release
+        working-directory: "./pixlie_ai"
+        run: cargo build --release
