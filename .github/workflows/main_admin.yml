@@ -1,8 +1,14 @@
 on:
   push:
     branches: ["main"]
+    paths:
+      - "admin/**"
+      - ".github/workflows/main_admin.yml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "admin/**"
+      - ".github/workflows/main_admin.yml"
 
 jobs:
   main_admin:
