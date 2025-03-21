@@ -1,5 +1,5 @@
 use crate::engine::node::{
-    ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
+    ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::domain::{Domain, FindDomainOf};

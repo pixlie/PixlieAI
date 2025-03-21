@@ -126,10 +126,10 @@ pub fn classify(
     let response = response.json::<OllamaResponse>()?;
     let classification = response.response.clone();
     if classification.is_empty() {
-        return Err(PiError::CouldNotClassifyText);
+        return Err(PiError::CouldNotParseResponseFromLLM(LL_MODEL.to_string()));
     }
     if !labels.contains(&classification) {
-        return Err(PiError::CouldNotClassifyText);
+        return Err(PiError::CouldNotParseResponseFromLLM(LL_MODEL.to_string()));
     }
     Ok(classification)
 }

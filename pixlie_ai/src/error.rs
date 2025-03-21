@@ -28,8 +28,8 @@ pub enum PiError {
     #[error("API key for {0} not configured")]
     ApiKeyNotConfigured(String),
 
-    #[error("Could not classify text")]
-    CouldNotClassifyText,
+    #[error("Could not parse response from LLM: {0}")]
+    CouldNotParseResponseFromLLM(String),
 
     #[error("Error in fetching external data: {0}")]
     FetchError(String),
@@ -41,11 +41,10 @@ pub enum PiError {
     GraphError(String),
 
     #[error("Feature is not available: {0}")]
-    NotAvailable(String),
+    FeatureNotAvailable(String),
 
     // #[error("Error from Actix Web Blocking Error: {0}")]
     // ActixWebError(#[from] actix_web::error::BlockingError),
-
     #[error("Error from Anthropic Service: {0}")]
     AnthropicServiceError(String),
 

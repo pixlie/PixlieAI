@@ -162,18 +162,7 @@ impl Objective {
     }
 
     fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-        let llm_responses = Anthropic::parse_response(response)?;
-        if llm_responses.len() != 1 {
-            Err(PiError::CouldNotClassifyText)
-        } else {
-            if llm_responses[0].content_type == "text" {
-                Ok(serde_json::from_str::<LLMResponse>(
-                    &llm_responses[0].content,
-                )?)
-            } else {
-                Err(PiError::CouldNotClassifyText)
-            }
-        }
+        Ok(Anthropic::parse_response(response)?)
     }
 }
 

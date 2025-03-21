@@ -412,9 +412,8 @@ impl Engine {
                     .edges
                     .push((*arced_node_ids.1, edge_labels.0));
                 // Update the last written time for the parent node
-                edges.data.get_mut(&arced_node_ids.0).unwrap().written_at =
-                    Utc::now();
-                
+                edges.data.get_mut(&arced_node_ids.0).unwrap().written_at = Utc::now();
+
                 // Update connections data for the child node
                 edges
                     .data
@@ -423,8 +422,7 @@ impl Engine {
                     .edges
                     .push((*arced_node_ids.0, edge_labels.1));
                 // Update the last written time for the child node
-                edges.data.get_mut(&arced_node_ids.1).unwrap().written_at =
-                    Utc::now();
+                edges.data.get_mut(&arced_node_ids.1).unwrap().written_at = Utc::now();
                 edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
                 edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
             }

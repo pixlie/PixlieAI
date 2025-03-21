@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::services::llm::{LLMResponse, LLM};
+use crate::services::llm::LLM;
 use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
     entity::ExtractedEntity,
@@ -18,6 +18,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
+use crate::entity::pixlie::LLMResponse;
 
 #[derive(Debug, Deserialize)]
 pub struct ClaudeResponse {
@@ -132,16 +133,31 @@ Please respond in JSON with `LLMResponse` to achieve the objective."#,
         Ok(request)
     }
 
-    fn parse_response(response: &str) -> PiResult<Vec<LLMResponse>> {
+    fn parse_response(response: &str) -> PiResult<LLMResponse> {
         let claude_response: ClaudeResponse = serde_json::from_str(response)?;
-        Ok(claude_response
-            .content
-            .into_iter()
-            .map(|claude_response_content| LLMResponse {
-                content_type: claude_response_content._type,
-                content: claude_response_content.text,
-            })
-            .collect())
+        if claude_response.content.len() != 1 {
+            return Err(PiError::CouldNotParseResponseFromLLM(
+                LL_MODEL_HAIKU.to_string(),
+            ));
+        }
+        // Check if the text starts a Markdown code block
+        if claude_response.content[0].text.starts_with("```json") {
+            let payload = claude_response.content[0]
+                .text
+                .trim_start_matches("```json");
+            let payload = payload.trim_end_matches("```");
+            let payload: LLMResponse = serde_json::from_str(payload)?;
+            Ok(payload)
+        } else if claude_response.content[0].text.starts_with("```") {
+            let payload = claude_response.content[0].text.trim_start_matches("```");
+            let payload = payload.trim_end_matches("```");
+            let payload: LLMResponse = serde_json::from_str(payload)?;
+            Ok(payload)
+        } else {
+            let payload: LLMResponse =
+                serde_json::from_str(claude_response.content[0].text.as_str())?;
+            Ok(payload)
+        }
     }
 }
 
@@ -240,10 +256,14 @@ pub fn classify(text: &String, labels: &Vec<String>, api_key: &str) -> PiResult<
     let response = response.json::<ClaudeResponse>()?;
     let classification = response.content[0].text.clone();
     if classification.is_empty() {
-        return Err(PiError::CouldNotClassifyText);
+        return Err(PiError::CouldNotParseResponseFromLLM(
+            "Anthropic Claude Haiku".to_string(),
+        ));
     }
     if !labels.contains(&classification) {
-        return Err(PiError::CouldNotClassifyText);
+        return Err(PiError::CouldNotParseResponseFromLLM(
+            "Anthropic Claude Haiku".to_string(),
+        ));
     }
     Ok(classification)
 }
