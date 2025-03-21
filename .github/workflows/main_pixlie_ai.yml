@@ -26,6 +26,24 @@ jobs:
             asset_name: pixlie-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set up homebrew for macos-latest
+        if: runner.os == 'macos-latest'
+        uses: Homebrew/actions/setup-homebrew@master
+      
+      - name: Setup necessary tools for MacOS
+        if: runner.os == 'macos-latest'
+        run: |
+          brew install llvm rocksdb
+      
+      - name: Set environment variables for MacOS
+        if: runner.os == 'macos-latest'
+        run: |
+          echo "export PATH=$(brew --prefix llvm)/bin:$PATH" >> $GITHUB_ENV
+          echo "export LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "export DYLD_LIBRARY_PATH=$LIBCLANG_PATH:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "export CC=$(brew --prefix llvm)/bin/clang" >> $GITHUB_ENV
+          echo "export CXX=$(brew --prefix llvm)/bin/clang++" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v4
 
