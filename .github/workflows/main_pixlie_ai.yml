@@ -68,6 +68,7 @@ jobs:
           workspaces: "pixlie_ai -> target"
 
       - name: Test pixlie_ai
+        working-directory: "./pixlie_ai"
         run: cargo test --verbose
 
       - name: Build release
