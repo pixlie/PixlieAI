@@ -45,8 +45,25 @@ jobs:
           echo "export LDFLAGS=-fuse-ld=/opt/homebrew/opt/lld/bin/ld64.lld" >> $GITHUB_ENV
           echo "export AR=/opt/homebrew/opt/llvm/bin/llvm-ar" >> $GITHUB_ENV
           sudo mkdir -pv /usr/local/lib
+          # TODO: For some reason, the libclang.dylib is not found by the linker.
+          # So we create a symlink to the libclang.dylib in /usr/local/lib
+          # This is a hack. There should be a better way to do this.
           sudo ln -s /opt/homebrew/opt/llvm/lib/libclang.dylib /usr/local/lib/libclang.dylib
 
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install prettier
+        working-directory: "./admin"
+        run: pnpm install prettier
       - name: Checkout
         uses: actions/checkout@v4
 
