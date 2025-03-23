@@ -4,7 +4,7 @@ import type { TableRow } from "./TableRow";
 import type { WorkflowStep } from "./WorkflowStep";
 
 export type APIPayload =
-  | { type: "WorkflowStep"; data: WorkflowStep }
+  | { type: "Step"; data: WorkflowStep }
   | { type: "Link"; data: Link }
   | { type: "Text"; data: string }
   | { type: "Tree"; data: string }
