@@ -23,9 +23,9 @@ jobs:
     strategy:
       matrix:
         include:
-          # - os: ubuntu-latest
-          #   artifact_name: pixlie
-          #   asset_name: pixlie-linux-amd64
+          - os: ubuntu-latest
+            artifact_name: pixlie
+            asset_name: pixlie-linux-amd64
           - os: macos-15
             artifact_name: pixlie
             asset_name: pixlie-macos-amd64

@@ -1,6 +1,8 @@
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "ci/macos-builds"]
+    tags:
+      - "v*"
     paths:
       - "admin/**"
       - ".github/workflows/main_admin.yml"
@@ -21,7 +23,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
-          version: 9
+          version: 10
           run_install: false
 
       - name: Install Node.js for Admin
@@ -38,3 +40,11 @@ jobs:
       - name: Build Admin
         working-directory: "./admin"
         run: pnpm run build
+      
+      - name: Upload Admin build artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: admin.tar.gz
+          tag: ${{ github.ref }}
