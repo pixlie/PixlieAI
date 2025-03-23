@@ -82,7 +82,7 @@ jobs:
       - name: Test pixlie_ai
         run: |
           ./gen_ts_api_types.sh --verbose
-          git diff admin/src --quiet || {
+          git diff --quiet admin/src/api_types || {
             echo "TypeScript API types outdated. Pls run ./gen_ts_api_types.sh & commit changes."
             echo "::error::TypeScript API types outdated. Pls run ./gen_ts_api_types.sh & commit changes."
             exit 1
