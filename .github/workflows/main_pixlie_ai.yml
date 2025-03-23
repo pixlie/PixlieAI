@@ -1,6 +1,8 @@
 on:
   push:
     branches: ["main", "ci/macos-builds"]
+    tags:
+      - "v*"
     paths:
       - "pixlie_ai/**"
       - ".github/workflows/main_pixlie_ai.yml"
@@ -15,6 +17,7 @@ env:
 
 jobs:
   main_pixlie_ai:
+    name: Pixlie AI
     strategy:
       matrix:
         include:
@@ -26,10 +29,6 @@ jobs:
             asset_name: pixlie-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
-      # - name: Set up homebrew for MacOS
-      #   if: matrix.os == 'macos-latest'
-      #   uses: Homebrew/actions/setup-homebrew@master
-      
       - name: Setup necessary tools for MacOS
         if: matrix.os == 'macos-15'
         run: |
@@ -53,8 +52,23 @@ jobs:
 
       - name: Test pixlie_ai
         working-directory: "./pixlie_ai"
-        run: cargo test --verbose
+        run: |
+          ./gen_ts_api_types.sh --verbose
+          git diff admin/src --quiet || {
+            echo "TypeScript API types outdated. Pls run ./gen_ts_api_types.sh & commit changes."
+            exit 1
+          }
 
       - name: Build release
         working-directory: "./pixlie_ai"
         run: cargo build --release
+
+      - name: Upload binaries to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: pixlie_ai/target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
+          overwrite: true
