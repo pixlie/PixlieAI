@@ -45,6 +45,7 @@ jobs:
           echo "export LD=/opt/homebrew/opt/lld/bin/ld64.lld" >> $GITHUB_ENV
           echo "export LDFLAGS=-fuse-ld=/opt/homebrew/opt/lld/bin/ld64.lld" >> $GITHUB_ENV
           echo "export AR=/opt/homebrew/opt/llvm/bin/llvm-ar" >> $GITHUB_ENV
+          sudo ln -s /usr/local/lib/libclang.dylib /opt/homebrew/opt/llvm/lib/libclang.dylib
 
       - name: Checkout
         uses: actions/checkout@v4
