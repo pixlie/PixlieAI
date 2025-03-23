@@ -51,7 +51,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Test pixlie_ai
-        working-directory: "./pixlie_ai"
         run: |
           ./gen_ts_api_types.sh --verbose
           git diff admin/src --quiet || {
