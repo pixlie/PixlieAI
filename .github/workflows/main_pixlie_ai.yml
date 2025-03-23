@@ -24,10 +24,10 @@ jobs:
       matrix:
         include:
           # - os: ubuntu-latest
-          #   artifact_name: pixlie
+          #   artifact_name: cli
           #   asset_name: pixlie-linux-amd64
           - os: macos-15
-            artifact_name: pixlie
+            artifact_name: cli
             asset_name: pixlie-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
