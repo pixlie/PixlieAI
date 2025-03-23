@@ -1,18 +1,16 @@
 on:
   push:
-    branches: ["main", "ci/macos-builds"]
+    branches: ["main"]
     tags:
       - "v*"
     paths:
       - "pixlie_ai/**"
       - ".github/workflows/main_pixlie_ai.yml"
-      - "admin/src/api_types/**"
   pull_request:
     branches: ["main"]
     paths:
       - "pixlie_ai/**"
       - ".github/workflows/main_pixlie_ai.yml"
-      - "admin/src/api_types/**"
 
 env:
   CARGO_TERM_COLOR: always
@@ -26,9 +24,9 @@ jobs:
           - os: ubuntu-latest
             artifact_name: cli
             asset_name: pixlie-linux-amd64
-          # - os: macos-latest
-          #   artifact_name: cli
-          #   asset_name: pixlie-macos-amd64
+          - os: macos-latest
+            artifact_name: cli
+            asset_name: pixlie-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Pre-build installations for Ubuntu
