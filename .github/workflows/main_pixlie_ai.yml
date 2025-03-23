@@ -6,11 +6,13 @@ on:
     paths:
       - "pixlie_ai/**"
       - ".github/workflows/main_pixlie_ai.yml"
+      - "admin/src/api_types/**"
   pull_request:
     branches: ["main"]
     paths:
       - "pixlie_ai/**"
       - ".github/workflows/main_pixlie_ai.yml"
+      - "admin/src/api_types/**"
 
 env:
   CARGO_TERM_COLOR: always
