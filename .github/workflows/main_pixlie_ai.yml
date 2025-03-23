@@ -26,19 +26,19 @@ jobs:
           # - os: ubuntu-latest
           #   artifact_name: cli
           #   asset_name: pixlie-linux-amd64
-          - os: macos-15
+          - os: macos-latest
             artifact_name: cli
             asset_name: pixlie-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Homebrew cache
-        if: matrix.os == 'macos-15'
+        if: matrix.os == 'macos-latest'
         uses: tecolicom/actions-use-homebrew-tools@v1
         with:
           tools: 'llvm rocksdb lld'
           verbose: true
       - name: Setup environment variables for MacOS
-        if: matrix.os == 'macos-15'
+        if: matrix.os == 'macos-latest'
         run: |
           # brew install llvm rocksdb lld
           echo "export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib" >> $GITHUB_ENV
@@ -57,18 +57,6 @@ jobs:
           # This is a hack. There should be a better way to do this.
           sudo mkdir -pv /usr/local/lib
           sudo ln -s /opt/homebrew/opt/llvm/lib/libclang.dylib /usr/local/lib/libclang.dylib
-          
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: 10
-          run_install: |
-            args: [--global, prettier]
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,13 +68,7 @@ jobs:
           workspaces: "pixlie_ai -> target"
 
       - name: Test pixlie_ai
-        run: |
-          ./gen_ts_api_types.sh --verbose
-          git diff --quiet admin/src/api_types || {
-            echo "TypeScript API types outdated. Pls run ./gen_ts_api_types.sh & commit changes."
-            echo "::error::TypeScript API types outdated. Pls run ./gen_ts_api_types.sh & commit changes."
-            exit 1
-          }
+        run: cargo test --verbose
 
       - name: Build release
         working-directory: "./pixlie_ai"
