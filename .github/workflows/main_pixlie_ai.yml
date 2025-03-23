@@ -33,7 +33,7 @@ jobs:
       - name: Setup necessary tools for MacOS
         if: matrix.os == 'macos-15'
         run: |
-          echo "export DYLD_FALLBACK_LIBRARY_PATH=$(xcode-select --print-path)/usr/lib/" >> $GITHUB_ENV"
+          echo "export DYLD_FALLBACK_LIBRARY_PATH=$(xcode-select --print-path)/usr/lib/" >> $GITHUB_ENV
       #     brew install llvm rocksdb lld
       #     echo "export PATH=/opt/homebrew/opt/llvm/bin:$PATH" >> $GITHUB_ENV
       #     echo "export LIBCLANG_PATH=/opt/homebrew/opt/llvm/lib" >> $GITHUB_ENV
