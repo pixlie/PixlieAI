@@ -32,30 +32,46 @@ const Navbar: Component = () => {
         </A>
       </div>
 
-      <nav class="flex items-center justify-center"></nav>
+      <nav class="flex items-center justify-center">
+        <NavbarMenu />
+      </nav>
 
       <nav class="flex items-center justify-end gap-6">
+        <ToolTip text="New Project">
+          <button
+            onClick={() => (window.location.hash = "#create")}
+            aria-label="New Project"
+            class="flex items-center"
+          >
+            <Icon name="plus-circle" />
+          </button>
+        </ToolTip>
         <ToolTip text="Help">
           <button
-            onClick={() => {
-              window.location.hash = "#help";
-            }}
+            onClick={() => (window.location.hash = "#help")}
             aria-label="Help"
+            class="flex items-center"
           >
             <Icon name="help" />
           </button>
         </ToolTip>
         <ToolTip text="Settings">
           <button
-            onClick={() => {
-              window.location.hash = "#settings";
-            }}
+            onClick={() => (window.location.hash = "#settings")}
             aria-label="Settings"
+            class="flex items-center"
           >
             <Icon name="settings" />
           </button>
         </ToolTip>
-        <NavbarMenu />
+        <div class="border-r h-12" />
+        <a
+          href="https://github.com/pixlie/PixlieAI"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Icon name="shield-github-stars" />
+        </a>
       </nav>
     </div>
   );
