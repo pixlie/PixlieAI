@@ -90,6 +90,8 @@ const BraveSearch: Component = () => {
                   - Create an account{" "}
                   <a
                     href="https://brave.com/search/api/"
+                    target="_blank"
+                    rel="noreferrer"
                     class="underline text-blue-500 font-medium"
                   >
                     here
@@ -99,6 +101,8 @@ const BraveSearch: Component = () => {
                   - Create a new key{" "}
                   <a
                     href="https://api-dashboard.search.brave.com/app/keys"
+                    target="_blank"
+                    rel="noreferrer"
                     class="underline text-blue-500 font-medium"
                   >
                     here

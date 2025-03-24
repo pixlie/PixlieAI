@@ -91,6 +91,8 @@ const Anthropic: Component = () => {
                 - Create an account{" "}
                 <a
                   href="https://console.anthropic.com/login"
+                  target="_blank"
+                  rel="noreferrer"
                   class="underline text-blue-500 font-medium"
                 >
                   here
@@ -100,6 +102,8 @@ const Anthropic: Component = () => {
                 - Create a new key{" "}
                 <a
                   href="https://console.anthropic.com/settings/keys"
+                  target="_blank"
+                  rel="noreferrer"
                   class="underline text-blue-500 font-medium"
                 >
                   here
