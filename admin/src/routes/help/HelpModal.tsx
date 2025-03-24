@@ -41,7 +41,7 @@ const HelpModal: Component = () => {
         {options.map(({ link, icon, title, subtitle }) => (
           <a
             href={link}
-            class="p-6 border border-gray-100 hover:bg-gray-50 rounded-lg flex items-center justify-between shadow"
+            class="px-6 py-3 border border-gray-100 hover:bg-gray-50 rounded-lg flex items-center justify-between shadow"
             target="_blank"
             rel="noreferrer"
           >
