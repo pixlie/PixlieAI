@@ -14,7 +14,7 @@ const SettingsModal: Component = () => {
 
   const Content: Component = () => {
     return (
-      <div class="flex flex-col pt-4 pb-3 gap-6">
+      <div class="flex flex-col pt-4 pb-3 gap-5">
         {workspace.isReady ? (
           <>
             <StorageDir />
