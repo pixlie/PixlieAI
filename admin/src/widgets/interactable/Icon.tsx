@@ -38,6 +38,13 @@ const ICONS: Record<string, () => JSX.Element> = {
       />
     </svg>
   ),
+  //   SHIELD ICONS
+  "shield-github-stars": () => (
+    <img
+      src="https://img.shields.io/github/stars/pixlie/PixlieAI?style=social"
+      alt="GitHub Stars"
+    />
+  ),
   // FEATHER ICONS
   check: () => (
     <svg
@@ -106,6 +113,41 @@ const ICONS: Record<string, () => JSX.Element> = {
     >
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
       <polyline points="22,6 12,13 2,6" />
+    </svg>
+  ),
+  plus: () => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      class="main-grid-item-icon"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+    >
+      <line x1="12" x2="12" y1="5" y2="19" />
+      <line x1="5" x2="19" y1="12" y2="12" />
+    </svg>
+  ),
+  "plus-circle": () => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      class="main-grid-item-icon"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" x2="12" y1="8" y2="16" />
+      <line x1="8" x2="16" y1="12" y2="12" />
     </svg>
   ),
   save: () => (
