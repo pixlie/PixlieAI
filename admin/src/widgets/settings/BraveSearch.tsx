@@ -1,20 +1,18 @@
-import { Component, createMemo, createSignal, onMount } from "solid-js";
-import Heading from "../../widgets/typography/Heading";
-import Markdown from "../typography/Markdown";
+import {
+  Component,
+  createEffect,
+  createMemo,
+  createSignal,
+  onMount,
+} from "solid-js";
 import TextInput from "../interactable/TextInput";
 import { createStore } from "solid-js/store";
 import { useWorkspace } from "../../stores/workspace";
 import { IFormFieldValue } from "../../utils/types";
-import Button from "../interactable/Button";
 import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
-
-const help = `
-Pixlie uses Brave Search API to search the web.
-
-Please copy and paste your API key. You can obtain one by signing up
-on [Brave Search API](https://brave.com/search/api/).
-`;
+import ToolTip from "../navigation/ToolTip";
+import Icon from "../interactable/Icon";
 
 interface IFormData {
   braveSearchApiKey: string;
@@ -23,12 +21,16 @@ interface IFormData {
 const BraveSearch: Component = () => {
   const [workspace, { fetchWorkspace, saveWorkspace }] = useWorkspace();
   const [formData, setFormData] = createStore<IFormData>({
-    braveSearchApiKey: "",
+    braveSearchApiKey: workspace.workspace?.apiKeys["BraveSearch" as APIProvider] || "",
   });
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
+  const [saved, setSaved] = createSignal<boolean>(
+    !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider]
+  );
 
   const handleChange = (name: string, value: IFormFieldValue) => {
+    setErrorMessage("");
     if (!!value && typeof value === "string") {
       setFormData((existing) => ({
         ...existing,
@@ -54,6 +56,7 @@ const BraveSearch: Component = () => {
     });
     setFormData("braveSearchApiKey", "");
     fetchWorkspace();
+    setSaved(true);
   };
 
   onMount(() => {
@@ -67,37 +70,68 @@ const BraveSearch: Component = () => {
     return undefined;
   });
 
+  createEffect(() => {
+    setFormData((existing) => ({
+      ...existing,
+      braveSearchApiKey: getBraveSearchApiKey() || "",
+    }));
+  })
+
   return (
-    <div class="flex flex-col gap-y-2">
-      <Heading size={3}>Brave Search API Key</Heading>
-      <Markdown text={help} />
+    <div>
+      <p class="font-medium">Brave Search API Key</p>
 
       {workspace.isFetching ? (
         <div>Loading...</div>
       ) : (
         <>
-          {getBraveSearchApiKey() && (
-            <small class={getColors()["textInfo"]}>
-              You have already saved a Brave Search API key. You can replace it
-              by entering entering a new one.
-            </small>
-          )}
-          <TextInput
-            name="braveSearchApiKey"
-            placeholder={getBraveSearchApiKey() || "Your Brave Search API Key"}
-            isEditable
-            onChange={handleChange}
-            value={formData.braveSearchApiKey}
-          />
+              <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
+                <li>
+                  - Create an account{" "}
+                  <a
+                    href="https://brave.com/search/api/"
+                    class="underline text-blue-500 font-medium"
+                  >
+                    here
+                  </a>
+                </li>
+                <li>
+                  - Create a new key{" "}
+                  <a
+                    href="https://api-dashboard.search.brave.com/app/keys"
+                    class="underline text-blue-500 font-medium"
+                  >
+                    here
+                  </a>
+                </li>
+                <li>
+                  - Enter your new key below
+                </li>
+              </ol>
+          <div class="flex items-center gap-2 pt-2">
+            <TextInput
+              name="braveSearchApiKey"
+              isEditable
+              onChange={handleChange}
+              onFocus={() => {
+                setFormData({ braveSearchApiKey: "" });
+                setSaved(false);
+              }}
+              value={formData.braveSearchApiKey}
+            />
+            {!saved() ? (
+              <button onClick={handleSubmit}>
+                <ToolTip text="Save">
+                  <Icon name="save" />
+                </ToolTip>
+              </button>
+            ) : (
+              <Icon name="check" color="text-green-500" />
+            )}
+          </div>
           {!!errorMessage && (
             <small class={getColors()["textDanger"]}>{errorMessage()}</small>
           )}
-          <div>
-            <Button
-              label={`${getBraveSearchApiKey() ? "Update" : "Save"} Brave Search API key`}
-              onClick={handleSubmit}
-            />
-          </div>
         </>
       )}
     </div>
