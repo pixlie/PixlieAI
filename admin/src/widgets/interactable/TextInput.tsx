@@ -21,7 +21,7 @@ const TextInput: Component<IFormField> = (props) => {
       name={props.name}
       type={inputType}
       required={props.isRequired || undefined}
-      class={`block w-full rounded-md px-2 py-1.5 border font-content m-0 ${getColors()["input"]}`}
+      class={`block w-full rounded-md px-2 py-1.5 border font-content outline-none m-0 ${getColors()["input"]}`}
       placeholder={props.placeholder || undefined}
       value={props.value !== undefined ? props.value : ""}
       onChange={handleChange}
