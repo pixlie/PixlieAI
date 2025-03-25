@@ -57,7 +57,7 @@ jobs:
 
       - name: Set environment variables for MacOS
         if: matrix.os == 'macos-latest'
-        run: ./.ci/set-macos-env.sh
+        run: .ci/set-macos-env.sh
         shell: bash
 
       - name: Checkout
