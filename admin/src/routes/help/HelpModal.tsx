@@ -22,7 +22,7 @@ const HelpModal: Component = () => {
       subtitle: "on Calendly",
     },
     {
-      link: "https://discord.gg/dC9WUuDe",
+      link: "https://discord.gg/5W9U9RPTGp",
       icon: "brand-discord",
       title: "Join our community",
       subtitle: "on Discord",
