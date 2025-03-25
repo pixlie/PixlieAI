@@ -1,6 +1,6 @@
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "ci/macos-builds"]
     tags:
       - "v*"
     paths:
@@ -21,12 +21,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          # - os: ubuntu-latest
+          #   artifact_name: cli
+          #   asset_name: pixlie-linux-amd64
+          # - os: macos-latest
+          #   artifact_name: cli
+          #   asset_name: pixlie-macos-arm64
+          - os: windows-latest
             artifact_name: cli
-            asset_name: pixlie-linux-amd64
-          - os: macos-latest
-            artifact_name: cli
-            asset_name: pixlie-macos-amd64
+            asset_name: pixlie-windows-amd64.exe
     runs-on: ${{ matrix.os }}
     steps:
       - name: Pre-build installations for Ubuntu
@@ -40,7 +43,11 @@ jobs:
         with:
           tools: 'llvm rocksdb lld'
           verbose: true
-      - name: Setup environment variables for MacOS
+      - name: Pre-build installations for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install llvm
+      - name: Set environment variables for MacOS
         if: matrix.os == 'macos-latest'
         run: |
           # brew install llvm rocksdb lld
