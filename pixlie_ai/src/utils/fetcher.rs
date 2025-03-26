@@ -1,5 +1,5 @@
 use crate::{CrawlOrAPIRequest, FetchError, FetchResponse, InternalFetchRequest, PiEvent};
-use log::{debug, error, info};
+use log::{debug, error};
 use reqwest::{Client, Request, RequestBuilder, StatusCode, Url};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -136,10 +136,7 @@ async fn fetch(request: InternalFetchRequest) -> FetchResult {
                 ))
             }
         }
-        Err(error) => {
-            info!("Error {:?}", error);
-            FetchResult::Error(format!("Error getting response: {}", error))
-        }
+        Err(error) => FetchResult::Error(format!("Error getting response: {}", error)),
     }
 }
 

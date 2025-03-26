@@ -1,4 +1,4 @@
-import { Component, JSX, createMemo } from "solid-js";
+import { Component, JSX } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
 
 interface IPropTypes {
@@ -7,13 +7,13 @@ interface IPropTypes {
   isBlock?: boolean;
   onClick?: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent>;
   href?: string;
-  color?: string;
+  colorTheme?: "cancel" | "secondary" | "success";
 }
 
 const Button: Component<IPropTypes> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
-  const getSizeClass = createMemo(() => {
+  const getSizeClass = () => {
     switch (props.size) {
       case "sm":
         return "px-2.5 py-1.5 text-sm font-semibold";
@@ -23,13 +23,22 @@ const Button: Component<IPropTypes> = (props) => {
       default:
         return "px-4 py-2 text-base font-normal";
     }
-  });
+  };
+
+  let colorTheme = getColors()["button.default"];
+  if (props.colorTheme === "cancel") {
+    colorTheme = getColors()["button.cancel"];
+  } else if (props.colorTheme === "secondary") {
+    colorTheme = getColors()["button.secondary"];
+  } else if (props.colorTheme === "success") {
+    colorTheme = getColors()["button.success"];
+  }
 
   const buttonClasses =
     getSizeClass() +
-    " rounded-md select-none cursor-pointer hover:shadow " +
+    " rounded-md select-none cursor-pointer hover:shadown border-none inline-block hover:box-shadow-md " +
     `${props.isBlock ? "w-full" : ""}` +
-    (props.color ? ` ${props.color} text-white` : getColors()["button"]);
+    colorTheme;
 
   if (!!props.href) {
     return (

@@ -8,7 +8,6 @@
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 
@@ -20,7 +19,7 @@ mod nodes;
 pub mod setup;
 
 use crate::engine::api::{EngineRequest, EngineResponse};
-use crate::engine::node::{ArcedNodeId, NodeId};
+use crate::engine::node::NodeId;
 pub use engine::Engine;
 // pub(crate) type EdgeLabel = String; // TODO: Use enum
 

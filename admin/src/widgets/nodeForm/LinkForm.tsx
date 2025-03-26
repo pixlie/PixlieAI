@@ -40,7 +40,11 @@ const LinkForm: Component = () => {
         value={formData.url}
       />
 
-      <Button label="Add a link" onClick={handleSubmit} />
+      <Button
+        label="Add a link"
+        colorTheme="secondary"
+        onClick={handleSubmit}
+      />
     </div>
   );
 };
