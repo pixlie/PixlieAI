@@ -65,7 +65,6 @@ const Graph = () => {
   const [engine] = useEngine();
   const params = useParams();
 
-  const [elements, setElements] = createSignal<TElement[]>([]);
   const [containerRef, setContainerRef] = createSignal<HTMLDivElement | null>(
     null
   );
@@ -87,30 +86,29 @@ const Graph = () => {
     return project ? project.edges : {};
   });
 
-  const visibleNodes = createMemo(() => {
+  const getElements = createMemo(() => {
     const nodes = getNodes();
     const edges = getEdges();
-    return nodes
-      .filter((node) =>
-        node.labels?.some(
-          (label) =>
-            label === "Domain" ||
-            (label === "Link" && getNodeLabel(node) !== "/")
-        )
-      )
-      .map((node) => ({
-        data: {
-          id: node.id.toString(),
-          label: getNodeLabel(node),
-          url: getNodeUrl(node, nodes, edges),
-        },
-      }));
-  });
 
-  const visibleEdges = createMemo(() => {
-    const edges = getEdges();
-    const visibleIds = new Set(visibleNodes().map((node) => node.data.id));
-    const uniqueEdges: TElement[] = [];
+    const visibleNodes =
+      nodes
+        .filter((node) =>
+          node.labels?.some(
+            (label) =>
+              label === "Domain" ||
+              (label === "Link" && getNodeLabel(node) !== "/")
+          )
+        )
+        .map((node) => ({
+          data: {
+            id: node.id.toString(),
+            label: getNodeLabel(node),
+            url: getNodeUrl(node, nodes, edges),
+          },
+        })) || ([] as TElement[]);
+
+    const visibleIds = new Set(visibleNodes.map((node) => node.data.id));
+    const visibleEdges: TElement[] = [];
     const seenEdges = new Set<string>();
 
     for (const [source, edgeData] of Object.entries(edges)) {
@@ -130,7 +128,7 @@ const Graph = () => {
         if (seenEdges.has(key)) continue;
         seenEdges.add(key);
 
-        uniqueEdges.push({
+        visibleEdges.push({
           data: {
             id: `${source}-${targetId}`,
             source,
@@ -139,14 +137,7 @@ const Graph = () => {
         });
       }
     }
-
-    return uniqueEdges;
-  });
-
-  const getElements = createMemo(() => [...visibleNodes(), ...visibleEdges()]);
-
-  createEffect(() => {
-    setElements(getElements());
+    return [...visibleNodes, ...visibleEdges];
   });
 
   let cy: cytoscape.Core | undefined;
@@ -157,7 +148,7 @@ const Graph = () => {
 
     cy = cytoscape({
       container,
-      elements: elements(),
+      elements: getElements(),
       style: [
         {
           selector: "node",
@@ -197,11 +188,12 @@ const Graph = () => {
         fit: true,
         spacingFactor: 1.2,
         nodeRepulsion: 10000,
-        gravity: 1.5,
+        gravity: 0.5,
         componentSpacing: 200,
         nestingFactor: 0.5,
       } as cytoscape.LayoutOptions,
     });
+
     cy.fit();
     cy.center();
 
@@ -235,7 +227,7 @@ const Graph = () => {
     if (!cy) return;
 
     const existingIds = new Set(cy.elements().map((ele) => ele.id()));
-    const newElements = elements();
+    const newElements = getElements();
     const newIds = new Set(newElements.map((el: TElement) => el.data.id));
 
     cy.elements().forEach((ele) => {
