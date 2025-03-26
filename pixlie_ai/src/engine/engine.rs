@@ -82,7 +82,7 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
-            // self.process_nodes();
+            self.process_nodes();
         }
     }
 
@@ -665,9 +665,6 @@ impl Engine {
         self.count_open_fetch_requests
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        let full_url = format!("https://{}{}", domain_name, &fetch_request.url);
-        info!("Fetching URL {}", &full_url);
-
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             InternalFetchRequest::from_crawl_request(
                 fetch_request,
@@ -723,7 +720,6 @@ impl Engine {
         self.toggle_flag(&fetch_request.requesting_node_id, NodeFlags::IS_REQUESTING)?;
         self.count_open_fetch_requests
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        debug!("Fetching URL {}", &fetch_request.url);
 
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             InternalFetchRequest::from_api_request(fetch_request, self.project_id.clone()),

@@ -1,5 +1,5 @@
 import { Component, createSignal } from "solid-js";
-import LinkForm from "../../widgets/nodeForm/LinkForm";
+// import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading";
 import { WorkflowSidebar } from "./Workflow";
 import { IFormFieldValue } from "../../utils/types";
@@ -11,7 +11,7 @@ import { useNavigate } from "@solidjs/router";
 import Paragraph from "../../widgets/typography/Paragraph";
 import TextArea from "../../widgets/interactable/TextArea";
 import Button from "../../widgets/interactable/Button";
-import Toggle from "../../widgets/interactable/Toggle";
+// import Toggle from "../../widgets/interactable/Toggle";
 
 interface IFormData {
   objective: string;
