@@ -1,7 +1,7 @@
 import { Component, createMemo, For, Show } from "solid-js";
-import { useWorkspace } from "../stores/workspace.tsx";
 import { useLocation, useParams } from "@solidjs/router";
 import SidebarLink from "../widgets/navigation/SidebarLink.tsx";
+import { useEngine } from "../stores/engine.tsx";
 
 interface IRoute {
   label: string;
@@ -91,20 +91,19 @@ const GlobalRoutes: Component = () => {
 };
 
 const PerProjectRoutes: Component = () => {
-  const [workspace] = useWorkspace();
+  const [engine] = useEngine();
   const params = useParams();
   const location = useLocation();
 
   const getProject = createMemo(() => {
-    if (params.projectId && workspace.isReady && workspace.projects) {
-      return workspace.projects.find(
-        (project) => project.uuid === params.projectId,
-      );
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
     }
+    return undefined;
   });
 
   const getRoutes = createMemo(() =>
-    params.projectId && !!getProject()
+    !!getProject()
       ? [
           {
             label: "Workflow",
@@ -118,6 +117,13 @@ const PerProjectRoutes: Component = () => {
             href: `/p/${params.projectId}/search`,
             isActive: location.pathname.startsWith(
               `/p/${params.projectId}/search`,
+            ),
+          },
+          {
+            label: "Graph",
+            href: `/p/${params.projectId}/graph`,
+            isActive: location.pathname.startsWith(
+              `/p/${params.projectId}/graph`
             ),
           },
           {

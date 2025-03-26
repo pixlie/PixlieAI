@@ -14,10 +14,11 @@ const NavbarMenu: Component = () => {
         (project) => project.uuid === params.projectId,
       );
     }
+    return undefined;
   });
 
   return (
-    <div class="relative w-48">
+    <div class="relative w-full">
       <Show
         when={
           workspace.isReady && workspace.settingsStatus?.type === "Complete"
@@ -26,7 +27,7 @@ const NavbarMenu: Component = () => {
         <button
           type="button"
           onClick={() => setVisible(!visible())}
-          class="inline-flex items-center justify-between w-full gap-5 pl-3 pr-5 rounded-md border  shadow-sm py-2.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-offset-gray-100"
+          class="inline-flex items-center justify-between w-full gap-5 pl-6 pr-5 rounded-md border shadow-sm py-2.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-offset-gray-100"
           id="options-menu"
           aria-expanded="true"
           aria-haspopup="true"
@@ -65,11 +66,11 @@ const NavbarMenu: Component = () => {
             aria-orientation="vertical"
             aria-labelledby="options-menu"
           >
-            <div class="p-1.5 flex flex-col" role="none">
+            <div class="px-3.5 py-1.5 flex flex-col" role="none">
               <A
                 href="/p/create"
                 onClick={() => setVisible(false)}
-                class="flex items-center rounded p-1.5 pl-1 gap-0.5 text-blue-600 hover:bg-blue-100"
+                class="flex items-center rounded p-1.5 pl-2 gap-0.5 text-blue-600 hover:bg-blue-100"
                 role="menuitem"
               >
                 <svg
@@ -89,9 +90,9 @@ const NavbarMenu: Component = () => {
                 <p class="text-sm font-semibold">New Project</p>
               </A>
               <Show
-                when={!!workspace.projects && workspace.projects.length > 1}
+                when={!!workspace.projects && workspace.projects.length > 0}
               >
-                <div class="border-b m-1.5" />
+                <div class="border-b my-1.5" />
               </Show>
               <For
                 each={workspace.projects?.filter(
@@ -106,7 +107,7 @@ const NavbarMenu: Component = () => {
                       setVisible(false);
                       navigate(`/p/${project.uuid}/workflow`);
                     }}
-                    class="block w-full rounded p-1.5 hover:bg-gray-100"
+                    class="block w-full rounded px-3 py-1.5 hover:bg-gray-100"
                     role="menuitem"
                   >
                     <span class="block truncate text-left text-sm text-gray-800 hover:text-gray-900 font-medium">

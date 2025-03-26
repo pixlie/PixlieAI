@@ -10,7 +10,9 @@ const App: Component<RouteSectionProps> = (props) => {
     <UIClassesProvider>
       <WorkspaceProvider>
         <InitialCheckAndLoad>
-          <Layout children={props.children} />
+          <Layout>
+            {props.children}
+          </Layout>
         </InitialCheckAndLoad>
       </WorkspaceProvider>
     </UIClassesProvider>

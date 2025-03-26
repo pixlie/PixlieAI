@@ -3,11 +3,11 @@
 
 # Pixlie
 
-AI powered knowledge graphs for semantically accurate insights. From personal research to semantic search in your apps.
+AI powered knowledge graphs for semantically accurate insights. From online search to private document search to semantic search in your apps.
 
 ## What is Pixlie?
 
-Pixlie helps you create knowledge graphs that store semantic information about your data.
+Point Pixlie at any website and describe what you need - from pricing data to project details. Our open-source intelligent crawler does the rest, no coding required.
 
 ## Features
 
@@ -22,6 +22,11 @@ Pixlie helps you create knowledge graphs that store semantic information about y
 - Use as your default search engine
 - Simple to download and install
 - Completely UI driven
+
+
+Watch this video to see Pixlie in action:
+
+[![Plan a Trip with Pixlie](https://img.youtube.com/vi/8kApAG3ghsE/0.jpg)](https://www.youtube.com/watch?v=8kApAG3ghsE)
 
 Choose a domain to crawl:
 ![Set your domain](https://pixlie.com/images/screenshots/pixlie-screenshot-website.png)
@@ -42,6 +47,7 @@ See the search results:
 
 Pixlie is open source and is under active development. Our work is done in public, please star this repository, it
 means a lot to us.
+
 If you want to be notified when Pixlie is ready for use, please subscribe to
 our [insights newsletter](https://pixlie.com/insights).
 
@@ -61,12 +67,9 @@ You can find the API spec in the `rest_api` directory.
 ## Is Pixlie an alternative to using vector databases?
 
 Yes, Pixlie is an alternative to using vector databases. Vector databases are good for storing and querying semantic
-data,
-but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
-semantically
-meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
-along with its relationships to other entities. This makes our graph based approach better where accuracy is
-important.
+data, but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
+semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
+along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
 
 ## License
 
