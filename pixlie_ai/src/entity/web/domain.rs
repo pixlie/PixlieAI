@@ -103,7 +103,7 @@ impl Domain {
                     // We have received the contents of the `robots.txt` from the previous request
                     let content_node_id = engine
                         .get_or_add_node(
-                            Payload::Text(response.contents),
+                            Payload::Text(response.contents.clone()),
                             vec![NodeLabel::RobotsTxt],
                             true,
                             None,
