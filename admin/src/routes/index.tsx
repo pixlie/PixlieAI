@@ -12,6 +12,7 @@ import HelpContainer from "./help/HelpContainer";
 import Contact from "./help/Contact";
 import Home from "./Home";
 import CreateProject from "./projects/Create.tsx";
+import Graph from "./projects/Graph.tsx";
 
 const Routes: Component = () => {
   return (
@@ -27,6 +28,7 @@ const Routes: Component = () => {
             <Route path="/data" component={Data} />
             <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
+            <Route path="/graph" component={Graph} />
           </Route>
         </Route>
 

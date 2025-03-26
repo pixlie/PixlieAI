@@ -120,6 +120,13 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
+            label: "Graph",
+            href: `/p/${params.projectId}/graph`,
+            isActive: location.pathname.startsWith(
+              `/p/${params.projectId}/graph`
+            ),
+          },
+          {
             label: "Data",
             href: `/p/${params.projectId}/data`,
             isActive: location.pathname.startsWith(
