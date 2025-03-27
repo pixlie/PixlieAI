@@ -33,7 +33,7 @@ jobs:
             artifact_name: cli
             asset_name: pixlie-macos-arm64
           - os: windows-latest
-            artifact_name: cli
+            artifact_name: cli.exe
             asset_name: pixlie-windows-amd64.exe
     runs-on: ${{ matrix.os }}
     steps:
