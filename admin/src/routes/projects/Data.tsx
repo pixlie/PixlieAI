@@ -50,7 +50,7 @@ const Data: Component = () => {
   return (
     <>
       {searchParams.label === "WebPage" && (
-        <Heading size={3}>Web pages</Heading>
+        <Heading size={3}>Web pages: {getSelectNodeIds().length}</Heading>
       )}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}

@@ -27,7 +27,7 @@ const ContentContainerNode: Component<INodeItemDisplayProps> = (props) => {
 
       // Get all nodes connected with the ContentOf edge
       getProject()!.edges[props.nodeId].edges.forEach((edge) => {
-        if (edge[1] === "ChildOf") {
+        if (edge[1] === "ParentOf") {
           let contentNode = getProject()!.nodes[edge[0]];
           if (
             contentNode.labels.includes("Partial" as NodeLabel) &&

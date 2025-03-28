@@ -35,7 +35,6 @@ const lightDefault: ITheme = {
     textMuted: "text-gray-400",
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
-    button: "bg-blue-600 text-white",
     link: "text-blue-600 hover:underline",
 
     breadcrumb: "bg-stone-100",
@@ -45,6 +44,11 @@ const lightDefault: ITheme = {
     tabs: "border-stone-300",
     "tabs.link":
       "text-gray-500 hover:text-gray-700 border-slate-300 border-b-stone-100",
+
+    "button.default": "bg-slate-500 text-white",
+    "button.cancel": "bg-red-500 text-white",
+    "button.secondary": "bg-blue-500 text-white",
+    "button.success": "bg-green-600 text-white",
   },
 };
 
