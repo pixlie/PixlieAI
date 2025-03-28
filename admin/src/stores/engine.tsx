@@ -5,6 +5,7 @@ import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
 import { APINodeEdges } from "../api_types/APINodeEdges.ts";
+import { EdgeLabel } from "../api_types/EdgeLabel.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -113,24 +114,24 @@ const makeStore = () => {
   const getRelatedNodes = (
     projectId: string,
     nodeId: number,
-    relatedNodeType: string,
+    relatedNodeTypes: EdgeLabel,
   ): Array<APINodeItem> => {
-    if (nodeId in store.projects[projectId].nodes) {
-      if (nodeId in store.projects[projectId].edges) {
-        let nodes: Array<APINodeItem> = [];
-        for (const edge of store.projects[projectId].edges[nodeId]?.edges!) {
-          let [nId, edgeLabel]: [number, string] = edge;
-          if (edgeLabel === relatedNodeType) {
-            if (nId in store.projects[projectId].nodes) {
-              nodes.push(store.projects[projectId].nodes[nId]);
-            }
+    let nodes: Array<APINodeItem> = [];
+    if (
+      projectId in store.projects &&
+      nodeId in store.projects[projectId].nodes &&
+      nodeId in store.projects[projectId].edges
+    ) {
+      for (const edge of store.projects[projectId].edges[nodeId].edges) {
+        let [nId, edgeLabel]: [number, string] = edge;
+        if (relatedNodeTypes === edgeLabel) {
+          if (nId in store.projects[projectId].nodes) {
+            nodes.push(store.projects[projectId].nodes[nId]);
           }
         }
-        return nodes;
       }
-      return [];
     }
-    return [];
+    return nodes;
   };
 
   const sync = (projectId: string) => {

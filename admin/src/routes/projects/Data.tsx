@@ -55,6 +55,7 @@ const Data: Component = () => {
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}
+        mode="preview"
       />
     </>
   );

@@ -43,6 +43,13 @@ type DisplayAs = "Drawer" | "MainContent";
 
 interface INodeItemDisplayProps {
   nodeId: number;
+  mode: "regular" | "preview";
+}
+
+interface INodeListItemProps {
+  nodeType?: string;
+  source: () => Array<number>;
+  mode: "regular" | "preview";
 }
 
 interface IFormField {
@@ -70,4 +77,5 @@ export type {
   INodeItem,
   DisplayAs,
   INodeItemDisplayProps,
+  INodeListItemProps,
 };
