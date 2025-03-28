@@ -77,7 +77,7 @@ const Workflow: Component = () => {
 
 export const WorkflowSidebar: Component = () => {
   return (
-    <div class="w-96 bg-stone-100 rounded-md p-6 drop-shadow flex flex-col gap-6">
+    <div class="w-96 max-h-fit bg-stone-100 rounded-md p-6 drop-shadow flex flex-col gap-6">
       <Paragraph size={"sm"}>
         Pixlie uses your objective to ask AI for starting URLs and keywords to
         monitor on websites. Pixlie will continue crawling the web as long as
