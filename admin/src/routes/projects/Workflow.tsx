@@ -63,7 +63,7 @@ const Workflow: Component = () => {
 
         <div>
           <Heading size={3}>Starting links</Heading>
-          <NodeGrid nodeType={"Link"} source={getStartingLinkIds} />
+          <NodeGrid nodeType={"Link"} source={getStartingLinkIds} mode="regular" />
           <div class="pt-6 max-w-screen-sm">
             <LinkForm />
           </div>

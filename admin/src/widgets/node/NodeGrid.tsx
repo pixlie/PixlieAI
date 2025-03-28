@@ -4,13 +4,9 @@ import DomainNode from "./DomainNode";
 import SearchTermNode from "./SearchTermNode";
 import TopicNode from "./TopicNode";
 import ContentContainerNode from "./ContentContainerNode.tsx";
+import { INodeListItemProps } from "../../utils/types.tsx";
 
-interface NodeListItemProps {
-  nodeType?: string;
-  source: () => Array<number>;
-}
-
-const NodeGrid: Component<NodeListItemProps> = (props) => {
+const NodeGrid: Component<INodeListItemProps> = (props) => {
   const getN = createMemo<Array<number>>(() => {
     return props.source().slice(0, 100);
   });
@@ -20,9 +16,9 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
       {props.nodeType ? (
         <>
           {props.nodeType === "Link" && (
-            <div class="grid grid-cols-[auto_1fr_auto] gap-2">
+            <div class="grid grid-cols-1 gap-2">
               <For each={getN()}>
-                {(nodeId) => <LinkNode nodeId={nodeId} />}
+                {(nodeId) => <LinkNode nodeId={nodeId} showFlags={true} />}
               </For>
             </div>
           )}
@@ -36,21 +32,21 @@ const NodeGrid: Component<NodeListItemProps> = (props) => {
           {props.nodeType === "SearchTerm" && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
-                {(nodeId) => <SearchTermNode nodeId={nodeId} />}
+                {(nodeId) => <SearchTermNode nodeId={nodeId} mode={props.mode} />}
               </For>
             </div>
           )}
           {props.nodeType === "Topic" && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
-                {(nodeId) => <TopicNode nodeId={nodeId} />}
+                {(nodeId) => <TopicNode nodeId={nodeId} mode={props.mode} />}
               </For>
             </div>
           )}
           {props.nodeType === "WebPage" && (
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 gap-2">
               <For each={props.source()}>
-                {(nodeId) => <ContentContainerNode nodeId={nodeId} />}
+                {(nodeId) => <ContentContainerNode nodeId={nodeId} mode={props.mode} />}
               </For>
             </div>
           )}

@@ -11,6 +11,7 @@ interface ILinkPayloadProps {
   id: number;
   flags: Array<APINodeFlags>;
   payload: Link;
+  showFlags: boolean;
 }
 
 const Payload: Component<ILinkPayloadProps> = (props) => {
@@ -19,7 +20,7 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
   const params = useParams();
 
   const getDomain = createMemo<string | undefined>(() => {
-    let relatedDomains = getRelatedNodes(
+    const relatedDomains = getRelatedNodes(
       params.projectId,
       props.id,
       "BelongsTo",
@@ -32,40 +33,74 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
     return undefined;
   });
 
+  const getTitle = createMemo<string | null>(() => {
+    const relatedContentNodes = getRelatedNodes(
+      params.projectId,
+      props.id,
+      "PathOf",
+    );
+    if (relatedContentNodes.length === 0) {
+      return null;
+    }
+    const titleNodes = getRelatedNodes(
+      params.projectId,
+      relatedContentNodes[0].id,
+      "ParentOf"
+    ).filter((node) => node.labels.includes("Title"));
+
+    return titleNodes[0]?.payload.data as string;
+  });
+
+  const getFullLink = createMemo(() => {
+    let fullPath = props.payload.path;
+    if (!!props.payload.query) {
+      fullPath += "?" + props.payload.query;
+    }
+    return 'https://' + getDomain()! + fullPath;
+  });
+
   return (
     <>
       {!!getDomain() ? (
         <>
-          <span>
-            <span
-              class="w-[20px] inline-block text-center mr-2"
-              classList={{
-                [getColors()["textSuccess"]]: props.flags.includes(
-                  "IsProcessed" as APINodeFlags,
-                ),
-                [getColors()["textMuted"]]: !props.flags.includes(
-                  "IsProcessed" as APINodeFlags,
-                ),
-              }}
-            >
-              {props.flags.includes("IsProcessed" as APINodeFlags) ? "✓" : ""}
-              {props.flags.includes("IsRequesting" as APINodeFlags) ? "⌛" : ""}
-            </span>
-            <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-              {getDomain()!}
-            </span>
-          </span>
-          <a
-            href={`https://${!!getDomain() ? getDomain()! : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-            class={
-              "text-sm text-nowrap overflow-hidden text-ellipsis " +
-              getColors().link
-            }
-            target="_blank"
-          >
-            {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-          </a>
-          <span></span>
+          <div class="flex items-start gap-2 mb-2">
+            {props.showFlags && (
+              <div
+                class="flex-shrink text-center w-[20px]"
+                classList={{
+                  [getColors()["textSuccess"]]: props.flags.includes(
+                    "IsProcessed" as APINodeFlags
+                  ),
+                  [getColors()["textMuted"]]: !props.flags.includes(
+                    "IsProcessed" as APINodeFlags
+                  ),
+                }}
+              >
+                {props.flags.includes("IsProcessed") ? "✓" : ""}
+                {props.flags.includes("IsRequesting") ? "⌛" : ""}
+              </div>
+            )}
+            <div>
+              <a
+                href={getFullLink()}
+                class={
+                  "text-sm text-nowrap overflow-hidden text-ellipsis leading- " +
+                  getColors().link
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {!!getTitle() ? getTitle() : getFullLink()}
+              </a>
+              {!!getTitle() && (
+                <div
+                  class={`text-sm ${getColors()["textMuted"]}`}
+                >
+                  {getFullLink()}
+                </div>
+              )}
+            </div>
+          </div>
         </>
       ) : (
         <></>
@@ -76,6 +111,7 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
 interface ILinkNodeProps {
   nodeId: number;
+  showFlags: boolean;
 }
 
 const LinkNode: Component<ILinkNodeProps> = (props) => {
@@ -103,11 +139,14 @@ const LinkNode: Component<ILinkNodeProps> = (props) => {
   return (
     <>
       {!!getProject() && !!getNode() ? (
-        <Payload
-          id={props.nodeId}
-          flags={getNode()!.flags}
-          payload={getNode()!.payload.data as Link}
-        />
+        <>
+          <Payload
+            id={props.nodeId}
+            flags={getNode()!.flags}
+            payload={getNode()!.payload.data as Link}
+            showFlags={props.showFlags}
+          />
+        </>
       ) : null}
     </>
   );

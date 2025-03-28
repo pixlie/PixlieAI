@@ -133,7 +133,7 @@ const PerProjectRoutes: Component = () => {
               `/p/${params.projectId}/data`,
             ),
             children: ["WebPage"].map((label) => ({
-              label: `${label}(s)`,
+              label: `${label}s`,
               href: `/p/${params.projectId}/data?label=${label}`,
               isActive: location.pathname.startsWith(
                 `/p/${params.projectId}/data?label=${label}`,
