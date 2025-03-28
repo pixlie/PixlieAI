@@ -13,7 +13,6 @@ use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::Utc;
 use log::{debug, error, info};
 use rocksdb::DB;
-use std::cmp::PartialEq;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU32;
 use std::time::Duration;

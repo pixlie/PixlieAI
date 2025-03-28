@@ -1,4 +1,3 @@
-use log::error;
 use std::{fs, path::PathBuf};
 
 use crate::error::{PiError, PiResult};
@@ -31,7 +30,7 @@ pub fn get_cargo_version() -> PiResult<String> {
             None => return Err(PiError::VersionCheckError("`package` not found in Cargo.toml".to_string())),
         },
         Err(err) => {
-            return Err(PiError::VersionCheckError("Error reading Cargo.toml".to_string()));
+            return Err(PiError::VersionCheckError(format!("Error reading Cargo.toml: {}", err)));
         }
     };
     let version = version.replace("\"", "");

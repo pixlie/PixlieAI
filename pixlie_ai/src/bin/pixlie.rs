@@ -3,7 +3,6 @@ use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::{download_admin_site, Settings};
 use pixlie_ai::engine::Engine;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
-use pixlie_ai::utils::version_check::check_version;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;

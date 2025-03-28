@@ -1,4 +1,4 @@
-use super::{EdgeLabel, Engine, NodeFlags};
+use super::{Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::objective::Objective;
@@ -9,7 +9,7 @@ use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
 use chrono::{DateTime, Utc};
-use log::{debug, info};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
