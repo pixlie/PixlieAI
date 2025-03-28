@@ -66,6 +66,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: admin.tar.gz
+          file: admin-${{ github.ref_name }}.tar.gz
           tag: ${{ github.ref }}
 

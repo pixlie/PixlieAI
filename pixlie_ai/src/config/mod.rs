@@ -126,8 +126,9 @@ pub fn download_admin_site() -> PiResult<()> {
     if !admin_exists || !index_html_exists {
         info!("Admin site not found, downloading from GitHub");
         let admin_tar_gz_url = format!(
-            "https://github.com/pixlie/PixlieAI/releases/download/v{}/admin.tar.gz",
-            PIXLIE_VERSION_NUMBER
+            "https://github.com/pixlie/PixlieAI/releases/download/v{}/admin-v{}.tar.gz",
+            PIXLIE_VERSION_NUMBER,
+            PIXLIE_VERSION_NUMBER,
         );
         // Download the admin.tar.gz file
         match reqwest::blocking::get(&admin_tar_gz_url) {

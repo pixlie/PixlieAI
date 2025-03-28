@@ -43,3 +43,21 @@ RUST_LOG=debug cargo run --bin cli
 ```
 
 Change the `RUST_LOG` to `info` or `debug` depending on the level of logging you want.
+
+## Releasing a new version
+
+To release a new version, you need to follow these steps:
+
+1. Update the version in `VERSION`, `Cargo.toml` and `package.json`.
+2. Validate the version changes:
+    - pixlie_ai: `cargo test`
+    - admin: `pnpm version:check`
+3. Create a new release tag:
+    - `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+    - `git tag -as vX.Y.Z -m "Release vX.Y.Z"` if you want to sign your tag.
+    - or `git tag -a vX.Y.Z` if you want to add a multiline release message.
+4. Push the tag to the remote repository:
+    - `git push origin vX.Y.Z`
+5. If everything is fine and passes through the build & release process on Github Actions, the release will be published on https://github.com/pixlie/PixlieAI/releases
+
+P.S. There is no check whether the tagged commit SHA is a part of the main branch. But we should ensure that we only release commits from the main branch.
