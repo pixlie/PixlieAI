@@ -3,6 +3,7 @@ use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::{download_admin_site, Settings};
 use pixlie_ai::engine::Engine;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
+use pixlie_ai::utils::version_check::check_version;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
@@ -36,6 +37,14 @@ fn main() {
         Ok(_) => {}
         Err(err) => {
             error!("Error with settings check: {}", err);
+            return;
+        }
+    }
+
+    match check_version() {
+        Ok(_) => {}
+        Err(err) => {
+            error!("Error with version check: {}", err);
             return;
         }
     }
@@ -313,5 +322,15 @@ fn main() {
                 info!("Unhandled event: {}", event.to_string());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pixlie_ai::utils::version_check::{get_cargo_version, get_version_from_file};
+
+    #[test]
+    fn check_pixlie_version() {
+        assert_eq!(get_cargo_version().unwrap(), get_version_from_file().unwrap());
     }
 }

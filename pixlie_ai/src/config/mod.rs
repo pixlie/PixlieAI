@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::error::{PiError, PiResult};
+use crate::{error::{PiError, PiResult}, utils::version_check::get_version_from_file};
 use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
@@ -13,7 +13,7 @@ use flate2::read::GzDecoder;
 use log::error;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{create_dir, exists, File},
+    fs::{self, create_dir, exists, File},
     io::Write,
     path::PathBuf,
 };
@@ -123,8 +123,7 @@ pub fn download_admin_site() -> PiResult<()> {
         Ok(true) => {}
         Ok(false) => match create_dir(static_admin_dir.clone()) {
             Ok(_) => {
-                let admin_tar_gz_url =
-                    "https://github.com/pixlie/PixlieAI/releases/download/v0.1.0/admin.tar.gz";
+                let admin_tar_gz_url = "https://github.com/pixlie/PixlieAI/releases/download/latest/admin.tar.gz";
                 let admin_tar_gz_response = reqwest::blocking::get(admin_tar_gz_url)?;
                 // Save the response to a file
                 let admin_tar_gz_bytes = admin_tar_gz_response.bytes()?;
@@ -157,7 +156,8 @@ pub fn download_admin_site() -> PiResult<()> {
 pub fn get_static_admin_dir() -> PiResult<PathBuf> {
     let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
     let mut static_root = PathBuf::from(path_to_config_dir.clone());
-    static_root.push("admin");
+    let version_number = get_version_from_file()?;
+    static_root.push(format!("admin-{}", version_number));
     Ok(static_root)
 }
 
