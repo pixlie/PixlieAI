@@ -55,7 +55,9 @@ jobs:
 
       - name: Build Admin
         working-directory: "./admin"
-        run: pnpm run build
+        run: |
+          cp .env.template .env
+          pnpm run build
       
       - name: Tar Gzip the admin build directory
         if: startsWith(github.ref, 'refs/tags/v')
