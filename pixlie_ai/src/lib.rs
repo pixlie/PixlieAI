@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-pub static PIXLIE_VERSION_NUMBER: &str = "0.2.0";
+pub static PIXLIE_VERSION_NUMBER: &str = "0.2.0-beta";
 
 use crate::engine::api::{EngineRequest, EngineResponse};
 use crossbeam_channel::unbounded;
