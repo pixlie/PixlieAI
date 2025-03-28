@@ -98,6 +98,7 @@ pub struct BraveSearchResponse {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Query {
     pub original: String,
     pub show_strict_warning: bool,
@@ -115,6 +116,7 @@ pub struct Query {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Mixed {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -124,6 +126,7 @@ pub struct Mixed {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Main {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -132,6 +135,7 @@ pub struct Main {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Videos {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -140,6 +144,7 @@ pub struct Videos {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct VideoResult {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -154,6 +159,7 @@ pub struct VideoResult {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Video {
     pub duration: Option<String>,
     pub views: Option<i64>,
@@ -162,6 +168,7 @@ pub struct Video {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct MetaUrl {
     pub scheme: String,
     pub netloc: String,
@@ -171,12 +178,14 @@ pub struct MetaUrl {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Thumbnail {
     pub src: String,
     pub original: String,
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Web {
     #[serde(rename = "type")]
     pub type_field: String,
@@ -185,6 +194,7 @@ pub struct Web {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct WebResult {
     pub title: String,
     pub url: String,
@@ -205,6 +215,7 @@ pub struct WebResult {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Profile {
     pub name: String,
     pub url: String,
@@ -213,6 +224,7 @@ pub struct Profile {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct MetaUrl2 {
     pub scheme: String,
     pub netloc: String,
@@ -222,6 +234,7 @@ pub struct MetaUrl2 {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Thumbnail2 {
     pub src: String,
     pub original: String,

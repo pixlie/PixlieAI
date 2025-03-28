@@ -4,6 +4,11 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "version:check": "node check-version.mjs",
+    "predev": "pnpm version:check",
+    "prebuild": "pnpm version:check",
+    "prepreview": "pnpm version:check",
+    "pretest": "pnpm version:check",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

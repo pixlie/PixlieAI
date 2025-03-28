@@ -315,3 +315,14 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pixlie_ai::{utils::version_check::{get_cargo_version, get_version_from_file}, PIXLIE_VERSION_NUMBER};
+
+    #[test]
+    fn check_pixlie_version() {
+        assert_eq!(get_cargo_version().unwrap(), get_version_from_file().unwrap());
+        assert_eq!(get_cargo_version().unwrap(), PIXLIE_VERSION_NUMBER);
+    }
+}
