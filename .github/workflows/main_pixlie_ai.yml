@@ -28,25 +28,36 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: cli
-            asset_name: pixlie-linux-amd64-${{ github.ref }}
+            asset_name: pixlie-linux-amd64-${{ github.ref_name }}
           - os: macos-latest
             artifact_name: cli
-            asset_name: pixlie-macos-arm64-${{ github.ref }}
+            asset_name: pixlie-macos-arm64-${{ github.ref_name }}
           - os: windows-latest
             artifact_name: cli.exe
-            asset_name: pixlie-windows-amd64-${{ github.ref }}.exe
+            asset_name: pixlie-windows-amd64-${{ github.ref_name }}.exe
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Match with VERSION for tag pushes
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Match with VERSION for tag pushes on Ubuntu/MacOS
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os != 'windows-latest'
         run: |
           VERSION=$(cat VERSION)
-          if [ "$GITHUB_REF" != "refs/tags/v$VERSION" ]; then
-            echo "::error Tag version $TAG_VERSION does not match VERSION file $VERSION"
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag version $TAG_VERSION does not match VERSION file $VERSION"
             exit 1
           fi
+      - name: Match with VERSION for tag pushes on Windows
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'windows-latest'
+        run: |
+          $VERSION = Get-Content -Path "VERSION" -Raw
+          $TAG_VERSION = $env:GITHUB_REF -replace "refs/tags/v", ""
+          if ($TAG_VERSION -ne $VERSION.Trim()) {
+            Write-Output "::error::Tag version $TAG_VERSION does not match VERSION file $VERSION"
+            exit 1
+          }
+        shell: pwsh
       - name: Pre-build installations for Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
