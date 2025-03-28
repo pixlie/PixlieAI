@@ -37,6 +37,16 @@ jobs:
             asset_name: pixlie-windows-amd64-${{ github.ref }}.exe
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Match with VERSION for tag pushes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=$(cat VERSION)
+          if [ "$GITHUB_REF" != "refs/tags/v$VERSION" ]; then
+            echo "::error Tag version $TAG_VERSION does not match VERSION file $VERSION"
+            exit 1
+          fi
       - name: Pre-build installations for Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -54,9 +64,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install llvm
-
-      - name: Checkout
-        uses: actions/checkout@v4
         
       - name: Set environment variables for MacOS
         if: matrix.os == 'macos-latest'
