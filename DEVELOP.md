@@ -48,16 +48,20 @@ Change the `RUST_LOG` to `info` or `debug` depending on the level of logging you
 
 To release a new version, you need to follow these steps:
 
-1. Update the version in `VERSION`, `Cargo.toml` and `package.json`.
-2. Validate the version changes:
-    - pixlie_ai: `cargo test`
-    - admin: `pnpm version:check`
-3. Create a new release tag:
+1. Update the version number `X.Y.Z` in the `VERSION` file in repo root.
+2. `pixlie_ai`
+    - Update the version in `Cargo.toml` and `src/lib.rs`.
+    - Run `cargo test` to ensure everything is fine.
+3. `admin`
+    - Update the version in `admin/package.json`.
+    - Run `pnpm version:check` to ensure everything is fine.
+    - Run `pnpm build` to check for a successful build.
+4. After merging these changes to `main`, create a new release tag:
     - `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-    - `git tag -as vX.Y.Z -m "Release vX.Y.Z"` if you want to sign your tag.
+    - or `git tag -as vX.Y.Z -m "Release vX.Y.Z"` if you want to sign your tag.
     - or `git tag -a vX.Y.Z` if you want to add a multiline release message.
-4. Push the tag to the remote repository:
+5. Push the tag to the remote repository:
     - `git push origin vX.Y.Z`
-5. If everything is fine and passes through the build & release process on Github Actions, the release will be published on https://github.com/pixlie/PixlieAI/releases
+6. If everything is fine and passes through the build & release process on Github Actions, the release will be published on https://github.com/pixlie/PixlieAI/releases
 
-P.S. There is no check whether the tagged commit SHA is a part of the main branch. But we should ensure that we only release commits from the main branch.
+> P.S. There is no check whether the tagged commit SHA is a part of the main branch. But we should ensure that we only release commits from the main branch.
