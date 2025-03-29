@@ -1,7 +1,7 @@
 use super::{Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
-use crate::entity::objective::Objective;
+use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
 use crate::error::PiError;
@@ -30,12 +30,19 @@ pub struct LinkWrite {
     pub url: String,
 }
 
+#[derive(Clone, Deserialize, TS)]
+#[ts(export)]
+pub struct ProjectSettingsWrite {
+    pub has_user_specified_starting_links: bool,
+}
+
 #[derive(Clone, Deserialize, Display, TS)]
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
     SearchTerm(String),
     Objective(String),
+    ProjectSettings(ProjectSettingsWrite),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -83,6 +90,7 @@ pub enum APIPayload {
     Text(String),
     Tree(String),
     TableRow(TableRow),
+    ProjectSettings(ProjectSettings),
 }
 
 impl APIPayload {
@@ -93,6 +101,9 @@ impl APIPayload {
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
+            Payload::ProjectSettings(project_settings) => {
+                APIPayload::ProjectSettings(project_settings)
+            }
         }
     }
 }
@@ -590,10 +601,31 @@ pub fn handle_engine_api_request(
                     )?;
                 }
                 NodeWrite::SearchTerm(text) => {
-                    SavedSearch::add_manually(engine.clone(), &text)?;
+                    engine.get_or_add_node(
+                        Payload::Text(text.to_string()),
+                        vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
+                        true,
+                        None,
+                    )?;
                 }
                 NodeWrite::Objective(text) => {
-                    Objective::add_manually(engine.clone(), &text)?;
+                    engine.get_or_add_node(
+                        Payload::Text(text.to_string()),
+                        vec![NodeLabel::AddedByUser, NodeLabel::Objective],
+                        true,
+                        None,
+                    )?;
+                }
+                NodeWrite::ProjectSettings(project_settings_write) => {
+                    engine.get_or_add_node(
+                        Payload::ProjectSettings(ProjectSettings {
+                            has_user_specified_starting_links: project_settings_write
+                                .has_user_specified_starting_links,
+                        }),
+                        vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
+                        true,
+                        None,
+                    )?;
                 }
             }
             EngineResponsePayload::Success

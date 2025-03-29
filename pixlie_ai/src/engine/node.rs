@@ -1,6 +1,7 @@
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::content::TableRow;
 use crate::entity::objective::Objective;
+use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
@@ -20,6 +21,7 @@ pub enum Payload {
     Text(String),
     Tree, // Tree can contain nodes of any payload type, including other trees
     TableRow(TableRow),
+    ProjectSettings(ProjectSettings),
 }
 
 pub(crate) type NodeId = u32;
@@ -47,6 +49,7 @@ pub enum NodeLabel {
     WebPage,
     WebSearch,
     CrawlCondition,
+    ProjectSettings
 }
 
 impl Default for NodeFlags {
