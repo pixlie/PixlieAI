@@ -70,4 +70,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: admin-${{ github.ref_name }}.tar.gz
           tag: ${{ github.ref }}
+          # TODO: Temporary overwrite, remove once CI process is hardened
+          overwrite: true
 
