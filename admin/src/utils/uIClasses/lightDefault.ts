@@ -33,6 +33,7 @@ const lightDefault: ITheme = {
     textInfo: "text-blue-600",
     textDanger: "text-red-600",
     textMuted: "text-gray-400",
+    textWarning: "text-yellow-600",
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     link: "text-blue-600 hover:underline",
