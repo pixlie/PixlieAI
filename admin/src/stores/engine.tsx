@@ -111,27 +111,58 @@ const makeStore = () => {
     });
   };
 
-  const getRelatedNodes = (
+  const getNodeById = (
+    projectId: string,
+    nodeId: number,
+  ): APINodeItem | undefined => {
+    if (
+      projectId in store.projects &&
+      nodeId in store.projects[projectId].nodes
+    ) {
+      return store.projects[projectId].nodes[nodeId];
+    }
+    return undefined;
+  };
+
+  const getNodesByFilter = (
+    projectId: string,
+    filterFn: (node: APINodeItem) => boolean,
+  ): Array<APINodeItem> => {
+    return Object.values(store.projects[projectId].nodes)
+      .filter((node) => filterFn(node))
+      .map((node) => node);
+  };
+
+  const getRelatedNodeIds = (
     projectId: string,
     nodeId: number,
     relatedNodeTypes: EdgeLabel,
-  ): Array<APINodeItem> => {
-    let nodes: Array<APINodeItem> = [];
+  ): Array<number> => {
     if (
       projectId in store.projects &&
       nodeId in store.projects[projectId].nodes &&
       nodeId in store.projects[projectId].edges
     ) {
-      for (const edge of store.projects[projectId].edges[nodeId].edges) {
-        let [nId, edgeLabel]: [number, string] = edge;
-        if (relatedNodeTypes === edgeLabel) {
-          if (nId in store.projects[projectId].nodes) {
-            nodes.push(store.projects[projectId].nodes[nId]);
-          }
-        }
-      }
+      return store.projects[projectId].edges[nodeId].edges
+        .filter(
+          ([relatedNodeId, edgeLabel]) =>
+            relatedNodeTypes === edgeLabel &&
+            relatedNodeId in store.projects[projectId].nodes,
+        )
+        .map(([relatedNodeId, _]) => relatedNodeId);
     }
-    return nodes;
+    return [];
+  };
+
+  const getRelatedNodes = (
+    projectId: string,
+    nodeId: number,
+    relatedNodeTypes: EdgeLabel,
+    filterFn?: (node: APINodeItem) => boolean,
+  ): Array<APINodeItem> => {
+    return getRelatedNodeIds(projectId, nodeId, relatedNodeTypes)
+      .map((id) => getNodeById(projectId, id) as APINodeItem)
+      .filter((node) => !filterFn || filterFn(node));
   };
 
   const sync = (projectId: string) => {
@@ -205,6 +236,9 @@ const makeStore = () => {
       setProjectId,
       sync,
       stopSync,
+      getNodeById,
+      getNodesByFilter,
+      getRelatedNodeIds,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference

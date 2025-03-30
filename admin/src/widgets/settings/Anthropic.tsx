@@ -25,7 +25,7 @@ const Anthropic: Component = () => {
       workspace.workspace?.apiKeys["Anthropic" as APIProvider] || "",
   });
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.workspace?.apiKeys["Anthropic" as APIProvider]
+    !!workspace.workspace?.apiKeys["Anthropic" as APIProvider],
   );
 
   const [_, { getColors }] = useUIClasses();
@@ -77,7 +77,7 @@ const Anthropic: Component = () => {
       ...existing,
       anthropicApiKey: getAnthropicApiKey() || "",
     }));
-  })
+  });
 
   return (
     <div>
@@ -86,31 +86,31 @@ const Anthropic: Component = () => {
         <div>Loading...</div>
       ) : (
         <>
-            <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
-              <li>
-                - Create an account{" "}
-                <a
-                  href="https://console.anthropic.com/login"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="underline text-blue-500 font-medium"
-                >
-                  here
-                </a>
-              </li>
-              <li>
-                - Create a new key{" "}
-                <a
-                  href="https://console.anthropic.com/settings/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="underline text-blue-500 font-medium"
-                >
-                  here
-                </a>
-              </li>
-              <li>- Enter your new key below</li>
-            </ol>
+          <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
+            <li>
+              - Create an account{" "}
+              <a
+                href="https://console.anthropic.com/login"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 font-medium"
+              >
+                here
+              </a>
+            </li>
+            <li>
+              - Create a new key{" "}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 font-medium"
+              >
+                here
+              </a>
+            </li>
+            <li>- Enter your new key below</li>
+          </ol>
           <div class="flex items-center gap-2 pt-2">
             <TextInput
               name="anthropicApiKey"

@@ -8,90 +8,61 @@ import LinkNode from "./LinkNode";
 const PREVIEW_TRUNCATION_LENGTH = 500;
 
 const ContentContainerNode: Component<INodeItemDisplayProps> = (props) => {
-  const [_engine, { getRelatedNodes }] = useEngine();
+  const [_engine, { getRelatedNodes, getNodeById }] = useEngine();
   const params = useParams();
 
-  interface IRelevantNodeIds {
-    "link": number | null;
-    "content": number[] | string;
-    "render": () => boolean;
-  }
-
-  const getRelevantNodeIds = createMemo<IRelevantNodeIds>(() => {
-
-    const relevantNodeIds = getRelatedNodes(
+  const getPartialNodeIds = createMemo<number[]>(() =>
+    getRelatedNodes(
       params.projectId,
       props.nodeId,
-      "ParentOf"
-    ).reduce(
-      (acc, node) => {
-        if (node.payload.type !== "Text" || node.payload.data.length === 0) {
-          return acc;
-        }
-        if (node.labels.includes("Partial") && !node.labels.includes("Title")) {
-          if (props.mode == "regular") {
-            (acc.content as number[]).push(node.id);
-          }
-          else if (props.mode == "preview") {
-            if (acc.content.length < PREVIEW_TRUNCATION_LENGTH) {
-              acc.content += " " + node.payload.data;
-              if (acc.content.length >= PREVIEW_TRUNCATION_LENGTH) {
-                acc.content =
-                  (acc.content as string)
-                    .trim()
-                    .substring(0, PREVIEW_TRUNCATION_LENGTH) + "...";
-              }
-            }
-          }
-        }
-        return acc;
-      },
-      {
-        link: null,
-        title: null,
-        content: props.mode === "regular" ? [] as number[] : [] as string[],
-        render: function () {
-          return this.link || this.content.length > 0;
-        },
-      } as IRelevantNodeIds
+      "ParentOf",
+      (node) =>
+        node.labels.includes("Partial") &&
+        (props.mode === "regular" || !node.labels.includes("Title")) &&
+        node.payload.type === "Text" &&
+        node.payload.data.trim().length > 0,
+    ).map((node) => node.id),
+  );
+
+  const getPreviewContent = createMemo<string>(() => {
+    const content = getPartialNodeIds()
+      .map((id) =>
+        (
+          getNodeById(params.projectId, id)?.payload.data as string | undefined
+        )?.trim(),
+      )
+      .filter((data) => data)
+      .join(" ");
+    return (
+      content.slice(0, PREVIEW_TRUNCATION_LENGTH) +
+      (content.length > PREVIEW_TRUNCATION_LENGTH ? "..." : "")
     );
-    if (props.mode == "regular") {
-      (relevantNodeIds.content as number[]).sort();
-    }
-    const linkNodeIds = getRelatedNodes(
-      params.projectId,
-      props.nodeId,
-      "ContentOf"
-    ).filter((node) => node.labels.includes("Link")).map((node) => node.id);
-    if (linkNodeIds.length > 0) {
-      relevantNodeIds.link = linkNodeIds[0];
-    }
-    return relevantNodeIds;
   });
 
+  const getLinkNodeId = createMemo<number | undefined>(() => {
+    return getRelatedNodes(params.projectId, props.nodeId, "ContentOf")?.[0]
+      ?.id;
+  });
 
-  return (
-    <>
-      {getRelevantNodeIds().render() ? (
-        <div class="flex flex-col px-3 py-1">
-          <LinkNode
-            nodeId={getRelevantNodeIds().link!}
-            showFlags={false}
-          />
-          {props.mode == "regular" && (
-            <For each={getRelevantNodeIds().content as number[]}>
-              {(nodeId) => <ContentNode nodeId={nodeId as number} mode={props.mode} />}
-            </For>
+  return !!getLinkNodeId() || getPartialNodeIds().length > 0 ? (
+    <div class="flex flex-col px-3 py-1">
+      {getLinkNodeId() ? (
+        <LinkNode nodeId={getLinkNodeId()!} showFlags={!!props.showFlags} />
+      ) : (
+        <div class="text-sm">Content from unknown source</div>
+      )}
+      {props.mode == "regular" && (
+        <For each={getPartialNodeIds()}>
+          {(nodeId) => (
+            <ContentNode nodeId={nodeId as number} mode={props.mode} />
           )}
-          {props.mode == "preview" && (
-            <div class="text-sm max-w-[780px]">
-              {getRelevantNodeIds().content}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </>
-  );
+        </For>
+      )}
+      {props.mode == "preview" && getPreviewContent().length && (
+        <div class="text-sm max-w-[780px]">{getPreviewContent()}</div>
+      )}
+    </div>
+  ) : null;
 };
 
 export default ContentContainerNode;

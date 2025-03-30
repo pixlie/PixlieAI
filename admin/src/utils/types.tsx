@@ -44,6 +44,7 @@ type DisplayAs = "Drawer" | "MainContent";
 interface INodeItemDisplayProps {
   nodeId: number;
   mode: "regular" | "preview";
+  showFlags?: boolean;
 }
 
 interface INodeListItemProps {
