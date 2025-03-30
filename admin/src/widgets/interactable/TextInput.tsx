@@ -1,8 +1,8 @@
 import { Component, JSX } from "solid-js";
-import { IFormField } from "../../utils/types";
+import { ITextFormField } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 
-const TextInput: Component<IFormField> = (props) => {
+const TextInput: Component<ITextFormField> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   let inputType: string = "text";

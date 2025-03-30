@@ -1,8 +1,7 @@
 import { Component, createSignal } from "solid-js";
-// import LinkForm from "../../widgets/nodeForm/LinkForm";
+import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading";
 import { WorkflowSidebar } from "./Workflow";
-import { IFormFieldValue } from "../../utils/types";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { Project } from "../../api_types/Project";
@@ -11,7 +10,8 @@ import { useNavigate } from "@solidjs/router";
 import Paragraph from "../../widgets/typography/Paragraph";
 import TextArea from "../../widgets/interactable/TextArea";
 import Button from "../../widgets/interactable/Button";
-// import Toggle from "../../widgets/interactable/Toggle";
+import Toggle from "../../widgets/interactable/Toggle";
+import Label from "../../widgets/interactable/Label.tsx";
 
 interface IFormData {
   objective: string;
@@ -19,7 +19,7 @@ interface IFormData {
   startingLinks: string[];
 }
 
-const CreateWorkflow: Component = () => {
+const CreateProject: Component = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = createSignal<IFormData>({
     objective: "",
@@ -27,10 +27,24 @@ const CreateWorkflow: Component = () => {
     startingLinks: [],
   });
 
-  const handleChange = (name: string, value: IFormFieldValue) => {
+  const handleTextChange = (name: string, value: string | number) => {
     setFormData({
       ...formData(),
       [name]: value,
+    });
+  };
+
+  const handleToggle = (name: string, value: boolean) => {
+    setFormData({
+      ...formData(),
+      [name]: value,
+    });
+  };
+
+  const addLink = (_name: string, value: string) => {
+    setFormData({
+      ...formData(),
+      startingLinks: [...formData().startingLinks, value],
     });
   };
 
@@ -65,7 +79,7 @@ const CreateWorkflow: Component = () => {
       <div class="w-48" />
 
       <div class="flex-1 flex flex-col">
-        <div class="max-w-screen-md space-y-2">
+        <div class="max-w-screen-md space-y-4">
           <Heading size={3}>Objective</Heading>
 
           <Paragraph size="sm">
@@ -79,20 +93,29 @@ const CreateWorkflow: Component = () => {
             id="projectObjective"
             name="objective"
             isEditable
-            onChange={handleChange}
+            onChange={handleTextChange}
             value={formData().objective}
           />
 
-          {/* <div class="flex items-center gap-x-2">
-            <Toggle />
-            Specify links to start crawling from.
+          <div class="flex items-center gap-x-2">
+            <Toggle
+              name="hasStartingLinks"
+              value={formData().hasStartingLinks}
+              onChange={handleToggle}
+            />
+            <Label
+              label="Manually specify links to crawl"
+              for="hasStartingLinks"
+            />
           </div>
 
-          <Heading size={3}>Starting links</Heading>
-          <NodeGrid nodeType={"Link"} source={} />
-          <div class="max-w-screen-sm">
-            <LinkForm />
-          </div> */}
+          {formData().hasStartingLinks && (
+            <div class="max-w-screen-sm">
+              <Heading size={3}>Links to crawl</Heading>
+              <Paragraph size="sm">Please add one link per line.</Paragraph>
+              <LinkForm name="url" onChange={addLink} />
+            </div>
+          )}
 
           <div class="pt-6 flex space-x-3">
             <div class="flex-1" />
@@ -111,4 +134,4 @@ const CreateWorkflow: Component = () => {
   );
 };
 
-export default CreateWorkflow;
+export default CreateProject;

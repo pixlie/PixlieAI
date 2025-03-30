@@ -37,10 +37,6 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
-type IFormFieldValue = string | number | Array<string> | undefined;
-
-type DisplayAs = "Drawer" | "MainContent";
-
 interface INodeItemDisplayProps {
   nodeId: number;
 }
@@ -51,8 +47,6 @@ interface IFormField {
   placeholder?: string | null;
   size?: "xs" | "sm" | "base" | "lg";
   displayBlock?: boolean;
-  value?: IFormFieldValue;
-  onChange?: (name: string, value: IFormFieldValue) => void;
   onFocus?: () => void;
   onKeyUp?: (event: KeyboardEvent) => void;
   isRequired?: boolean;
@@ -60,14 +54,24 @@ interface IFormField {
   autocomplete?: boolean;
 }
 
+interface ITextFormField extends IFormField {
+  value?: string | number;
+  onChange?: (name: string, value: string | number) => void;
+}
+
+interface IBooleanFormField extends IFormField {
+  value?: boolean;
+  onChange?: (name: string, value: boolean) => void;
+}
+
 export type {
   IProviderPropTypes,
   IWorkspace,
   IFormField,
-  IFormFieldValue,
+  ITextFormField,
+  IBooleanFormField,
   IEngine,
   IEngineStore,
   INodeItem,
-  DisplayAs,
   INodeItemDisplayProps,
 };

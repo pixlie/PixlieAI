@@ -1,7 +1,7 @@
 import { Component } from "solid-js";
-import { IFormField } from "../../utils/types";
+import { ITextFormField } from "../../utils/types";
 
-const HiddenInput: Component<IFormField> = (props) => {
+const HiddenInput: Component<ITextFormField> = (props) => {
   return (
     <input
       type="hidden"

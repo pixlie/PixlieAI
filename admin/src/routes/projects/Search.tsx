@@ -5,7 +5,6 @@ import { useParams } from "@solidjs/router";
 import TextInput from "../../widgets/interactable/TextInput";
 import { APINodeItem } from "../../api_types/APINodeItem";
 import SearchResults from "../../widgets/node/SearchResult";
-import { IFormFieldValue } from "../../utils/types";
 import Collapsible from "../../widgets/interactable/Collapsible";
 
 interface IFormData {
@@ -29,7 +28,7 @@ const Search: Component = () => {
     return [];
   });
 
-  const handleSearchTermChange = (_name: string, data: IFormFieldValue) => {
+  const handleSearchTermChange = (_name: string, data: string | number) => {
     if (typeof data !== "string" || !data) {
       return;
     }

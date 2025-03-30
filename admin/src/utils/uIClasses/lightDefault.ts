@@ -45,10 +45,10 @@ const lightDefault: ITheme = {
     "tabs.link":
       "text-gray-500 hover:text-gray-700 border-slate-300 border-b-stone-100",
 
-    "button.default": "bg-slate-500 text-white",
-    "button.cancel": "bg-red-500 text-white",
+    "button.default": "bg-slate-500 hover:bg-slate-400 text-white",
+    "button.cancel": "bg-red-600 hover:bg-red-500 text-white",
     "button.secondary": "bg-blue-500 text-white",
-    "button.success": "bg-green-600 text-white",
+    "button.success": "bg-green-700 hover:bg-green-600 text-white",
   },
 };
 
