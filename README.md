@@ -34,13 +34,13 @@ Choose your objective - what do you want to discover with Pixlie?:
 Information will instantly be populated. Let Pixlie search a while and see...
 
 
-See the domains discovered with the Brave API and AI based on your objective:
-![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
-
-A list of outbound links found on these domains:
+A list of links discovered based on your objective:
 ![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
 
-The content extracted from these domains:
+A list of domains (as many links may come from one domain):
+![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
+
+The content extracted from these links:
 ![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
 
 Search through the results for specifics:
@@ -66,13 +66,6 @@ If you want to use Pixlie, please see the [USE.md](USE.md) file.
 Pixlie has a REST API that you can use to interact with the graph. We use Bruno to document the API.
 You can find the API spec in the `rest_api` directory.
 
-## Is Pixlie an alternative to using vector databases?
-
-Yes, Pixlie is an alternative to using vector databases. Vector databases are good for storing and querying semantic
-data, but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
-semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
-along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
-
 ## Stay in Touch
 
 If you want to be notified when Pixlie is ready for use, please subscribe to
@@ -84,3 +77,29 @@ Join the discussion or get support on [Discord](https://discord.gg/5W9U9RPTGp).
 
 - Pixlie is licensed under the GNU General Public License version 3.0
 - See the [LICENSE](LICENSE) file for details
+
+## FAQ
+
+## Is Pixlie an alternative to using vector databases?
+
+Yes, Pixlie is an alternative to using vector databases. Vector databases are good for storing and querying semantic
+data, but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
+semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
+along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
+
+### What is the difference between Domains, Links and WebPages?
+**Link Nodes** are the URLs we discover using Brave & AI based on the Objective. When each Link Node is processed, we store domains for these Links in our database as separate nodes - one node for every domain.
+
+We connect **Domain Nodes** to their Link Nodes in the following way:
+
+Domain `—OwnerOf—>` Link(s)
+
+Link `—BelongsTo—>` a Domain
+
+As a part of the processing of Link Nodes, we then fetch their raw HTML content. Once we successfully fetch the content, we create a **WebPage Node** to store that content and then connect it to the Link Node:
+
+Link `—PathOf—>` WebPage
+
+and vice-versa
+
+WebPage `—ContentOf—>` Link
