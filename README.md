@@ -26,30 +26,32 @@ Point Pixlie at any website and describe what you need - from pricing data to pr
 
 Watch this video to see Pixlie in action:
 
-[![Plan a Trip with Pixlie](https://img.youtube.com/vi/8kApAG3ghsE/0.jpg)](https://www.youtube.com/watch?v=8kApAG3ghsE)
+[![Pixlie Latest Release](https://img.youtube.com/vi/mF9KuFYNF4s/0.jpg)](https://www.youtube.com/watch?v=mF9KuFYNF4s)
 
-Choose a domain to crawl:
-![Set your domain](https://pixlie.com/images/screenshots/pixlie-screenshot-website.png)
+Choose your objective - what do you want to discover with Pixlie?:
+![Set your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-objective.png)
 
-Set your keywords:
-![Set your kewyords](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+Information will instantly be populated. Let Pixlie search a while and see...
 
-See the domains on the website:
-![Website's domain](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png)
 
-See the links on the website:
-![Website's outbound link](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png)
+Domains crawled looking for matches to your objective:
+![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png)
 
-See the search results:
+Outbound links found:
+![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png)
+
+Web Pages relevant to your objective:
+![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
+
+Search through the results for specifics:
 ![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-results.png)
 
 ## How can I use Pixlie?
 
+At the moment Pixlie can be used on your laptop for personal web research (desktop app coming soon!). Pixlie is open source, with the option of enterprise licensing for those who want to utilize Pixlie's search and knowledge graph within their product. 
+
 Pixlie is open source and is under active development. Our work is done in public, please star this repository, it
 means a lot to us.
-
-If you want to be notified when Pixlie is ready for use, please subscribe to
-our [insights newsletter](https://pixlie.com/insights).
 
 ## Documentation for developers
 
@@ -70,6 +72,13 @@ Yes, Pixlie is an alternative to using vector databases. Vector databases are go
 data, but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
 semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
 along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
+
+## Stay in Touch
+
+If you want to be notified when Pixlie is ready for use, please subscribe to
+our [insights newsletter](https://pixlie.com/insights).
+
+Join the discussion or get support on [Discord](https://discord.gg/5W9U9RPTGp).
 
 ## License
 
