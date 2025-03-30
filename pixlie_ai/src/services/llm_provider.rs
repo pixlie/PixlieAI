@@ -2,7 +2,7 @@ use crate::entity::pixlie::LLMResponse;
 use crate::error::{PiError, PiResult};
 use crate::FetchRequest;
 
-pub trait LLM {
+pub trait LLMProvider {
     fn get_prompt_for_objective(_pixlie_schema: &String, _objective: &String) -> PiResult<String> {
         Err(PiError::FeatureNotAvailable(
             "LLM does not work with objective".to_string(),

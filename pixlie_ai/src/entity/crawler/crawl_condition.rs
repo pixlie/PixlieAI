@@ -1,3 +1,6 @@
+// TODO: Remove the following when we start using this module
+#![allow(dead_code)]
+
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
 use crate::error::PiResult;
@@ -9,9 +12,9 @@ pub struct CrawlCondition;
 impl CrawlCondition {
     pub fn process(
         &self,
-        node: &NodeItem,
-        engine: Arc<&Engine>,
-        data_from_previous_request: Option<ExternalData>,
+        _node: &NodeItem,
+        _engine: Arc<&Engine>,
+        _data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
         Ok(())
     }

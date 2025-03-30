@@ -1,29 +1,12 @@
-use serde::Deserialize;
-use std::sync::Arc;
-use ts_rs::TS;
-
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine};
-use crate::entity::project_settings::ProjectSettings;
 use crate::{
     error::PiResult,
     utils::llm_schema::{clean_ts_type, LLMSchema},
 };
-// #[derive(Deserialize, TS)]
-// #[ts(export)]
-// pub enum NamedEntity {
-//     BlogPost,
-//     JobPost,
-//     People,
-//     Company,
-//     Event,
-//     Date,
-//     Location,
-//     PressRelease,
-//     Product,
-//     Currency,
-//     Price,
-// }
+use serde::Deserialize;
+use std::sync::Arc;
+use ts_rs::TS;
 
 #[derive(Deserialize, TS)]
 pub enum ContinueCrawl {
@@ -36,7 +19,7 @@ impl LLMSchema for ContinueCrawl {}
 
 #[derive(Deserialize, TS)]
 pub struct CrawlSpecification {
-    pub web_search_keywords_for_objective: Option<Vec<String>>,
+    pub web_search_keywords_to_get_starting_urls_for_crawl: Option<Vec<String>>,
     pub conditions_to_continue_crawling: Option<ContinueCrawl>,
 }
 
@@ -48,7 +31,7 @@ impl LLMSchema for CrawlSpecification {
         // If the payload is for an Objective and there is a ProjectSetting connected to it,
         // then we check if there is a setting for starting links
         // If starting links are to be manually provided, then we remove the web_search_keywords_for_objective field
-        let mut has_web_search_keywords_for_objective: bool = true;
+        let mut has_web_search_keywords_to_get_starting_urls_for_crawl: bool = true;
         match node.payload {
             Payload::Text(_) => {
                 if node.labels.contains(&NodeLabel::Objective) {
@@ -59,7 +42,8 @@ impl LLMSchema for CrawlSpecification {
                             Some(project_settings_node) => match &project_settings_node.payload {
                                 Payload::ProjectSettings(project_settings) => {
                                     if project_settings.has_user_specified_starting_links {
-                                        has_web_search_keywords_for_objective = false;
+                                        has_web_search_keywords_to_get_starting_urls_for_crawl =
+                                            false;
                                     }
                                 }
                                 _ => {}
@@ -72,14 +56,14 @@ impl LLMSchema for CrawlSpecification {
             _ => {}
         };
 
-        let ts_self = if has_web_search_keywords_for_objective {
+        let ts_self = if has_web_search_keywords_to_get_starting_urls_for_crawl {
             // Change the field web_search_keywords_for_objective to non-null
             ts_self
                 .lines()
                 .map(|line| {
                     line.replace(
-                        "web_search_keywords_for_objective: Array<string> | null",
-                        "web_search_keywords_for_objective: Array<string>",
+                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string> | null",
+                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string>",
                     )
                 })
                 .collect::<Vec<String>>()
@@ -91,7 +75,7 @@ impl LLMSchema for CrawlSpecification {
                 .lines()
                 .map(|line| {
                     line.replace(
-                        "web_search_keywords_for_objective: Array<string> | null, ",
+                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string> | null, ",
                         "",
                     )
                 })
@@ -113,8 +97,8 @@ pub enum Tool {
 }
 
 impl LLMSchema for Tool {
-    fn get_schema_for_llm(_node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_crawl = CrawlSpecification::get_schema_for_llm(_node, engine)?;
+    fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+        let ts_crawl = CrawlSpecification::get_schema_for_llm(node, engine)?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         Ok(format!("{}\n{}", ts_crawl, ts_self))
@@ -128,8 +112,8 @@ pub struct LLMResponse {
 }
 
 impl LLMSchema for LLMResponse {
-    fn get_schema_for_llm(_node: &NodeItem, _engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_tool = clean_ts_type(&Tool::get_schema_for_llm(_node, _engine)?);
+    fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+        let ts_tool = Tool::get_schema_for_llm(node, engine)?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         Ok(format!("{}\n{}", ts_tool, ts_self))

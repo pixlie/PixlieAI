@@ -1,3 +1,6 @@
+// TODO: Remove the following when we start using this module
+#![allow(dead_code)]
+
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;

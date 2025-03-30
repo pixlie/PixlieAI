@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::services::llm::LLM;
+use crate::services::llm_provider::LLMProvider;
 use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
     entity::ExtractedEntity,
@@ -81,7 +81,7 @@ const LL_MODEL_HAIKU: &str = "claude-3-5-haiku-latest";
 
 pub struct Anthropic;
 
-impl LLM for Anthropic {
+impl LLMProvider for Anthropic {
     fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
         Ok(format!(
             r#"I am a bot who can understand JSON in the following schema:

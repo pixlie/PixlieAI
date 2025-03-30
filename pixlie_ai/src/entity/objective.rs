@@ -5,7 +5,7 @@ use crate::entity::text::Text;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
 use crate::services::anthropic::Anthropic;
-use crate::services::llm::LLM;
+use crate::services::llm_provider::LLMProvider;
 use crate::utils::crud::Crud;
 use crate::utils::llm_schema::LLMSchema;
 use crate::{
@@ -67,7 +67,7 @@ impl Objective {
                     for feature in parsed_response.tools_needed_to_accomplish_objective {
                         match feature {
                             Tool::Crawler(crawl) => {
-                                match crawl.web_search_keywords_for_objective {
+                                match crawl.web_search_keywords_to_get_starting_urls_for_crawl {
                                     Some(web_search_keywords) => {
                                         for web_search_keywords in web_search_keywords {
                                             let web_search_node_id = Text::add(
@@ -176,7 +176,7 @@ mod tests {
         assert_eq!(
             llm_schema,
             r#"type ContinueCrawl = { "IfContentHasKeywords": Array<string> };
-type CrawlSpecification = { web_search_keywords_for_objective: Array<string>, conditions_to_continue_crawling: ContinueCrawl | null, };
+type CrawlSpecification = { web_search_keywords_to_get_starting_urls_for_crawl: Array<string>, conditions_to_continue_crawling: ContinueCrawl | null, };
 type Tool = { "Crawler": CrawlSpecification };
 type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#
         )
