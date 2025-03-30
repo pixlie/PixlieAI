@@ -34,13 +34,13 @@ Choose your objective - what do you want to discover with Pixlie?:
 Information will instantly be populated. Let Pixlie search a while and see...
 
 
-Domains crawled looking for matches to your objective:
+See the domains discovered with the Brave API and AI based on your objective:
 ![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
 
-Outbound links found:
+A list of outbound links found on these domains:
 ![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
 
-Web Pages relevant to your objective:
+The content extracted from these domains:
 ![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
 
 Search through the results for specifics:
