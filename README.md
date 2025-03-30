@@ -35,16 +35,16 @@ Information will instantly be populated. Let Pixlie search a while and see...
 
 
 Domains crawled looking for matches to your objective:
-![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png)
+![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
 
 Outbound links found:
-![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png)
+![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
 
 Web Pages relevant to your objective:
 ![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
 
 Search through the results for specifics:
-![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-results.png)
+![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-resultsv0-2-0.png)
 
 ## How can I use Pixlie?
 
