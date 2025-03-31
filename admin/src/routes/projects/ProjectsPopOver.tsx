@@ -39,6 +39,9 @@ const ProjectsPopOver: Component = () => {
           onClick={() => setVisible(false)}
         />
         <div class="absolute right-0 mt-1.5 z-20 w-72 rounded-md shadow-md  border-slate-200 border  bg-white  focus:outline-none flex flex-col py-2 gap-2">
+          {!getProjects().length && (
+            <p class="text-gray-500 text-center">No activity yet!</p>
+          )}
           <For each={getProjects()}>
             {(project, i) => (
               <>
