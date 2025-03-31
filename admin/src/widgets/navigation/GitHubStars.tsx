@@ -56,7 +56,7 @@ const GitHubStars: Component = () => {
       </ToolTip>
       {!!stars() && (
         <div class="flex items-center gap-1 pl-1">
-          <Icon name="star" size={14} color="#eac54f" />
+          <Icon name="star" size={14} color="#FFD600" />
           <p class="text-sm font-semibold">{stars()}</p>
         </div>
       )}

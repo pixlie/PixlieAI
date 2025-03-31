@@ -95,7 +95,7 @@ const CreateWorkflow: Component = () => {
         <button onClick={handleFormSubmit} aria-label="Send">
           <ToolTip text="Send">
             <div class="flex items-center p-2 hover:bg-slate-200 rounded-full">
-              <div class="bg-blue-600 h-6 w-6 rounded-full flex text-white justify-center items-center">
+              <div class="h-6 w-6 rounded-full flex text-white justify-center items-center" style={{"background-color": "#00C853"}}>
                 <Icon name="arrow-up" size={16} />
               </div>
             </div>

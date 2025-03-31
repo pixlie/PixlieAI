@@ -132,7 +132,7 @@ const Anthropic: Component = () => {
               </button>
             ) : (
               <div class="p-2 -mr-2">
-                <Icon name="check" class="text-green-500" />
+                <Icon name="check" color="#00C853" />
               </div>
             )}
           </div>
