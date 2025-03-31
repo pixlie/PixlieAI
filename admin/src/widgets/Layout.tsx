@@ -21,7 +21,7 @@ const Layout: Component<ILayoutProps> = (props) => {
       <div class="relative">
         {location.hash === "#settings" && <SettingsModal />}
       </div>
-      <div class="mt-14 flex-1 flex p-8 gap-8 w-full">
+      <div class="mt-12 flex-1 flex p-8 gap-8 w-full">
         <Sidebar />
         <div
           class={

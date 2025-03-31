@@ -7,7 +7,7 @@ import GitHubStars from "./GitHubStars.tsx";
 
 const Navbar: Component = () => {
   return (
-    <div class="fixed w-full h-20 my-1 inset-x-0 inset-y-0 z-50 grid grid-cols-3 flex items-center px-8">
+    <div class="fixed w-full h-20 inset-x-0 inset-y-0 z-50 grid grid-cols-3 flex items-center px-8">
       <div class="flex items-center gap-6">
         <A href="/" class="text-2xl flex items-center gap-3">
           <img
