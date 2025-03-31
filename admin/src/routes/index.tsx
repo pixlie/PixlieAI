@@ -10,7 +10,7 @@ import Search from "./projects/Search";
 import PerProjectWrapper from "./projects/PerProject";
 import HelpContainer from "./help/HelpContainer";
 import Contact from "./help/Contact";
-import Home from "./Home";
+// import Home from "./Home";
 import CreateWorkflow from "./projects/CreateWorkflow.tsx";
 import Graph from "./projects/Graph.tsx";
 
@@ -18,7 +18,7 @@ const Routes: Component = () => {
   return (
     <>
       <Route path="/">
-        <Route path="" component={Home} />
+        <Route path="" component={CreateWorkflow} />
 
         <Route path="/p">
           <Route path="/create" component={CreateWorkflow} />

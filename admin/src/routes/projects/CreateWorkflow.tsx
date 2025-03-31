@@ -1,17 +1,14 @@
 import { Component, createSignal } from "solid-js";
-// import LinkForm from "../../widgets/nodeForm/LinkForm";
-import Heading from "../../widgets/typography/Heading";
-import { WorkflowSidebar } from "./Workflow";
 import { IFormFieldValue } from "../../utils/types";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
 import { useNavigate } from "@solidjs/router";
-import Paragraph from "../../widgets/typography/Paragraph";
-import TextArea from "../../widgets/interactable/TextArea";
-import Button from "../../widgets/interactable/Button";
-// import Toggle from "../../widgets/interactable/Toggle";
+import ToolTip from "../../widgets/navigation/ToolTip";
+import Icon from "../../widgets/interactable/Icon";
+import InfoPopOver from "./InfoPopOver";
+import PromptInput from "../../widgets/interactable/PromptInput";
 
 interface IFormData {
   objective: string;
@@ -61,52 +58,41 @@ const CreateWorkflow: Component = () => {
   };
 
   return (
-    <div class="flex gap-x-12">
-      <div class="w-48" />
-
-      <div class="flex-1 flex flex-col">
-        <div class="max-w-screen-md space-y-2">
-          <Heading size={3}>Objective</Heading>
-
-          <Paragraph size="sm">
-            What do you want to extract from the web? You may state this in
-            plain English. Feel free to use topics and keywords that you care
-            about. Pixlie will continue crawling the web as long as pages match
-            your objective.
-          </Paragraph>
-
-          <TextArea
-            id="projectObjective"
-            name="objective"
-            isEditable
-            onChange={handleChange}
-            value={formData().objective}
-          />
-
-          {/* <div class="flex items-center gap-x-2">
-            <Toggle />
-            Specify links to start crawling from.
-          </div>
-
-          <Heading size={3}>Starting links</Heading>
-          <NodeGrid nodeType={"Link"} source={} />
-          <div class="max-w-screen-sm">
-            <LinkForm />
-          </div> */}
-
-          <div class="pt-6 flex space-x-3">
-            <div class="flex-1" />
-            <Button label="Cancel" href="/" />
-            <Button
-              label="Save"
-              colorTheme="success"
-              onClick={handleFormSubmit}
-            />
-          </div>
-        </div>
+    <div class="flex w-full h-full justify-center items-end grid grid-cols-3 grid-rows-3 ">
+      <div />
+      {/* top row center column */}
+      <div class="flex items-center mb-1 gap-2">
+        <p class="font-medium">Objective</p>
+        <InfoPopOver />
       </div>
-
-      <WorkflowSidebar />
+      <div />
+      <div />
+      {/* center row center column */}
+      <div class="flex justify-center items-center w-full h-full">
+        <PromptInput
+          id="projectObjective"
+          name="objective"
+          placeholder="Describe your objective..."
+          isEditable
+          onChange={handleChange}
+          value={formData().objective}
+        />
+      </div>
+      {/* center row left column */}
+      <div class="m-2">
+        <button onClick={handleFormSubmit} aria-label="Send">
+          <ToolTip text="Send">
+            <div class="flex items-center p-2 hover:bg-slate-200 rounded-full">
+              <div class="bg-blue-600 h-6 w-6 rounded-full flex text-white justify-center items-center">
+                <Icon name="arrow-up" size={16} />
+              </div>
+            </div>
+          </ToolTip>
+        </button>
+      </div>
+      <div />
+      <div />
+      <div />
     </div>
   );
 };
