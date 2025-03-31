@@ -47,7 +47,7 @@ const StorageDir: Component = () => {
   return (
     <div>
       <p class="font-medium">Storage Directory</p>
-      <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
+      <ol class="text-gray-500 py-1 flex flex-col">
         <li>- Create a new directory on your computer</li>
         <li>- Enter the path to your new directory below</li>
       </ol>
@@ -63,13 +63,17 @@ const StorageDir: Component = () => {
           value={formData.pathToStorageDir}
         />
         {!saved() ? (
-          <button onClick={handleSubmit}>
+          <button onClick={handleSubmit} class=" -mr-2">
             <ToolTip text="Save">
-              <Icon name="save" />
+              <div class="p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full">
+                <Icon name="save" />
+              </div>
             </ToolTip>
           </button>
         ) : (
-          <Icon name="check" color="text-green-500" />
+          <div class="p-2 -mr-2">
+            <Icon name="check" class="text-green-500" />
+          </div>
         )}
       </div>
       {!!errorMessage && (

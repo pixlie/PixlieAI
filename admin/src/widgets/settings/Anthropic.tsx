@@ -77,7 +77,7 @@ const Anthropic: Component = () => {
       ...existing,
       anthropicApiKey: getAnthropicApiKey() || "",
     }));
-  })
+  });
 
   return (
     <div>
@@ -86,31 +86,31 @@ const Anthropic: Component = () => {
         <div>Loading...</div>
       ) : (
         <>
-            <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
-              <li>
-                - Create an account{" "}
-                <a
-                  href="https://console.anthropic.com/login"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="underline text-blue-500 font-medium"
-                >
-                  here
-                </a>
-              </li>
-              <li>
-                - Create a new key{" "}
-                <a
-                  href="https://console.anthropic.com/settings/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="underline text-blue-500 font-medium"
-                >
-                  here
-                </a>
-              </li>
-              <li>- Enter your new key below</li>
-            </ol>
+          <ol class="text-gray-500 py-1 flex flex-col">
+            <li>
+              - Create an account{" "}
+              <a
+                href="https://console.anthropic.com/login"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 hover:text-blue-600 font-semibold"
+              >
+                here
+              </a>
+            </li>
+            <li>
+              - Create a new key{" "}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 hover:text-blue-600 font-semibold"
+              >
+                here
+              </a>
+            </li>
+            <li>- Enter your new key below:</li>
+          </ol>
           <div class="flex items-center gap-2 pt-2">
             <TextInput
               name="anthropicApiKey"
@@ -123,13 +123,17 @@ const Anthropic: Component = () => {
               value={formData.anthropicApiKey}
             />
             {!saved() ? (
-              <button onClick={handleSubmit}>
+              <button onClick={handleSubmit} class=" -mr-2">
                 <ToolTip text="Save">
-                  <Icon name="save" />
+                  <div class="p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full">
+                    <Icon name="save" />
+                  </div>
                 </ToolTip>
               </button>
             ) : (
-              <Icon name="check" color="text-green-500" />
+              <div class="p-2 -mr-2">
+                <Icon name="check" class="text-green-500" />
+              </div>
             )}
           </div>
           {!!errorMessage && (
