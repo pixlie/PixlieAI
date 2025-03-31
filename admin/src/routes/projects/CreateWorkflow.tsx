@@ -58,12 +58,24 @@ const CreateWorkflow: Component = () => {
   };
 
   return (
-    <div class="flex w-full h-full justify-center items-end grid grid-cols-3 grid-rows-3 ">
+    <div
+      class="flex w-full h-full justify-center items-end grid grid-cols-3 grid-rows-3 relative"
+      style={{
+        "background-image":
+          "url('https://pixlie.com/_astro/hero-image.DdgBYhys_2wzNdY.webp')",
+        "background-size": "contain",
+        "background-position": "center",
+        "background-repeat": "no-repeat",
+        overflow: "hidden",
+      }}
+    >
       <div />
       {/* top row center column */}
       <div class="flex items-center mb-1 gap-2">
-        <p class="font-medium">Objective</p>
-        <InfoPopOver />
+        <p class="font-medium bg-white rounded-full">Objective</p>
+        <div class="bg-white rounded-full">
+          <InfoPopOver />
+        </div>
       </div>
       <div />
       <div />
@@ -79,7 +91,7 @@ const CreateWorkflow: Component = () => {
         />
       </div>
       {/* center row left column */}
-      <div class="m-2">
+      <div class="m-2 bg-white rounded-full">
         <button onClick={handleFormSubmit} aria-label="Send">
           <ToolTip text="Send">
             <div class="flex items-center p-2 hover:bg-slate-200 rounded-full">
