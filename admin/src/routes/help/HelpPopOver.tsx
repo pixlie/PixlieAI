@@ -1,6 +1,12 @@
 import { Component, createSignal, Show } from "solid-js";
-import ToolTip from "../../widgets/navigation/ToolTip";
-import Icon from "../../widgets/interactable/Icon";
+
+import IconButton from "../../widgets/interactable/IconButton";
+import HelpIcon from "../../assets/icons/tabler-help.svg";
+import MailIcon from "../../assets/icons/tabler-mail.svg";
+import CalendlyIcon from "../../assets/icons/brand-calendly.svg";
+import DiscordIcon from "../../assets/icons/brand-discord.svg";
+import GitHubIcon from "../../assets/icons/brand-github.svg";
+import ChevronRightIcon from "../../assets/icons/tabler-chevron-right.svg";
 
 const HelpPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -8,37 +14,33 @@ const HelpPopOver: Component = () => {
   const options = [
     {
       link: "mailto:team@pixlie.com",
-      icon: "mail",
       title: "Send a message",
+      icon: <MailIcon />,
     },
     {
       link: "https://calendly.com/sumitdatta/quick-chat",
-      icon: "brand-calendly",
       title: "Schedule a chat",
+      icon: <CalendlyIcon />,
     },
     {
       link: "https://discord.gg/5W9U9RPTGp",
-      icon: "brand-discord",
       title: "Join our community",
+      icon: <DiscordIcon />,
     },
     {
       link: "https://github.com/pixlie/PixlieAI/issues",
-      icon: "brand-github",
       title: "Report a bug",
+      icon: <GitHubIcon />,
     },
   ];
 
   return (
     <div class="relative w-10">
-      <ToolTip text="Help">
-        <button
-          onClick={() => setVisible(true)}
-          aria-label="Help"
-          class="flex items-center p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full"
-        >
-          <Icon name="help" />
-        </button>
-      </ToolTip>
+      <IconButton
+        name="Help"
+        icon={HelpIcon}
+        onClick={() => setVisible(true)}
+      />
       <Show when={visible()}>
         <button
           class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
@@ -55,15 +57,13 @@ const HelpPopOver: Component = () => {
                 rel="noreferrer"
               >
                 <span class="gap-3 flex items-center w-full">
-                  <Icon name={icon} />
+                  {icon}
                   <p class="flex-1 font-medium text-gray-800 hover:text-gray-950">
                     {title}
                   </p>
-                  <Icon
-                    name="chevron-right"
-                    size={20}
-                    class="text-slate-400 -mr-1.5"
-                  />
+                  <div class="text-slate-400">
+                    <ChevronRightIcon />
+                  </div>
                 </span>
               </a>
             </>

@@ -11,8 +11,9 @@ import { useWorkspace } from "../../stores/workspace";
 import { IFormFieldValue } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
-import Icon from "../interactable/Icon";
-import ToolTip from "../navigation/ToolTip";
+import SaveIcon from "../../assets/icons/tabler-device-floppy.svg";
+import CheckIcon from "../../assets/icons/tabler-check.svg";
+import IconButton from "../interactable/IconButton";
 
 interface IFormData {
   anthropicApiKey: string;
@@ -122,19 +123,19 @@ const Anthropic: Component = () => {
               }}
               value={formData.anthropicApiKey}
             />
-            {!saved() ? (
-              <button onClick={handleSubmit} class=" -mr-2">
-                <ToolTip text="Save">
-                  <div class="p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full">
-                    <Icon name="save" />
-                  </div>
-                </ToolTip>
-              </button>
-            ) : (
-              <div class="p-2 -mr-2">
-                <Icon name="check" color="#00C853" />
-              </div>
-            )}
+            <div class="-mr-2">
+              {!saved() ? (
+                <IconButton
+                  name="Save"
+                  icon={SaveIcon}
+                  onClick={handleSubmit}
+                />
+              ) : (
+                <div class="p-2" style={{ color: "#00C853" }}>
+                  <CheckIcon />
+                </div>
+              )}
+            </div>
           </div>
           {!!errorMessage && (
             <small class={getColors()["textDanger"]}>{errorMessage()}</small>

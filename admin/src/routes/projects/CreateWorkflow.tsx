@@ -6,9 +6,9 @@ import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
 import { useNavigate } from "@solidjs/router";
 import ToolTip from "../../widgets/navigation/ToolTip";
-import Icon from "../../widgets/interactable/Icon";
 import InfoPopOver from "./InfoPopOver";
 import PromptInput from "../../widgets/interactable/PromptInput";
+import SendIcon from "../../assets/icons/tabler-arrow-up.svg";
 
 interface IFormData {
   objective: string;
@@ -59,7 +59,7 @@ const CreateWorkflow: Component = () => {
 
   return (
     <div
-      class="flex w-full h-full justify-center items-end grid grid-cols-3 grid-rows-3 relative"
+      class="flex flex-col w-full h-full justify-end pb-6 items-center relative"
       style={{
         "background-image":
           "url('https://pixlie.com/_astro/hero-image.DdgBYhys_2wzNdY.webp')",
@@ -69,18 +69,7 @@ const CreateWorkflow: Component = () => {
         overflow: "hidden",
       }}
     >
-      <div />
-      {/* top row center column */}
-      <div class="flex items-center mb-1 gap-2">
-        <p class="font-medium bg-white rounded-full">Objective</p>
-        <div class="bg-white rounded-full">
-          <InfoPopOver />
-        </div>
-      </div>
-      <div />
-      <div />
-      {/* center row center column */}
-      <div class="flex justify-center items-center w-full h-full">
+      <div class="relative rounded-xl flex flex-col w-1/2 items-end gap-4 bg-slate-300/80 shadow-lg  p-4">
         <PromptInput
           id="projectObjective"
           name="objective"
@@ -89,22 +78,26 @@ const CreateWorkflow: Component = () => {
           onChange={handleChange}
           value={formData().objective}
         />
-      </div>
-      {/* center row left column */}
-      <div class="m-2 bg-white rounded-full">
-        <button onClick={handleFormSubmit} aria-label="Send">
+
+        <div class="absolute bottom-2 left-2">
+          <InfoPopOver />
+        </div>
+
+        <div
+          class="rounded-full shadow transition duration-150 ease-out translate-y-1 scale-95"
+          style={{ "background-color": "#00C853" }}
+        >
           <ToolTip text="Send">
-            <div class="flex items-center p-2 hover:bg-slate-200 rounded-full">
-              <div class="h-6 w-6 rounded-full flex text-white justify-center items-center" style={{"background-color": "#00C853"}}>
-                <Icon name="arrow-up" size={16} />
-              </div>
-            </div>
+            <button
+              onClick={handleFormSubmit}
+              class="rounded-full p-2 self-end w-10 text-white hover:bg-green-600 cursor-pointer"
+              disabled={!formData().objective}
+            >
+              <SendIcon />
+            </button>
           </ToolTip>
-        </button>
+        </div>
       </div>
-      <div />
-      <div />
-      <div />
     </div>
   );
 };

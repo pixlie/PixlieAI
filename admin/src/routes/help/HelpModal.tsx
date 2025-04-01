@@ -1,7 +1,6 @@
 import { Component } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import Modal from "../../widgets/overlay/Modal";
-import Icon from "../../widgets/interactable/Icon";
 
 const HelpModal: Component = () => {
   const navigate = useNavigate();
@@ -46,14 +45,10 @@ const HelpModal: Component = () => {
             rel="noreferrer"
           >
             <span class="gap-5 flex items-center">
-              <Icon name={icon} />
               <span class="flex flex-col">
                 <p class="text-gray-700 font-medium">{title}</p>
                 <p class="text-gray-400 text-sm">{subtitle}</p>
               </span>
-            </span>
-            <span class="text-gray-400">
-              <Icon name="external-link" />
             </span>
           </a>
         ))}

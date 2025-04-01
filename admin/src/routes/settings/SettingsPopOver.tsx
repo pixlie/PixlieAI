@@ -6,11 +6,11 @@ import {
   Show,
 } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
-import ToolTip from "../../widgets/navigation/ToolTip";
-import Icon from "../../widgets/interactable/Icon";
 import StorageDir from "../../widgets/settings/StorageDir";
 import Anthropic from "../../widgets/settings/Anthropic";
 import BraveSearch from "../../widgets/settings/BraveSearch";
+import SettingsIcon from "../../assets/icons/tabler-settings.svg";
+import IconButton from "../../widgets/interactable/IconButton";
 
 const SettingsPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -55,16 +55,12 @@ const SettingsPopOver: Component = () => {
           style={{ "background-color": "#D50000" }}
         />
       </Show>
-      <ToolTip text="Settings">
-        <button
-          onClick={() => setVisible(true)}
-          aria-label="Settings"
-          class="flex items-center p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full"
-          disabled={isActionRequired()}
-        >
-          <Icon name="settings" />
-        </button>
-      </ToolTip>
+      <IconButton
+        name="Settings"
+        icon={SettingsIcon}
+        onClick={() => setVisible(true)}
+        disabled={isActionRequired()}
+      />
       <Show when={visible()}>
         <button
           class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"

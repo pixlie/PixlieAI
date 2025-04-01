@@ -1,8 +1,10 @@
 import { Component, createMemo, createSignal, For, Show } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
 import { A, useNavigate, useParams } from "@solidjs/router";
-import ToolTip from "../../widgets/navigation/ToolTip";
-import Icon from "../../widgets/interactable/Icon";
+import BellIcon from "../../assets/icons/tabler-bell.svg";
+import ChevronRightIcon from "../../assets/icons/tabler-chevron-right.svg";
+import LoaderIcon from "../../assets/icons/tabler-loader.svg";
+import IconButton from "../../widgets/interactable/IconButton";
 
 const ProjectsPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -24,15 +26,11 @@ const ProjectsPopOver: Component = () => {
 
   return (
     <div class="relative w-10">
-      <ToolTip text="Activity">
-        <button
-          onClick={() => setVisible(true)}
-          aria-label="Activity"
-          class="flex items-center p-2 text-gray-800 hover:text-gray-950 hover:bg-slate-200 rounded-full"
-        >
-          <Icon name="bell" />
-        </button>
-      </ToolTip>
+      <IconButton
+        name="Activity"
+        icon={BellIcon}
+        onClick={() => setVisible(true)}
+      />
       <Show when={visible()}>
         <button
           class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
@@ -70,19 +68,10 @@ const ProjectsPopOver: Component = () => {
                       </span>
                       {/* <p class="text-gray-500 text-xs">{`Status: ${project.isReady ? "Ready" : "In Progress"}`}</p> */}
                     </div>
-                    {project.isReady ? (
-                      <Icon
-                        name="chevron-right"
-                        size={20}
-                        class="text-slate-400 -mr-1.5"
-                      />
-                    ) : (
-                      <Icon
-                        name="loader"
-                        size={16}
-                        class="text-slate-400 animate-spin"
-                      />
-                    )}
+
+                    <div class="text-slate-400">
+                      {project.isReady ? <ChevronRightIcon /> : <LoaderIcon />}
+                    </div>
                   </div>
                 </A>
               </>
