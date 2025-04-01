@@ -9,6 +9,7 @@ import ToolTip from "../../widgets/navigation/ToolTip";
 import InfoPopOver from "./InfoPopOver";
 import PromptInput from "../../widgets/interactable/PromptInput";
 import SendIcon from "../../assets/icons/tabler-arrow-up.svg";
+import BackgroundImage from "../../assets/background.webp";
 
 interface IFormData {
   objective: string;
@@ -61,8 +62,7 @@ const CreateWorkflow: Component = () => {
     <div
       class="flex flex-col w-full h-full justify-end pb-12 z-20 items-center relative"
       style={{
-        "background-image":
-          "url('https://pixlie.com/_astro/hero-image.DdgBYhys_2wzNdY.webp')",
+        "background-image": `url(${BackgroundImage}`,
         "background-size": "contain",
         "background-position": "center",
         "background-repeat": "no-repeat",
