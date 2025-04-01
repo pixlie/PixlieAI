@@ -1,12 +1,10 @@
 import { Component, JSX } from "solid-js";
 import { IFormField } from "../../utils/types";
-import { useUIClasses } from "../../stores/UIClasses";
 
 const PromptInput: Component<IFormField> = (props) => {
-  const [_, { getColors }] = useUIClasses();
 
   const handleChange: JSX.ChangeEventHandler<HTMLTextAreaElement, Event> = (
-    event,
+    event
   ) => {
     if (!!props.onChange) {
       props.onChange(props.name, event.currentTarget.value);
@@ -18,12 +16,12 @@ const PromptInput: Component<IFormField> = (props) => {
       id={props.id}
       name={props.name}
       required={props.isRequired !== null ? props.isRequired : false}
-      class={`block w-full rounded-md px-4 py-2.5 border outline-none font-content m-0  ${getColors()["input"]}`}
+      class={`block w-full rounded-lg px-3 py-2 outline-none font-content m-0 bg-slate-100`}
       placeholder={props.placeholder !== null ? props.placeholder : ""}
       value={props.value || ""}
       onChange={handleChange}
       disabled={!props.isEditable}
-      style={{"height": "100%", "resize": "none"}}
+      style={{ height: "100px", resize: "none" }}
     />
   );
 };
