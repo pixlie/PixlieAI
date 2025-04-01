@@ -59,7 +59,7 @@ const CreateWorkflow: Component = () => {
 
   return (
     <div
-      class="flex flex-col w-full h-full justify-end pb-6 items-center relative"
+      class="flex flex-col w-full h-full justify-end pb-12 z-20 items-center relative"
       style={{
         "background-image":
           "url('https://pixlie.com/_astro/hero-image.DdgBYhys_2wzNdY.webp')",
@@ -69,7 +69,7 @@ const CreateWorkflow: Component = () => {
         overflow: "hidden",
       }}
     >
-      <div class="relative rounded-xl flex flex-col w-1/2 items-end gap-4 bg-slate-300/80 shadow-lg  p-4">
+      <div class="relative w-1/2 items-end bg-white/40 backdrop-blur-md rounded-3xl border-slate-100 border shadow-lg p-4 flex flex-col gap-4">
         <PromptInput
           id="projectObjective"
           name="objective"
@@ -79,23 +79,21 @@ const CreateWorkflow: Component = () => {
           value={formData().objective}
         />
 
-        <div class="absolute bottom-2 left-2">
+        <div class="h-10 w-full flex items-center justify-between">
           <InfoPopOver />
-        </div>
-
-        <div
-          class="rounded-full shadow transition duration-150 ease-out translate-y-1 scale-95"
-          style={{ "background-color": "#00C853" }}
-        >
-          <ToolTip text="Send">
-            <button
-              onClick={handleFormSubmit}
-              class="rounded-full p-2 self-end w-10 text-white hover:bg-green-600 cursor-pointer"
-              disabled={!formData().objective}
-            >
-              <SendIcon />
-            </button>
-          </ToolTip>
+          <div
+            class="rounded-full shadow transition duration-150 ease-out  scale-95"
+            style={{ "background-color": "#00C853" }}
+          >
+            <ToolTip text="Send">
+              <button
+                onClick={handleFormSubmit}
+                class="rounded-full p-2 self-end w-10 text-white hover:bg-green-600 cursor-pointer"
+              >
+                <SendIcon />
+              </button>
+            </ToolTip>
+          </div>
         </div>
       </div>
     </div>
