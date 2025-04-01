@@ -17,7 +17,7 @@ const InfoPopOver: Component = () => {
       </div>
       <Show when={visible()}>
         <button
-          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
+          class="fixed inset-0 transition-opacity transition duration-500 ease-in-out z-50"
           onClick={() => setVisible(false)}
         />
         <div class="absolute left-0 ml-2 mb-1.5 bottom-full z-50 w-72 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 gap-4">
