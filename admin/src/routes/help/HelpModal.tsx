@@ -37,7 +37,7 @@ const HelpModal: Component = () => {
   const Content: Component = () => {
     return (
       <div class="flex flex-col pt-6 pb-3 gap-6">
-        {options.map(({ link, icon, title, subtitle }) => (
+        {options.map(({ link, title, subtitle }) => (
           <a
             href={link}
             class="px-6 py-3 border border-gray-100 hover:bg-gray-50 rounded-lg flex items-center justify-between shadow"
