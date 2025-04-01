@@ -60,7 +60,7 @@ const CreateWorkflow: Component = () => {
 
   return (
     <div
-      class="flex flex-col w-full h-full justify-end pb-12 z-20 items-center relative"
+      class="flex flex-col w-full h-full justify-end pb-12 items-center relative"
       style={{
         "background-image": `url(${BackgroundImage}`,
         "background-size": "contain",
@@ -69,7 +69,7 @@ const CreateWorkflow: Component = () => {
         overflow: "hidden",
       }}
     >
-      <div class="relative w-1/2 items-end bg-white/40 backdrop-blur-md rounded-3xl border-slate-100 border shadow-lg p-4 flex flex-col gap-4">
+      <div class="relative w-1/2 items-end bg-white/40 backdrop-blur-md rounded-3xl border-slate-100 border shadow-lg p-5 flex flex-col gap-4">
         <PromptInput
           id="projectObjective"
           name="objective"
