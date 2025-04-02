@@ -124,13 +124,16 @@ const makeStore = () => {
     return undefined;
   };
 
-  const getNodesByFilter = (
+  const getNodes = (
     projectId: string,
     filterFn: (node: APINodeItem) => boolean,
   ): Array<APINodeItem> => {
-    return Object.values(store.projects[projectId].nodes)
-      .filter((node) => filterFn(node))
-      .map((node) => node);
+    if (projectId in store.projects) {
+      return Object.values(store.projects[projectId]?.nodes || {})
+        .filter((node) => filterFn(node))
+        .map((node) => node);
+    }
+    return [];
   };
 
   const getRelatedNodeIds = (
@@ -237,7 +240,7 @@ const makeStore = () => {
       sync,
       stopSync,
       getNodeById,
-      getNodesByFilter,
+      getNodes,
       getRelatedNodeIds,
       getRelatedNodes,
     },

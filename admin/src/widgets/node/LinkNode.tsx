@@ -10,12 +10,14 @@ import ArrowPathIcon from "../../assets/icons/heroicons-arrow-path.svg";
 import CheckIcon from "../../assets/icons/tabler-check.svg";
 import CrossIcon from "../../assets/icons/tabler-cross.svg";
 import ClockIcon from "../../assets/icons/tabler-clock.svg";
+import HighlightTerms from "../generic/HighlightTerms.tsx";
 
 interface ILinkPayloadProps {
   id: number;
   flags: Array<APINodeFlags>;
   payload: Link;
   showFlags: boolean;
+  data?: Record<string, any>;
 }
 
 const SLOW_QUADRATIC_SPINNER_CLASS =
@@ -109,7 +111,13 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
               rel="noopener noreferrer"
             >
               <span class="inline-block max-w-[90%] truncate">
-                {!!getTitle() ? getTitle() : getFullLink()}
+                {props.data?.highlightTerms && (
+                  <HighlightTerms
+                    terms={props.data?.highlightTerms || []}
+                    content={getTitle() || getFullLink()}
+                  />
+                )}
+                {!props.data?.highlightTerms && (getTitle() || getFullLink())}
               </span>
               <span class="inline-block size-3 ml-0.5 mb-1">
                 <ExternalLinkIcon />
@@ -135,39 +143,31 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 interface ILinkNodeProps {
   nodeId: number;
   showFlags: boolean;
+  data?: Record<string, any>;
 }
 
 const LinkNode: Component<ILinkNodeProps> = (props) => {
-  const [engine] = useEngine();
+  const [_, { getNodeById }] = useEngine();
   const params = useParams();
 
-  const getProject = createMemo(() => {
-    if (!!params.projectId && params.projectId in engine.projects) {
-      return engine.projects[params.projectId];
-    }
-    return undefined;
-  });
-
   const getNode = createMemo(() => {
-    if (
-      !!getProject() &&
-      props.nodeId in getProject()!.nodes &&
-      getProject()!.nodes[props.nodeId].payload.type === "Link"
-    ) {
-      return getProject()!.nodes[props.nodeId] as APINodeItem;
+    const nodeByNodeId = getNodeById(params.projectId, props.nodeId);
+    if (!!nodeByNodeId && nodeByNodeId.payload.type === "Link") {
+      return nodeByNodeId as APINodeItem;
     }
     return undefined;
   });
 
   return (
     <>
-      {!!getProject() && !!getNode() ? (
+      {!!getNode() ? (
         <>
           <Payload
             id={props.nodeId}
             flags={getNode()!.flags}
             payload={getNode()!.payload.data as Link}
             showFlags={props.showFlags}
+            data={props.data}
           />
         </>
       ) : null}

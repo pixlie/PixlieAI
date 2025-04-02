@@ -19,6 +19,9 @@ const ContentNode: Component<INodeItemDisplayProps> = (props) => {
       let node = getProject()!.nodes[props.nodeId];
 
       if (node.payload.type === "Text") {
+        if (props.data?.highlightTerms) {
+          return node.payload.data as string;
+        }
         return node.payload.data as string;
       }
       return undefined;

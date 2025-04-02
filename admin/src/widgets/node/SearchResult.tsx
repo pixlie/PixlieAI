@@ -1,87 +1,91 @@
-import { Component, createMemo, For, JSX } from "solid-js";
+import { Component, createMemo, For } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { useParams } from "@solidjs/router";
 import { APINodeItem } from "../../api_types/APINodeItem";
-import Heading from "../typography/Heading";
-import Paragraph from "../typography/Paragraph";
-
-function highlightText(text: string, searchTerm: string): JSX.Element {
-  const regex = new RegExp(searchTerm, "gi");
-  const parts = text.split(regex);
-  return (
-    <>
-      {parts.map((part, index) => (
-        <>
-          {index > 0 && <span class="bg-yellow-200 px-0.5">{searchTerm}</span>}
-          {part}
-        </>
-      ))}
-    </>
-  );
-}
+import NodeGrid from "./NodeGrid";
+import { useUIClasses } from "../../stores/UIClasses";
 
 interface ISearchResultsProps {
-  searchTerm: string;
+  searchTerms: string[];
 }
 
 const SearchResults: Component<ISearchResultsProps> = (props) => {
-  const [engine] = useEngine();
+  const [_e, { getNodes, getRelatedNodes }] = useEngine();
+  const [_u, { getColors }] = useUIClasses();
   const params = useParams();
 
-  const getResults = createMemo<Array<APINodeItem>>(() => {
-    if (params.projectId in engine.projects) {
-      return Object.entries(engine.projects[params.projectId].nodes)
-        .filter(([_key, value]) => {
-          return (
-            value.payload.type === "Text" &&
-            (value.labels.includes("Title") ||
-              value.labels.includes("Heading") ||
-              value.labels.includes("Paragraph")) &&
-            value.payload.data
-              .toLowerCase()
-              .includes(props.searchTerm.toLowerCase())
-          );
-        })
-        .map(([_key, value]) => value as APINodeItem);
-    }
-    return [];
+  const getContentNodeIds = createMemo<Array<number>>(() => {
+    // Later, we can fetch by label Content instead of WebPage
+    // and do conditional rendering based on the label type(WebPage, PDFFile, etc)
+    return getNodes(params.projectId, (node) => {
+      return node.labels.includes("WebPage");
+    }).map((node) => node.id);
+  });
+
+  const getResultNodeIds = createMemo<
+    [number, Record<"partialNodeIds", number[]>][]
+  >(() => {
+    // We filter out and pass on just relevant content node ids
+    // with their related partial node ids.
+    let prevNode: APINodeItem | null = null;
+    const nodeMatcher = (node: APINodeItem) => {
+      return (
+        node.labels.includes("Partial") &&
+        node.payload.type === "Text" &&
+        node.payload.data.length > 0 &&
+        props.searchTerms.some((searchTerm) =>
+          (node.payload.data as string)
+            .toLowerCase()
+            .replace(/[[\s\n][\s\n]+]/, " ")
+            .includes(searchTerm.toLowerCase()),
+        )
+      );
+    };
+    return getContentNodeIds()
+      .map((contentNodeId) => {
+        return [
+          contentNodeId,
+          {
+            partialNodeIds: getRelatedNodes(
+              params.projectId,
+              contentNodeId,
+              "ParentOf",
+              (contentNode) => {
+                const currentNodeMatches = nodeMatcher(contentNode);
+                const prevNodeMatches = !!prevNode && nodeMatcher(prevNode);
+                prevNode = contentNode;
+                return currentNodeMatches || prevNodeMatches;
+              },
+            ).map((node) => node.id) as number[],
+          },
+        ] as [number, Record<"partialNodeIds", number[]>];
+      })
+      .filter((result) => result[1].partialNodeIds.length > 0);
   });
 
   return (
-    <For each={getResults()}>
-      {(result) => (
-        <div class="mt-2">
-          <span
-            class={
-              "text-xs bg-gray-300 rounded px-2 py-0.5" +
-              (result.payload.type === "Text" && " float-left mr-1")
-            }
-          >
-            {result.labels.includes("Title") && "Title"}
-            {result.labels.includes("Heading") && "Heading"}
-            {result.labels.includes("Paragraph") && "Paragraph"}
-          </span>
-          {result.payload.type === "Text" &&
-            result.labels.includes("Heading") && (
-              <Heading size={3}>
-                {highlightText(result.payload.data, props.searchTerm)}
-              </Heading>
-            )}
-          {result.payload.type === "Text" &&
-            result.labels.includes("Title") && (
-              <Heading size={3}>
-                {highlightText(result.payload.data, props.searchTerm)}
-              </Heading>
-            )}
-          {result.payload.type === "Text" &&
-            result.labels.includes("Paragraph") && (
-              <Paragraph>
-                {highlightText(result.payload.data, props.searchTerm)}
-              </Paragraph>
-            )}
-        </div>
-      )}
-    </For>
+    <>
+      <div class={`text-sm px-3 italic ${getColors().textMuted}`}>
+        Found {getResultNodeIds().length} results for{" "}
+        <For each={Object.values(props.searchTerms)}>
+          {(term, idx) => (
+            <>
+              {idx() > 0 && " OR "}
+              <span class="font-bold">"{term}"</span>
+            </>
+          )}
+        </For>
+      </div>
+      <NodeGrid
+        nodeType="WebPage"
+        source={() => getResultNodeIds().map((r) => r[0])}
+        mode="preview"
+        data={{
+          data: { highlightTerms: props.searchTerms },
+          nodeData: Object.fromEntries(getResultNodeIds()),
+        }}
+      />
+    </>
   );
 };
 

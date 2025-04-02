@@ -1,7 +1,9 @@
+import { TailwindClassesType } from "./types";
+
 interface ITheme {
   name: string;
   type: string;
-  tailwindClasses: { [key: string]: string };
+  tailwindClasses: TailwindClassesType;
 }
 
 const lightDefault: ITheme = {
@@ -27,8 +29,9 @@ const lightDefault: ITheme = {
     mainContent: "bg-white",
     heading: "text-gray-800",
 
-    label: "text-gray-800",
+    "form.label": "text-gray-800",
     text: "text-gray-700",
+    textSoft: "text-gray-500",
     textSuccess: "text-green-600",
     textInfo: "text-blue-600",
     textDanger: "text-red-600",
@@ -50,6 +53,9 @@ const lightDefault: ITheme = {
     "button.cancel": "bg-red-500 text-white",
     "button.secondary": "bg-blue-500 text-white",
     "button.success": "bg-green-600 text-white",
+    "button.muted": "bg-gray-300 text-gray-900",
+
+    highlight: "bg-yellow-200",
   },
 };
 
