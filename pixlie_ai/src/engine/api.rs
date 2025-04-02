@@ -1,4 +1,4 @@
-use super::{Engine, NodeFlags};
+use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::project_settings::ProjectSettings;
@@ -47,13 +47,22 @@ pub enum NodeWrite {
 
 #[derive(Clone, Deserialize, TS)]
 #[ts(export)]
+pub struct EdgeWrite {
+    node_ids: (NodeId, NodeId),
+    edge_labels: (EdgeLabel, EdgeLabel),
+}
+
+#[derive(Clone, Deserialize, TS)]
+#[ts(export)]
 pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
     GetAllNodes(Option<DateTime<Utc>>),
     GetAllEdges(Option<DateTime<Utc>>),
+
     CreateNode(NodeWrite),
+    CreateEdge(EdgeWrite),
 
     // Some nodes allow a "query", which can generate any number of nodes, like a search
     Query(u32),
@@ -421,6 +430,60 @@ pub async fn create_node(
     }
 }
 
+pub async fn create_edge(
+    project_id: web::Path<String>,
+    edge: web::Json<EdgeWrite>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to create edge between {} and {} with labels {} and {}",
+        request_id,
+        project_id,
+        &edge.node_ids.0,
+        &edge.node_ids.1,
+        &edge.edge_labels.0,
+        &edge.edge_labels.1,
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::CreateEdge(edge.into_inner()),
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
+}
+
 pub async fn search_results(
     path: web::Path<(String, u32)>,
     api_state: web::Data<ApiState>,
@@ -628,6 +691,10 @@ pub fn handle_engine_api_request(
                     )?;
                 }
             }
+            EngineResponsePayload::Success
+        }
+        EngineRequestPayload::CreateEdge(edge_write) => {
+            engine.add_connection(edge_write.node_ids, edge_write.edge_labels)?;
             EngineResponsePayload::Success
         }
         EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {

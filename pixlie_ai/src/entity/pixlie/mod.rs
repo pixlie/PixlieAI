@@ -36,7 +36,7 @@ impl LLMSchema for CrawlSpecification {
             Payload::Text(_) => {
                 if node.labels.contains(&NodeLabel::Objective) {
                     let project_settings_node_id = engine
-                        .get_node_ids_connected_with_label(&node.id, &EdgeLabel::BelongsTo)?;
+                        .get_node_ids_connected_with_label(&node.id, &EdgeLabel::RelatedTo)?;
                     if project_settings_node_id.len() > 0 {
                         match engine.get_node_by_id(&project_settings_node_id[0]) {
                             Some(project_settings_node) => match &project_settings_node.payload {

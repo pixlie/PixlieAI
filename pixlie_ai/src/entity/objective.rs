@@ -215,7 +215,7 @@ type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_acc
         arced_test_engine
             .add_connection(
                 (project_settings_node_id, objective_node_id),
-                (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
+                (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
             )
             .unwrap();
 
