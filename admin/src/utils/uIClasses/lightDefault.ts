@@ -36,6 +36,7 @@ const lightDefault: ITheme = {
     input: "bg-gray-50 text-gray-700 border-gray-300",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     link: "text-blue-600 hover:underline",
+    formError: "text-red-600",
 
     breadcrumb: "bg-stone-100",
     "breadcrumb.link": "text-gray-400",

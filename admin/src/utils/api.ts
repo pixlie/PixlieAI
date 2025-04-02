@@ -1,4 +1,5 @@
 import { NodeWrite } from "../api_types/NodeWrite.ts";
+import { EdgeWrite } from "../api_types/EdgeWrite.ts";
 
 export const getPixlieAIAPIRoot = () => {
   let api = import.meta.env.VITE_PIXLIE_AI_API;
@@ -57,7 +58,7 @@ export const camelCasedKeys = (obj: any): any => {
   }
 };
 
-export const insertNode = (projectId: string, node: NodeWrite) => {
+export const createNode = (projectId: string, node: NodeWrite) => {
   let pixlieAIAPIRoot = getPixlieAIAPIRoot();
   fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
     method: "POST",
@@ -67,12 +68,29 @@ export const insertNode = (projectId: string, node: NodeWrite) => {
     body: JSON.stringify(node),
   }).then((response) => {
     if (!response.ok) {
-      throw new Error("Failed to insert node");
+      throw new Error("Failed to create node");
     }
   });
 };
 
-export const utcStringToLocaleStringAgo = (utcString: string | null | undefined) => {
+export const createEdge = (projectId: string, edge: EdgeWrite) => {
+  let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+  fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/edges`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(edge),
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error("Failed to create edge");
+    }
+  });
+};
+
+export const utcStringToLocaleStringAgo = (
+  utcString: string | null | undefined,
+) => {
   if (!utcString) {
     return "-";
   }
@@ -98,4 +116,4 @@ export const utcStringToLocaleStringAgo = (utcString: string | null | undefined)
   if (months < 12) {
     return `${months} months ago`;
   }
-}
+};

@@ -1,8 +1,8 @@
-import { Component, createSignal } from "solid-js";
+import { Component, createSignal, For } from "solid-js";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading";
 import { WorkflowSidebar } from "./Workflow";
-import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
+import { getPixlieAIAPIRoot, createNode } from "../../utils/api";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
@@ -12,11 +12,17 @@ import TextArea from "../../widgets/interactable/TextArea";
 import Button from "../../widgets/interactable/Button";
 import Toggle from "../../widgets/interactable/Toggle";
 import Label from "../../widgets/interactable/Label.tsx";
+import FormError from "../../widgets/interactable/FormError.tsx";
 
 interface IFormData {
   objective: string;
   hasStartingLinks: boolean;
   startingLinks: string[];
+}
+
+interface IError {
+  // Keys are field names or __form__ for form level error
+  [key: string]: string;
 }
 
 const CreateProject: Component = () => {
@@ -26,6 +32,7 @@ const CreateProject: Component = () => {
     hasStartingLinks: false,
     startingLinks: [],
   });
+  const [formErrors, setFormErrors] = createSignal<IError>({});
 
   const handleTextChange = (name: string, value: string | number) => {
     setFormData({
@@ -42,6 +49,10 @@ const CreateProject: Component = () => {
   };
 
   const addLink = (_name: string, value: string) => {
+    if (formData().startingLinks.includes(value)) {
+      return;
+    }
+
     setFormData({
       ...formData(),
       startingLinks: [...formData().startingLinks, value],
@@ -49,6 +60,38 @@ const CreateProject: Component = () => {
   };
 
   const handleFormSubmit = () => {
+    if (!formData().objective || formData().objective.length === 0) {
+      setFormErrors({
+        ...formErrors(),
+        objective: "Please enter an objective",
+      });
+    }
+
+    if (formData().hasStartingLinks) {
+      if (formData().startingLinks.length === 0) {
+        setFormErrors({
+          ...formErrors(),
+          links: "Please add at least one link",
+        });
+      } else {
+        setFormErrors(
+          Object.fromEntries(
+            Object.entries(formErrors()).filter(([key]) => key !== "links"),
+          ),
+        );
+      }
+    } else {
+      setFormErrors(
+        Object.fromEntries(
+          Object.entries(formErrors()).filter(([key]) => key !== "links"),
+        ),
+      );
+    }
+
+    if (Object.keys(formErrors()).length > 0) {
+      return;
+    }
+
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/projects`, {
       method: "POST",
@@ -58,18 +101,35 @@ const CreateProject: Component = () => {
       body: JSON.stringify({} as ProjectCreate),
     }).then((response) => {
       if (!response.ok) {
-        throw new Error("Failed to save settings");
+        throw new Error("Failed to create project");
       }
-      response.json().then((item: Project) => {
-        for (const topic of formData().objective.split(/[\r\n]+/)) {
-          if (!!topic) {
-            insertNode(item.uuid, {
-              Objective: topic as string,
-            } as NodeWrite);
+      response.json().then((project: Project) => {
+        // Create a node for Objective
+        createNode(project.uuid, {
+          Objective: formData().objective,
+        } as NodeWrite);
+
+        if (
+          formData().hasStartingLinks &&
+          formData().startingLinks.length > 0
+        ) {
+          // Create a node for ProjectSettings and nodes for Links
+          createNode(project.uuid, {
+            ProjectSettings: {
+              has_user_specified_starting_links: true,
+            },
+          });
+
+          for (const link in formData().startingLinks) {
+            createNode(project.uuid, {
+              Link: {
+                url: link,
+              },
+            });
           }
         }
 
-        navigate(`/p/${item.uuid}/workflow`);
+        navigate(`/p/${project.uuid}/workflow`);
       });
     });
   };
@@ -96,6 +156,7 @@ const CreateProject: Component = () => {
             onChange={handleTextChange}
             value={formData().objective}
           />
+          <FormError name="objective" errors={formErrors} />
 
           <div class="flex items-center gap-x-2">
             <Toggle
@@ -113,9 +174,19 @@ const CreateProject: Component = () => {
             <div class="max-w-screen-sm">
               <Heading size={3}>Links to crawl</Heading>
               <Paragraph size="sm">Please add one link per line.</Paragraph>
+              {formData().startingLinks.length > 0 && (
+                <div class="flex flex-col gap-y-2 my-2">
+                  <For each={formData().startingLinks}>
+                    {(link) => <span class="">{link}</span>}
+                  </For>
+                </div>
+              )}
+
               <LinkForm name="url" onChange={addLink} />
             </div>
           )}
+
+          <FormError name="links" errors={formErrors} />
 
           <div class="pt-6 flex space-x-3">
             <div class="flex-1" />

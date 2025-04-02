@@ -1,7 +1,4 @@
 import { Component, createSignal } from "solid-js";
-import { useParams } from "@solidjs/router";
-import { insertNode } from "../../utils/api";
-import { NodeWrite } from "../../api_types/NodeWrite";
 import TextInput from "../interactable/TextInput";
 import Button from "../interactable/Button";
 
@@ -15,7 +12,6 @@ interface IFormData {
 }
 
 const LinkForm: Component<IPropTypes> = (props) => {
-  const params = useParams();
   const [formData, setFormData] = createSignal<IFormData>({
     url: "",
   });
@@ -26,21 +22,19 @@ const LinkForm: Component<IPropTypes> = (props) => {
     if (!url.startsWith("https")) {
       setError("Link must start with https://");
     } else {
-      setFormData((existing) => ({
-        ...existing,
-        term: value as string,
-      }));
-
-      if (!!props.onChange && !!props.name) {
-        props.onChange(props.name, url);
-      }
+      setFormData({
+        url,
+      });
     }
   };
 
   const handleSubmit = async () => {
-    insertNode(params.projectId, {
-      Link: formData(),
-    } as NodeWrite);
+    if (!!props.onChange && !!props.name) {
+      props.onChange(props.name, formData().url);
+      setFormData({
+        url: "",
+      });
+    }
   };
 
   return (
