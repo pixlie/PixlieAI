@@ -8,7 +8,7 @@ import IconButton from "../../widgets/interactable/IconButton";
 
 const ProjectsPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
-  const [workspace] = useWorkspace();
+  const [workspace, { fetchProjects }] = useWorkspace();
   const params = useParams();
   const navigate = useNavigate();
 
@@ -17,14 +17,17 @@ const ProjectsPopOver: Component = () => {
       <IconButton
         name="Activity"
         icon={BellIcon}
-        onClick={() => setVisible(true)}
+        onClick={() => {
+          fetchProjects();
+          setVisible(true);
+        }}
       />
       <Show when={visible()}>
         <button
-          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
+          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10 cursor-default"
           onClick={() => setVisible(false)}
         />
-        <div class="absolute right-0 mt-1.5 z-20 w-72 rounded-md shadow-md  border-slate-200 border  bg-white  focus:outline-none flex flex-col py-2 gap-2">
+        <div class="absolute right-0 z-20 w-72 rounded-md shadow-md  border-slate-200 border  bg-white  focus:outline-none flex flex-col py-2 gap-2">
           {!workspace.projects?.length && (
             <p class="text-gray-500 text-center">No activity yet!</p>
           )}
@@ -50,7 +53,7 @@ const ProjectsPopOver: Component = () => {
                         : "text-gray-800")
                     }
                   >
-                    <div class="flex-1 overflow-hidden gap-1 flex flex-col">
+                    <div class="flex-1 overflow-hidden gap-1 flex flex-col items-center-center">
                       <span class="block font-medium truncate text-left">
                         {name || "Project"}
                       </span>
@@ -58,7 +61,13 @@ const ProjectsPopOver: Component = () => {
                     </div>
 
                     <div class="text-slate-400">
-                      {!!name ? <ChevronRightIcon /> : <LoaderIcon />}
+                      {!!name ? (
+                        <ChevronRightIcon />
+                      ) : (
+                        <div class="-mr-1">
+                          <LoaderIcon />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </A>

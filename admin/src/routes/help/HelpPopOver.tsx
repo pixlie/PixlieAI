@@ -43,10 +43,10 @@ const HelpPopOver: Component = () => {
       />
       <Show when={visible()}>
         <button
-          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
+          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10 cursor-default"
           onClick={() => setVisible(false)}
         />
-        <div class="absolute right-0 mt-1.5 z-20 w-72 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col py-2 gap-2">
+        <div class="absolute right-0 z-20 w-72 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col py-2 gap-2">
           {options.map(({ link, icon, title }, i) => (
             <>
               {i > 0 && <hr />}
@@ -57,7 +57,9 @@ const HelpPopOver: Component = () => {
                 rel="noreferrer"
               >
                 <span class="gap-3 flex items-center w-full">
-                  {icon}
+                  <span class="h-6 w-6 flex items-center justify-center">
+                    {icon}
+                  </span>
                   <p class="flex-1 font-medium text-gray-800 hover:text-gray-950">
                     {title}
                   </p>

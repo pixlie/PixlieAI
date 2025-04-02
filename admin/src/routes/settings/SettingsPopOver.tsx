@@ -63,11 +63,11 @@ const SettingsPopOver: Component = () => {
       />
       <Show when={visible()}>
         <button
-          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10"
+          class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10 cursor-default"
           onClick={() => setVisible(false)}
           disabled={isActionRequired()}
         />
-        <div class="absolute right-0 mt-1.5 z-20 w-96 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3">
+        <div class="absolute right-0 z-20 w-96 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3">
           <StorageDir />
           {!!workspace.settings?.pathToStorageDir && (
             <>
