@@ -84,7 +84,8 @@ pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum EngineResponsePayload {
-    Success,
+    NodeCreatedSuccessfully(NodeId),
+    EdgeCreatedSuccessfully,
     Nodes(Vec<APINodeItem>),
     Labels(Vec<String>),
     Edges(APIEdges),
@@ -653,34 +654,32 @@ pub fn handle_engine_api_request(
             EngineResponsePayload::Edges(APIEdges(edges))
         }
         EngineRequestPayload::CreateNode(node_write) => {
-            match node_write {
-                NodeWrite::Link(link_write) => {
-                    Link::add(
-                        engine.clone(),
-                        &link_write.url,
-                        vec![NodeLabel::AddedByUser, NodeLabel::Link],
-                        vec![],
-                        true,
-                    )?;
-                }
-                NodeWrite::SearchTerm(text) => {
-                    engine.get_or_add_node(
+            let node_id = match node_write {
+                NodeWrite::Link(link_write) => Link::add(
+                    engine.clone(),
+                    &link_write.url,
+                    vec![NodeLabel::AddedByUser, NodeLabel::Link],
+                    vec![],
+                    true,
+                )?,
+                NodeWrite::SearchTerm(text) => engine
+                    .get_or_add_node(
                         Payload::Text(text.to_string()),
                         vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
                         true,
                         None,
-                    )?;
-                }
-                NodeWrite::Objective(text) => {
-                    engine.get_or_add_node(
+                    )?
+                    .get_node_id(),
+                NodeWrite::Objective(text) => engine
+                    .get_or_add_node(
                         Payload::Text(text.to_string()),
                         vec![NodeLabel::AddedByUser, NodeLabel::Objective],
                         true,
                         None,
-                    )?;
-                }
-                NodeWrite::ProjectSettings(project_settings_write) => {
-                    engine.get_or_add_node(
+                    )?
+                    .get_node_id(),
+                NodeWrite::ProjectSettings(project_settings_write) => engine
+                    .get_or_add_node(
                         Payload::ProjectSettings(ProjectSettings {
                             has_user_specified_starting_links: project_settings_write
                                 .has_user_specified_starting_links,
@@ -688,14 +687,14 @@ pub fn handle_engine_api_request(
                         vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
                         true,
                         None,
-                    )?;
-                }
-            }
-            EngineResponsePayload::Success
+                    )?
+                    .get_node_id(),
+            };
+            EngineResponsePayload::NodeCreatedSuccessfully(node_id)
         }
         EngineRequestPayload::CreateEdge(edge_write) => {
             engine.add_connection(edge_write.node_ids, edge_write.edge_labels)?;
-            EngineResponsePayload::Success
+            EngineResponsePayload::EdgeCreatedSuccessfully
         }
         EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {
             Some(node) => {
