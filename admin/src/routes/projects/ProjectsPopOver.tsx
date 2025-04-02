@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, For, Show } from "solid-js";
+import { Component, createSignal, For, Show } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import BellIcon from "../../assets/icons/tabler-bell.svg";
@@ -11,18 +11,6 @@ const ProjectsPopOver: Component = () => {
   const [workspace] = useWorkspace();
   const params = useParams();
   const navigate = useNavigate();
-
-  const getProjects = createMemo(() => {
-    if (workspace.projects) {
-      return workspace.projects.map((project) => ({
-        isActive: project.uuid === params.projectId,
-        isReady: !!project.name,
-        name: project.name || "Project",
-        uuid: project.uuid,
-      }));
-    }
-    return [];
-  });
 
   return (
     <div class="relative w-10">
@@ -37,19 +25,19 @@ const ProjectsPopOver: Component = () => {
           onClick={() => setVisible(false)}
         />
         <div class="absolute right-0 mt-1.5 z-20 w-72 rounded-md shadow-md  border-slate-200 border  bg-white  focus:outline-none flex flex-col py-2 gap-2">
-          {!getProjects().length && (
+          {!workspace.projects?.length && (
             <p class="text-gray-500 text-center">No activity yet!</p>
           )}
-          <For each={getProjects()}>
-            {(project, i) => (
+          <For each={workspace.projects}>
+            {({ uuid, name }, i) => (
               <>
                 {i() > 0 && <hr />}
                 <A
-                  href={`/p/${project.uuid}/workflow`}
+                  href={`/p/${uuid}/workflow`}
                   onClick={(event) => {
                     event.preventDefault();
                     setVisible(false);
-                    navigate(`/p/${project.uuid}/workflow`);
+                    navigate(`/p/${uuid}/workflow`);
                   }}
                   class="block w-full"
                   role="menuitem"
@@ -57,20 +45,20 @@ const ProjectsPopOver: Component = () => {
                   <div
                     class={
                       "flex w-full items-center px-4 py-1 gap-2 hover:bg-blue-100 hover:text-gray-950 " +
-                      (project.isActive
+                      (uuid === params.projectId
                         ? "bg-slate-200 text-gray-950"
                         : "text-gray-800")
                     }
                   >
                     <div class="flex-1 overflow-hidden gap-1 flex flex-col">
                       <span class="block font-medium truncate text-left">
-                        {project.name}
+                        {name || "Project"}
                       </span>
                       {/* <p class="text-gray-500 text-xs">{`Status: ${project.isReady ? "Ready" : "In Progress"}`}</p> */}
                     </div>
 
                     <div class="text-slate-400">
-                      {project.isReady ? <ChevronRightIcon /> : <LoaderIcon />}
+                      {!!name ? <ChevronRightIcon /> : <LoaderIcon />}
                     </div>
                   </div>
                 </A>
