@@ -7,6 +7,8 @@ import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading.tsx";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { createNode } from "../../utils/api.ts";
+import { NodeWrite } from "../../api_types/NodeWrite.ts";
 
 const Workflow: Component = () => {
   const [engine] = useEngine();
@@ -44,6 +46,14 @@ const Workflow: Component = () => {
     }
   });
 
+  const addLink = (_name: string, value: string) => {
+    createNode(params.projectId, {
+      Link: {
+        url: value,
+      },
+    } as NodeWrite).then((_) => {});
+  };
+
   return (
     <div class="flex gap-x-12">
       <div class="flex-1 flex flex-col gap-y-6">
@@ -65,7 +75,7 @@ const Workflow: Component = () => {
           <Heading size={3}>Starting links</Heading>
           <NodeGrid nodeType={"Link"} source={getStartingLinkIds} />
           <div class="pt-6 max-w-screen-sm">
-            <LinkForm />
+            <LinkForm name="url" onChange={addLink} />
           </div>
         </div>
       </div>

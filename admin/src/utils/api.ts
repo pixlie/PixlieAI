@@ -1,5 +1,6 @@
 import { NodeWrite } from "../api_types/NodeWrite.ts";
 import { EdgeWrite } from "../api_types/EdgeWrite.ts";
+import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 
 export const getPixlieAIAPIRoot = () => {
   let api = import.meta.env.VITE_PIXLIE_AI_API;
@@ -60,17 +61,27 @@ export const camelCasedKeys = (obj: any): any => {
 
 export const createNode = (projectId: string, node: NodeWrite) => {
   let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-  fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
+  return fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/nodes`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(node),
-  }).then((response) => {
-    if (!response.ok) {
-      throw new Error("Failed to create node");
-    }
-  });
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to create node");
+      }
+
+      return response.json();
+    })
+    .then((data: EngineResponsePayload) => {
+      if (data.type === "NodeCreatedSuccessfully") {
+        return data.data;
+      }
+
+      return;
+    });
 };
 
 export const createEdge = (projectId: string, edge: EdgeWrite) => {

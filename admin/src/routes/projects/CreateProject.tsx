@@ -2,7 +2,7 @@ import { Component, createSignal, For } from "solid-js";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading";
 import { WorkflowSidebar } from "./Workflow";
-import { getPixlieAIAPIRoot, createNode } from "../../utils/api";
+import { getPixlieAIAPIRoot, createNode, createEdge } from "../../utils/api";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
@@ -59,7 +59,7 @@ const CreateProject: Component = () => {
     });
   };
 
-  const handleFormSubmit = () => {
+  const handleFormSubmit = async () => {
     if (!formData().objective || formData().objective.length === 0) {
       setFormErrors({
         ...formErrors(),
@@ -93,45 +93,62 @@ const CreateProject: Component = () => {
     }
 
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    fetch(`${pixlieAIAPIRoot}/api/projects`, {
+    let response = await fetch(`${pixlieAIAPIRoot}/api/projects`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({} as ProjectCreate),
-    }).then((response) => {
-      if (!response.ok) {
-        throw new Error("Failed to create project");
-      }
-      response.json().then((project: Project) => {
-        // Create a node for Objective
-        createNode(project.uuid, {
-          Objective: formData().objective,
-        } as NodeWrite);
+    });
+    if (!response.ok) {
+      throw new Error("Failed to create project");
+    }
+    let project: Project = await response.json();
+    if (formData().hasStartingLinks && formData().startingLinks.length > 0) {
+      // Create a node for ProjectSettings
+      let projectSettingsNodeId = await createNode(project.uuid, {
+        ProjectSettings: {
+          has_user_specified_starting_links: true,
+        },
+      });
 
-        if (
-          formData().hasStartingLinks &&
-          formData().startingLinks.length > 0
-        ) {
-          // Create a node for ProjectSettings and nodes for Links
-          createNode(project.uuid, {
-            ProjectSettings: {
-              has_user_specified_starting_links: true,
+      if (projectSettingsNodeId !== undefined) {
+        // Create a node per link
+        for (const link in formData().startingLinks) {
+          let linkNodeId = await createNode(project.uuid, {
+            Link: {
+              url: link,
             },
-          });
+          } as NodeWrite);
 
-          for (const link in formData().startingLinks) {
-            createNode(project.uuid, {
-              Link: {
-                url: link,
-              },
+          if (linkNodeId !== undefined) {
+            createEdge(project.uuid, {
+              node_ids: [projectSettingsNodeId, linkNodeId],
+              edge_labels: ["OwnerOf", "BelongsTo"],
             });
           }
         }
 
-        navigate(`/p/${project.uuid}/workflow`);
-      });
-    });
+        // Create a node for Objective
+        let objectiveNodeId = await createNode(project.uuid, {
+          Objective: formData().objective,
+        } as NodeWrite);
+
+        if (objectiveNodeId !== undefined) {
+          createEdge(project.uuid, {
+            node_ids: [projectSettingsNodeId, objectiveNodeId],
+            edge_labels: ["RelatedTo", "RelatedTo"],
+          });
+        }
+      }
+    } else {
+      // Create a node for Objective without ProjectSettings
+      await createNode(project.uuid, {
+        Objective: formData().objective,
+      } as NodeWrite);
+    }
+
+    navigate(`/p/${project.uuid}/workflow`);
   };
 
   return (

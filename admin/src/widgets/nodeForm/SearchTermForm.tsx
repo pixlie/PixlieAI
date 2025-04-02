@@ -1,7 +1,6 @@
 import { Component } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { createStore } from "solid-js/store";
-import { IFormFieldValue } from "../../utils/types";
 import { createNode } from "../../utils/api";
 import { NodeWrite } from "../../api_types/NodeWrite";
 import TextInput from "../interactable/TextInput";
@@ -17,7 +16,7 @@ const SearchTermForm: Component = () => {
     term: "",
   });
 
-  const handleChange = (_: any, value: IFormFieldValue) => {
+  const handleChange = (_: any, value: string | number) => {
     setFormData((existing) => ({
       ...existing,
       term: value as string,
@@ -25,7 +24,7 @@ const SearchTermForm: Component = () => {
   };
 
   const handleSubmit = async () => {
-    createNode(params.projectId, {
+    await createNode(params.projectId, {
       SearchTerm: formData.term,
     } as NodeWrite);
   };

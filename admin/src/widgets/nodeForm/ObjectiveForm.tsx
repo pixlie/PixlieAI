@@ -24,7 +24,7 @@ const ObjectiveForm: Component = () => {
   };
 
   const handleSubmit = async () => {
-    createNode(params.projectId, {
+    await createNode(params.projectId, {
       Objective: formData.topic,
     } as NodeWrite);
   };

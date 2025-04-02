@@ -3,8 +3,8 @@ import TextInput from "../interactable/TextInput";
 import Button from "../interactable/Button";
 
 interface IPropTypes {
-  name?: string;
-  onChange?: (name: string, value: string) => void;
+  name: string;
+  onChange: (name: string, value: string) => void;
 }
 
 interface IFormData {

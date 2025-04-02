@@ -8,7 +8,6 @@ import {
 import TextInput from "../interactable/TextInput";
 import { createStore } from "solid-js/store";
 import { useWorkspace } from "../../stores/workspace";
-import { IFormFieldValue } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
 import ToolTip from "../navigation/ToolTip";
@@ -21,15 +20,16 @@ interface IFormData {
 const BraveSearch: Component = () => {
   const [workspace, { fetchWorkspace, saveWorkspace }] = useWorkspace();
   const [formData, setFormData] = createStore<IFormData>({
-    braveSearchApiKey: workspace.workspace?.apiKeys["BraveSearch" as APIProvider] || "",
+    braveSearchApiKey:
+      workspace.workspace?.apiKeys["BraveSearch" as APIProvider] || "",
   });
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider]
+    !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider],
   );
 
-  const handleChange = (name: string, value: IFormFieldValue) => {
+  const handleChange = (name: string, value: string | number) => {
     setErrorMessage("");
     if (!!value && typeof value === "string") {
       setFormData((existing) => ({
@@ -75,7 +75,7 @@ const BraveSearch: Component = () => {
       ...existing,
       braveSearchApiKey: getBraveSearchApiKey() || "",
     }));
-  })
+  });
 
   return (
     <div>
@@ -85,33 +85,31 @@ const BraveSearch: Component = () => {
         <div>Loading...</div>
       ) : (
         <>
-              <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
-                <li>
-                  - Create an account{" "}
-                  <a
-                    href="https://brave.com/search/api/"
-                    target="_blank"
-                    rel="noreferrer"
-                    class="underline text-blue-500 font-medium"
-                  >
-                    here
-                  </a>
-                </li>
-                <li>
-                  - Create a new key{" "}
-                  <a
-                    href="https://api-dashboard.search.brave.com/app/keys"
-                    target="_blank"
-                    rel="noreferrer"
-                    class="underline text-blue-500 font-medium"
-                  >
-                    here
-                  </a>
-                </li>
-                <li>
-                  - Enter your new key below
-                </li>
-              </ol>
+          <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
+            <li>
+              - Create an account{" "}
+              <a
+                href="https://brave.com/search/api/"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 font-medium"
+              >
+                here
+              </a>
+            </li>
+            <li>
+              - Create a new key{" "}
+              <a
+                href="https://api-dashboard.search.brave.com/app/keys"
+                target="_blank"
+                rel="noreferrer"
+                class="underline text-blue-500 font-medium"
+              >
+                here
+              </a>
+            </li>
+            <li>- Enter your new key below</li>
+          </ol>
           <div class="flex items-center gap-2 pt-2">
             <TextInput
               name="braveSearchApiKey"

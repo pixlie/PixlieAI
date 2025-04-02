@@ -2,7 +2,6 @@ import { Component, createSignal } from "solid-js";
 import TextInput from "../interactable/TextInput";
 import { useWorkspace } from "../../stores/workspace";
 import { createStore } from "solid-js/store";
-import { IFormFieldValue } from "../../utils/types";
 import Icon from "../interactable/Icon";
 import ToolTip from "../navigation/ToolTip";
 import { useUIClasses } from "../../stores/UIClasses";
@@ -19,10 +18,10 @@ const StorageDir: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.settings?.pathToStorageDir
+    !!workspace.settings?.pathToStorageDir,
   );
 
-  const handleChange = (name: string, value: IFormFieldValue) => {
+  const handleChange = (name: string, value: string | number) => {
     if (!!value && typeof value === "string") {
       setFormData((existing) => ({
         ...existing,
