@@ -9,7 +9,7 @@ import ActionsWrapper from "../../widgets/interactable/ActionsWrapper";
 import { slugify } from "../../utils/utils";
 import SaveIcon from "../../assets/icons/feather-save.svg";
 import DeleteIcon from "../../assets/icons/heroicons-trash.svg";
-import RemoveIcon from "../../assets/icons/tabler-cross.svg";
+import DeactivateIcon from "../../assets/icons/tabler-cross.svg";
 import Label from "../../widgets/generic/Label";
 import { useUIClasses } from "../../stores/UIClasses";
 import { insertNode } from "../../utils/api";
@@ -56,16 +56,14 @@ const SearchTermList: Component<ISearchTermListProps> = (
         tooltip: "Delete",
         icon: <DeleteIcon />,
       },
-    ];
-    if (props.type === "active") {
-      wrapperActions.push({
+      {
         render: props.searchTerms[slug].active,
         color: "textDanger",
-        onClick: (_) => props.actions.delete(slug),
-        tooltip: "Remove",
-        icon: <RemoveIcon />,
-      });
-    }
+        onClick: (_) => props.actions.deactivate(slug),
+        tooltip: "Deactivate",
+        icon: <DeactivateIcon />,
+      },
+    ];
     return wrapperActions;
   };
   const getRenderableSearchTerms = createMemo<ISearchTerm[]>(() => {
@@ -90,7 +88,13 @@ const SearchTermList: Component<ISearchTermListProps> = (
                     savedSearchTerm.enabled ? "button.success" : "button.muted"
                   }
                   tooltip={savedSearchTerm.enabled ? "Disable" : "Enable"}
-                  onClick={() => props.actions.toggle(savedSearchTerm.id)}
+                  onClick={() => {
+                    if (props.type === "active" || savedSearchTerm.enabled) {
+                      props.actions.toggle(savedSearchTerm.id);
+                    } else {
+                      props.actions.activate(savedSearchTerm.id);
+                    }
+                  }}
                 >
                   {savedSearchTerm.term}
                 </Label>
@@ -113,37 +117,56 @@ const Search: Component = () => {
     Record<string, ISearchTerm>
   >({});
 
-  const getSavedSearchTermNodes = () =>
-    createMemo(() => {
+  const getEnabledSearchTerms = createMemo<ISearchTerm[]>(() => {
+    return Object.values(searchTerms()).filter((term) => term.enabled);
+  });
+  const getSavedSearchTerms = createMemo<ISearchTerm[]>(() => {
+    return Object.values(searchTerms()).filter((term) => term.enabled);
+  });
+  const getActiveSearchTerms = createMemo<ISearchTerm[]>(() => {
+    return Object.values(searchTerms()).filter((term) => term.active);
+  });
+
+  const getSavedSearchTermNodes = createMemo<string[]>(
+    (previousSearchTerms: string[]): string[] => {
       const searchTermNodes = getNodes(params.projectId, (node) =>
         node.labels.includes("SearchTerm"),
       );
-      setSearchTerms((existing) => ({
-        ...existing,
-        ...Object.fromEntries(
-          searchTermNodes.map((node) => {
-            const slug = slugify(node.payload.data as string);
-            return [
-              slug,
-              {
-                id: slug,
-                term: node.payload.data as string,
-                enabled: existing[slug]?.enabled || false,
-                active: existing[slug]?.active || false,
-                saved: true,
-              },
-            ];
-          }),
-        ),
-      }));
-    });
+      const newSlugs = [];
+      for (const node of searchTermNodes) {
+        const term = node.payload.data as string;
+        const slug = slugify(term);
+        if (!(slug in previousSearchTerms)) {
+          newSlugs.push(slug);
+        }
+      }
+      if (newSlugs.length > 0) {
+        setSearchTerms((existing) => ({
+          ...existing,
+          ...Object.fromEntries(
+            searchTermNodes.map((node) => {
+              const slug = slugify(node.payload.data as string);
+              return [
+                slug,
+                {
+                  id: slug,
+                  term: node.payload.data as string,
+                  enabled: existing[slug]?.enabled || false,
+                  active: existing[slug]?.active || false,
+                  saved: true,
+                },
+              ];
+            }),
+          ),
+        }));
+      }
+      return Object.keys(getSavedSearchTerms());
+    },
+    [] as string[],
+  );
 
   onMount(() => {
     getSavedSearchTermNodes();
-  });
-
-  const getEnabledSearchTerms = createMemo<ISearchTerm[]>(() => {
-    return Object.values(searchTerms()).filter((term) => term.enabled);
   });
 
   const handleSearchTermChange = (_name: string, data: IFormFieldValue) => {
@@ -192,6 +215,7 @@ const Search: Component = () => {
         [slug]: {
           ...existing[slug],
           active: false,
+          enabled: false,
         },
       };
     });
@@ -230,19 +254,19 @@ const Search: Component = () => {
   return (
     <>
       <Heading size={3}>Search</Heading>
-      <TextInput
-        name="query"
-        placeholder={
-          Object.keys(searchTerms()).length === 0
-            ? "Search for…"
-            : "Add another keyword…"
-        }
-        value={formData().searchTerm}
-        onChange={handleSearchTermChange}
-        onKeyUp={handleKeyUp}
-        isEditable
-      />
-      <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-2">
+        <TextInput
+          name="query"
+          placeholder={
+            getActiveSearchTerms().length === 0
+              ? "Search for…"
+              : "Add another keyword…"
+          }
+          value={formData().searchTerm}
+          onChange={handleSearchTermChange}
+          onKeyUp={handleKeyUp}
+          isEditable
+        />
         <SearchTermList
           searchTerms={searchTerms()}
           type="saved"
@@ -253,15 +277,20 @@ const Search: Component = () => {
           type="active"
           actions={searchTermListActions}
         />
-
-        {getEnabledSearchTerms().length > 0 ? (
+        <div
+          class="px-3"
+          classList={{
+            invisible: getEnabledSearchTerms().length > 0,
+          }}
+        >
+          Enter a keyword or enable one to get started
+        </div>
+        {getEnabledSearchTerms().length > 0 && (
           <SearchResults
             searchTerms={getEnabledSearchTerms().map(
               (searchTerm) => searchTerm.term,
             )}
           />
-        ) : (
-          <div class="px-3">Enter/enable a search term to get started</div>
         )}
       </div>
     </>
