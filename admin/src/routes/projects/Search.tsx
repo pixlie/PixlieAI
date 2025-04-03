@@ -82,13 +82,14 @@ const SearchTermList: Component<ISearchTermListProps> = (
                 id={savedSearchTerm.id}
                 onClick={() => props.actions.toggle(savedSearchTerm.id)}
                 actions={getWrapperActions(savedSearchTerm.id)}
+                flipActionsAndTooltip={props.type === "saved"}
               >
                 <Label
                   color={
                     savedSearchTerm.enabled ? "button.success" : "button.muted"
                   }
                   tooltip={savedSearchTerm.enabled ? "Disable" : "Enable"}
-                  tooltipPosition="top"
+                  tooltipPosition={props.type === "active" ? "top" : "bottom"}
                   onClick={() => {
                     if (props.type === "active" || savedSearchTerm.enabled) {
                       props.actions.toggle(savedSearchTerm.id);
@@ -110,6 +111,7 @@ const SearchTermList: Component<ISearchTermListProps> = (
 
 const Search: Component = () => {
   const [_e, { getNodes }] = useEngine();
+  const [_u, { getColors }] = useUIClasses();
   const params = useParams();
   const [formData, setFormData] = createSignal<IFormData>({
     searchTerm: "",
@@ -255,7 +257,7 @@ const Search: Component = () => {
   return (
     <>
       <Heading size={3}>Search</Heading>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-5">
         <TextInput
           name="query"
           placeholder={
@@ -279,9 +281,9 @@ const Search: Component = () => {
           actions={searchTermListActions}
         />
         <div
-          class="px-3"
+          class={`px-3 block place-self-center py-10 text-2xl ${getColors().textSoft}`}
           classList={{
-            invisible: getEnabledSearchTerms().length > 0,
+            hidden: getEnabledSearchTerms().length > 0,
           }}
         >
           Enter a keyword or enable one to get started

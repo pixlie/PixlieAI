@@ -89,6 +89,7 @@ interface IActionsWrapper {
   children: string | JSX.Element | JSX.Element[];
   actions: IActionsWrapperAction[];
   tooltip?: string;
+  flipActionsAndTooltip?: boolean;
   class?: JSX.HTMLAttributes<HTMLSpanElement>["class"];
   title?: JSX.HTMLAttributes<HTMLSpanElement>["title"];
   onClick?: (id: string) => void;
