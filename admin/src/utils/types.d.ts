@@ -98,6 +98,7 @@ interface ILabel {
   children: string | JSXElement;
   color: TailwindClassKeyType;
   tooltip?: string;
+  tooltipPosition?: "top" | "bottom";
   title?: JSX.HTMLAttributes<HTMLSpanElement>["title"];
   class?: JSX.HTMLAttributes<HTMLSpanElement>["class"];
   onClick?: JSX.CustomEventHandlersCamelCase<HTMLSpanElement>["onClick"];

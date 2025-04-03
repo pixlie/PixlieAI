@@ -16,7 +16,11 @@ const Label: Component<ILabel> = (props) => {
   );
   if (props.tooltip) {
     return (
-      <ToolTip text={props.tooltip} textSize="xs">
+      <ToolTip
+        text={props.tooltip}
+        textSize="xs"
+        position={props.tooltipPosition || "bottom"}
+      >
         {labelRef}
       </ToolTip>
     );

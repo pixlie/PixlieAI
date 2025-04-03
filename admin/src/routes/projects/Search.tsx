@@ -88,6 +88,7 @@ const SearchTermList: Component<ISearchTermListProps> = (
                     savedSearchTerm.enabled ? "button.success" : "button.muted"
                   }
                   tooltip={savedSearchTerm.enabled ? "Disable" : "Enable"}
+                  tooltipPosition="top"
                   onClick={() => {
                     if (props.type === "active" || savedSearchTerm.enabled) {
                       props.actions.toggle(savedSearchTerm.id);
@@ -199,14 +200,14 @@ const Search: Component = () => {
       ...existing,
       [slug]: {
         ...existing[slug],
-        enabled: !existing[slug].enabled,
+        enabled: slug in existing ? !existing[slug]?.enabled : false,
       },
     }));
   };
 
   const deactivateSearchTerm = (slug: string) => {
     setSearchTerms((existing) => {
-      if (!existing[slug].saved) {
+      if (slug in existing && !existing[slug].saved) {
         delete existing[slug];
         return existing;
       }

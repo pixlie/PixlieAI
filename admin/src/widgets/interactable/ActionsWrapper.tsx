@@ -18,7 +18,7 @@ const ActionsWrapperAction: Component<IWrapperAction> = (props) => {
             !!props.onClick,
           "opacity-60": !props.onClick,
           [getColors()[props.color || "textSoft"]]: !!props.onClick,
-          [getColors()[props.color || "textMuted"]]: !props.onClick,
+          [getColors()["textMuted"]]: !props.onClick,
         }}
         onClick={() => {
           if (props.onClick) {
@@ -35,8 +35,8 @@ const ActionsWrapperAction: Component<IWrapperAction> = (props) => {
 
 const ActionsWrapper: Component<IActionsWrapper> = (props) => {
   return (
-    <div class="inline-flex group/actions-wrapper flex-col gap-0">
-      <span class="invisible group-hover/actions-wrapper:visible px-0.5 gap-1 flex items-end justify-center">
+    <div class="inline-block group/actions-wrapper relative">
+      <div class="gap-0 flex justify-center absolute top-1/2 -translate-y-1 opacity-0 transition duration-200 group-hover/actions-wrapper:opacity-100 group-hover/actions-wrapper:top-full group-hover/actions-wrapper:translate-y-0 w-full">
         <For each={props.actions}>
           {(action) => {
             const actionRef = (
@@ -44,7 +44,7 @@ const ActionsWrapper: Component<IActionsWrapper> = (props) => {
             );
             if (!!action.tooltip) {
               return (
-                <ToolTip text={action.tooltip} textSize="xs" position="top">
+                <ToolTip text={action.tooltip} textSize="xs" position="bottom">
                   {actionRef}
                 </ToolTip>
               );
@@ -52,7 +52,7 @@ const ActionsWrapper: Component<IActionsWrapper> = (props) => {
             return actionRef;
           }}
         </For>
-      </span>
+      </div>
       {props.children}
     </div>
   );
