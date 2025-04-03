@@ -1,17 +1,15 @@
 import { Component, createSignal } from "solid-js";
-// import LinkForm from "../../widgets/nodeForm/LinkForm";
-import Heading from "../../widgets/typography/Heading";
-import { WorkflowSidebar } from "./Workflow";
 import { IFormFieldValue } from "../../utils/types";
 import { getPixlieAIAPIRoot, insertNode } from "../../utils/api";
 import { ProjectCreate } from "../../api_types/ProjectCreate";
 import { Project } from "../../api_types/Project";
 import { NodeWrite } from "../../api_types/NodeWrite";
 import { useNavigate } from "@solidjs/router";
-import Paragraph from "../../widgets/typography/Paragraph";
-import TextArea from "../../widgets/interactable/TextArea";
-import Button from "../../widgets/interactable/Button";
-// import Toggle from "../../widgets/interactable/Toggle";
+import ToolTip from "../../widgets/navigation/ToolTip";
+import InfoPopOver from "./InfoPopOver";
+import PromptInput from "../../widgets/interactable/PromptInput";
+import SendIcon from "../../assets/icons/tabler-arrow-up.svg";
+import BackgroundImage from "../../assets/background.webp";
 
 interface IFormData {
   objective: string;
@@ -61,52 +59,44 @@ const CreateWorkflow: Component = () => {
   };
 
   return (
-    <div class="flex gap-x-12">
-      <div class="w-48" />
+    <div class="flex flex-col w-full h-full justify-end pb-12 items-center relative">
+      <div
+        class="absolute inset-0 bg-center bg-contain bg-no-repeat opacity-50 z-0"
+        style={{
+          "background-image": `url(${BackgroundImage}`,
+          "background-size": "contain",
+          "background-position": "center",
+          "background-repeat": "no-repeat",
+          overflow: "hidden",
+        }}
+      />
+      <div class="relative w-1/2 items-end bg-white/40 backdrop-blur-md rounded-3xl border-slate-100 border shadow-lg p-5 flex flex-col gap-4">
+        <PromptInput
+          id="projectObjective"
+          name="objective"
+          placeholder="Describe your objective..."
+          isEditable
+          onChange={handleChange}
+          value={formData().objective}
+        />
 
-      <div class="flex-1 flex flex-col">
-        <div class="max-w-screen-md space-y-2">
-          <Heading size={3}>Objective</Heading>
-
-          <Paragraph size="sm">
-            What do you want to extract from the web? You may state this in
-            plain English. Feel free to use topics and keywords that you care
-            about. Pixlie will continue crawling the web as long as pages match
-            your objective.
-          </Paragraph>
-
-          <TextArea
-            id="projectObjective"
-            name="objective"
-            isEditable
-            onChange={handleChange}
-            value={formData().objective}
-          />
-
-          {/* <div class="flex items-center gap-x-2">
-            <Toggle />
-            Specify links to start crawling from.
-          </div>
-
-          <Heading size={3}>Starting links</Heading>
-          <NodeGrid nodeType={"Link"} source={} />
-          <div class="max-w-screen-sm">
-            <LinkForm />
-          </div> */}
-
-          <div class="pt-6 flex space-x-3">
-            <div class="flex-1" />
-            <Button label="Cancel" href="/" />
-            <Button
-              label="Save"
-              colorTheme="success"
-              onClick={handleFormSubmit}
-            />
+        <div class="h-10 w-full flex items-center justify-between">
+          <InfoPopOver />
+          <div
+            class="rounded-full shadow transition duration-150 ease-out  scale-95"
+            style={{ "background-color": "#00C853" }}
+          >
+            <ToolTip text="Send">
+              <button
+                onClick={handleFormSubmit}
+                class="rounded-full p-2 self-end w-10 text-white hover:bg-green-600 cursor-pointer"
+              >
+                <SendIcon />
+              </button>
+            </ToolTip>
           </div>
         </div>
       </div>
-
-      <WorkflowSidebar />
     </div>
   );
 };

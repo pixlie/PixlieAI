@@ -15,10 +15,10 @@ const ToolTip: Component<ToolTipProps> = (props) => {
     props.position = "bottom";
   }
   return (
-    <div class="relative group/tooltip">
+    <div class="relative group/tooltip inline-block">
       <div class="m-0 p-0">{props.children}</div>
       <div
-        class="absolute hidden group-hover/tooltip:block left-1/2 transform -translate-x-1/2 px-2 py-1 text-white bg-gray-900 rounded-lg whitespace-nowrap z-50 drop-shadow-[0_0_5px_white]"
+        class="pointer-events-none absolute left-1/2 transform -translate-x-1/2 px-2 py-1.5 font-medium text-white bg-gray-900 rounded-md whitespace-nowrap opacity-0 translate-y-1 scale-95 transition duration-150 ease-out z-50 drop-shadow-[0_0_5px_white] group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 group-hover/tooltip:scale-100"
         classList={{
           "text-xs": props.textSize === "xs",
           "text-sm": props.textSize === "sm",

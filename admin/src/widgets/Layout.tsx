@@ -21,15 +21,15 @@ const Layout: Component<ILayoutProps> = (props) => {
       <div class="relative">
         {location.hash === "#settings" && <SettingsModal />}
       </div>
-      <div class="mt-20 flex-1 flex p-6 gap-6 w-full">
+      <div class="mt-12 flex-1 flex p-8 gap-8 w-full">
         <Sidebar />
         <div
           class={
-            "flex flex-col flex-1 rounded border " + getColors().mainContent
+            "flex flex-col flex-1 rounded-lg border " + getColors().mainContent
           }
         >
           {/* <Breadcrumb /> */}
-          <div class="flex flex-col flex-1 overflow-scroll p-6 gap-6">
+          <div class="flex flex-col flex-1 overflow-scroll p-8 gap-4">
             {props.children}
           </div>
         </div>
