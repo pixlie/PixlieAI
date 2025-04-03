@@ -1,6 +1,14 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
+use crate::entity::crawler::CrawlerSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
@@ -33,7 +41,9 @@ pub struct LinkWrite {
 #[derive(Clone, Deserialize, TS)]
 #[ts(export)]
 pub struct ProjectSettingsWrite {
-    pub has_user_specified_starting_links: bool,
+    pub extract_data_only_from_specified_links: bool,
+    pub crawl_within_domains_of_specified_links: bool,
+    pub crawl_direct_links_from_specified_links: bool,
 }
 
 #[derive(Clone, Deserialize, Display, TS)]
@@ -101,18 +111,22 @@ pub enum APIPayload {
     Tree(String),
     TableRow(TableRow),
     ProjectSettings(ProjectSettings),
+    CrawlerSettings(CrawlerSettings),
 }
 
 impl APIPayload {
-    pub fn from_payload(payload: Payload) -> APIPayload {
+    pub fn from_payload(payload: &Payload) -> APIPayload {
         match payload {
-            Payload::Link(link) => APIPayload::Link(link),
-            Payload::Text(text) => APIPayload::Text(text),
+            Payload::Link(link) => APIPayload::Link(link.clone()),
+            Payload::Text(text) => APIPayload::Text(text.to_string()),
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
-            Payload::TableRow(table_row) => APIPayload::TableRow(table_row),
+            Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),
             Payload::ProjectSettings(project_settings) => {
-                APIPayload::ProjectSettings(project_settings)
+                APIPayload::ProjectSettings(project_settings.clone())
+            }
+            Payload::CrawlerSettings(crawler_settings) => {
+                APIPayload::CrawlerSettings(crawler_settings.clone())
             }
         }
     }
@@ -126,10 +140,11 @@ pub enum APINodeFlags {
     IsProcessed,
     IsRequesting,
     IsBlocked,
+    HadError,
 }
 
 impl APINodeFlags {
-    pub fn from_node_flags(flags: NodeFlags) -> Vec<APINodeFlags> {
+    pub fn from_node_flags(flags: &NodeFlags) -> Vec<APINodeFlags> {
         let mut api_flags = vec![];
         if flags.contains(NodeFlags::IS_PROCESSED) {
             api_flags.push(APINodeFlags::IsProcessed);
@@ -139,6 +154,9 @@ impl APINodeFlags {
         }
         if flags.contains(NodeFlags::IS_BLOCKED) {
             api_flags.push(APINodeFlags::IsBlocked);
+        }
+        if flags.contains(NodeFlags::HAD_ERROR) {
+            api_flags.push(APINodeFlags::HadError);
         }
         api_flags
     }
@@ -547,8 +565,8 @@ pub fn handle_engine_api_request(
                     Some(arced_node) => Some(APINodeItem {
                         id: **node_id,
                         labels: arced_node.labels.clone(),
-                        payload: APIPayload::from_payload(arced_node.payload.clone()),
-                        flags: APINodeFlags::from_node_flags(arced_node.flags.clone()),
+                        payload: APIPayload::from_payload(&arced_node.payload),
+                        flags: APINodeFlags::from_node_flags(&arced_node.flags),
                         written_at: arced_node.written_at.clone(),
                     }),
                     None => None,
@@ -564,8 +582,8 @@ pub fn handle_engine_api_request(
                     nodes.push(APINodeItem {
                         id: node.id.clone(),
                         labels: node.labels.clone(),
-                        payload: APIPayload::from_payload(node.payload.clone()),
-                        flags: APINodeFlags::from_node_flags(node.flags.clone()),
+                        payload: APIPayload::from_payload(&node.payload),
+                        flags: APINodeFlags::from_node_flags(&node.flags),
                         written_at: node.written_at.clone(),
                     });
                 }
@@ -583,8 +601,8 @@ pub fn handle_engine_api_request(
                             Some(APINodeItem {
                                 id: node.id.clone(),
                                 labels: node.labels.clone(),
-                                payload: APIPayload::from_payload(node.payload.clone()),
-                                flags: APINodeFlags::from_node_flags(node.flags.clone()),
+                                payload: APIPayload::from_payload(&node.payload),
+                                flags: APINodeFlags::from_node_flags(&node.flags),
                                 written_at: node.written_at.clone(),
                             })
                         } else {
@@ -599,8 +617,8 @@ pub fn handle_engine_api_request(
                     .map(|node| APINodeItem {
                         id: node.id.clone(),
                         labels: node.labels.clone(),
-                        payload: APIPayload::from_payload(node.payload.clone()),
-                        flags: APINodeFlags::from_node_flags(node.flags.clone()),
+                        payload: APIPayload::from_payload(&node.payload),
+                        flags: APINodeFlags::from_node_flags(&node.flags),
                         written_at: node.written_at.clone(),
                     })
                     .collect(),
@@ -681,8 +699,12 @@ pub fn handle_engine_api_request(
                 NodeWrite::ProjectSettings(project_settings_write) => engine
                     .get_or_add_node(
                         Payload::ProjectSettings(ProjectSettings {
-                            has_user_specified_starting_links: project_settings_write
-                                .has_user_specified_starting_links,
+                            extract_data_only_from_specified_links: project_settings_write
+                                .extract_data_only_from_specified_links,
+                            crawl_within_domains_of_specified_links: project_settings_write
+                                .crawl_within_domains_of_specified_links,
+                            crawl_direct_links_from_specified_links: project_settings_write
+                                .crawl_direct_links_from_specified_links,
                         }),
                         vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
                         true,
@@ -711,8 +733,8 @@ pub fn handle_engine_api_request(
                                     .map(|x| APINodeItem {
                                         id: x.id.clone(),
                                         labels: x.labels.clone(),
-                                        payload: APIPayload::from_payload(x.payload.clone()),
-                                        flags: APINodeFlags::from_node_flags(x.flags.clone()),
+                                        payload: APIPayload::from_payload(&x.payload),
+                                        flags: APINodeFlags::from_node_flags(&x.flags),
                                         written_at: x.written_at.clone(),
                                     })
                                     .collect::<Vec<APINodeItem>>(),

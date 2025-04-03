@@ -1,104 +1,34 @@
-use crate::engine::node::{NodeItem, NodeLabel, Payload};
-use crate::engine::{EdgeLabel, Engine};
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
+use crate::engine::node::NodeItem;
+use crate::engine::Engine;
+use crate::entity::crawler::CrawlerSettings;
+use crate::entity::project_settings::ProjectSettings;
+use crate::utils::llm::LLMPrompt;
 use crate::{
     error::PiResult,
-    utils::llm_schema::{clean_ts_type, LLMSchema},
+    utils::llm::{clean_ts_type, LLMSchema},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use strum::Display;
 use ts_rs::TS;
-
-#[derive(Deserialize, TS)]
-pub enum ContinueCrawl {
-    IfContentHasKeywords(Vec<String>),
-    // IfContentClassifiedAs(Vec<String>),
-    // IfNamedEntityExtracted(Vec<NamedEntity>),
-}
-
-impl LLMSchema for ContinueCrawl {}
-
-#[derive(Deserialize, TS)]
-pub struct CrawlSpecification {
-    pub web_search_keywords_to_get_starting_urls_for_crawl: Option<Vec<String>>,
-    pub conditions_to_continue_crawling: Option<ContinueCrawl>,
-}
-
-impl LLMSchema for CrawlSpecification {
-    fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_continue_crawl = ContinueCrawl::get_schema_for_llm(node, engine.clone())?;
-        let ts_self = clean_ts_type(&Self::export_to_string()?);
-
-        // If the payload is for an Objective and there is a ProjectSetting connected to it,
-        // then we check if there is a setting for starting links
-        // If starting links are to be manually provided, then we remove the web_search_keywords_for_objective field
-        let mut has_web_search_keywords_to_get_starting_urls_for_crawl: bool = true;
-        match node.payload {
-            Payload::Text(_) => {
-                if node.labels.contains(&NodeLabel::Objective) {
-                    let project_settings_node_id = engine
-                        .get_node_ids_connected_with_label(&node.id, &EdgeLabel::RelatedTo)?;
-                    if project_settings_node_id.len() > 0 {
-                        match engine.get_node_by_id(&project_settings_node_id[0]) {
-                            Some(project_settings_node) => match &project_settings_node.payload {
-                                Payload::ProjectSettings(project_settings) => {
-                                    if project_settings.has_user_specified_starting_links {
-                                        has_web_search_keywords_to_get_starting_urls_for_crawl =
-                                            false;
-                                    }
-                                }
-                                _ => {}
-                            },
-                            None => {}
-                        }
-                    }
-                }
-            }
-            _ => {}
-        };
-
-        let ts_self = if has_web_search_keywords_to_get_starting_urls_for_crawl {
-            // Change the field web_search_keywords_for_objective to non-null
-            ts_self
-                .lines()
-                .map(|line| {
-                    line.replace(
-                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string> | null",
-                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string>",
-                    )
-                })
-                .collect::<Vec<String>>()
-                .join("\n")
-                .trim()
-                .to_string()
-        } else {
-            ts_self
-                .lines()
-                .map(|line| {
-                    line.replace(
-                        "web_search_keywords_to_get_starting_urls_for_crawl: Array<string> | null, ",
-                        "",
-                    )
-                })
-                .collect::<Vec<String>>()
-                .join("\n")
-                .trim()
-                .to_string()
-        };
-
-        Ok(format!("{}\n{}", ts_continue_crawl, ts_self))
-    }
-}
 
 // Features that are available in Pixlie for an AI agent
 #[derive(Deserialize, TS)]
 pub enum Tool {
-    Crawler(CrawlSpecification),
+    Crawler(CrawlerSettings),
     // NamedEntityExtraction(Vec<NamedEntity>),
 }
 
 impl LLMSchema for Tool {
     fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_crawl = CrawlSpecification::get_schema_for_llm(node, engine)?;
+        let ts_crawl = CrawlerSettings::get_schema_for_llm(node, engine)?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         Ok(format!("{}\n{}", ts_crawl, ts_self))
@@ -117,5 +47,42 @@ impl LLMSchema for LLMResponse {
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         Ok(format!("{}\n{}", ts_tool, ts_self))
+    }
+}
+
+#[derive(Display)]
+pub enum PixlieFeature {
+    Crawler,
+}
+
+#[derive(Serialize)]
+pub struct ProjectState {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_settings: Option<ProjectSettings>,
+    pub objective: String,
+    // pub features_available: Vec<String>,
+}
+
+impl LLMPrompt for ProjectState {
+    fn get_prompt(
+        &self,
+        llm_response_schema: &String,
+        _node: &NodeItem,
+        _engine: Arc<&Engine>,
+    ) -> PiResult<String> {
+        Ok(format!(
+            r#"I am a software bot and here is my current state:
+```json
+{}
+```
+
+Using the following schema, please respond in JSON with `LLMResponse` to achieve the objective.
+```typescript
+{}
+```
+"#,
+            serde_json::to_string(self)?,
+            llm_response_schema
+        ))
     }
 }

@@ -1,5 +1,13 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::content::TableRow;
+use crate::entity::crawler::CrawlerSettings;
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -22,6 +30,7 @@ pub enum Payload {
     Tree, // Tree can contain nodes of any payload type, including other trees
     TableRow(TableRow),
     ProjectSettings(ProjectSettings),
+    CrawlerSettings(CrawlerSettings),
 }
 
 pub(crate) type NodeId = u32;
@@ -49,7 +58,8 @@ pub enum NodeLabel {
     WebPage,
     WebSearch,
     CrawlCondition,
-    ProjectSettings
+    ProjectSettings,
+    CrawlerSettings,
 }
 
 impl Default for NodeFlags {
@@ -78,8 +88,18 @@ impl NodeItem {
             WebPage::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), None)?;
-        } else if self.labels.contains(&NodeLabel::WebSearch) {
-            WebSearch::process(self, arced_engine.clone(), None)?;
+        } else if self.labels.contains(&NodeLabel::CrawlerSettings) {
+            match &self.payload {
+                Payload::CrawlerSettings(crawler_settings) => {
+                    match &crawler_settings.keywords_to_search_the_web_to_get_starting_urls {
+                        Some(_) => {
+                            WebSearch::process(self, arced_engine.clone(), None)?;
+                        }
+                        None => {}
+                    }
+                }
+                _ => {}
+            }
         }
         Ok(())
     }

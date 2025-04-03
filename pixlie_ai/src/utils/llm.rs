@@ -1,6 +1,15 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
-use crate::error::PiResult;
+use crate::entity::pixlie::LLMResponse;
+use crate::error::{PiError, PiResult};
+use crate::FetchRequest;
 use std::sync::Arc;
 use ts_rs::TS;
 
@@ -24,4 +33,27 @@ where
     fn get_schema_for_llm(_node: &NodeItem, _engine: Arc<&Engine>) -> PiResult<String> {
         Ok(clean_ts_type(&Self::export_to_string()?))
     }
+}
+
+pub trait LLMPrompt {
+    fn get_prompt(
+        &self,
+        _llm_response_schema: &String,
+        _node: &NodeItem,
+        _engine: Arc<&Engine>,
+    ) -> PiResult<String> {
+        Err(PiError::FeatureNotAvailable(
+            "Object does not generate a prompt for LLMs".to_string(),
+        ))
+    }
+}
+
+pub trait LLMProvider {
+    fn get_request(_prompt: &String, _calling_node_id: u32) -> PiResult<FetchRequest> {
+        Err(PiError::FeatureNotAvailable(
+            "LLM does not generate a request".to_string(),
+        ))
+    }
+
+    fn parse_response(response: &str) -> PiResult<LLMResponse>;
 }

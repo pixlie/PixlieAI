@@ -1,13 +1,20 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use crate::engine::node::{NodeItem, NodeLabel};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
-use crate::entity::pixlie::{ContinueCrawl, LLMResponse, Tool};
-use crate::entity::text::Text;
+use crate::entity::pixlie::{LLMResponse, ProjectState, Tool};
+use crate::entity::project_settings::ProjectSettings;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
 use crate::services::anthropic::Anthropic;
-use crate::services::llm_provider::LLMProvider;
 use crate::utils::crud::Crud;
-use crate::utils::llm_schema::LLMSchema;
+use crate::utils::llm::LLMSchema;
+use crate::utils::llm::{LLMPrompt, LLMProvider};
 use crate::{
     engine::node::{ArcedNodeId, ArcedNodeItem, Payload},
     error::PiResult,
@@ -66,44 +73,20 @@ impl Objective {
 
                     for feature in parsed_response.tools_needed_to_accomplish_objective {
                         match feature {
-                            Tool::Crawler(crawl) => {
-                                match crawl.web_search_keywords_to_get_starting_urls_for_crawl {
-                                    Some(web_search_keywords) => {
-                                        for web_search_keywords in web_search_keywords {
-                                            let web_search_node_id = Text::add(
-                                                engine.clone(),
-                                                &web_search_keywords,
-                                                vec![NodeLabel::AddedByAI, NodeLabel::WebSearch],
-                                            )?;
-                                            engine.add_connection(
-                                                (node.id, web_search_node_id),
-                                                (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
-                                            )?;
-                                        }
-                                    }
-                                    None => {}
-                                }
-                                if let Some(continue_crawl) = crawl.conditions_to_continue_crawling
-                                {
-                                    match continue_crawl {
-                                        ContinueCrawl::IfContentHasKeywords(keywords) => {
-                                            for crawl_condition in keywords {
-                                                let crawl_condition_node_id = Text::add(
-                                                    engine.clone(),
-                                                    &crawl_condition,
-                                                    vec![
-                                                        NodeLabel::AddedByAI,
-                                                        NodeLabel::CrawlCondition,
-                                                    ],
-                                                )?;
-                                                engine.add_connection(
-                                                    (node.id, crawl_condition_node_id),
-                                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
-                                                )?;
-                                            }
-                                        }
-                                    };
-                                }
+                            Tool::Crawler(crawler_settings) => {
+                                let crawler_settings_node_id = engine
+                                    .get_or_add_node(
+                                        Payload::CrawlerSettings(crawler_settings),
+                                        vec![NodeLabel::AddedByAI, NodeLabel::CrawlerSettings],
+                                        true,
+                                        None,
+                                    )?
+                                    .get_node_id();
+
+                                engine.add_connection(
+                                    (node.id, crawler_settings_node_id),
+                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                                )?;
                             }
                         }
                     }
@@ -121,12 +104,34 @@ impl Objective {
     }
 
     fn request_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
-        let pixlie_schema = Self::get_llm_response_schema(node, engine.clone())?;
-
         if node.labels.contains(&NodeLabel::Objective) {
             match &node.payload {
                 Payload::Text(text) => {
-                    let engine_request = Anthropic::get_request(&pixlie_schema, text, node.id)?;
+                    let project_settings: Option<ProjectSettings> = {
+                        let related_node_ids = engine
+                            .get_node_ids_connected_with_label(&node.id, &EdgeLabel::RelatedTo)?;
+                        related_node_ids.iter().find_map(|related_node_id| {
+                            match engine.get_node_by_id(related_node_id) {
+                                Some(node) => match &node.payload {
+                                    Payload::ProjectSettings(project_settings) => {
+                                        Some(project_settings.clone())
+                                    }
+                                    _ => None,
+                                },
+                                None => None,
+                            }
+                        })
+                    };
+                    let project_state = ProjectState {
+                        project_settings,
+                        objective: text.clone(),
+                    };
+                    let llm_prompt = project_state.get_prompt(
+                        &Self::get_llm_response_schema(&node, engine.clone())?,
+                        node,
+                        engine.clone(),
+                    )?;
+                    let engine_request = Anthropic::get_request(&llm_prompt, node.id)?;
                     engine.fetch_api(engine_request)
                 }
                 _ => Err(PiError::GraphError(
@@ -156,7 +161,7 @@ mod tests {
         let test_engine = get_test_engine();
         let arced_test_engine = Arc::new(&test_engine);
         let objective =
-            "Track software engineeing jobs that need full-stack Python and TypeScript skills"
+            "Track software engineering jobs that need full-stack Python and TypeScript skills"
                 .to_string();
         let objective_node_id = arced_test_engine
             .get_or_add_node(
@@ -175,9 +180,8 @@ mod tests {
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
         assert_eq!(
             llm_schema,
-            r#"type ContinueCrawl = { "IfContentHasKeywords": Array<string> };
-type CrawlSpecification = { web_search_keywords_to_get_starting_urls_for_crawl: Array<string>, conditions_to_continue_crawling: ContinueCrawl | null, };
-type Tool = { "Crawler": CrawlSpecification };
+            r#"type CrawlerSettings = { keywords_to_search_the_web_to_get_starting_urls: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+type Tool = { "Crawler": CrawlerSettings };
 type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#
         )
     }
@@ -190,7 +194,9 @@ type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_acc
         let project_settings_node_id = arced_test_engine
             .get_or_add_node(
                 Payload::ProjectSettings(ProjectSettings {
-                    has_user_specified_starting_links: true,
+                    crawl_direct_links_from_specified_links: true,
+                    crawl_within_domains_of_specified_links: true,
+                    ..Default::default()
                 }),
                 vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
                 true,
@@ -252,9 +258,8 @@ type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_acc
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
         assert_eq!(
             llm_schema,
-            r#"type ContinueCrawl = { "IfContentHasKeywords": Array<string> };
-type CrawlSpecification = { conditions_to_continue_crawling: ContinueCrawl | null, };
-type Tool = { "Crawler": CrawlSpecification };
+            r#"type CrawlerSettings = { crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+type Tool = { "Crawler": CrawlerSettings };
 type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#
         )
     }

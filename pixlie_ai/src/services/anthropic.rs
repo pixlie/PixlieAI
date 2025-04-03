@@ -1,11 +1,12 @@
-// Copyright 2024 Pixlie Web Solutions Pvt. Ltd.
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
 // Licensed under the GNU General Public License version 3.0;
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::services::llm_provider::LLMProvider;
+use crate::entity::pixlie::LLMResponse;
+use crate::utils::llm::LLMProvider;
 use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
     entity::ExtractedEntity,
@@ -18,7 +19,6 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use crate::entity::pixlie::LLMResponse;
 
 #[derive(Debug, Deserialize)]
 pub struct ClaudeResponse {
@@ -80,28 +80,8 @@ pub struct SearchTermPromptInput {
 const LL_MODEL_HAIKU: &str = "claude-3-5-haiku-latest";
 
 pub struct Anthropic;
-
 impl LLMProvider for Anthropic {
-    fn get_prompt_for_objective(pixlie_schema: &String, objective: &String) -> PiResult<String> {
-        Ok(format!(
-            r#"I am a bot who can understand JSON in the following schema:
-```typescript
-{}
-```
-
-I have the following objective:
-{}
-
-Please respond in JSON with `LLMResponse` to achieve the objective."#,
-            pixlie_schema, objective
-        ))
-    }
-
-    fn get_request(
-        pixlie_schema: &String,
-        objective: &String,
-        calling_node_id: u32,
-    ) -> PiResult<FetchRequest> {
+    fn get_request(prompt: &String, calling_node_id: u32) -> PiResult<FetchRequest> {
         // Skip if there is no Anthropic API key
         let key = match WorkspaceCollection::get_default()?.get_api_key(&APIProvider::Anthropic) {
             Some(key) => key.to_string(),
@@ -125,7 +105,7 @@ Please respond in JSON with `LLMResponse` to achieve the objective."#,
             system: None,
             messages: vec![ClaudeChatMessage {
                 role: "user",
-                content: Self::get_prompt_for_objective(pixlie_schema, objective)?,
+                content: prompt.to_string(),
             }],
         };
         let serialized_payload = serde_json::to_string(&payload)?;
