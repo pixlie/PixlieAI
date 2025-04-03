@@ -1,15 +1,19 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-use crate::engine::engine::get_test_engine;
-use crate::engine::node::{ArcedNodeItem, NodeItem, NodeLabel, Payload};
-use crate::engine::EdgeLabel;
-use crate::entity::web::link::Link;
-use crate::entity::web::web_page::WebPage;
-use std::sync::Arc;
-use url::Url;
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 #[test]
 fn test_webpage_scraper_rlhf_book() {
+    use crate::engine::engine::get_test_engine;
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
+    use crate::engine::EdgeLabel;
+    use crate::entity::web::link::Link;
+    use std::sync::Arc;
+    use url::Url;
+
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
     let link_node_id = Link::add(
@@ -726,8 +730,9 @@ RLHF</a></li>
 #[test]
 fn test_extraction_from_hn_homepage() {
     use crate::engine::engine::get_test_engine;
+    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::EdgeLabel;
     use crate::entity::web::link::Link;
-    use crate::entity::web::web_page::WebPage;
     use std::sync::Arc;
 
     let test_engine = get_test_engine();
@@ -774,6 +779,158 @@ fn test_extraction_from_hn_homepage() {
     // Count the number of Link nodes
     let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
     assert_eq!(link_node_ids.len(), 222);
+}
+
+#[test]
+fn test_extract_data_only_from_specified_links() {
+    use crate::engine::engine::get_test_engine;
+    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::EdgeLabel;
+    use crate::entity::project_settings::ProjectSettings;
+    use crate::entity::web::link::Link;
+    use std::sync::Arc;
+
+    let test_engine = get_test_engine();
+    let arced_test_engine = Arc::new(&test_engine);
+
+    let project_settings_node_id = arced_test_engine
+        .get_or_add_node(
+            Payload::ProjectSettings(ProjectSettings {
+                extract_data_only_from_specified_links: true,
+                ..Default::default()
+            }),
+            vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
+            true,
+            None,
+        )
+        .unwrap()
+        .get_node_id();
+
+    let link_node_id = Link::add(
+        arced_test_engine.clone(),
+        &"https://news.ycombinator.com".to_string(),
+        vec![NodeLabel::AddedByUser, NodeLabel::Link],
+        vec![],
+        true,
+    )
+    .unwrap();
+
+    arced_test_engine
+        .add_connection(
+            (project_settings_node_id, link_node_id),
+            (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
+        )
+        .unwrap();
+
+    let webpage_node_id = test_engine
+        .get_or_add_node(
+            Payload::Text(HN_HOMEPAGE.to_string()),
+            vec![NodeLabel::Content, NodeLabel::WebPage],
+            true,
+            None,
+        )
+        .unwrap()
+        .get_node_id();
+    test_engine
+        .add_connection(
+            (link_node_id, webpage_node_id.clone()),
+            (EdgeLabel::PathOf, EdgeLabel::ContentOf),
+        )
+        .unwrap();
+    test_engine.process_nodes();
+
+    let children_of_webpage = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap();
+    assert_eq!(children_of_webpage.len(), 1);
+
+    let first_child_of_webpage = test_engine
+        .get_node_by_id(children_of_webpage.get(0).unwrap())
+        .unwrap();
+    assert_eq!(
+        first_child_of_webpage.labels,
+        vec![NodeLabel::Title, NodeLabel::Partial]
+    );
+
+    // Count the number of Link nodes
+    let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
+    assert_eq!(link_node_ids.len(), 1);
+}
+
+#[test]
+fn test_crawl_within_domains_of_specified_links() {
+    use crate::engine::engine::get_test_engine;
+    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::EdgeLabel;
+    use crate::entity::project_settings::ProjectSettings;
+    use crate::entity::web::link::Link;
+    use std::sync::Arc;
+
+    let test_engine = get_test_engine();
+    let arced_test_engine = Arc::new(&test_engine);
+
+    let project_settings_node_id = arced_test_engine
+        .get_or_add_node(
+            Payload::ProjectSettings(ProjectSettings {
+                crawl_within_domains_of_specified_links: true,
+                ..Default::default()
+            }),
+            vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
+            true,
+            None,
+        )
+        .unwrap()
+        .get_node_id();
+
+    let link_node_id = Link::add(
+        arced_test_engine.clone(),
+        &"https://news.ycombinator.com".to_string(),
+        vec![NodeLabel::AddedByUser, NodeLabel::Link],
+        vec![],
+        true,
+    )
+    .unwrap();
+
+    arced_test_engine
+        .add_connection(
+            (project_settings_node_id, link_node_id),
+            (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
+        )
+        .unwrap();
+
+    let webpage_node_id = test_engine
+        .get_or_add_node(
+            Payload::Text(HN_HOMEPAGE.to_string()),
+            vec![NodeLabel::Content, NodeLabel::WebPage],
+            true,
+            None,
+        )
+        .unwrap()
+        .get_node_id();
+    test_engine
+        .add_connection(
+            (link_node_id, webpage_node_id.clone()),
+            (EdgeLabel::PathOf, EdgeLabel::ContentOf),
+        )
+        .unwrap();
+    test_engine.process_nodes();
+
+    let children_of_webpage = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap();
+    assert_eq!(children_of_webpage.len(), 1);
+
+    let first_child_of_webpage = test_engine
+        .get_node_by_id(children_of_webpage.get(0).unwrap())
+        .unwrap();
+    assert_eq!(
+        first_child_of_webpage.labels,
+        vec![NodeLabel::Title, NodeLabel::Partial]
+    );
+
+    // Count the number of Link nodes
+    let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
+    assert_eq!(link_node_ids.len(), 1);
 }
 
 const HN_HOMEPAGE: &str = r###"

@@ -136,7 +136,7 @@ const CreateProject: Component = () => {
           if (linkNodeId !== undefined) {
             createEdge(project.uuid, {
               node_ids: [projectSettingsNodeId, linkNodeId],
-              edge_labels: ["OwnerOf", "BelongsTo"],
+              edge_labels: ["RelatedTo", "RelatedTo"],
             });
           }
         }

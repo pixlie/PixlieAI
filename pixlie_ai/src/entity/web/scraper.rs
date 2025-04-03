@@ -7,6 +7,7 @@
 
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine};
+use crate::entity::project_settings::ProjectSettings;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_page::get_link_of_webpage;
@@ -28,9 +29,11 @@ fn clean_text(text: String) -> String {
 }
 
 struct Traverser<'a> {
+    link_node_id: NodeId,
     webpage_node_id: NodeId,
     webpage_url: Url,
     arced_engine: Arc<&'a Engine>,
+    project_settings: Option<(NodeId, ProjectSettings)>,
 }
 
 impl<'a> Traverser<'a> {
@@ -189,8 +192,25 @@ impl<'a> Traverser<'a> {
                     if link_text.is_empty() {
                         continue;
                     }
+
+                    match &self.project_settings {
+                        Some((project_settings_node_id, project_settings)) => {
+                            if !project_settings.can_scrape_link(
+                                &project_settings_node_id,
+                                &self.link_node_id,
+                                &url.to_string(),
+                                self.arced_engine.clone(),
+                            )? {
+                                continue;
+                            }
+                        }
+                        None => {}
+                    }
+
                     // We are only handling links which use https at this moment
                     let link_node_id = if url.starts_with("https://") {
+                        // Check if ProjectSettings allows crawling links from other domains
+
                         // Links that are full URLs
                         match Link::add(
                             self.arced_engine.clone(),
@@ -337,13 +357,33 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
         }
     };
 
+    // Get the ProjectSettings which is RelatedTo this Link node
+    let project_settings_node_id = engine
+        .get_node_ids_connected_with_label(&current_link_node_id.clone(), &EdgeLabel::RelatedTo)?;
+    let project_settings: Option<(NodeId, ProjectSettings)> = if project_settings_node_id.is_empty()
+    {
+        None
+    } else {
+        project_settings_node_id
+            .iter()
+            .find_map(|node_id| match engine.get_node_by_id(&node_id) {
+                Some(node) => match &node.payload {
+                    Payload::ProjectSettings(payload) => Some((node_id.clone(), payload.clone())),
+                    _ => None,
+                },
+                None => None,
+            })
+    };
+
     match &node.payload {
         Payload::Text(payload) => {
             let document = Html::parse_document(&payload);
             let traverser = Traverser {
+                link_node_id: current_link_node_id.clone(),
                 webpage_node_id: node.id.clone(),
                 webpage_url: current_url,
                 arced_engine: engine,
+                project_settings,
             };
             traverser.traverse(document.root_element(), None, None)?;
         }
