@@ -16,7 +16,9 @@ import FormError from "../../widgets/interactable/FormError.tsx";
 
 interface IFormData {
   objective: string;
-  hasStartingLinks: boolean;
+  extractDataOnlyFromSpecifiedLinks: boolean;
+  crawlWithinDomainsOfSpecifiedLinks: boolean;
+  crawlDirectLinksFromSpecifiedLinks: boolean;
   startingLinks: string[];
 }
 
@@ -29,7 +31,9 @@ const CreateProject: Component = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = createSignal<IFormData>({
     objective: "",
-    hasStartingLinks: false,
+    extractDataOnlyFromSpecifiedLinks: false,
+    crawlWithinDomainsOfSpecifiedLinks: false,
+    crawlDirectLinksFromSpecifiedLinks: false,
     startingLinks: [],
   });
   const [formErrors, setFormErrors] = createSignal<IError>({});
@@ -67,7 +71,7 @@ const CreateProject: Component = () => {
       });
     }
 
-    if (formData().hasStartingLinks) {
+    if (formData().crawlWithinDomainsOfSpecifiedLinks) {
       if (formData().startingLinks.length === 0) {
         setFormErrors({
           ...formErrors(),
@@ -104,11 +108,19 @@ const CreateProject: Component = () => {
       throw new Error("Failed to create project");
     }
     let project: Project = await response.json();
-    if (formData().hasStartingLinks && formData().startingLinks.length > 0) {
+    if (
+      formData().crawlWithinDomainsOfSpecifiedLinks &&
+      formData().startingLinks.length > 0
+    ) {
       // Create a node for ProjectSettings
       let projectSettingsNodeId = await createNode(project.uuid, {
         ProjectSettings: {
-          has_user_specified_starting_links: true,
+          extract_data_only_from_specified_links:
+            formData().extractDataOnlyFromSpecifiedLinks,
+          crawl_direct_links_from_specified_links:
+            formData().crawlDirectLinksFromSpecifiedLinks,
+          crawl_within_domains_of_specified_links:
+            formData().crawlWithinDomainsOfSpecifiedLinks,
         },
       });
 
@@ -157,7 +169,7 @@ const CreateProject: Component = () => {
 
       <div class="flex-1 flex flex-col">
         <div class="max-w-screen-md space-y-4">
-          <Heading size={3}>Objective</Heading>
+          <Heading size={1}>Objective</Heading>
 
           <Paragraph size="sm">
             What do you want to extract from the web? You may state this in
@@ -177,31 +189,60 @@ const CreateProject: Component = () => {
 
           <div class="flex items-center gap-x-2">
             <Toggle
-              name="hasStartingLinks"
-              value={formData().hasStartingLinks}
+              name="extractDataOnlyFromSpecifiedLinks"
+              value={formData().extractDataOnlyFromSpecifiedLinks}
               onChange={handleToggle}
             />
             <Label
-              label="Manually specify links to crawl"
-              for="hasStartingLinks"
+              label="Extract data only from specified links"
+              for="extractDataOnlyFromSpecifiedLinks"
             />
           </div>
 
-          {formData().hasStartingLinks && (
-            <div class="max-w-screen-sm">
-              <Heading size={3}>Links to crawl</Heading>
-              <Paragraph size="sm">Please add one link per line.</Paragraph>
-              {formData().startingLinks.length > 0 && (
-                <div class="flex flex-col gap-y-2 my-2">
-                  <For each={formData().startingLinks}>
-                    {(link) => <span class="">{link}</span>}
-                  </For>
-                </div>
-              )}
+          {!formData().extractDataOnlyFromSpecifiedLinks && (
+            <>
+              <div class="flex items-center gap-x-2">
+                <Toggle
+                  name="crawlWithinDomainsOfSpecifiedLinks"
+                  value={formData().crawlWithinDomainsOfSpecifiedLinks}
+                  onChange={handleToggle}
+                />
+                <Label
+                  label="Crawl within domains of specified links"
+                  for="crawlWithinDomainsOfSpecifiedLinks"
+                />
+              </div>
 
-              <LinkForm name="url" onChange={addLink} />
-            </div>
+              <div class="flex items-center gap-x-2">
+                <Toggle
+                  name="crawlDirectLinksFromSpecifiedLinks"
+                  value={formData().crawlDirectLinksFromSpecifiedLinks}
+                  onChange={handleToggle}
+                />
+                <Label
+                  label="Only crawl direct links from specified links"
+                  for="crawlDirectLinksFromSpecifiedLinks"
+                />
+              </div>
+            </>
           )}
+
+          <div class="max-w-screen-sm flex-col space-y-2">
+            <Heading size={3}>Links to crawl</Heading>
+            <Paragraph size="sm">
+              Optionally, you may specify a list of links and limit the crawl to
+              these or their domains or links directly linked from these pages.
+            </Paragraph>
+            {formData().startingLinks.length > 0 && (
+              <div class="flex flex-col gap-y-2 my-2">
+                <For each={formData().startingLinks}>
+                  {(link) => <span class="">{link}</span>}
+                </For>
+              </div>
+            )}
+
+            <LinkForm name="url" onChange={addLink} />
+          </div>
 
           <FormError name="links" errors={formErrors} />
 

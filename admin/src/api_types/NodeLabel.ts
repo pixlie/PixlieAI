@@ -20,4 +20,5 @@ export type NodeLabel =
   | "WebPage"
   | "WebSearch"
   | "CrawlCondition"
-  | "ProjectSettings";
+  | "ProjectSettings"
+  | "CrawlerSettings";
