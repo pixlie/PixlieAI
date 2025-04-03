@@ -50,7 +50,7 @@ const StorageDir: Component = () => {
       <p class="font-medium">Storage Directory</p>
       <ol class="text-gray-500 py-1 flex flex-col">
         <li>- Create a new directory on your computer</li>
-        <li>- Enter the path to your new directory below</li>
+        <li>- Enter the path to your new directory below:</li>
       </ol>
       <div class="flex items-center gap-2 pt-2">
         <TextInput

@@ -110,7 +110,7 @@ const BraveSearch: Component = () => {
                 here
               </a>
             </li>
-            <li>- Enter your new key below</li>
+            <li>- Enter your new key below:</li>
           </ol>
           <div class="flex items-center gap-2 pt-2">
             <TextInput
