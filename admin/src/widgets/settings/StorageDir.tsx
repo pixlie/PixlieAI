@@ -20,7 +20,7 @@ const StorageDir: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.settings?.pathToStorageDir
+    !!workspace.settings?.pathToStorageDir,
   );
 
   const handleChange = (name: string, value: IFormFieldValue) => {

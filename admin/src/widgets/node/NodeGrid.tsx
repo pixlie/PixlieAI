@@ -32,7 +32,9 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
           {props.nodeType === "SearchTerm" && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
-                {(nodeId) => <SearchTermNode nodeId={nodeId} mode={props.mode} />}
+                {(nodeId) => (
+                  <SearchTermNode nodeId={nodeId} mode={props.mode} />
+                )}
               </For>
             </div>
           )}
@@ -45,8 +47,15 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
           )}
           {props.nodeType === "WebPage" && (
             <div class="grid grid-cols-1 gap-2">
-              <For each={props.source()}>
-                {(nodeId) => <ContentContainerNode nodeId={nodeId} mode={props.mode} />}
+              <For each={getN()}>
+                {(nodeId) => (
+                  <ContentContainerNode
+                    nodeId={nodeId}
+                    mode={props.mode}
+                    data={props.data?.data}
+                    nodeData={props.data?.nodeData?.[nodeId]}
+                  />
+                )}
               </For>
             </div>
           )}

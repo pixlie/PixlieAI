@@ -28,7 +28,7 @@ const BraveSearch: Component = () => {
   const [_, { getColors }] = useUIClasses();
   const [errorMessage, setErrorMessage] = createSignal<string>("");
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider]
+    !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider],
   );
 
   const handleChange = (name: string, value: IFormFieldValue) => {

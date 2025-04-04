@@ -5,62 +5,52 @@ import { Link } from "../../api_types/Link.ts";
 import { useParams } from "@solidjs/router";
 import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import ExternalLinkIcon from "../../assets/icons/heroicons-arrow-top-right-on-square.svg";
 import ArrowPathIcon from "../../assets/icons/heroicons-arrow-path.svg";
 import CheckIcon from "../../assets/icons/tabler-check.svg";
 import CrossIcon from "../../assets/icons/tabler-cross.svg";
 import ClockIcon from "../../assets/icons/tabler-clock.svg";
+import HighlightTerms from "../generic/HighlightTerms.tsx";
 
 interface ILinkPayloadProps {
   id: number;
   flags: Array<APINodeFlags>;
   payload: Link;
   showFlags: boolean;
+  data?: Record<string, any>;
 }
 
 const SLOW_QUADRATIC_SPINNER_CLASS =
   "motion-safe:animate-[spin_2s_cubic-bezier(0.46,0.03,0.52,0.96)_infinite]";
 
 const Payload: Component<ILinkPayloadProps> = (props) => {
-  const [_engine, { getRelatedNodes }] = useEngine();
+  const [_engine, { getRelatedNodes, getRelatedNodeIds }] = useEngine();
   const [_, { getColors }] = useUIClasses();
   const params = useParams();
 
-  const getDomainNode = createMemo<APINodeItem | undefined>(() => {
-    const relatedDomains = getRelatedNodes(
-      params.projectId,
-      props.id,
-      "BelongsTo",
-    );
-    if (relatedDomains.length > 0) {
-      if (relatedDomains[0].labels.includes("Domain" as NodeLabel)) {
-        return relatedDomains[0];
-      }
-    }
-    return undefined;
-  });
-
   const getDomain = createMemo<string | undefined>(() => {
-    return getDomainNode()?.payload.data as string;
+    return getRelatedNodes(params.projectId, props.id, "BelongsTo", (node) =>
+      node.labels.includes("Domain"),
+    )[0]?.payload.data as string | undefined;
   });
 
-  const getTitle = createMemo<string | null>(() => {
-    const relatedContentNodes = getRelatedNodes(
+  const getTitle = createMemo<string | undefined>(() => {
+    const relatedContentNodeIds = getRelatedNodeIds(
       params.projectId,
       props.id,
       "PathOf",
     );
-    if (relatedContentNodes.length === 0) {
-      return null;
+    if (relatedContentNodeIds.length === 0) {
+      return undefined;
     }
     const titleNodes = getRelatedNodes(
       params.projectId,
-      relatedContentNodes[0].id,
-      "ParentOf"
-    ).filter((node) => node.labels.includes("Title"));
+      relatedContentNodeIds[0],
+      "ParentOf",
+      (node) => node.labels.includes("Title"),
+    );
 
-    return titleNodes[0]?.payload.data as string;
+    return titleNodes[0]?.payload.data as string | undefined;
   });
 
   const getFullLink = createMemo<string>(() => {
@@ -68,89 +58,37 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
     if (!!props.payload.query) {
       fullPath += "?" + props.payload.query;
     }
-    return 'https://' + getDomain()! + fullPath;
-  });
-
-  const isScraped = createMemo<boolean>(() => {
-    const contentNodes = getRelatedNodes(
-      params.projectId,
-      props.id,
-      "PathOf",
-    );
-    if (contentNodes.length === 0) {
-      return false;
-    }
-    if (
-      contentNodes[0].labels.includes("WebPage") &&
-      contentNodes[0].flags.includes("IsProcessed")
-    ) {
-      return true;
-    }
-    return false;
-  });
-
-  // TODO: Remove derived node flag once backend bug
-  // for saving node flags is fixed
-  const getDerivedNodeFlag = createMemo<APINodeFlags>(() => {
-    if (props.flags.includes("IsRequesting")) {
-      return "IsRequesting";
-    } else if (
-      props.flags.includes("IsProcessed") ||
-      getTitle() ||
-      isScraped()
-    ) {
-      return "IsProcessed";
-    } else if (props.flags.includes("IsBlocked")) {
-      return "IsBlocked";
-    }
-    return "None";
+    return "https://" + getDomain()! + fullPath;
   });
 
   const getStatusIcon = createMemo<JSXElement>(() => {
-    const derivedNodeFlag = getDerivedNodeFlag();
-    const colorClass  = {
-      IsProcessed: getColors()["textSuccess"],
-      IsRequesting: getColors()["textWarning"],
-      IsBlocked: getColors()["textDanger"],
-      None: getColors()["textMuted"],
-    }[derivedNodeFlag];
-    // const colorClass = props.flags.includes("IsProcessed")
-    //   ? getColors()["textSuccess"]
-    //   : props.flags.includes("IsRequesting")
-    //   ? getColors()["textWarning"]
-    //   : props.flags.includes("IsBlocked")
-    //   ? getColors()["textDanger"]
-    //   : props.flags.includes("None")
-    //   ? getColors()["textMuted"]
-    //   : "";
+    const colorClass = props.flags.includes("IsProcessed")
+      ? getColors().textSuccess
+      : props.flags.includes("IsRequesting")
+        ? getColors().textWarning
+        : props.flags.includes("IsBlocked")
+          ? getColors().textDanger
+          : getColors().textMuted;
     return (
       <span
         class={`inline-block size-4 ${colorClass}`}
         classList={{
-          // [SLOW_QUADRATIC_SPINNER_CLASS]: props.flags.includes("IsRequesting")
-          [SLOW_QUADRATIC_SPINNER_CLASS]: derivedNodeFlag === "IsRequesting",
+          [SLOW_QUADRATIC_SPINNER_CLASS]: props.flags.includes("IsRequesting"),
         }}
       >
-        {{
-          IsProcessed: <CheckIcon />,
-          IsRequesting: <ArrowPathIcon />,
-          IsBlocked: <CrossIcon />,
-          None: <ClockIcon />,
-        }[derivedNodeFlag]}
-        {/* {props.flags.includes("IsProcessed") ? (
+        {props.flags.includes("IsProcessed") ? (
           <CheckIcon />
         ) : props.flags.includes("IsRequesting") ? (
           <ArrowPathIcon />
         ) : props.flags.includes("IsBlocked") ? (
           <CrossIcon />
-        ) : props.flags.includes("None") ? (
-          <ClockIcon />
         ) : (
-          ""
-        )} */}
+          <ClockIcon />
+        )}
       </span>
     );
   });
+
   return (
     <>
       {!!getDomain() ? (
@@ -173,7 +111,13 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
               rel="noopener noreferrer"
             >
               <span class="inline-block max-w-[90%] truncate">
-                {!!getTitle() ? getTitle() : getFullLink()}
+                {props.data?.highlightTerms && (
+                  <HighlightTerms
+                    terms={props.data?.highlightTerms || []}
+                    content={getTitle() || getFullLink()}
+                  />
+                )}
+                {!props.data?.highlightTerms && (getTitle() || getFullLink())}
               </span>
               <span class="inline-block size-3 ml-0.5 mb-1">
                 <ExternalLinkIcon />
@@ -199,39 +143,31 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 interface ILinkNodeProps {
   nodeId: number;
   showFlags: boolean;
+  data?: Record<string, any>;
 }
 
 const LinkNode: Component<ILinkNodeProps> = (props) => {
-  const [engine] = useEngine();
+  const [_, { getNodeById }] = useEngine();
   const params = useParams();
 
-  const getProject = createMemo(() => {
-    if (!!params.projectId && params.projectId in engine.projects) {
-      return engine.projects[params.projectId];
-    }
-    return undefined;
-  });
-
   const getNode = createMemo(() => {
-    if (
-      !!getProject() &&
-      props.nodeId in getProject()!.nodes &&
-      getProject()!.nodes[props.nodeId].payload.type === "Link"
-    ) {
-      return getProject()!.nodes[props.nodeId] as APINodeItem;
+    const nodeByNodeId = getNodeById(params.projectId, props.nodeId);
+    if (!!nodeByNodeId && nodeByNodeId.payload.type === "Link") {
+      return nodeByNodeId as APINodeItem;
     }
     return undefined;
   });
 
   return (
     <>
-      {!!getProject() && !!getNode() ? (
+      {!!getNode() ? (
         <>
           <Payload
             id={props.nodeId}
             flags={getNode()!.flags}
             payload={getNode()!.payload.data as Link}
             showFlags={props.showFlags}
+            data={props.data}
           />
         </>
       ) : null}

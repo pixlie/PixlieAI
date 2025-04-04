@@ -26,7 +26,7 @@ const Anthropic: Component = () => {
       workspace.workspace?.apiKeys["Anthropic" as APIProvider] || "",
   });
   const [saved, setSaved] = createSignal<boolean>(
-    !!workspace.workspace?.apiKeys["Anthropic" as APIProvider]
+    !!workspace.workspace?.apiKeys["Anthropic" as APIProvider],
   );
 
   const [_, { getColors }] = useUIClasses();

@@ -1,5 +1,8 @@
 // We test the snakeCasedKeys and camelCasedKeys functions
-import { snakeCasedKeys, camelCasedKeys } from "./api";
+import {
+  camelCasedToSnakeCasedKeys,
+  snakeCasedToCamelCasedKeys,
+} from "./utils";
 import { describe, expect, it } from "vitest";
 
 describe("snakeCasedKeys", () => {
@@ -15,7 +18,7 @@ describe("snakeCasedKeys", () => {
       hello_world123: "hello world",
     };
 
-    expect(snakeCasedKeys(obj)).toEqual(expectedObj);
+    expect(camelCasedToSnakeCasedKeys(obj)).toEqual(expectedObj);
   });
 
   it("should not convert keys that are already in snake case", () => {
@@ -28,7 +31,7 @@ describe("snakeCasedKeys", () => {
       hello_world123: "hello world",
     };
 
-    expect(snakeCasedKeys(obj)).toEqual(expectedObj);
+    expect(camelCasedToSnakeCasedKeys(obj)).toEqual(expectedObj);
   });
 
   it("should convert keys in arrays", () => {
@@ -49,7 +52,7 @@ describe("snakeCasedKeys", () => {
       },
     ];
 
-    expect(snakeCasedKeys(obj)).toEqual(expectedObj);
+    expect(camelCasedToSnakeCasedKeys(obj)).toEqual(expectedObj);
   });
 });
 
@@ -66,7 +69,7 @@ describe("camelCasedKeys", () => {
       helloWorld123: "hello world",
     };
 
-    expect(camelCasedKeys(obj)).toEqual(expectedObj);
+    expect(snakeCasedToCamelCasedKeys(obj)).toEqual(expectedObj);
   });
 
   it("should not convert keys that are already in camel case", () => {
@@ -79,7 +82,7 @@ describe("camelCasedKeys", () => {
       helloWorld123: "hello world",
     };
 
-    expect(camelCasedKeys(obj)).toEqual(expectedObj);
+    expect(snakeCasedToCamelCasedKeys(obj)).toEqual(expectedObj);
   });
 
   it("should convert keys in arrays", () => {
@@ -96,6 +99,6 @@ describe("camelCasedKeys", () => {
       { helloWorld123: "hello world" },
     ];
 
-    expect(camelCasedKeys(obj)).toEqual(expectedObj);
+    expect(snakeCasedToCamelCasedKeys(obj)).toEqual(expectedObj);
   });
 });

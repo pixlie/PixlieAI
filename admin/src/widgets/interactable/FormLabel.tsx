@@ -6,17 +6,17 @@ interface IPropTypes {
   for?: string;
 }
 
-const Label: Component<IPropTypes> = (props) => {
+const FormLabel: Component<IPropTypes> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   return (
     <label
       for={props.for}
-      class={`block text-sm font-medium ${getColors()["label"]}`}
+      class={`block text-sm font-medium ${getColors()["form.label"]}`}
     >
       {props.label}
     </label>
   );
 };
 
-export default Label;
+export default FormLabel;
