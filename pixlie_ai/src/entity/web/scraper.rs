@@ -198,6 +198,7 @@ impl<'a> Traverser<'a> {
                             if !project_settings.can_scrape_link(
                                 &project_settings_node_id,
                                 &self.link_node_id,
+                                &self.webpage_url,
                                 &url.to_string(),
                                 self.arced_engine.clone(),
                             )? {

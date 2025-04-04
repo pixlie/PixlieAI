@@ -796,7 +796,7 @@ fn test_extract_data_only_from_specified_links() {
     let project_settings_node_id = arced_test_engine
         .get_or_add_node(
             Payload::ProjectSettings(ProjectSettings {
-                extract_data_only_from_specified_links: true,
+                only_extract_data_from_specified_links: true,
                 ..Default::default()
             }),
             vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
@@ -872,7 +872,7 @@ fn test_crawl_within_domains_of_specified_links() {
     let project_settings_node_id = arced_test_engine
         .get_or_add_node(
             Payload::ProjectSettings(ProjectSettings {
-                crawl_within_domains_of_specified_links: true,
+                only_crawl_within_domains_of_specified_links: true,
                 ..Default::default()
             }),
             vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
@@ -913,12 +913,14 @@ fn test_crawl_within_domains_of_specified_links() {
             (EdgeLabel::PathOf, EdgeLabel::ContentOf),
         )
         .unwrap();
+
+    // We process only once, so scraped links are not fetched
     test_engine.process_nodes();
 
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 1);
+    assert_eq!(children_of_webpage.len(), 189);
 
     let first_child_of_webpage = test_engine
         .get_node_by_id(children_of_webpage.get(0).unwrap())
@@ -930,7 +932,16 @@ fn test_crawl_within_domains_of_specified_links() {
 
     // Count the number of Link nodes
     let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
-    assert_eq!(link_node_ids.len(), 1);
+    assert_eq!(link_node_ids.len(), 189);
+
+    // Check that there is only one Domain node
+    let domain_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Domain);
+    assert_eq!(domain_node_ids.len(), 1);
+
+    let edges_from_domain_node = test_engine
+        .get_node_ids_connected_with_label(domain_node_ids.get(0).unwrap(), &EdgeLabel::OwnerOf)
+        .unwrap();
+    assert_eq!(edges_from_domain_node.len(), 189);
 }
 
 const HN_HOMEPAGE: &str = r###"

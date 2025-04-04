@@ -38,7 +38,8 @@ impl LLMSchema for CrawlerSettings {
                                 Some(project_settings_node) => match &project_settings_node.payload
                                 {
                                     Payload::ProjectSettings(project_settings) => {
-                                        if project_settings.crawl_direct_links_from_specified_links
+                                        if project_settings
+                                            .only_crawl_direct_links_from_specified_links
                                         {
                                             has_web_search_keywords_to_get_starting_urls_for_crawl =
                                                 false;

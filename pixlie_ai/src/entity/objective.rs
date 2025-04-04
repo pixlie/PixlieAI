@@ -194,8 +194,8 @@ type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_acc
         let project_settings_node_id = arced_test_engine
             .get_or_add_node(
                 Payload::ProjectSettings(ProjectSettings {
-                    crawl_direct_links_from_specified_links: true,
-                    crawl_within_domains_of_specified_links: true,
+                    only_crawl_direct_links_from_specified_links: true,
+                    only_crawl_within_domains_of_specified_links: true,
                     ..Default::default()
                 }),
                 vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],

@@ -68,6 +68,7 @@ impl Link {
                 Some(domain_node_id),
             )?
             .get_node_id();
+
         engine.add_connection(
             (domain_node_id, link_node_id.clone()),
             (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
@@ -252,15 +253,23 @@ impl Link {
         node_id: &NodeId,
         engine: Arc<&Engine>,
     ) -> PiResult<Option<(NodeId, NodeItem)>> {
-        match engine.get_node_ids_connected_with_label(&node_id, &EdgeLabel::OwnerOf) {
+        match engine.get_node_ids_connected_with_label(&node_id, &EdgeLabel::BelongsTo) {
             Ok(connected_node_ids) => {
                 // Find the first domain node
                 Ok(connected_node_ids.iter().find_map(|node_id| {
                     match engine.get_node_by_id(node_id) {
-                        Some(node) => match &node.payload {
-                            Payload::Text(_) => Some((node_id.clone(), node.deref().clone())),
-                            _ => None,
-                        },
+                        Some(node) => {
+                            if node.labels.contains(&NodeLabel::Domain) {
+                                match &node.payload {
+                                    Payload::Text(_) => {
+                                        Some((node_id.clone(), node.deref().clone()))
+                                    }
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        }
                         None => None,
                     }
                 }))

@@ -16,9 +16,9 @@ import FormError from "../../widgets/interactable/FormError.tsx";
 
 interface IFormData {
   objective: string;
-  extractDataOnlyFromSpecifiedLinks: boolean;
-  crawlWithinDomainsOfSpecifiedLinks: boolean;
-  crawlDirectLinksFromSpecifiedLinks: boolean;
+  onlyExtractDataFromSpecifiedLinks: boolean;
+  onlyCrawlWithinDomainsOfSpecifiedLinks: boolean;
+  onlyCrawlDirectLinksFromSpecifiedLinks: boolean;
   startingLinks: string[];
 }
 
@@ -31,9 +31,9 @@ const CreateProject: Component = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = createSignal<IFormData>({
     objective: "",
-    extractDataOnlyFromSpecifiedLinks: false,
-    crawlWithinDomainsOfSpecifiedLinks: false,
-    crawlDirectLinksFromSpecifiedLinks: false,
+    onlyExtractDataFromSpecifiedLinks: false,
+    onlyCrawlWithinDomainsOfSpecifiedLinks: false,
+    onlyCrawlDirectLinksFromSpecifiedLinks: false,
     startingLinks: [],
   });
   const [formErrors, setFormErrors] = createSignal<IError>({});
@@ -71,7 +71,7 @@ const CreateProject: Component = () => {
       });
     }
 
-    if (formData().crawlWithinDomainsOfSpecifiedLinks) {
+    if (formData().onlyCrawlWithinDomainsOfSpecifiedLinks) {
       if (formData().startingLinks.length === 0) {
         setFormErrors({
           ...formErrors(),
@@ -109,18 +109,18 @@ const CreateProject: Component = () => {
     }
     let project: Project = await response.json();
     if (
-      formData().crawlWithinDomainsOfSpecifiedLinks &&
+      formData().onlyCrawlWithinDomainsOfSpecifiedLinks &&
       formData().startingLinks.length > 0
     ) {
       // Create a node for ProjectSettings
       let projectSettingsNodeId = await createNode(project.uuid, {
         ProjectSettings: {
           extract_data_only_from_specified_links:
-            formData().extractDataOnlyFromSpecifiedLinks,
+            formData().onlyExtractDataFromSpecifiedLinks,
           crawl_direct_links_from_specified_links:
-            formData().crawlDirectLinksFromSpecifiedLinks,
+            formData().onlyCrawlDirectLinksFromSpecifiedLinks,
           crawl_within_domains_of_specified_links:
-            formData().crawlWithinDomainsOfSpecifiedLinks,
+            formData().onlyCrawlWithinDomainsOfSpecifiedLinks,
         },
       });
 
@@ -189,39 +189,39 @@ const CreateProject: Component = () => {
 
           <div class="flex items-center gap-x-2">
             <Toggle
-              name="extractDataOnlyFromSpecifiedLinks"
-              value={formData().extractDataOnlyFromSpecifiedLinks}
+              name="onlyExtractDataFromSpecifiedLinks"
+              value={formData().onlyExtractDataFromSpecifiedLinks}
               onChange={handleToggle}
             />
             <Label
-              label="Extract data only from specified links"
-              for="extractDataOnlyFromSpecifiedLinks"
+              label="Only extract data from specified links"
+              for="onlyExtractDataFromSpecifiedLinks"
             />
           </div>
 
-          {!formData().extractDataOnlyFromSpecifiedLinks && (
+          {!formData().onlyExtractDataFromSpecifiedLinks && (
             <>
               <div class="flex items-center gap-x-2">
                 <Toggle
-                  name="crawlWithinDomainsOfSpecifiedLinks"
-                  value={formData().crawlWithinDomainsOfSpecifiedLinks}
+                  name="onlyCrawlWithinDomainsOfSpecifiedLinks"
+                  value={formData().onlyCrawlWithinDomainsOfSpecifiedLinks}
                   onChange={handleToggle}
                 />
                 <Label
-                  label="Crawl within domains of specified links"
-                  for="crawlWithinDomainsOfSpecifiedLinks"
+                  label="Only crawl within domains of specified links"
+                  for="onlyCrawlWithinDomainsOfSpecifiedLinks"
                 />
               </div>
 
               <div class="flex items-center gap-x-2">
                 <Toggle
-                  name="crawlDirectLinksFromSpecifiedLinks"
-                  value={formData().crawlDirectLinksFromSpecifiedLinks}
+                  name="onlyCrawlDirectLinksFromSpecifiedLinks"
+                  value={formData().onlyCrawlDirectLinksFromSpecifiedLinks}
                   onChange={handleToggle}
                 />
                 <Label
                   label="Only crawl direct links from specified links"
-                  for="crawlDirectLinksFromSpecifiedLinks"
+                  for="onlyCrawlDirectLinksFromSpecifiedLinks"
                 />
               </div>
             </>

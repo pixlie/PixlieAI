@@ -699,11 +699,11 @@ pub fn handle_engine_api_request(
                 NodeWrite::ProjectSettings(project_settings_write) => engine
                     .get_or_add_node(
                         Payload::ProjectSettings(ProjectSettings {
-                            extract_data_only_from_specified_links: project_settings_write
+                            only_extract_data_from_specified_links: project_settings_write
                                 .extract_data_only_from_specified_links,
-                            crawl_within_domains_of_specified_links: project_settings_write
+                            only_crawl_within_domains_of_specified_links: project_settings_write
                                 .crawl_within_domains_of_specified_links,
-                            crawl_direct_links_from_specified_links: project_settings_write
+                            only_crawl_direct_links_from_specified_links: project_settings_write
                                 .crawl_direct_links_from_specified_links,
                         }),
                         vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
