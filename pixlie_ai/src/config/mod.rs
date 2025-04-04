@@ -5,7 +5,10 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::{error::{PiError, PiResult}, PIXLIE_VERSION_NUMBER};
+use crate::{
+    error::{PiError, PiResult},
+    PIXLIE_VERSION_NUMBER,
+};
 use bytes::Buf;
 use config::Config;
 use dirs::config_dir;
@@ -13,7 +16,7 @@ use flate2::read::GzDecoder;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{create_dir, exists, remove_dir, File},
+    fs::{create_dir, exists, remove_dir_all, File},
     io::Write,
     path::PathBuf,
 };
@@ -120,72 +123,66 @@ pub fn download_admin_site() -> PiResult<()> {
     let mut static_index_html = static_admin_dir.clone();
     static_index_html.push("index.html");
 
-    let admin_exists = exists(&static_admin_dir)?;
-    let index_html_exists = exists(&static_index_html)?;
-    // If admin directory does not exist or index.html does not exist, download the admin site
-    if !admin_exists || !index_html_exists {
-        info!("Admin site not found, downloading from GitHub");
-        let admin_tar_gz_url = format!(
-            "https://github.com/pixlie/PixlieAI/releases/download/v{}/admin-v{}.tar.gz",
-            PIXLIE_VERSION_NUMBER,
-            PIXLIE_VERSION_NUMBER,
-        );
-        // Download the admin.tar.gz file
-        match reqwest::blocking::get(&admin_tar_gz_url) {
-            Ok(response) => {
-                if response.status() != 200 {
-                    return Err(PiError::FetchError(
-                        format!(
-                            "Could not download admin.tar.gz from {}\nStatus: {}",
-                            admin_tar_gz_url,
-                            response.status()
-                        ),
-                    ));
-                }
-                else {
-                    // Save the response to a file
-                    let admin_tar_gz_bytes = response.bytes()?;
-                    // Use flate2 to decompress the tar.gz file
-                    let admin_tar_gz = GzDecoder::new(admin_tar_gz_bytes.reader());
-                    if !admin_exists {
-                        create_dir(static_admin_dir.clone())?;
-                    }
-                    // Use tar to extract the files from the tar.gz file
-                    Archive::new(admin_tar_gz).unpack(&static_admin_dir)?;
-                    // Check if index.html exists in unpacked files
-                    match exists(&static_index_html) {
-                        Ok(_) => {},
-                        Err(err) => {
-                            remove_dir(static_admin_dir.clone())?;
-                            return Err(PiError::FetchError(
-                                format!(
-                                    "Could not find index.html in downloaded admin from {}, Error: {}\nRemoving admin directory",
-                                    admin_tar_gz_url,
-                                    err
-                                ),
-                            ));
-                        }
-                    }
-                }
-            },
-            Err(err) => {
-                return Err(PiError::FetchError(
-                    format!(
-                        "Could not download admin.tar.gz from {}\nError: {}",
-                        admin_tar_gz_url,
-                        err
-                    ),
-                ));
-            }
-        };
+    match exists(&static_admin_dir) {
+        Ok(true) => {
+            info!("Admin site already exists, removing it");
+            remove_dir_all(static_admin_dir.clone())?;
+        }
+        _ => {}
     }
+
+    info!("Downloading admin site from GitHub");
+    let admin_tar_gz_url = format!(
+        "https://github.com/pixlie/PixlieAI/releases/download/v{}/admin-v{}.tar.gz",
+        PIXLIE_VERSION_NUMBER, PIXLIE_VERSION_NUMBER,
+    );
+    // Download the admin.tar.gz file
+    match reqwest::blocking::get(&admin_tar_gz_url) {
+        Ok(response) => {
+            if response.status() != 200 {
+                return Err(PiError::FetchError(format!(
+                    "Could not download admin.tar.gz from {}\nStatus: {}",
+                    admin_tar_gz_url,
+                    response.status()
+                )));
+            } else {
+                // Save the response to a file
+                let admin_tar_gz_bytes = response.bytes()?;
+                // Use flate2 to decompress the tar.gz file
+                let admin_tar_gz = GzDecoder::new(admin_tar_gz_bytes.reader());
+                create_dir(static_admin_dir.clone())?;
+                // Use tar to extract the files from the tar.gz file
+                Archive::new(admin_tar_gz).unpack(&static_admin_dir)?;
+                // Check if index.html exists in unpacked files
+                match exists(&static_index_html) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        remove_dir_all(static_admin_dir.clone())?;
+                        return Err(PiError::FetchError(
+                            format!(
+                                "Could not find index.html in downloaded admin from {}, Error: {}\nRemoving admin directory",
+                                admin_tar_gz_url,
+                                err
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            return Err(PiError::FetchError(format!(
+                "Could not download admin.tar.gz from {}\nError: {}",
+                admin_tar_gz_url, err
+            )));
+        }
+    };
     Ok(())
 }
 
 pub fn get_static_admin_dir() -> PiResult<PathBuf> {
     let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
     let mut static_root = PathBuf::from(path_to_config_dir.clone());
-    static_root.push(format!("admin-{}", PIXLIE_VERSION_NUMBER));
+    static_root.push("admin");
     Ok(static_root)
 }
 
