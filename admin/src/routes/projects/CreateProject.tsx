@@ -11,7 +11,7 @@ import Paragraph from "../../widgets/typography/Paragraph";
 import TextArea from "../../widgets/interactable/TextArea";
 import Button from "../../widgets/interactable/Button";
 import Toggle from "../../widgets/interactable/Toggle";
-import Label from "../../widgets/interactable/Label.tsx";
+import FormLabel from "../../widgets/interactable/FormLabel";
 import FormError from "../../widgets/interactable/FormError.tsx";
 
 interface IFormData {
@@ -193,7 +193,7 @@ const CreateProject: Component = () => {
               value={formData().onlyExtractDataFromSpecifiedLinks}
               onChange={handleToggle}
             />
-            <Label
+            <FormLabel
               label="Only extract data from specified links"
               for="onlyExtractDataFromSpecifiedLinks"
             />
@@ -207,7 +207,7 @@ const CreateProject: Component = () => {
                   value={formData().onlyCrawlWithinDomainsOfSpecifiedLinks}
                   onChange={handleToggle}
                 />
-                <Label
+                <FormLabel
                   label="Only crawl within domains of specified links"
                   for="onlyCrawlWithinDomainsOfSpecifiedLinks"
                 />
@@ -219,7 +219,7 @@ const CreateProject: Component = () => {
                   value={formData().onlyCrawlDirectLinksFromSpecifiedLinks}
                   onChange={handleToggle}
                 />
-                <Label
+                <FormLabel
                   label="Only crawl direct links from specified links"
                   for="onlyCrawlDirectLinksFromSpecifiedLinks"
                 />

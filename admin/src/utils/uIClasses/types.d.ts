@@ -1,4 +1,4 @@
-export type TailwindClassKeyType =
+export type ThemableItem =
   | "app"
   | "navBar"
   | "navBar.logo"
@@ -24,6 +24,7 @@ export type TailwindClassKeyType =
   | "input"
   | "textArea"
   | "link"
+  | "formError"
   | "breadcrumb"
   | "breadcrumb.link"
   | "breadcrumb.link.last"
@@ -36,6 +37,6 @@ export type TailwindClassKeyType =
   | "button.muted"
   | "highlight";
 
-export type TailwindClassesType = {
-  [key in TailwindClassKeyType]: string;
+export type Themable = {
+  [key in ThemableItem]: string;
 };

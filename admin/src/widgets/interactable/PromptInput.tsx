@@ -1,10 +1,9 @@
 import { Component, JSX } from "solid-js";
-import { IFormField } from "../../utils/types";
+import { ITextFormField } from "../../utils/types";
 
-const PromptInput: Component<IFormField> = (props) => {
-
+const PromptInput: Component<ITextFormField> = (props) => {
   const handleChange: JSX.ChangeEventHandler<HTMLTextAreaElement, Event> = (
-    event
+    event,
   ) => {
     if (!!props.onChange) {
       props.onChange(props.name, event.currentTarget.value);

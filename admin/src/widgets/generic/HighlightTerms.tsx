@@ -1,12 +1,12 @@
 import { Component, createMemo, For } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
-import { TailwindClassKeyType } from "../../utils/uIClasses/types";
+import { ThemableItem } from "../../utils/uIClasses/types";
 import { JSX } from "solid-js/jsx-runtime";
 
 interface IHighlightTerms {
   content: string;
   terms: string[];
-  color?: TailwindClassKeyType;
+  color?: ThemableItem;
   maxWords?: number;
 }
 
