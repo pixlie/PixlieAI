@@ -1,72 +1,138 @@
-import { Component, createMemo } from "solid-js";
+import { Component, createMemo, JSXElement } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses.tsx";
 import { useEngine } from "../../stores/engine.tsx";
 import { Link } from "../../api_types/Link.ts";
 import { useParams } from "@solidjs/router";
 import { APINodeFlags } from "../../api_types/APINodeFlags.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import ExternalLinkIcon from "../../assets/icons/heroicons-arrow-top-right-on-square.svg";
+import ArrowPathIcon from "../../assets/icons/heroicons-arrow-path.svg";
+import CheckIcon from "../../assets/icons/tabler-check.svg";
+import CrossIcon from "../../assets/icons/tabler-cross.svg";
+import ClockIcon from "../../assets/icons/tabler-clock.svg";
+import HighlightTerms from "../generic/HighlightTerms.tsx";
 
 interface ILinkPayloadProps {
   id: number;
   flags: Array<APINodeFlags>;
   payload: Link;
+  showFlags: boolean;
+  data?: Record<string, any>;
 }
 
+const SLOW_QUADRATIC_SPINNER_CLASS =
+  "motion-safe:animate-[spin_2s_cubic-bezier(0.46,0.03,0.52,0.96)_infinite]";
+
 const Payload: Component<ILinkPayloadProps> = (props) => {
-  const [_engine, { getRelatedNodes }] = useEngine();
+  const [_engine, { getRelatedNodes, getRelatedNodeIds }] = useEngine();
   const [_, { getColors }] = useUIClasses();
   const params = useParams();
 
   const getDomain = createMemo<string | undefined>(() => {
-    let relatedDomains = getRelatedNodes(
+    return getRelatedNodes(params.projectId, props.id, "BelongsTo", (node) =>
+      node.labels.includes("Domain"),
+    )[0]?.payload.data as string | undefined;
+  });
+
+  const getTitle = createMemo<string | undefined>(() => {
+    const relatedContentNodeIds = getRelatedNodeIds(
       params.projectId,
       props.id,
-      "BelongsTo",
+      "PathOf",
     );
-    if (relatedDomains.length > 0) {
-      if (relatedDomains[0].labels.includes("Domain" as NodeLabel)) {
-        return relatedDomains[0].payload.data as string;
-      }
+    if (relatedContentNodeIds.length === 0) {
+      return undefined;
     }
-    return undefined;
+    const titleNodes = getRelatedNodes(
+      params.projectId,
+      relatedContentNodeIds[0],
+      "ParentOf",
+      (node) => node.labels.includes("Title"),
+    );
+
+    return titleNodes[0]?.payload.data as string | undefined;
+  });
+
+  const getFullLink = createMemo<string>(() => {
+    let fullPath = props.payload.path;
+    if (!!props.payload.query) {
+      fullPath += "?" + props.payload.query;
+    }
+    return "https://" + getDomain()! + fullPath;
+  });
+
+  const getStatusIcon = createMemo<JSXElement>(() => {
+    const colorClass = props.flags.includes("IsProcessed")
+      ? getColors().textSuccess
+      : props.flags.includes("IsRequesting")
+        ? getColors().textWarning
+        : props.flags.includes("IsBlocked")
+          ? getColors().textDanger
+          : getColors().textMuted;
+    return (
+      <span
+        class={`inline-block size-4 ${colorClass}`}
+        classList={{
+          [SLOW_QUADRATIC_SPINNER_CLASS]: props.flags.includes("IsRequesting"),
+        }}
+      >
+        {props.flags.includes("IsProcessed") ? (
+          <CheckIcon />
+        ) : props.flags.includes("IsRequesting") ? (
+          <ArrowPathIcon />
+        ) : props.flags.includes("IsBlocked") ? (
+          <CrossIcon />
+        ) : (
+          <ClockIcon />
+        )}
+      </span>
+    );
   });
 
   return (
     <>
       {!!getDomain() ? (
-        <>
-          <span>
-            <span
-              class="w-[20px] inline-block text-center mr-2"
-              classList={{
-                [getColors()["textSuccess"]]: props.flags.includes(
-                  "IsProcessed" as APINodeFlags,
-                ),
-                [getColors()["textMuted"]]: !props.flags.includes(
-                  "IsProcessed" as APINodeFlags,
-                ),
-              }}
+        <div
+          class="grid gap-2 mb-0.5 justify-start"
+          classList={{
+            "grid-cols-[30px_1fr]": props.showFlags,
+            "grid-cols-1": !props.showFlags,
+          }}
+        >
+          {props.showFlags && (
+            <div class="text-center h-full">{getStatusIcon()}</div>
+          )}
+          <div class="text-sm w-full">
+            <a
+              href={getFullLink()}
+              class={`${getColors().link}`}
+              target="_blank"
+              title={getFullLink()}
+              rel="noopener noreferrer"
             >
-              {props.flags.includes("IsProcessed" as APINodeFlags) ? "✓" : ""}
-              {props.flags.includes("IsRequesting" as APINodeFlags) ? "⌛" : ""}
-            </span>
-            <span class="text-xs bg-gray-300 rounded px-2 py-0.5">
-              {getDomain()!}
-            </span>
-          </span>
-          <a
-            href={`https://${!!getDomain() ? getDomain()! : ""}${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-            class={
-              "text-sm text-nowrap overflow-hidden text-ellipsis " +
-              getColors().link
-            }
-            target="_blank"
-          >
-            {`${props.payload.path}${!!props.payload.query ? "?" + props.payload.query : ""}`}
-          </a>
-          <span></span>
-        </>
+              <span class="inline-block max-w-[90%] truncate">
+                {props.data?.highlightTerms && (
+                  <HighlightTerms
+                    terms={props.data?.highlightTerms || []}
+                    content={getTitle() || getFullLink()}
+                  />
+                )}
+                {!props.data?.highlightTerms && (getTitle() || getFullLink())}
+              </span>
+              <span class="inline-block size-3 ml-0.5 mb-1">
+                <ExternalLinkIcon />
+              </span>
+            </a>
+            {!!getTitle() && (
+              <div
+                class={`text-nowrap truncate max-w-[80%] mb-1.5 ${getColors()["textMuted"]}`}
+                title={getFullLink()}
+              >
+                {getFullLink()}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <></>
       )}
@@ -76,38 +142,34 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
 interface ILinkNodeProps {
   nodeId: number;
+  showFlags: boolean;
+  data?: Record<string, any>;
 }
 
 const LinkNode: Component<ILinkNodeProps> = (props) => {
-  const [engine] = useEngine();
+  const [_, { getNodeById }] = useEngine();
   const params = useParams();
 
-  const getProject = createMemo(() => {
-    if (!!params.projectId && params.projectId in engine.projects) {
-      return engine.projects[params.projectId];
-    }
-    return undefined;
-  });
-
   const getNode = createMemo(() => {
-    if (
-      !!getProject() &&
-      props.nodeId in getProject()!.nodes &&
-      getProject()!.nodes[props.nodeId].payload.type === "Link"
-    ) {
-      return getProject()!.nodes[props.nodeId] as APINodeItem;
+    const nodeByNodeId = getNodeById(params.projectId, props.nodeId);
+    if (!!nodeByNodeId && nodeByNodeId.payload.type === "Link") {
+      return nodeByNodeId as APINodeItem;
     }
     return undefined;
   });
 
   return (
     <>
-      {!!getProject() && !!getNode() ? (
-        <Payload
-          id={props.nodeId}
-          flags={getNode()!.flags}
-          payload={getNode()!.payload.data as Link}
-        />
+      {!!getNode() ? (
+        <>
+          <Payload
+            id={props.nodeId}
+            flags={getNode()!.flags}
+            payload={getNode()!.payload.data as Link}
+            showFlags={props.showFlags}
+            data={props.data}
+          />
+        </>
       ) : null}
     </>
   );

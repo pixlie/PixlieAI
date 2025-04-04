@@ -2,9 +2,10 @@ import { Component, createSignal } from "solid-js";
 import TextInput from "../interactable/TextInput";
 import { useWorkspace } from "../../stores/workspace";
 import { createStore } from "solid-js/store";
-import Icon from "../interactable/Icon";
-import ToolTip from "../navigation/ToolTip";
 import { useUIClasses } from "../../stores/UIClasses";
+import SaveIcon from "../../assets/icons/tabler-device-floppy.svg";
+import CheckIcon from "../../assets/icons/tabler-check.svg";
+import IconButton from "../interactable/IconButton";
 
 interface IFormData {
   pathToStorageDir: string;
@@ -46,9 +47,9 @@ const StorageDir: Component = () => {
   return (
     <div>
       <p class="font-medium">Storage Directory</p>
-      <ol class="text-sm text-gray-500 pt-1 gap-1 flex flex-col">
+      <ol class="text-gray-500 py-1 flex flex-col">
         <li>- Create a new directory on your computer</li>
-        <li>- Enter the path to your new directory below</li>
+        <li>- Enter the path to your new directory below:</li>
       </ol>
       <div class="flex items-center gap-2 pt-2">
         <TextInput
@@ -61,15 +62,15 @@ const StorageDir: Component = () => {
           }}
           value={formData.pathToStorageDir}
         />
-        {!saved() ? (
-          <button onClick={handleSubmit}>
-            <ToolTip text="Save">
-              <Icon name="save" />
-            </ToolTip>
-          </button>
-        ) : (
-          <Icon name="check" color="text-green-500" />
-        )}
+        <div class="-mr-2">
+          {!saved() ? (
+            <IconButton name="Save" icon={SaveIcon} onClick={handleSubmit} />
+          ) : (
+            <div class="p-2" style={{ color: "#00C853" }}>
+              <CheckIcon />
+            </div>
+          )}
+        </div>
       </div>
       {!!errorMessage && (
         <small class={getColors()["textDanger"]}>{errorMessage()}</small>

@@ -37,6 +37,15 @@ pub enum PiError {
     #[error("Internal error: {0}")]
     InternalError(String),
 
+    #[error("Version check error: {0}")]
+    VersionCheckError(String),
+
+    #[error("Version mismatch: Cargo version: {0}, Expected version: {1}")]
+    VersionMismatch(String, String),
+    
+    #[error("Version file missing")]
+    VersionFileMissing,
+
     #[error("Error in graph reading or writing: {0}")]
     GraphError(String),
 

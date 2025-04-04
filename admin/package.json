@@ -1,9 +1,14 @@
 {
   "name": "admin",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.0-beta",
   "type": "module",
   "scripts": {
+    "version:check": "node check-version.mjs",
+    "predev": "pnpm version:check",
+    "prebuild": "pnpm version:check",
+    "prepreview": "pnpm version:check",
+    "pretest": "pnpm version:check",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
@@ -27,6 +32,7 @@
     "typescript": "^5.8.2",
     "vite": "^5.4.14",
     "vite-plugin-solid": "^2.11.6",
+    "vite-plugin-solid-svg": "^0.8.1",
     "vitest": "^2.1.9"
   }
 }

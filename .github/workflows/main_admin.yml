@@ -1,21 +1,45 @@
 on:
   push:
     branches: ["main"]
+    tags:
+      - "v*"
+    paths:
+      - "admin/**"
+      - ".github/workflows/main_admin.yml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "admin/**"
+      - ".github/workflows/main_admin.yml"
+
+concurrency:
+  # Avoid old jobs overlapping with new ones
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   main_admin:
+    name: Admin Frontend
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Match with VERSION for tag pushes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=$(cat VERSION)
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag version $TAG_VERSION does not match VERSION file $VERSION"
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
-          version: 9
+          version: 10
           run_install: false
 
       - name: Install Node.js for Admin
@@ -31,4 +55,21 @@ jobs:
 
       - name: Build Admin
         working-directory: "./admin"
-        run: pnpm run build
+        run: |
+          cp .env.template .env
+          pnpm run build
+      
+      - name: Tar Gzip the admin build directory
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: tar -czvf admin-${{ github.ref_name }}.tar.gz -C admin/dist .
+      
+      - name: Upload Admin build artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: admin-${{ github.ref_name }}.tar.gz
+          tag: ${{ github.ref }}
+          # TODO: Temporary overwrite, remove once CI process is hardened
+          overwrite: true
+

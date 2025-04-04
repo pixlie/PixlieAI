@@ -1,14 +1,16 @@
+import { Themable } from "./types";
+
 interface ITheme {
   name: string;
   type: string;
-  tailwindClasses: { [key: string]: string };
+  tailwindClasses: Themable;
 }
 
 const lightDefault: ITheme = {
   name: "Light default",
   type: "light",
   tailwindClasses: {
-    app: "bg-stone-100 text-stone-800",
+    app: "bg-slate-50 text-stone-800",
 
     navBar: "bg-white",
     // "navBar.logo": "text-blue-700",
@@ -17,23 +19,25 @@ const lightDefault: ITheme = {
     "navBar.link": "text-gray-800",
     "navBar.link.active": "bg-gray-300",
 
-    sideBar: "bg-white",
+    sideBar: "bg-white border-slate-200",
     "sideBar.logo": "text-gray-800",
     "sideBar.link": "text-gray-800 hover:bg-gray-100",
     "sideBar.link.active": "bg-gray-100",
     "sideBar.label": "text-gray-600",
     "sideBar.label.active": "text-gray-800 border-gray-400 bg-gray-100",
 
-    mainContent: "bg-white",
+    mainContent: "bg-white border-slate-200",
     heading: "text-gray-800",
 
-    label: "text-gray-800",
+    "form.label": "text-gray-800",
     text: "text-gray-700",
+    textSoft: "text-gray-500",
     textSuccess: "text-green-600",
     textInfo: "text-blue-600",
     textDanger: "text-red-600",
     textMuted: "text-gray-400",
-    input: "bg-gray-50 text-gray-700 border-gray-300",
+    textWarning: "text-yellow-600",
+    input: "bg-slate-100 text-gray-700 border-slate-200",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     link: "text-blue-600 hover:underline",
     formError: "text-red-600",
@@ -50,6 +54,9 @@ const lightDefault: ITheme = {
     "button.cancel": "bg-red-600 hover:bg-red-500 text-white",
     "button.secondary": "bg-blue-500 text-white",
     "button.success": "bg-green-700 hover:bg-green-600 text-white",
+    "button.muted": "bg-gray-300 text-gray-900",
+
+    highlight: "bg-yellow-200",
   },
 };
 

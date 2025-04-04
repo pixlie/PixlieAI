@@ -62,6 +62,7 @@ const Crawl: Component = () => {
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}
+        mode="regular"
       />
     </>
   );

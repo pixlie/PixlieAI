@@ -1,32 +1,112 @@
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+    tags:
+      - "v*"
+    paths:
+      - "pixlie_ai/**"
+      - ".github/workflows/main_pixlie_ai.yml"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+    paths:
+      - "pixlie_ai/**"
+      - ".github/workflows/main_pixlie_ai.yml"
 
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  # Avoid old jobs overlapping with new ones
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   main_pixlie_ai:
+    name: Pixlie AI
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: pixlie
-            asset_name: pixlie-linux-amd64
+            artifact_name: cli
+            asset_name: pixlie-linux-amd64-${{ github.ref_name }}
           - os: macos-latest
-            artifact_name: pixlie
-            asset_name: pixlie-macos-amd64
+            artifact_name: cli
+            asset_name: pixlie-macos-arm64-${{ github.ref_name }}
+          - os: windows-latest
+            artifact_name: cli.exe
+            asset_name: pixlie-windows-amd64-${{ github.ref_name }}.exe
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Match with VERSION for tag pushes on Ubuntu/MacOS
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os != 'windows-latest'
+        run: |
+          VERSION=$(cat VERSION)
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag version $TAG_VERSION does not match VERSION file $VERSION"
+            exit 1
+          fi
+      - name: Match with VERSION for tag pushes on Windows
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'windows-latest'
+        run: |
+          $VERSION = Get-Content -Path "VERSION" -Raw
+          $TAG_VERSION = $env:GITHUB_REF -replace "refs/tags/v", ""
+          if ($TAG_VERSION -ne $VERSION.Trim()) {
+            Write-Output "::error::Tag version $TAG_VERSION does not match VERSION file $VERSION"
+            exit 1
+          }
+        shell: pwsh
+      - name: Pre-build installations for Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
 
-#      - name: Test pixlie_ai
-#        working-directory: "./pixlie_ai"
-#        run: cargo test --verbose
-#
-#      - name: Build release
-#        working-directory: "./pixlie_ai"
-#        run: cargo build --release
+      - name: Pre-build installations for MacOS
+        if: matrix.os == 'macos-latest'
+        uses: tecolicom/actions-use-homebrew-tools@v1
+        with:
+          tools: 'llvm rocksdb lld'
+          verbose: true
+
+      - name: Pre-build installations for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install llvm
+        
+      - name: Set environment variables for MacOS
+        if: matrix.os == 'macos-latest'
+        run: .ci/set-macos-env.sh
+        shell: bash
+          
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+          workspaces: "pixlie_ai -> target"
+
+      - name: Test pixlie_ai
+        working-directory: "./pixlie_ai"
+        run: cargo test --verbose
+
+      - name: Build release
+        working-directory: "./pixlie_ai"
+        run: cargo build --release
+      
+      - name: Add Executable permission
+        if: startsWith(github.ref, 'refs/tags/v') && (matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest')
+        run: chmod +x pixlie_ai/target/release/${{ matrix.artifact_name }}
+
+      - name: Upload binaries to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: pixlie_ai/target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
+          # TODO: Temporary overwrite, remove once CI process is hardened
+          overwrite: true
+

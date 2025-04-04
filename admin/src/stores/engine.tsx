@@ -5,6 +5,7 @@ import { getPixlieAIAPIRoot } from "../utils/api";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
 import { APINodeEdges } from "../api_types/APINodeEdges.ts";
+import { EdgeLabel } from "../api_types/EdgeLabel.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -110,27 +111,61 @@ const makeStore = () => {
     });
   };
 
+  const getNodeById = (
+    projectId: string,
+    nodeId: number,
+  ): APINodeItem | undefined => {
+    if (
+      projectId in store.projects &&
+      nodeId in store.projects[projectId].nodes
+    ) {
+      return store.projects[projectId].nodes[nodeId];
+    }
+    return undefined;
+  };
+
+  const getNodes = (
+    projectId: string,
+    filterFn: (node: APINodeItem) => boolean,
+  ): Array<APINodeItem> => {
+    if (projectId in store.projects) {
+      return Object.values(store.projects[projectId]?.nodes || {})
+        .filter((node) => filterFn(node))
+        .map((node) => node);
+    }
+    return [];
+  };
+
+  const getRelatedNodeIds = (
+    projectId: string,
+    nodeId: number,
+    relatedNodeTypes: EdgeLabel,
+  ): Array<number> => {
+    if (
+      projectId in store.projects &&
+      nodeId in store.projects[projectId].nodes &&
+      nodeId in store.projects[projectId].edges
+    ) {
+      return store.projects[projectId].edges[nodeId].edges
+        .filter(
+          ([relatedNodeId, edgeLabel]) =>
+            relatedNodeTypes === edgeLabel &&
+            relatedNodeId in store.projects[projectId].nodes,
+        )
+        .map(([relatedNodeId, _]) => relatedNodeId);
+    }
+    return [];
+  };
+
   const getRelatedNodes = (
     projectId: string,
     nodeId: number,
-    relatedNodeType: string,
+    relatedNodeTypes: EdgeLabel,
+    filterFn?: (node: APINodeItem) => boolean,
   ): Array<APINodeItem> => {
-    if (nodeId in store.projects[projectId].nodes) {
-      if (nodeId in store.projects[projectId].edges) {
-        let nodes: Array<APINodeItem> = [];
-        for (const edge of store.projects[projectId].edges[nodeId]?.edges!) {
-          let [nId, edgeLabel]: [number, string] = edge;
-          if (edgeLabel === relatedNodeType) {
-            if (nId in store.projects[projectId].nodes) {
-              nodes.push(store.projects[projectId].nodes[nId]);
-            }
-          }
-        }
-        return nodes;
-      }
-      return [];
-    }
-    return [];
+    return getRelatedNodeIds(projectId, nodeId, relatedNodeTypes)
+      .map((id) => getNodeById(projectId, id) as APINodeItem)
+      .filter((node) => !filterFn || filterFn(node));
   };
 
   const sync = (projectId: string) => {
@@ -204,6 +239,9 @@ const makeStore = () => {
       setProjectId,
       sync,
       stopSync,
+      getNodeById,
+      getNodes,
+      getRelatedNodeIds,
       getRelatedNodes,
     },
   ] as const; // `as const` forces tuple type inference

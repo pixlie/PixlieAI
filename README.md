@@ -26,30 +26,32 @@ Point Pixlie at any website and describe what you need - from pricing data to pr
 
 Watch this video to see Pixlie in action:
 
-[![Plan a Trip with Pixlie](https://img.youtube.com/vi/8kApAG3ghsE/0.jpg)](https://www.youtube.com/watch?v=8kApAG3ghsE)
+[![Pixlie Latest Release](https://img.youtube.com/vi/mF9KuFYNF4s/0.jpg)](https://www.youtube.com/watch?v=mF9KuFYNF4s)
 
-Choose a domain to crawl:
-![Set your domain](https://pixlie.com/images/screenshots/pixlie-screenshot-website.png)
+Choose your objective - what do you want to discover with Pixlie?:
+![Set your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-objective.png)
 
-Set your keywords:
-![Set your kewyords](https://pixlie.com/images/screenshots/pixlie-screenshot-searchterm.png)
+Information will instantly be populated. Let Pixlie search a while and see...
 
-See the domains on the website:
-![Website's domain](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png)
 
-See the links on the website:
-![Website's outbound link](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png)
+A list of links discovered based on your objective:
+![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
 
-See the search results:
-![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-results.png)
+A list of domains (as many links may come from one domain):
+![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
+
+The content extracted from these links:
+![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
+
+Search through the results for specifics:
+![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-resultsv0-2-0.png)
 
 ## How can I use Pixlie?
 
+At the moment Pixlie can be used on your laptop for personal web research (desktop app coming soon!). Pixlie is open source, with the option of enterprise licensing for those who want to utilize Pixlie's search and knowledge graph within their product. 
+
 Pixlie is open source and is under active development. Our work is done in public, please star this repository, it
 means a lot to us.
-
-If you want to be notified when Pixlie is ready for use, please subscribe to
-our [insights newsletter](https://pixlie.com/insights).
 
 ## Documentation for developers
 
@@ -64,6 +66,20 @@ If you want to use Pixlie, please see the [USE.md](USE.md) file.
 Pixlie has a REST API that you can use to interact with the graph. We use Bruno to document the API.
 You can find the API spec in the `rest_api` directory.
 
+## Stay in Touch
+
+If you want to be notified when Pixlie is ready for use, please subscribe to
+our [insights newsletter](https://pixlie.com/insights).
+
+Join the discussion or get support on [Discord](https://discord.gg/5W9U9RPTGp).
+
+## License
+
+- Pixlie is licensed under the GNU General Public License version 3.0
+- See the [LICENSE](LICENSE) file for details
+
+## FAQ
+
 ## Is Pixlie an alternative to using vector databases?
 
 Yes, Pixlie is an alternative to using vector databases. Vector databases are good for storing and querying semantic
@@ -71,7 +87,19 @@ data, but they do not model the underlying data accurately. In Pixlie, we use LL
 semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
 along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
 
-## License
+### What is the difference between Domains, Links and WebPages?
+**Link Nodes** are the URLs we discover using Brave & AI based on the Objective. When each Link Node is processed, we store domains for these Links in our database as separate nodes - one node for every domain.
 
-- Pixlie is licensed under the GNU General Public License version 3.0
-- See the [LICENSE](LICENSE) file for details
+We connect **Domain Nodes** to their Link Nodes in the following way:
+
+Domain `—OwnerOf—>` Link(s)
+
+Link `—BelongsTo—>` a Domain
+
+As a part of the processing of Link Nodes, we then fetch their raw HTML content. Once we successfully fetch the content, we create a **WebPage Node** to store that content and then connect it to the Link Node:
+
+Link `—PathOf—>` WebPage
+
+and vice-versa
+
+WebPage `—ContentOf—>` Link

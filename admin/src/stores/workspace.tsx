@@ -1,16 +1,16 @@
 import { Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { IProviderPropTypes, IWorkspace } from "../utils/types";
-import {
-  camelCasedKeys,
-  getPixlieAIAPIRoot,
-  snakeCasedKeys,
-} from "../utils/api";
+import { getPixlieAIAPIRoot } from "../utils/api";
 import { SettingsStatus } from "../api_types/SettingsStatus";
 import { Settings } from "../api_types/Settings";
 import { Project } from "../api_types/Project";
 import { Workspace } from "../api_types/Workspace";
 import { WorkspaceUpdate } from "../api_types/WorkspaceUpdate.ts";
+import {
+  camelCasedToSnakeCasedKeys,
+  snakeCasedToCamelCasedKeys,
+} from "../utils/utils.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
@@ -30,7 +30,7 @@ const makeStore = () => {
           ...data,
           isFetching: false,
           isReady: true,
-          settings: camelCasedKeys(settings),
+          settings: snakeCasedToCamelCasedKeys(settings),
         }));
       });
     });
@@ -55,7 +55,7 @@ const makeStore = () => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(snakeCasedKeys(workspace)),
+      body: JSON.stringify(camelCasedToSnakeCasedKeys(workspace)),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save settings");
@@ -75,7 +75,7 @@ const makeStore = () => {
           ...data,
           isFetching: false,
           isReady: true,
-          workspace: camelCasedKeys(workspace),
+          workspace: snakeCasedToCamelCasedKeys(workspace),
         }));
       });
     });
@@ -91,7 +91,7 @@ const makeStore = () => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(snakeCasedKeys(update)),
+      body: JSON.stringify(camelCasedToSnakeCasedKeys(update)),
     }).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to save workspace");

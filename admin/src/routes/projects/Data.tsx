@@ -5,39 +5,19 @@ import { useParams, useSearchParams } from "@solidjs/router";
 import Heading from "../../widgets/typography/Heading.tsx";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
 
-const labelTypes: string[] = [
-  "Title",
-  "Paragraph",
-  "Heading",
-  "BulletPoints",
-  "OrderedPoints",
-  "SearchResults",
-];
+const labelTypes: string[] = ["SearchResults"];
 type LabelType = (typeof labelTypes)[number];
 
 const Data: Component = () => {
-  const [engine] = useEngine();
+  const [_, { getNodes }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
-
-  const getProject = createMemo(() => {
-    if (!!params.projectId && params.projectId in engine.projects) {
-      return engine.projects[params.projectId];
-    }
-    return undefined;
-  });
-
   const getSelectNodeIds = createMemo<number[]>(() => {
-    if (getProject() && !!searchParams.label) {
-      if (searchParams.label === "WebPage") {
-        return Object.values(getProject()!.nodes)
-          .filter((x) => x.labels.includes("WebPage" as NodeLabel))
-          .map((x) => x.id);
-      }
-      return [];
-    } else {
-      return [];
-    }
+    // Later, we can fetch by label Content instead of WebPage
+    // and do conditional rendering based on the label type(WebPage, PDFFile, etc)
+    return getNodes(params.projectId, (node) =>
+      node.labels.includes(searchParams.label as NodeLabel),
+    ).map((node) => node.id);
   });
 
   const getNodeTypeFromSearchParam = createMemo(() => {
@@ -55,6 +35,7 @@ const Data: Component = () => {
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}
+        mode="preview"
       />
     </>
   );
