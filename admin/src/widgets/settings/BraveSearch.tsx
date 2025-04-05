@@ -8,7 +8,6 @@ import {
 import TextInput from "../interactable/TextInput";
 import { createStore } from "solid-js/store";
 import { useWorkspace } from "../../stores/workspace";
-import { IFormFieldValue } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 import { APIProvider } from "../../api_types/APIProvider";
 import SaveIcon from "../../assets/icons/tabler-device-floppy.svg";
@@ -31,7 +30,7 @@ const BraveSearch: Component = () => {
     !!workspace.workspace?.apiKeys["BraveSearch" as APIProvider],
   );
 
-  const handleChange = (name: string, value: IFormFieldValue) => {
+  const handleChange = (name: string, value: string | number) => {
     setErrorMessage("");
     if (!!value && typeof value === "string") {
       setFormData((existing) => ({

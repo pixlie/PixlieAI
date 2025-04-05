@@ -10,17 +10,17 @@ import Search from "./projects/Search";
 import PerProjectWrapper from "./projects/PerProject";
 import HelpContainer from "./help/HelpContainer";
 import Contact from "./help/Contact";
-import CreateWorkflow from "./projects/CreateWorkflow.tsx";
+import CreateProject from "./projects/CreateProject.tsx";
 import Graph from "./projects/Graph.tsx";
 
 const Routes: Component = () => {
   return (
     <>
       <Route path="/">
-        <Route path="" component={CreateWorkflow} />
+        <Route path="" component={CreateProject} />
 
         <Route path="/p">
-          <Route path="/create" component={CreateWorkflow} />
+          <Route path="/create" component={CreateProject} />
           <Route path="/:projectId" component={PerProjectWrapper}>
             <Route path="/workflow" component={Workflow} />
             <Route path="/insights" component={Insights} />

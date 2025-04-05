@@ -1,8 +1,8 @@
 import { Component, JSX } from "solid-js";
-import { IFormField } from "../../utils/types";
+import { ITextFormField } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 
-const TextArea: Component<IFormField> = (props) => {
+const TextArea: Component<ITextFormField> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   const handleChange: JSX.ChangeEventHandler<HTMLTextAreaElement, Event> = (

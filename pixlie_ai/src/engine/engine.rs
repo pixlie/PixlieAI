@@ -1,3 +1,10 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use super::{EdgeLabel, NodeEdges, NodeFlags};
 use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
 use crate::engine::edges::Edges;
@@ -10,10 +17,11 @@ use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
 use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -211,7 +219,6 @@ impl Engine {
             NodeFlags::IS_PROCESSED,
             NodeFlags::IS_REQUESTING,
             NodeFlags::IS_BLOCKED,
-            NodeFlags::HAD_ERROR,
         ];
 
         // When the number of the nodes to be processed is large,
@@ -229,6 +236,7 @@ impl Engine {
             NodeLabel::WebSearch,
         ];
         let mut node_count: usize = 0;
+        let current_time = Utc::now();
         let mut node_ids: Vec<NodeId> = match self.nodes.read() {
             Ok(nodes) => nodes
                 .data
@@ -239,6 +247,12 @@ impl Engine {
                         .any(|flag| item.1.flags.contains(flag.clone()))
                     {
                         None
+                    } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
+                        if current_time - item.1.written_at > TimeDelta::seconds(60) {
+                            Some(*item.0.deref())
+                        } else {
+                            None
+                        }
                     } else {
                         if node_count < 10
                             && all_labels_to_be_processed
@@ -246,12 +260,12 @@ impl Engine {
                                 .any(|label| item.1.labels.contains(label))
                         {
                             node_count += 1;
-                            Some(item.1.id)
+                            Some(*item.0.deref())
                         } else if limited_labels_to_be_processed
                             .iter()
                             .any(|label| item.1.labels.contains(label))
                         {
-                            Some(item.1.id)
+                            Some(*item.0.deref())
                         } else {
                             None
                         }
@@ -259,13 +273,16 @@ impl Engine {
                 })
                 .collect(),
             Err(err) => {
-                error!("Error locking nodes: {}", err);
+                error!("Error locking nodes in process_nodes: {}", err);
                 return;
             }
         };
         node_ids.sort();
 
-        // info!("Processing {} nodes", node_ids.len());
+        // info!(
+        //     "Processing nodes {}",
+        //     node_ids.iter().map(|x| x.to_string()).join(", ")
+        // );
         for node_id in node_ids {
             if let Some(node) = self.get_node_by_id(&node_id) {
                 match node.process(arced_self.clone()) {

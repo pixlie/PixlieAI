@@ -1,9 +1,9 @@
-import { TailwindClassesType } from "./types";
+import { Themable } from "./types";
 
 interface ITheme {
   name: string;
   type: string;
-  tailwindClasses: TailwindClassesType;
+  tailwindClasses: Themable;
 }
 
 const lightDefault: ITheme = {
@@ -40,6 +40,7 @@ const lightDefault: ITheme = {
     input: "bg-slate-100 text-gray-700 border-slate-200",
     textArea: "bg-gray-50 text-gray-700 border-gray-300",
     link: "text-blue-600 hover:underline",
+    formError: "text-red-600",
 
     breadcrumb: "bg-stone-100",
     "breadcrumb.link": "text-gray-400",
@@ -49,10 +50,10 @@ const lightDefault: ITheme = {
     "tabs.link":
       "text-gray-500 hover:text-gray-700 border-slate-300 border-b-stone-100",
 
-    "button.default": "bg-slate-500 text-white",
-    "button.cancel": "bg-red-500 text-white",
+    "button.default": "bg-slate-500 hover:bg-slate-400 text-white",
+    "button.cancel": "bg-red-600 hover:bg-red-500 text-white",
     "button.secondary": "bg-blue-500 text-white",
-    "button.success": "bg-green-600 text-white",
+    "button.success": "bg-green-700 hover:bg-green-600 text-white",
     "button.muted": "bg-gray-300 text-gray-900",
 
     highlight: "bg-yellow-200",

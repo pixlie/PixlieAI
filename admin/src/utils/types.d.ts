@@ -5,7 +5,7 @@ import { Project } from "../api_types/Project";
 import { APINodeItem } from "../api_types/APINodeItem";
 import { Workspace } from "../api_types/Workspace";
 import { APINodeEdges } from "../api_types/APINodeEdges.ts";
-import { TailwindClassKeyType } from "./uIClasses/types";
+import { ThemableItem } from "./uIClasses/types";
 
 interface IProviderPropTypes {
   children: JSX.Element;
@@ -38,10 +38,6 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
-type IFormFieldValue = string | number | Array<string> | undefined;
-
-type DisplayAs = "Drawer" | "MainContent";
-
 interface INodeItemDisplayProps {
   nodeId: number;
   mode: "regular" | "preview";
@@ -66,8 +62,6 @@ interface IFormField {
   placeholder?: string | null;
   size?: "xs" | "sm" | "base" | "lg";
   displayBlock?: boolean;
-  value?: IFormFieldValue;
-  onChange?: (name: string, value: IFormFieldValue) => void;
   onFocus?: () => void;
   onKeyUp?: (event: KeyboardEvent) => void;
   isRequired?: boolean;
@@ -75,9 +69,19 @@ interface IFormField {
   autocomplete?: boolean;
 }
 
+interface ITextFormField extends IFormField {
+  value?: string | number;
+  onChange?: (name: string, value: string | number) => void;
+}
+
+interface IBooleanFormField extends IFormField {
+  value?: boolean;
+  onChange?: (name: string, value: boolean) => void;
+}
+
 interface IActionsWrapperAction {
   render: boolean;
-  color?: TailwindClassKeyType;
+  color?: ThemableItem;
   onClick?: (id: string) => void;
   text?: string;
   tooltip?: string;
@@ -97,7 +101,7 @@ interface IActionsWrapper {
 
 interface ILabel {
   children: string | JSXElement;
-  color: TailwindClassKeyType;
+  color: ThemableItem;
   tooltip?: string;
   tooltipPosition?: "top" | "bottom";
   title?: JSX.HTMLAttributes<HTMLSpanElement>["title"];
@@ -109,11 +113,11 @@ export type {
   IProviderPropTypes,
   IWorkspace,
   IFormField,
-  IFormFieldValue,
+  ITextFormField,
+  IBooleanFormField,
   IEngine,
   IEngineStore,
   INodeItem,
-  DisplayAs,
   INodeItemDisplayProps,
   INodeListItemProps,
   IActionsWrapper,

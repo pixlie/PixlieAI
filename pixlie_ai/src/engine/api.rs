@@ -1,8 +1,16 @@
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
+// Licensed under the GNU General Public License version 3.0;
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://github.com/pixlie/PixlieAI/blob/main/LICENSE
+
 use super::node::ArcedNodeItem;
-use super::{Engine, NodeFlags};
+use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
-use crate::entity::objective::Objective;
+use crate::entity::crawler::CrawlerSettings;
+use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
 use crate::error::PiError;
@@ -31,12 +39,28 @@ pub struct LinkWrite {
     pub url: String,
 }
 
+#[derive(Clone, Deserialize, TS)]
+#[ts(export)]
+pub struct ProjectSettingsWrite {
+    pub extract_data_only_from_specified_links: bool,
+    pub crawl_within_domains_of_specified_links: bool,
+    pub crawl_direct_links_from_specified_links: bool,
+}
+
 #[derive(Clone, Deserialize, Display, TS)]
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
     SearchTerm(String),
     Objective(String),
+    ProjectSettings(ProjectSettingsWrite),
+}
+
+#[derive(Clone, Deserialize, TS)]
+#[ts(export)]
+pub struct EdgeWrite {
+    node_ids: (NodeId, NodeId),
+    edge_labels: (EdgeLabel, EdgeLabel),
 }
 
 #[derive(Clone, Deserialize, TS)]
@@ -47,7 +71,9 @@ pub enum EngineRequestPayload {
     GetNodesWithIds(Vec<u32>),
     GetAllNodes(Option<DateTime<Utc>>),
     GetAllEdges(Option<DateTime<Utc>>),
+
     CreateNode(NodeWrite),
+    CreateEdge(EdgeWrite),
 
     // Some nodes allow a "query", which can generate any number of nodes, like a search
     Query(u32),
@@ -69,7 +95,8 @@ pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum EngineResponsePayload {
-    Success,
+    NodeCreatedSuccessfully(NodeId),
+    EdgeCreatedSuccessfully,
     Nodes(Vec<APINodeItem>),
     Labels(Vec<String>),
     Edges(APIEdges),
@@ -84,6 +111,8 @@ pub enum APIPayload {
     Text(String),
     Tree(String),
     TableRow(TableRow),
+    ProjectSettings(ProjectSettings),
+    CrawlerSettings(CrawlerSettings),
 }
 
 #[derive(Clone, Default, Serialize, TS)]
@@ -94,10 +123,11 @@ pub enum APINodeFlags {
     IsProcessed,
     IsRequesting,
     IsBlocked,
+    HadError,
 }
 
 impl APINodeFlags {
-    pub fn from_node_flags(flags: NodeFlags) -> Vec<APINodeFlags> {
+    pub fn from_node_flags(flags: &NodeFlags) -> Vec<APINodeFlags> {
         let mut api_flags = vec![];
         if flags.contains(NodeFlags::IS_PROCESSED) {
             api_flags.push(APINodeFlags::IsProcessed);
@@ -107,6 +137,9 @@ impl APINodeFlags {
         }
         if flags.contains(NodeFlags::IS_BLOCKED) {
             api_flags.push(APINodeFlags::IsBlocked);
+        }
+        if flags.contains(NodeFlags::HAD_ERROR) {
+            api_flags.push(APINodeFlags::HadError);
         }
         api_flags
     }
@@ -125,28 +158,34 @@ pub struct APINodeItem {
 }
 
 impl APINodeItem {
-    pub fn from_node(node: &ArcedNodeItem) -> APINodeItem {
-        let payload: APIPayload = match &node.payload {
+    pub fn from_node(arced_node: &ArcedNodeItem) -> APINodeItem {
+        let payload: APIPayload = match &arced_node.payload {
             Payload::Text(text) => {
-                if node.labels.contains(&NodeLabel::WebPage)
-                    || node.labels.contains(&NodeLabel::RobotsTxt)
+                if arced_node.labels.contains(&NodeLabel::WebPage)
+                    || arced_node.labels.contains(&NodeLabel::RobotsTxt)
                 {
                     APIPayload::Text("".to_string())
                 } else {
-                    APIPayload::Text(text.clone())
+                    APIPayload::Text(text.to_string())
                 }
             }
             Payload::Link(link) => APIPayload::Link(link.clone()),
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),
+            Payload::ProjectSettings(project_settings) => {
+                APIPayload::ProjectSettings(project_settings.clone())
+            }
+            Payload::CrawlerSettings(crawler_settings) => {
+                APIPayload::CrawlerSettings(crawler_settings.clone())
+            }
         };
         APINodeItem {
-            id: node.id,
-            labels: node.labels.clone(),
+            id: arced_node.id,
+            labels: arced_node.labels.clone(),
             payload,
-            flags: APINodeFlags::from_node_flags(node.flags.clone()),
-            written_at: node.written_at,
+            flags: APINodeFlags::from_node_flags(&arced_node.flags),
+            written_at: arced_node.written_at,
         }
     }
 }
@@ -426,6 +465,60 @@ pub async fn create_node(
     }
 }
 
+pub async fn create_edge(
+    project_id: web::Path<String>,
+    edge: web::Json<EdgeWrite>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to create edge between {} and {} with labels {} and {}",
+        request_id,
+        project_id,
+        &edge.node_ids.0,
+        &edge.node_ids.1,
+        &edge.edge_labels.0,
+        &edge.edge_labels.1,
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::CreateEdge(edge.into_inner()),
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
+}
+
 pub async fn search_results(
     path: web::Path<(String, u32)>,
     api_state: web::Data<ApiState>,
@@ -572,24 +665,51 @@ pub fn handle_engine_api_request(
             EngineResponsePayload::Edges(APIEdges(edges))
         }
         EngineRequestPayload::CreateNode(node_write) => {
-            match node_write {
-                NodeWrite::Link(link_write) => {
-                    Link::add(
-                        engine.clone(),
-                        &link_write.url,
-                        vec![NodeLabel::AddedByUser, NodeLabel::Link],
-                        vec![],
+            let node_id = match node_write {
+                NodeWrite::Link(link_write) => Link::add(
+                    engine.clone(),
+                    &link_write.url,
+                    vec![NodeLabel::AddedByUser, NodeLabel::Link],
+                    vec![],
+                    true,
+                )?,
+                NodeWrite::SearchTerm(text) => engine
+                    .get_or_add_node(
+                        Payload::Text(text.to_string()),
+                        vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
                         true,
-                    )?;
-                }
-                NodeWrite::SearchTerm(text) => {
-                    SavedSearch::add_manually(engine.clone(), &text)?;
-                }
-                NodeWrite::Objective(text) => {
-                    Objective::add_manually(engine.clone(), &text)?;
-                }
-            }
-            EngineResponsePayload::Success
+                        None,
+                    )?
+                    .get_node_id(),
+                NodeWrite::Objective(text) => engine
+                    .get_or_add_node(
+                        Payload::Text(text.to_string()),
+                        vec![NodeLabel::AddedByUser, NodeLabel::Objective],
+                        true,
+                        None,
+                    )?
+                    .get_node_id(),
+                NodeWrite::ProjectSettings(project_settings_write) => engine
+                    .get_or_add_node(
+                        Payload::ProjectSettings(ProjectSettings {
+                            only_extract_data_from_specified_links: project_settings_write
+                                .extract_data_only_from_specified_links,
+                            only_crawl_within_domains_of_specified_links: project_settings_write
+                                .crawl_within_domains_of_specified_links,
+                            only_crawl_direct_links_from_specified_links: project_settings_write
+                                .crawl_direct_links_from_specified_links,
+                        }),
+                        vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
+                        true,
+                        None,
+                    )?
+                    .get_node_id(),
+            };
+            EngineResponsePayload::NodeCreatedSuccessfully(node_id)
+        }
+        EngineRequestPayload::CreateEdge(edge_write) => {
+            engine.add_connection(edge_write.node_ids, edge_write.edge_labels)?;
+            EngineResponsePayload::EdgeCreatedSuccessfully
         }
         EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {
             Some(node) => {

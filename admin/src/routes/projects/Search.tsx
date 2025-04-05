@@ -4,7 +4,7 @@ import Heading from "../../widgets/typography/Heading";
 import { useParams } from "@solidjs/router";
 import TextInput from "../../widgets/interactable/TextInput";
 import SearchResults from "../../widgets/node/SearchResult";
-import { IActionsWrapperAction, IFormFieldValue } from "../../utils/types";
+import { IActionsWrapperAction } from "../../utils/types";
 import ActionsWrapper from "../../widgets/interactable/ActionsWrapper";
 import { slugify } from "../../utils/utils";
 import SaveIcon from "../../assets/icons/feather-save.svg";
@@ -12,7 +12,7 @@ import DeleteIcon from "../../assets/icons/heroicons-trash.svg";
 import DeactivateIcon from "../../assets/icons/tabler-cross.svg";
 import Label from "../../widgets/generic/Label";
 import { useUIClasses } from "../../stores/UIClasses";
-import { insertNode } from "../../utils/api";
+import { createNode } from "../../utils/api";
 import { NodeWrite } from "../../api_types/NodeWrite";
 
 interface IFormData {
@@ -42,7 +42,7 @@ const SearchTermList: Component<ISearchTermListProps> = (
 ) => {
   const [_, { getColors }] = useUIClasses();
   const getWrapperActions = (slug: string): IActionsWrapperAction[] => {
-    const wrapperActions: IActionsWrapperAction[] = [
+    return [
       {
         render: !props.searchTerms[slug].saved,
         color: "textInfo",
@@ -64,8 +64,8 @@ const SearchTermList: Component<ISearchTermListProps> = (
         icon: <DeactivateIcon />,
       },
     ];
-    return wrapperActions;
   };
+
   const getRenderableSearchTerms = createMemo<ISearchTerm[]>(() => {
     return Object.values(props.searchTerms).filter((term) => term[props.type]);
   });
@@ -172,7 +172,7 @@ const Search: Component = () => {
     getSavedSearchTermNodes();
   });
 
-  const handleSearchTermChange = (_name: string, data: IFormFieldValue) => {
+  const handleSearchTermChange = (_name: string, data: string | number) => {
     if (typeof data !== "string" || !data) {
       return;
     }
@@ -236,9 +236,9 @@ const Search: Component = () => {
   };
 
   const saveSearchTerm = (slug: string) => {
-    insertNode(params.projectId, {
+    createNode(params.projectId, {
       SearchTerm: searchTerms()[slug].term,
-    } as NodeWrite);
+    } as NodeWrite).then((_) => {});
     getSavedSearchTermNodes();
   };
 
