@@ -2,7 +2,6 @@ import { Component, createSignal } from "solid-js";
 import TextInput from "../interactable/TextInput";
 import { useWorkspace } from "../../stores/workspace";
 import { createStore } from "solid-js/store";
-import { IFormFieldValue } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
 import SaveIcon from "../../assets/icons/tabler-device-floppy.svg";
 import CheckIcon from "../../assets/icons/tabler-check.svg";
@@ -23,7 +22,7 @@ const StorageDir: Component = () => {
     !!workspace.settings?.pathToStorageDir,
   );
 
-  const handleChange = (name: string, value: IFormFieldValue) => {
+  const handleChange = (name: string, value: string | number) => {
     if (!!value && typeof value === "string") {
       setFormData((existing) => ({
         ...existing,

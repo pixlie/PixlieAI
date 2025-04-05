@@ -136,7 +136,8 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         )
         .service(
             web::resource(format!("{}/engine/{{project_id}}/edges", API_ROOT))
-                .route(web::get().to(engine::api::get_edges)),
+                .route(web::get().to(engine::api::get_edges))
+                .route(web::post().to(engine::api::create_edge)),
         )
         .service(
             web::resource(format!(

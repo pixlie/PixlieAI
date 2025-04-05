@@ -1,3 +1,6 @@
+// TODO: Remove the following when we start using this module
+#![allow(dead_code)]
+
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
@@ -61,26 +64,29 @@ impl WebSearch {
                     None => return Err(PiError::ApiKeyNotConfigured("Brave Search".to_string())),
                 };
                 let mut url = Url::parse("https://api.search.brave.com/res/v1/web/search")?;
-                let search_term = match &node.payload {
-                    Payload::Text(search_term) => search_term,
-                    _ => {
-                        return Err(PiError::GraphError(format!(
-                            "Expected Payload::Text, got {}",
-                            node.payload.to_string()
-                        )));
-                    }
-                };
-                url.query_pairs_mut().append_pair("q", search_term);
+                match &node.payload {
+                    Payload::CrawlerSettings(crawler_settings) => {
+                        match &crawler_settings.keywords_to_search_the_web_to_get_starting_urls {
+                            Some(search_terms) => {
+                                for search_term in search_terms {
+                                    url.query_pairs_mut().append_pair("q", search_term);
 
-                let mut request = FetchRequest::new(node.id, url.as_str());
-                request.headers = HeaderMap::from_iter(vec![
-                    (ACCEPT, "application/json".parse().unwrap()),
-                    (
-                        "X-Subscription-Token".parse().unwrap(),
-                        api_key.parse().unwrap(),
-                    ),
-                ]);
-                engine.fetch_api(request)?
+                                    let mut request = FetchRequest::new(node.id, url.as_str());
+                                    request.headers = HeaderMap::from_iter(vec![
+                                        (ACCEPT, "application/json".parse().unwrap()),
+                                        (
+                                            "X-Subscription-Token".parse().unwrap(),
+                                            api_key.parse().unwrap(),
+                                        ),
+                                    ]);
+                                    engine.fetch_api(request)?;
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
         Ok(())

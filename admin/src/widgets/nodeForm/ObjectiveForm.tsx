@@ -1,8 +1,7 @@
 import { Component } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { createStore } from "solid-js/store";
-import { IFormFieldValue } from "../../utils/types";
-import { insertNode } from "../../utils/api";
+import { createNode } from "../../utils/api";
 import { NodeWrite } from "../../api_types/NodeWrite";
 import TextInput from "../interactable/TextInput";
 import Button from "../interactable/Button";
@@ -17,7 +16,7 @@ const ObjectiveForm: Component = () => {
     topic: "",
   });
 
-  const handleChange = (_: any, value: IFormFieldValue) => {
+  const handleChange = (_: any, value: string | number) => {
     setFormData((existing) => ({
       ...existing,
       topic: value as string,
@@ -25,7 +24,7 @@ const ObjectiveForm: Component = () => {
   };
 
   const handleSubmit = async () => {
-    insertNode(params.projectId, {
+    await createNode(params.projectId, {
       Objective: formData.topic,
     } as NodeWrite);
   };

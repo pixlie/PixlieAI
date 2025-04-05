@@ -19,4 +19,6 @@ export type NodeLabel =
   | "UnorderedPoints"
   | "WebPage"
   | "WebSearch"
-  | "CrawlCondition";
+  | "CrawlCondition"
+  | "ProjectSettings"
+  | "CrawlerSettings";

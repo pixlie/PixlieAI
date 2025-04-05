@@ -1,4 +1,4 @@
-// Copyright 2024 Pixlie Web Solutions Pvt. Ltd.
+// Copyright 2025 Pixlie Web Solutions Pvt. Ltd.
 // Licensed under the GNU General Public License version 3.0;
 // You may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,7 +14,7 @@ use ts_rs::TS;
 pub mod api;
 mod edges;
 pub mod engine;
-pub(crate) mod node;
+pub mod node;
 mod nodes;
 pub mod setup;
 
@@ -33,16 +33,14 @@ pub enum EdgeLabel {
     ParentOf, // When one node is like a container of the other
     ChildOf,
 
-    ContentOf, // When one node is the content from a file path
+    ContentOf, // When one node is the content of a path/URL
     PathOf,
 
     OwnerOf, // When one node is the root path of another (like domain and path or folder and file)
     BelongsTo,
 
-    Suggests, // When one node is suggested based on another
+    Suggests, // When one node is suggested (usually by AI/ML) based on another node's content
     SuggestedFor,
-
-    EvaluatedFor, // When one node is evaluated for another
 }
 
 #[derive(Clone, Deserialize, Serialize)]

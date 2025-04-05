@@ -3,7 +3,8 @@ import type { APIEdges } from "./APIEdges";
 import type { APINodeItem } from "./APINodeItem";
 
 export type EngineResponsePayload =
-  | { type: "Success" }
+  | { type: "NodeCreatedSuccessfully"; data: number }
+  | { type: "EdgeCreatedSuccessfully" }
   | { type: "Nodes"; data: Array<APINodeItem> }
   | { type: "Labels"; data: Array<string> }
   | { type: "Edges"; data: APIEdges }

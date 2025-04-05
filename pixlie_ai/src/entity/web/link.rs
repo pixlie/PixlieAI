@@ -7,6 +7,7 @@ use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 use std::sync::Arc;
 use ts_rs::TS;
 use url::Url;
@@ -67,6 +68,7 @@ impl Link {
                 Some(domain_node_id),
             )?
             .get_node_id();
+
         engine.add_connection(
             (domain_node_id, link_node_id.clone()),
             (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
@@ -245,5 +247,34 @@ impl Link {
             None => engine.fetch(FetchRequest::new(node.id, &url))?,
         }
         Ok(())
+    }
+
+    pub fn get_domain_node(
+        node_id: &NodeId,
+        engine: Arc<&Engine>,
+    ) -> PiResult<Option<(NodeId, NodeItem)>> {
+        match engine.get_node_ids_connected_with_label(&node_id, &EdgeLabel::BelongsTo) {
+            Ok(connected_node_ids) => {
+                // Find the first domain node
+                Ok(connected_node_ids.iter().find_map(|node_id| {
+                    match engine.get_node_by_id(node_id) {
+                        Some(node) => {
+                            if node.labels.contains(&NodeLabel::Domain) {
+                                match &node.payload {
+                                    Payload::Text(_) => {
+                                        Some((node_id.clone(), node.deref().clone()))
+                                    }
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        None => None,
+                    }
+                }))
+            }
+            Err(_) => Ok(None),
+        }
     }
 }

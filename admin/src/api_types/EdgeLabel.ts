@@ -9,5 +9,4 @@ export type EdgeLabel =
   | "OwnerOf"
   | "BelongsTo"
   | "Suggests"
-  | "SuggestedFor"
-  | "EvaluatedFor";
+  | "SuggestedFor";

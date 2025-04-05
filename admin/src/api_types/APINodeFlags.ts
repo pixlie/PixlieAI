@@ -4,4 +4,5 @@ export type APINodeFlags =
   | "None"
   | "IsProcessed"
   | "IsRequesting"
-  | "IsBlocked";
+  | "IsBlocked"
+  | "HadError";

@@ -6,16 +6,6 @@ use std::sync::Arc;
 pub struct SavedSearch;
 
 impl SavedSearch {
-    pub fn add_manually(engine: Arc<&Engine>, search_term: &str) -> PiResult<()> {
-        engine.get_or_add_node(
-            Payload::Text(search_term.to_string()),
-            vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
-            true,
-            None,
-        )?;
-        Ok(())
-    }
-
     pub fn find_existing(
         engine: Arc<&Engine>,
         search_term: &str,
