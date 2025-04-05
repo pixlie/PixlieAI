@@ -16,7 +16,6 @@ use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
-use chrono::{DateTime, Utc};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -68,8 +67,8 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
-    GetAllNodes(Option<DateTime<Utc>>),
-    GetAllEdges(Option<DateTime<Utc>>),
+    GetAllNodes(i64),
+    GetAllEdges(i64),
 
     CreateNode(NodeWrite),
     CreateEdge(EdgeWrite),
@@ -83,7 +82,7 @@ pub enum EngineRequestPayload {
 pub struct APINodeEdges {
     #[ts(type = "Array<[number, string]>")]
     pub edges: Vec<(NodeId, String)>,
-    pub written_at: DateTime<Utc>,
+    pub written_at: i64,
 }
 
 #[derive(Clone, Serialize, TS)]
@@ -171,7 +170,7 @@ pub struct APINodeItem {
 
     #[serde(skip_deserializing)]
     pub flags: Vec<APINodeFlags>,
-    pub written_at: DateTime<Utc>,
+    pub written_at: i64,
 }
 
 #[derive(Clone)]
@@ -288,33 +287,23 @@ pub async fn get_nodes(
                 payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
             },
         ))?;
-    } else if let Some(since) = &params.since {
+    } else {
+        let since = if let Some(since) = params.since {
+            since
+        } else {
+            0
+        };
         // Read the nodes written since the given timestamp
         debug!(
             "API request {} for project {} to get nodes since {}",
             request_id, project_id, since
         );
-        let since = DateTime::from_timestamp_millis(*since);
         api_state.main_tx.send(PiEvent::APIRequest(
             project_id.clone(),
             EngineRequest {
                 request_id: request_id.clone(),
                 project_id: project_id.clone(),
                 payload: EngineRequestPayload::GetAllNodes(since),
-            },
-        ))?;
-    } else {
-        debug!(
-            "API request {} for project {} to get all nodes",
-            request_id, project_id
-        );
-
-        api_state.main_tx.send(PiEvent::APIRequest(
-            project_id.clone(),
-            EngineRequest {
-                request_id: request_id.clone(),
-                project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetAllNodes(None),
             },
         ))?;
     }
@@ -359,9 +348,9 @@ pub async fn get_edges(
     let mut rx = api_state.api_channel_tx.subscribe();
 
     let since = if let Some(since) = params.since {
-        DateTime::<Utc>::from_timestamp_millis(since)
+        since
     } else {
-        None
+        0
     };
     api_state.main_tx.send(PiEvent::APIRequest(
         project_id.clone(),
@@ -567,7 +556,7 @@ pub fn handle_engine_api_request(
                         labels: arced_node.labels.clone(),
                         payload: APIPayload::from_payload(&arced_node.payload),
                         flags: APINodeFlags::from_node_flags(&arced_node.flags),
-                        written_at: arced_node.written_at.clone(),
+                        written_at: arced_node.written_at.timestamp_millis(),
                     }),
                     None => None,
                 })
@@ -584,7 +573,7 @@ pub fn handle_engine_api_request(
                         labels: node.labels.clone(),
                         payload: APIPayload::from_payload(&node.payload),
                         flags: APINodeFlags::from_node_flags(&node.flags),
-                        written_at: node.written_at.clone(),
+                        written_at: node.written_at.timestamp_millis(),
                     });
                 }
             }
@@ -592,69 +581,40 @@ pub fn handle_engine_api_request(
             EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetAllNodes(since) => {
-            let mut nodes: Vec<APINodeItem> = match since {
-                Some(since) => engine
-                    .get_all_nodes()
-                    .iter()
-                    .filter_map(|node| {
-                        if node.written_at > since {
-                            Some(APINodeItem {
-                                id: node.id.clone(),
-                                labels: node.labels.clone(),
-                                payload: APIPayload::from_payload(&node.payload),
-                                flags: APINodeFlags::from_node_flags(&node.flags),
-                                written_at: node.written_at.clone(),
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-
-                None => engine
-                    .get_all_nodes()
-                    .iter()
-                    .map(|node| APINodeItem {
-                        id: node.id.clone(),
-                        labels: node.labels.clone(),
-                        payload: APIPayload::from_payload(&node.payload),
-                        flags: APINodeFlags::from_node_flags(&node.flags),
-                        written_at: node.written_at.clone(),
-                    })
-                    .collect(),
-            };
+            let mut nodes: Vec<APINodeItem> = engine
+                .get_all_nodes()
+                .iter()
+                .filter_map(|node| {
+                    // Check if node was written after the given `since` unix timestamp
+                    // Compare at the millisecond level, since browser date objects
+                    // do not support sub-millisecond precision
+                    if node.written_at.timestamp_millis() > since {
+                        Some(APINodeItem {
+                            id: node.id.clone(),
+                            labels: node.labels.clone(),
+                            payload: APIPayload::from_payload(&node.payload),
+                            flags: APINodeFlags::from_node_flags(&node.flags),
+                            written_at: node.written_at.timestamp_millis(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
             EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetAllEdges(since) => {
-            let edges: HashMap<NodeId, APINodeEdges> = match since {
-                Some(since) => engine
-                    .get_all_edges()
-                    .iter()
-                    .filter_map(|(node_id, node_edges)| {
-                        if node_edges.written_at > since {
-                            Some((
-                                **node_id,
-                                APINodeEdges {
-                                    edges: node_edges
-                                        .edges
-                                        .iter()
-                                        .map(|x| (x.0, x.1.to_string()))
-                                        .collect(),
-                                    written_at: node_edges.written_at.clone(),
-                                },
-                            ))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-                None => engine
-                    .get_all_edges()
-                    .iter()
-                    .map(|(node_id, node_edges)| {
-                        (
+            let edges: HashMap<NodeId, APINodeEdges> = engine
+                .get_all_edges()
+                .iter()
+                .filter_map(|(node_id, node_edges)| {
+                    // Check if node_edges was written after the given `since` unix timestamp
+                    // Compare at the millisecond level, since browser date objects
+                    // do not support sub-millisecond precision
+                    if node_edges.written_at.timestamp_millis() > since {
+                        Some((
                             **node_id,
                             APINodeEdges {
                                 edges: node_edges
@@ -662,12 +622,14 @@ pub fn handle_engine_api_request(
                                     .iter()
                                     .map(|x| (x.0, x.1.to_string()))
                                     .collect(),
-                                written_at: node_edges.written_at.clone(),
+                                written_at: node_edges.written_at.timestamp_millis(),
                             },
-                        )
-                    })
-                    .collect(),
-            };
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
             EngineResponsePayload::Edges(APIEdges(edges))
         }
@@ -735,7 +697,7 @@ pub fn handle_engine_api_request(
                                         labels: x.labels.clone(),
                                         payload: APIPayload::from_payload(&x.payload),
                                         flags: APINodeFlags::from_node_flags(&x.flags),
-                                        written_at: x.written_at.clone(),
+                                        written_at: x.written_at.timestamp_millis(),
                                     })
                                     .collect::<Vec<APINodeItem>>(),
                             )
