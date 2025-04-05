@@ -5,6 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use super::node::ArcedNodeItem;
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::entity::content::TableRow;
@@ -114,24 +115,6 @@ pub enum APIPayload {
     CrawlerSettings(CrawlerSettings),
 }
 
-impl APIPayload {
-    pub fn from_payload(payload: &Payload) -> APIPayload {
-        match payload {
-            Payload::Link(link) => APIPayload::Link(link.clone()),
-            Payload::Text(text) => APIPayload::Text(text.to_string()),
-            // The empty string is garbage, just to keep the type system happy
-            Payload::Tree => APIPayload::Tree("".to_string()),
-            Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),
-            Payload::ProjectSettings(project_settings) => {
-                APIPayload::ProjectSettings(project_settings.clone())
-            }
-            Payload::CrawlerSettings(crawler_settings) => {
-                APIPayload::CrawlerSettings(crawler_settings.clone())
-            }
-        }
-    }
-}
-
 #[derive(Clone, Default, Serialize, TS)]
 #[ts(export)]
 pub enum APINodeFlags {
@@ -172,6 +155,39 @@ pub struct APINodeItem {
     #[serde(skip_deserializing)]
     pub flags: Vec<APINodeFlags>,
     pub written_at: DateTime<Utc>,
+}
+
+impl APINodeItem {
+    pub fn from_node(arced_node: &ArcedNodeItem) -> APINodeItem {
+        let payload: APIPayload = match &arced_node.payload {
+            Payload::Text(text) => {
+                if arced_node.labels.contains(&NodeLabel::WebPage)
+                    || arced_node.labels.contains(&NodeLabel::RobotsTxt)
+                {
+                    APIPayload::Text("".to_string())
+                } else {
+                    APIPayload::Text(text.to_string())
+                }
+            }
+            Payload::Link(link) => APIPayload::Link(link.clone()),
+            // The empty string is garbage, just to keep the type system happy
+            Payload::Tree => APIPayload::Tree("".to_string()),
+            Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),
+            Payload::ProjectSettings(project_settings) => {
+                APIPayload::ProjectSettings(project_settings.clone())
+            }
+            Payload::CrawlerSettings(crawler_settings) => {
+                APIPayload::CrawlerSettings(crawler_settings.clone())
+            }
+        };
+        APINodeItem {
+            id: arced_node.id,
+            labels: arced_node.labels.clone(),
+            payload,
+            flags: APINodeFlags::from_node_flags(&arced_node.flags),
+            written_at: arced_node.written_at,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -558,37 +574,26 @@ pub fn handle_engine_api_request(
             EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())
         }
         EngineRequestPayload::GetNodesWithLabel(label) => {
-            let node_ids_with_label = engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
-            let mut nodes: Vec<APINodeItem> = node_ids_with_label
+            let mut node_ids_with_label =
+                engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
+            node_ids_with_label.sort();
+            let nodes: Vec<APINodeItem> = node_ids_with_label
                 .iter()
                 .filter_map(|node_id| match engine.get_node_by_id(node_id) {
-                    Some(arced_node) => Some(APINodeItem {
-                        id: **node_id,
-                        labels: arced_node.labels.clone(),
-                        payload: APIPayload::from_payload(&arced_node.payload),
-                        flags: APINodeFlags::from_node_flags(&arced_node.flags),
-                        written_at: arced_node.written_at.clone(),
-                    }),
+                    Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
                     None => None,
                 })
                 .collect();
-            nodes.sort_by(|a, b| a.id.cmp(&b.id));
             EngineResponsePayload::Nodes(nodes)
         }
-        EngineRequestPayload::GetNodesWithIds(node_ids) => {
+        EngineRequestPayload::GetNodesWithIds(mut node_ids) => {
+            node_ids.sort();
             let mut nodes: Vec<APINodeItem> = vec![];
             for node_id in node_ids {
-                if let Some(node) = engine.get_node_by_id(&node_id) {
-                    nodes.push(APINodeItem {
-                        id: node.id.clone(),
-                        labels: node.labels.clone(),
-                        payload: APIPayload::from_payload(&node.payload),
-                        flags: APINodeFlags::from_node_flags(&node.flags),
-                        written_at: node.written_at.clone(),
-                    });
+                if let Some(arced_node) = engine.get_node_by_id(&node_id) {
+                    nodes.push(APINodeItem::from_node(&arced_node));
                 }
             }
-            nodes.sort_by(|a, b| a.id.cmp(&b.id));
             EngineResponsePayload::Nodes(nodes)
         }
         EngineRequestPayload::GetAllNodes(since) => {
@@ -596,15 +601,9 @@ pub fn handle_engine_api_request(
                 Some(since) => engine
                     .get_all_nodes()
                     .iter()
-                    .filter_map(|node| {
-                        if node.written_at > since {
-                            Some(APINodeItem {
-                                id: node.id.clone(),
-                                labels: node.labels.clone(),
-                                payload: APIPayload::from_payload(&node.payload),
-                                flags: APINodeFlags::from_node_flags(&node.flags),
-                                written_at: node.written_at.clone(),
-                            })
+                    .filter_map(|arced_node| {
+                        if arced_node.written_at > since {
+                            Some(APINodeItem::from_node(arced_node))
                         } else {
                             None
                         }
@@ -614,13 +613,7 @@ pub fn handle_engine_api_request(
                 None => engine
                     .get_all_nodes()
                     .iter()
-                    .map(|node| APINodeItem {
-                        id: node.id.clone(),
-                        labels: node.labels.clone(),
-                        payload: APIPayload::from_payload(&node.payload),
-                        flags: APINodeFlags::from_node_flags(&node.flags),
-                        written_at: node.written_at.clone(),
-                    })
+                    .map(|arced_node| APINodeItem::from_node(arced_node))
                     .collect(),
             };
             nodes.sort_by(|a, b| a.id.cmp(&b.id));
@@ -730,13 +723,7 @@ pub fn handle_engine_api_request(
                             EngineResponsePayload::Nodes(
                                 results
                                     .iter()
-                                    .map(|x| APINodeItem {
-                                        id: x.id.clone(),
-                                        labels: x.labels.clone(),
-                                        payload: APIPayload::from_payload(&x.payload),
-                                        flags: APINodeFlags::from_node_flags(&x.flags),
-                                        written_at: x.written_at.clone(),
-                                    })
+                                    .map(|node| APINodeItem::from_node(&Arc::new(node.clone())))
                                     .collect::<Vec<APINodeItem>>(),
                             )
                         }
