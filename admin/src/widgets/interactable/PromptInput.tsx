@@ -15,7 +15,7 @@ const PromptInput: Component<ITextFormField> = (props) => {
       id={props.id}
       name={props.name}
       required={props.isRequired !== null ? props.isRequired : false}
-      class={`block w-full px-2 py-1 outline-none font-content m-0 bg-transparent`}
+      class={`block w-full px-2 py-1 outline-none font-content m-0 bg-transparent border rounded-lg `}
       placeholder={props.placeholder !== null ? props.placeholder : ""}
       value={props.value || ""}
       onChange={handleChange}

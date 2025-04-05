@@ -17,7 +17,7 @@ const Routes: Component = () => {
   return (
     <>
       <Route path="/">
-        {/*<Route path="" component={CreateWorkflow} />*/}
+        <Route path="" component={CreateProject} />
 
         <Route path="/p">
           <Route path="/create" component={CreateProject} />
