@@ -1,11 +1,10 @@
-import { Component, createContext, useContext } from "solid-js";
+import { batch, Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import { IEngineStore, INodeItem, IProviderPropTypes } from "../utils/types";
-import { getPixlieAIAPIRoot } from "../utils/api";
-import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
-import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 import { EdgeLabel } from "../api_types/EdgeLabel.ts";
+import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
+import { getPixlieAIAPIRoot } from "../utils/api";
+import { IEngineStore, IProviderPropTypes } from "../utils/types";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -17,25 +16,19 @@ const makeStore = () => {
     if (!!store.projects[projectId]) {
       return;
     }
-    setStore((existing: IEngineStore) => ({
-      ...existing,
-      projects: {
-        ...existing.projects,
-        [projectId]: {
-          nodes: {},
-          edges: {},
-          nodesFetchedAt: 0,
-          edgesFetchedAt: 0,
-          isFetching: false,
-        },
-      },
-    }));
+    setStore("projects", projectId, {
+      nodes: {},
+      edges: {},
+      nodesFetchedUpto: BigInt(0),
+      edgesFetchedUpto: BigInt(0),
+      isFetching: false,
+    });
   };
 
   const fetchNodes = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(
-      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?since=${store.projects[projectId].nodesFetchedAt}`,
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/nodes?since=${store.projects[projectId].nodesFetchedUpto}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -47,29 +40,18 @@ const makeStore = () => {
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
         if (responsePayload.type === "Nodes") {
-          setStore((existing: IEngineStore) => ({
-            ...existing,
-            projects: {
-              ...existing.projects,
-              [projectId]: {
-                ...existing.projects[projectId],
-                nodes: {
-                  ...existing.projects[projectId].nodes,
-                  ...responsePayload.data.reduce(
-                    (map: { [k: number]: INodeItem }, item) => ({
-                      ...map,
-                      [item.id]: {
-                        ...item,
-                        isFetching: false,
-                      },
-                    }),
-                    {},
-                  ),
-                },
-                nodesFetchedAt: Date.now(),
-              },
-            },
-          }));
+          let maxNodeWrittenAt = store.projects[projectId].nodesFetchedUpto;
+          responsePayload.data.forEach((node) => {
+            const writtenAt = node.written_at;
+            setStore("projects", projectId, "nodes", node.id, {
+              ...node,
+              isFetching: false,
+            });
+            if (writtenAt > maxNodeWrittenAt) {
+              maxNodeWrittenAt = writtenAt;
+            }
+          });
+          setStore("projects", projectId, "nodesFetchedUpto", maxNodeWrittenAt);
         }
       });
     });
@@ -78,7 +60,7 @@ const makeStore = () => {
   const fetchEdges = (projectId: string) => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(
-      `${pixlieAIAPIRoot}/api/engine/${projectId}/edges?since=${store.projects[projectId].edgesFetchedAt}`,
+      `${pixlieAIAPIRoot}/api/engine/${projectId}/edges?since=${store.projects[projectId].edgesFetchedUpto}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -90,22 +72,19 @@ const makeStore = () => {
       }
       response.json().then((responsePayload: EngineResponsePayload) => {
         if (responsePayload.type === "Edges") {
-          setStore((existing: IEngineStore) => ({
-            ...existing,
-            projects: {
-              ...existing.projects,
-              [projectId]: {
-                ...existing.projects[projectId],
-                edges: {
-                  ...existing.projects[projectId].edges,
-                  ...(responsePayload.data as {
-                    [nodeId: number]: APINodeEdges;
-                  }),
-                },
-                edgesFetchedAt: Date.now(),
-              },
-            },
-          }));
+          let maxEdgeWrittenAt = store.projects[projectId].edgesFetchedUpto;
+
+          Object.entries(responsePayload.data).forEach(([nodeId, apiEdges]) => {
+            if (apiEdges === undefined) {
+              return;
+            }
+            const writtenAt = apiEdges.written_at;
+            setStore("projects", projectId, "edges", Number(nodeId), apiEdges);
+            if (writtenAt > maxEdgeWrittenAt) {
+              maxEdgeWrittenAt = writtenAt;
+            }
+          });
+          setStore("projects", projectId, "edgesFetchedUpto", maxEdgeWrittenAt);
         }
       });
     });
@@ -169,67 +148,39 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
-    if (store.sync.filter((x) => x === projectId).length > 0) {
+    if (projectId in store.sync) {
       return;
     }
 
     const fetcher = (projectId: string) => {
       return () => {
-        if (!store.projects[projectId]) {
-          return;
-        }
-        if (store.projects[projectId].isFetching) {
-          return;
-        }
-        setStore((existing: IEngineStore) => ({
-          ...existing,
-          projects: {
-            ...existing.projects,
-            [projectId]: {
-              ...existing.projects[projectId],
-              isFetching: true,
-            },
-          },
-        }));
-        fetchNodes(projectId);
-        fetchEdges(projectId);
-        setStore((existing: IEngineStore) => ({
-          ...existing,
-          projects: {
-            ...existing.projects,
-            [projectId]: {
-              ...existing.projects[projectId],
-              isFetching: false,
-            },
-          },
-        }));
         if (
-          store.sync.length > 0 &&
-          store.sync.filter((x) => x === projectId).length > 0
+          !store.projects[projectId] ||
+          store.projects[projectId].isFetching
         ) {
+          return;
+        }
+        setStore("projects", projectId, "isFetching", true);
+        batch(() => {
+          fetchNodes(projectId);
+          fetchEdges(projectId);
+          setStore("projects", projectId, "isFetching", false);
+        });
+        if (store.sync.length > 0 && projectId in store.sync) {
           window.setTimeout(fetcher(projectId), 2000);
         }
       };
     };
 
-    setStore((existing: IEngineStore) => ({
-      ...existing,
-      sync: [...existing.sync, projectId],
-    }));
+    setStore("sync", (existing) => [...existing, projectId]);
     window.setTimeout(fetcher(projectId), 100);
   };
 
   const stopSync = (projectId?: string) => {
     if (!!projectId) {
-      setStore((existing: IEngineStore) => ({
-        ...existing,
-        sync: [...existing.sync.filter((x) => x !== projectId)],
-      }));
+      setStore("sync", (existing) => existing.filter((id) => id !== projectId));
     } else {
-      setStore((existing: IEngineStore) => ({
-        ...existing,
-        sync: [],
-      }));
+      setStore("sync", []);
     }
   };
 
