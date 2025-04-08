@@ -20,8 +20,7 @@ const Sidebar: Component = () => {
     >
       <div
         class={
-          "w-48 rounded-lg border flex flex-col pl-5 pr-3 py-3 " +
-          getColors()["sideBar"]
+          "w-48 rounded-lg border flex flex-col py-5 " + getColors()["sideBar"]
         }
       >
         <PerProjectRoutes />
