@@ -4,6 +4,7 @@ import NodeGrid from "../../widgets/node/NodeGrid";
 import { useParams, useSearchParams } from "@solidjs/router";
 import Heading from "../../widgets/typography/Heading.tsx";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
 
 const labelTypes: string[] = ["SearchResults"];
 type LabelType = (typeof labelTypes)[number];
@@ -30,7 +31,10 @@ const Data: Component = () => {
   return (
     <>
       {searchParams.label === "WebPage" && (
-        <Heading size={3}>Web pages: {getSelectNodeIds().length}</Heading>
+        <>
+          <Heading size={3}>Web Pages</Heading>
+          <ResultsCount count={getSelectNodeIds().length} />
+        </>
       )}
       <NodeGrid
         nodeType={getNodeTypeFromSearchParam()}
