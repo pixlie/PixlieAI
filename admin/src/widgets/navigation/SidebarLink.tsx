@@ -12,7 +12,7 @@ const SidebarLink: Component<IRoute> = (props) => {
       {props.href ? (
         <div
           class={
-            `transition-colors duration-150 text-md ${getColors()["text"]} hover:${getColors()["textDark"]}` +
+            `text-md ${getColors()["text"]} hover:${getColors()["textDark"]}` +
             (props.isActive
               ? ` font-medium bg-blue-100 hover:bg-blue-100 ${getColors()["textDark"]}`
               : " hover:bg-slate-200")
