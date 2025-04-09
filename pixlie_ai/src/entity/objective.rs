@@ -76,7 +76,7 @@ impl Objective {
                             Tool::Crawler(crawler_settings) => {
                                 let crawler_settings_node_id = engine
                                     .get_or_add_node(
-                                        Payload::CrawlerSettings(crawler_settings),
+                                        Payload::CrawlerSettings(crawler_settings.clone()),
                                         vec![NodeLabel::AddedByAI, NodeLabel::CrawlerSettings],
                                         true,
                                         None,
@@ -87,6 +87,33 @@ impl Objective {
                                     (node.id, crawler_settings_node_id),
                                     (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                                 )?;
+
+                                match crawler_settings
+                                    .keywords_to_search_the_web_to_get_starting_urls
+                                {
+                                    Some(search_terms) => {
+                                        // Save the search term as a WebSearch node so they will be processed
+                                        for search_term in search_terms {
+                                            let search_term_node_id = engine
+                                                .get_or_add_node(
+                                                    Payload::Text(search_term.to_string()),
+                                                    vec![
+                                                        NodeLabel::AddedByAI,
+                                                        NodeLabel::WebSearch,
+                                                    ],
+                                                    true,
+                                                    None,
+                                                )?
+                                                .get_node_id();
+
+                                            engine.add_connection(
+                                                (node.id, search_term_node_id),
+                                                (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                                            )?;
+                                        }
+                                    }
+                                    None => {}
+                                }
                             }
                         }
                     }
