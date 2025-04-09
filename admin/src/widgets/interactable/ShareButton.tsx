@@ -9,20 +9,15 @@ interface IPropTypes {
 
 const ShareButton: Component<IPropTypes> = (props) => {
   const [copied, setCopied] = createSignal<boolean>(false);
+
   const handleShare = async () => {
+    const shareTitle =
+      (props.title ? `${props.title} | ` : "") + "Powered by Pixlie";
     const shareUrl = props.url ?? "https://pixlie.com";
-    const emailSubject = encodeURIComponent("Check this out!");
-    const emailBody = encodeURIComponent(
-      `${props.title || ""}\n\nPowered by Pixlie.\n\n${shareUrl}`
-    );
-    const mailtoLink = `mailto:?subject=${emailSubject}&body=${emailBody}`;
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: props.title ? `${props.title}\n\nPowered by Pixlie.` : "Powered by Pixlie.",
-          url: shareUrl,
-        });
+        await navigator.share({ title: shareTitle, url: shareUrl });
       } catch (err) {
         console.error("Sharing failed:", err);
       }
@@ -32,7 +27,10 @@ const ShareButton: Component<IPropTypes> = (props) => {
         setCopied(true);
       } catch (err) {
         console.error("Copy failed:", err);
-        window.open(mailtoLink, "_blank");
+        window.open(
+          `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`,
+          "_blank"
+        );
       }
     }
   };
