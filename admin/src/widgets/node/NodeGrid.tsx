@@ -64,7 +64,7 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
             <div class="columns-3 space-y-4 gap-4">
               <For each={getN()}>
                 {(nodeId) => (
-                  <div class="break-inside-avoid">
+                  <div class="break-inside-avoid overflow-visible relative">
                   <WebPagePreview
                     nodeId={nodeId}
                   />

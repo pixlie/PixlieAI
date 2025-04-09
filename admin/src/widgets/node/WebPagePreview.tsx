@@ -4,7 +4,7 @@ import { useParams } from "@solidjs/router";
 
 import { Link } from "../../api_types/Link.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import ShareButton from "../interactable/ShareButton.tsx";
+import ShareOptions from "../interactable/ShareOptions.tsx";
 
 interface IPropTypes {
   nodeId: number;
@@ -49,15 +49,15 @@ const WebPagePreview: Component<IPropTypes> = (props) => {
   return (
     <>
       {!!getNode() && (
-        <div class="flex flex-col  border rounded-xl shadow-sm overflow-hidden w-full bg-white shadow-lg cursor-default">
+        <div class="group relative rounded-xl bg-white border shadow-md transition-transform duration-300 hover:scale-[1.02] hover:z-10">
           {getPayload()?.thumbnail && (
             <img
               src={getPayload()!.thumbnail || ""}
               alt="thumbnail"
-              class="w-full object-cover"
+              class="w-full object-cover rounded-t-xl"
             />
           )}
-          <div class="flex flex-col p-4 gap-2">
+          <div class="flex flex-col p-4 gap-2 relative">
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-2 flex-1">
                 {getPayload()?.favicon && (
@@ -79,7 +79,6 @@ const WebPagePreview: Component<IPropTypes> = (props) => {
                   </a>
                 )}
               </div>
-              <ShareButton title={getPayload()!.title || ""} url={getURL()} />
             </div>
             {getPayload()?.title && (
               <p class="text-md font-medium text-slate-800">
@@ -94,6 +93,11 @@ const WebPagePreview: Component<IPropTypes> = (props) => {
                 {getPayload()!.published_date}
               </p>
             )}
+          </div>
+          <div class="relative mx-4 mb-0 group-hover:mb-4 h-0 group-hover:h-6 opacity-0 group-hover:opacity-100">
+            <div class="absolute bottom-0 right-0 translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-10 pointer-events-none group-hover:pointer-events-auto text-slate-500">
+              <ShareOptions title={getPayload()!.title || ""} url={getURL()} />
+            </div>
           </div>
         </div>
       )}
