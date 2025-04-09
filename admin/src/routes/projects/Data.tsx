@@ -32,12 +32,12 @@ const Data: Component = () => {
     <>
       {searchParams.label === "WebPage" && (
         <>
-          <Heading size={3}>Web Pages</Heading>
+          <Heading>Web Pages</Heading>
           <ResultsCount count={getSelectNodeIds().length} />
         </>
       )}
       <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
+        nodeType={"WebPagePreview"}
         source={getSelectNodeIds}
         mode="preview"
       />
