@@ -57,7 +57,7 @@ const WebPagePreview: Component<IPropTypes> = (props) => {
               class="w-full object-cover rounded-t-xl"
             />
           )}
-          <div class="flex flex-col p-4 gap-2 relative">
+          <div class="flex flex-col p-4 pb-2 gap-2 relative">
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-2 flex-1">
                 {getPayload()?.favicon && (
@@ -94,7 +94,7 @@ const WebPagePreview: Component<IPropTypes> = (props) => {
               </p>
             )}
           </div>
-          <div class="relative mx-4 mb-0 group-hover:mb-4 h-0 group-hover:h-6 opacity-0 group-hover:opacity-100">
+          <div class="relative mx-4 mt-2 mb-0 group-hover:mb-4 h-0 group-hover:h-6 opacity-0 group-hover:opacity-100">
             <div class="absolute bottom-0 right-0 translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-10 pointer-events-none group-hover:pointer-events-auto text-slate-500">
               <ShareOptions title={getPayload()!.title || ""} url={getURL()} />
             </div>

@@ -61,7 +61,7 @@ const ShareOptions: Component<IPropTypes> = (props) => {
   };
 
   return (
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 -m-2">
       <IconButton
         name={copied() ? "Copied!" : "Copy"}
         icon={copied() ? <CopiedIcon /> : <CopyIcon />}
