@@ -32,7 +32,7 @@ const Data: Component = () => {
     <>
       {searchParams.label === "WebPage" && (
         <>
-          <Heading>Web Pages</Heading>
+          <Heading size={3}>Web Pages</Heading>
           <ResultsCount count={getSelectNodeIds().length} />
         </>
       )}
