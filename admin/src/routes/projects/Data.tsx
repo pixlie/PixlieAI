@@ -37,7 +37,7 @@ const Data: Component = () => {
         </>
       )}
       <NodeGrid
-        nodeType={"WebPagePreview"}
+        nodeType={getNodeTypeFromSearchParam()}
         source={getSelectNodeIds}
         mode="preview"
       />

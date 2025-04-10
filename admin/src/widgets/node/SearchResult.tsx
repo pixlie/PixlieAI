@@ -77,7 +77,7 @@ const SearchResults: Component<ISearchResultsProps> = (props) => {
         </For>
       </div>
       <NodeGrid
-        nodeType="WebPage"
+        nodeType="Search"
         source={() => getResultNodeIds().map((r) => r[0])}
         mode="preview"
         data={{

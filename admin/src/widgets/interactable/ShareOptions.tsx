@@ -8,7 +8,6 @@ import XIcon from "../../assets/icons/tabler-brand-x.svg";
 import LinkedInIcon from "../../assets/icons/tabler-brand-linkedin.svg";
 import ShareIcon from "../../assets/icons/tabler-share-2.svg";
 
-
 interface IPropTypes {
   title?: string;
   url?: string;
@@ -61,23 +60,36 @@ const ShareOptions: Component<IPropTypes> = (props) => {
   };
 
   return (
-    <div class="flex items-center gap-2 -m-2">
+    <div class="flex items-center gap-2 text-slate-500">
       <IconButton
+        onClick={handleCopy}
         name={copied() ? "Copied!" : "Copy"}
         icon={copied() ? <CopiedIcon /> : <CopyIcon />}
-        onClick={handleCopy}
+        position="top"
       />
-      <IconButton name="Email" icon={<MailIcon />} onClick={handleEmail} />
-      <IconButton name="X" icon={<XIcon />} onClick={handleTwitter} />
       <IconButton
+        onClick={handleEmail}
+        name="Email"
+        icon={<MailIcon />}
+        position="top"
+      />
+      <IconButton
+        onClick={handleTwitter}
+        name="X"
+        icon={<XIcon />}
+        position="top"
+      />
+      <IconButton
+        onClick={handleLinkedIn}
         name="LinkedIn"
         icon={<LinkedInIcon />}
-        onClick={handleLinkedIn}
+        position="top"
       />
       <IconButton
+        onClick={handleNativeShare}
         name="Share"
         icon={<ShareIcon />}
-        onClick={handleNativeShare}
+        position="top"
       />
     </div>
   );

@@ -13,7 +13,7 @@ const IconButton: Component<IconButtonProps> = (props) => (
   <ToolTip text={props.name} position={props.position || "bottom"}>
     <button
       onClick={props.onClick}
-      class="rounded-full p-2 hover:bg-slate-200"
+      class="rounded-full p-2 hover:bg-slate-200 hover:text-slate-800"
       disabled={props.disabled || false}
     >
       {props.icon}
