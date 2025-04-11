@@ -40,8 +40,10 @@ fn main() {
                         ..Default::default()
                     },
                 ));
-                debug!("Sentry initialized for this CLI application, you can see errors at \
-                https://pixlie.sentry.io/issues/?project=4508832865648720");
+                debug!(
+                    "Sentry initialized for this CLI application, you can see errors at \
+                https://pixlie.sentry.io/issues/?project=4508832865648720"
+                );
             }
         }
         Err(_) => {}
