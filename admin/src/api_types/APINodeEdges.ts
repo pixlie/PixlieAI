@@ -2,5 +2,5 @@
 
 export type APINodeEdges = {
   edges: Array<[number, string]>;
-  written_at: string;
+  written_at: bigint;
 };

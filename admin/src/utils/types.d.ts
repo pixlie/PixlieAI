@@ -28,8 +28,8 @@ interface INodeItem extends APINodeItem {
 interface IEngine {
   nodes: { [nodeId: number]: INodeItem };
   edges: { [nodeId: number]: APINodeEdges };
-  nodesFetchedAt: number;
-  edgesFetchedAt: number;
+  nodesFetchedUpto: bigint;
+  edgesFetchedUpto: bigint;
   isFetching: boolean;
 }
 

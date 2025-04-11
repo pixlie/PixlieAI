@@ -8,5 +8,5 @@ export type APINodeItem = {
   labels: Array<NodeLabel>;
   payload: APIPayload;
   flags: Array<APINodeFlags>;
-  written_at: string;
+  written_at: bigint;
 };
