@@ -33,15 +33,12 @@ pub trait Crud {
 
     fn get_collection_name() -> &'static str;
 
-    fn create(item: Self::Item) -> PiResult<Self::Item> {
-        let mut items = Self::read_list()?;
-        items.push(item.clone());
-        let item_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
-
-        let db = get_pixlie_ai_db()?;
-        match to_allocvec(&item_ids) {
+    fn _update_index(db: &DB, item_ids: &Vec<String>) -> PiResult<()> {
+        match to_allocvec(item_ids) {
             Ok(payload) => match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
-                Ok(_) => {}
+                Ok(_) => {
+                    db.flush()?;
+                }
                 Err(err) => {
                     error!("Error writing item IDs: {}", err);
                     return Err(err.into());
@@ -51,20 +48,31 @@ pub trait Crud {
                 error!("Error serializing item IDs: {}", err);
                 return Err(err.into());
             }
-        };
+        }
+        Ok(())
+    }
+
+    fn create(item: Self::Item) -> PiResult<Self::Item> {
+        let mut items = Self::read_list()?;
+        let db = get_pixlie_ai_db()?;
+        let item_id = item.get_id();
         match to_allocvec(&item) {
             Ok(payload) => match db.put(
-                format!("{}/{}", Self::get_collection_name(), item.get_id()),
+                format!("{}/{}", Self::get_collection_name(), item_id),
                 payload,
             ) {
-                Ok(_) => {}
+                Ok(_) => {
+                    db.flush()?;
+                    items.push(item.clone());
+                    Self::_update_index(&db, &items.iter().map(|x| x.get_id()).collect())?;
+                }
                 Err(err) => {
-                    error!("Error writing item {}: {}", item.get_id(), err);
+                    error!("Error writing item {}: {}", item_id, err);
                     return Err(err.into());
                 }
             },
             Err(err) => {
-                error!("Error serializing item {}: {}", item.get_id(), err);
+                error!("Error serializing item {}: {}", item_id, err);
                 return Err(err.into());
             }
         }
@@ -72,47 +80,50 @@ pub trait Crud {
         Ok(item)
     }
 
-    fn read_list() -> PiResult<Vec<Self::Item>> {
+    fn _read_index() -> PiResult<Vec<String>> {
         let db = get_pixlie_ai_db()?;
         match db.get(format!("{}/ids", Self::get_collection_name())) {
             Ok(item_ids) => match item_ids {
-                Some(item_ids) => {
-                    let mut items: Vec<Self::Item> = vec![];
-                    let item_ids: Vec<String> = match from_bytes(&item_ids) {
-                        Ok(item_ids) => item_ids,
-                        Err(err) => {
-                            error!("Error deserializing item IDs: {}", err);
-                            return Err(err.into());
-                        }
-                    };
-                    for item_id in item_ids {
-                        match db.get(format!("{}/{}", Self::get_collection_name(), item_id)) {
-                            Ok(item) => match item {
-                                Some(item) => {
-                                    let item = match from_bytes(&item) {
-                                        Ok(item) => item,
-                                        Err(err) => {
-                                            error!("Error deserializing item {}: {}", item_id, err);
-                                            continue;
-                                        }
-                                    };
-                                    items.push(item);
-                                }
-                                None => {
-                                    error!("item {} not found", item_id);
-                                }
-                            },
-                            Err(err) => {
-                                error!("Error reading item {}: {}", item_id, err);
-                            }
-                        }
+                Some(item_ids) => match from_bytes(&item_ids) {
+                    Ok(item_ids) => Ok(item_ids),
+                    Err(err) => {
+                        error!("Error deserializing item IDs: {}", err);
+                        Err(err.into())
                     }
-                    Ok(items)
-                }
+                },
                 None => Ok(vec![]),
             },
             Err(err) => Err(err.into()),
         }
+    }
+
+    fn read_list() -> PiResult<Vec<Self::Item>> {
+        let db = get_pixlie_ai_db()?;
+        let item_ids = Self::_read_index()?;
+        return Ok(item_ids
+            .iter()
+            .filter_map(|item_id| {
+                match db.get(format!("{}/{}", Self::get_collection_name(), item_id)) {
+                    Ok(item) => match item {
+                        Some(item) => match from_bytes(&item) {
+                            Ok(item) => Some(item),
+                            Err(err) => {
+                                error!("Error deserializing item {}: {}", item_id, err);
+                                None
+                            }
+                        },
+                        None => {
+                            error!("Item {} not found", item_id);
+                            None
+                        }
+                    },
+                    Err(err) => {
+                        error!("Error reading item {}: {}", item_id, err);
+                        None
+                    }
+                }
+            })
+            .collect::<Vec<Self::Item>>());
     }
 
     fn read_item(id: &str) -> PiResult<Self::Item> {
@@ -128,7 +139,7 @@ pub trait Crud {
                 },
                 None => {
                     error!("Item with ID {} not found", id);
-                    Err(PiError::CrudError("Item not found".to_string()))
+                    Err(PiError::CrudNotFoundError(id.to_string()).into())
                 }
             },
             Err(err) => Err(err.into()),
@@ -137,52 +148,48 @@ pub trait Crud {
 
     fn update(uuid: &str, item: Self::Item) -> PiResult<String> {
         let db = get_pixlie_ai_db()?;
+        let item_ids = Self::_read_index()?;
+        if !item_ids.contains(&uuid.to_string()) {
+            error!("Item with ID {} not found", uuid);
+            return Err(PiError::CrudNotFoundError(uuid.to_string()).into());
+        }
         match to_allocvec(&item) {
             Ok(payload) => {
                 match db.put(format!("{}/{}", Self::get_collection_name(), uuid), payload) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        db.flush()?;
+                        Ok(item.get_id())
+                    }
                     Err(err) => {
                         error!("Error writing item {}: {}", item.get_id(), err);
-                        return Err(err.into());
+                        Err(err.into())
                     }
                 }
             }
             Err(err) => {
                 error!("Error serializing item {}: {}", item.get_id(), err);
-                return Err(err.into());
+                Err(err.into())
             }
         }
-        Ok(item.get_id())
     }
 
     fn delete(uuid: &str) -> PiResult<String> {
         let db = get_pixlie_ai_db()?;
+        let mut item_ids = Self::_read_index()?;
+        if !item_ids.contains(&uuid.to_string()) {
+            error!("Item with ID {} not found", uuid);
+            return Err(PiError::CrudNotFoundError(uuid.to_string()).into());
+        }
+        item_ids.retain(|id| id != uuid);
+        Self::_update_index(&db, &item_ids)?;
         match db.delete(format!("{}/{}", Self::get_collection_name(), uuid)) {
             Ok(_) => {
-                let mut items = Self::read_list()?;
-                items.retain(|item| item.get_id() != uuid);
-                let item_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
-                match to_allocvec(&item_ids) {
-                    Ok(payload) => {
-                        match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                error!("Error writing item IDs: {}", err);
-                                return Err(err.into());
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        error!("Error serializing item IDs: {}", err);
-                        return Err(err.into());
-                    }
-                }
-                Ok(uuid.to_string())
+                let _ = db.flush();
             }
             Err(err) => {
                 error!("Error deleting item {}: {}", uuid, err);
-                return Err(err.into());
             }
         }
+        Ok(uuid.to_string())
     }
 }
