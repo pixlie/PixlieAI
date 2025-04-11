@@ -155,5 +155,34 @@ pub trait Crud {
         Ok(item.get_id())
     }
 
-    // fn delete(&self, id: &str) -> Result<(), String>;
+    fn delete(uuid: &str) -> PiResult<String> {
+        let db = get_pixlie_ai_db()?;
+        match db.delete(format!("{}/{}", Self::get_collection_name(), uuid)) {
+            Ok(_) => {
+                let mut items = Self::read_list()?;
+                items.retain(|item| item.get_id() != uuid);
+                let item_ids: Vec<String> = items.iter().map(|x| x.get_id()).collect();
+                match to_allocvec(&item_ids) {
+                    Ok(payload) => {
+                        match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error writing item IDs: {}", err);
+                                return Err(err.into());
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!("Error serializing item IDs: {}", err);
+                        return Err(err.into());
+                    }
+                }
+                Ok(uuid.to_string())
+            }
+            Err(err) => {
+                error!("Error deleting item {}: {}", uuid, err);
+                return Err(err.into());
+            }
+        }
+    }
 }
