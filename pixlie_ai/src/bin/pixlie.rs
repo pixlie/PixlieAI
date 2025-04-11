@@ -6,13 +6,28 @@ use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use threadpool::ThreadPool;
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+        .format(|buf, record| {
+            let style = buf.default_level_style(record.level());
+            writeln!(
+                buf,
+                "[{style}{}{style:#} {}:{}] {}",
+                record.level(),
+                record.module_path().unwrap_or("<unknown>"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
     // Setup Sentry for error logging. The URL comes from environment variable
     match var("SENTRY_URL") {
