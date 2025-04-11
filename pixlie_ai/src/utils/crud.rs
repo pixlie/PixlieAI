@@ -80,8 +80,7 @@ pub trait Crud {
         Ok(item)
     }
 
-    fn _read_index() -> PiResult<Vec<String>> {
-        let db = get_pixlie_ai_db()?;
+    fn _read_index(db: &DB) -> PiResult<Vec<String>> {
         match db.get(format!("{}/ids", Self::get_collection_name())) {
             Ok(item_ids) => match item_ids {
                 Some(item_ids) => match from_bytes(&item_ids) {
@@ -99,7 +98,7 @@ pub trait Crud {
 
     fn read_list() -> PiResult<Vec<Self::Item>> {
         let db = get_pixlie_ai_db()?;
-        let item_ids = Self::_read_index()?;
+        let item_ids = Self::_read_index(&db)?;
         return Ok(item_ids
             .iter()
             .filter_map(|item_id| {
@@ -148,7 +147,7 @@ pub trait Crud {
 
     fn update(uuid: &str, item: Self::Item) -> PiResult<String> {
         let db = get_pixlie_ai_db()?;
-        let item_ids = Self::_read_index()?;
+        let item_ids = Self::_read_index(&db)?;
         if !item_ids.contains(&uuid.to_string()) {
             error!("Item with ID {} not found", uuid);
             return Err(PiError::CrudNotFoundError(uuid.to_string()).into());
@@ -175,7 +174,7 @@ pub trait Crud {
 
     fn delete(uuid: &str) -> PiResult<String> {
         let db = get_pixlie_ai_db()?;
-        let mut item_ids = Self::_read_index()?;
+        let mut item_ids = Self::_read_index(&db)?;
         if !item_ids.contains(&uuid.to_string()) {
             error!("Item with ID {} not found", uuid);
             return Err(PiError::CrudNotFoundError(uuid.to_string()).into());
