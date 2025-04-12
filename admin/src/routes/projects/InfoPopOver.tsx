@@ -20,7 +20,7 @@ const InfoPopOver: Component = () => {
           class="fixed inset-0 transition-opacity transition duration-500 ease-in-out z-50"
           onClick={() => setVisible(false)}
         />
-        <div class="absolute left-0 ml-2 mb-1.5 bottom-full z-50 w-72 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 gap-4">
+        <div class="absolute left-0 ml-2 mb-1.5 bottom-full z-50 w-72 rounded-lg shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 gap-4">
           <Paragraph size="sm">
             Pixlie uses your objective to ask AI for starting URLs and keywords
             to monitor on websites. Pixlie will continue crawling the web as
