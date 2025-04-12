@@ -57,11 +57,11 @@ pub enum PiError {
     #[error("Error from Anthropic Service: {0}")]
     AnthropicServiceError(String),
 
-    #[error("Error in CRUD: {0}")]
-    CrudError(String),
+    #[error("CRUD Error{0:?}: {1}")]
+    CrudError(Vec<String>, String),
 
-    #[error("NotFound Error in CRUD: {0}")]
-    CrudNotFoundError(String),
+    #[error("CRUD Error, {0:?} not found: {1}")]
+    CrudNotFoundError(Vec<String>, String),
 
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
