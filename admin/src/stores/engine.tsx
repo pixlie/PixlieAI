@@ -6,6 +6,7 @@ import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { APINodeItem } from "../api_types/APINodeItem.ts";
 import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 import { EdgeLabel } from "../api_types/EdgeLabel.ts";
+import { useWorkspace } from "./workspace.tsx";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -30,6 +31,16 @@ const makeStore = () => {
         },
       },
     }));
+  };
+
+  const removeProject = (projectId: string) => {
+    if (!store.projects[projectId]) {
+      return;
+    }
+    setStore("projects", {
+      ...store.projects,
+      [projectId]: undefined,
+    });
   };
 
   const fetchNodes = (projectId: string) => {
@@ -169,12 +180,15 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
-    if (store.sync.filter((x) => x === projectId).length > 0) {
+    const [_, { fetchProjects }] = useWorkspace();
+    fetchProjects();
+    if (store.sync.includes(projectId)) {
       return;
     }
 
     const fetcher = (projectId: string) => {
       return () => {
+        fetchProjects();
         if (!store.projects[projectId]) {
           return;
         }
@@ -236,13 +250,14 @@ const makeStore = () => {
   return [
     store,
     {
-      setProjectId,
-      sync,
-      stopSync,
-      getNodeById,
       getNodes,
+      getNodeById,
       getRelatedNodeIds,
       getRelatedNodes,
+      removeProject,
+      setProjectId,
+      stopSync,
+      sync,
     },
   ] as const; // `as const` forces tuple type inference
 };

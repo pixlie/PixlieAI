@@ -19,6 +19,7 @@ interface IWorkspace {
 
   isReady: boolean;
   isFetching: boolean;
+  fetchingFlags: Record<"projects", boolean>;
 }
 
 interface INodeItem extends APINodeItem {

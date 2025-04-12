@@ -1,4 +1,4 @@
-import { Component, createContext, useContext } from "solid-js";
+import { batch, Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { IProviderPropTypes, IWorkspace } from "../utils/types";
 import { getPixlieAIAPIRoot } from "../utils/api";
@@ -11,11 +11,15 @@ import {
   camelCasedToSnakeCasedKeys,
   snakeCasedToCamelCasedKeys,
 } from "../utils/utils.ts";
+import { useEngine } from "./engine.tsx";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IWorkspace>({
     isReady: false,
     isFetching: false,
+    fetchingFlags: {
+      projects: false,
+    },
   });
 
   const fetchSettings = () => {
@@ -101,13 +105,27 @@ const makeStore = () => {
   };
 
   const fetchProjects = () => {
+    if (store.fetchingFlags.projects) {
+      return;
+    }
+    setStore("fetchingFlags", "projects", true);
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/projects`).then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch projects");
       }
       response.json().then((projects: Array<Project>) => {
-        setStore("projects", projects);
+        const [engine, { removeProject }] = useEngine();
+        // Remove projects that are not in the response
+        Object.keys(engine.projects).forEach((projectId) => {
+          if (!projects.some((project) => project.uuid === projectId)) {
+            removeProject(projectId);
+          }
+        });
+        batch(() => {
+          setStore("projects", projects);
+          setStore("fetchingFlags", "projects", false);
+        });
       });
     });
   };
