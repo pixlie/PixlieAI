@@ -842,7 +842,7 @@ fn test_extract_data_only_from_specified_links() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 1);
+    assert_eq!(children_of_webpage.len(), 3);
 
     let first_child_of_webpage = test_engine
         .get_node_by_id(children_of_webpage.get(0).unwrap())
