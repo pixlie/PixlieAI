@@ -65,25 +65,18 @@ impl WebSearch {
                 };
                 let mut url = Url::parse("https://api.search.brave.com/res/v1/web/search")?;
                 match &node.payload {
-                    Payload::CrawlerSettings(crawler_settings) => {
-                        match &crawler_settings.keywords_to_search_the_web_to_get_starting_urls {
-                            Some(search_terms) => {
-                                for search_term in search_terms {
-                                    url.query_pairs_mut().append_pair("q", search_term);
+                    Payload::Text(search_term) => {
+                        url.query_pairs_mut().append_pair("q", search_term);
 
-                                    let mut request = FetchRequest::new(node.id, url.as_str());
-                                    request.headers = HeaderMap::from_iter(vec![
-                                        (ACCEPT, "application/json".parse().unwrap()),
-                                        (
-                                            "X-Subscription-Token".parse().unwrap(),
-                                            api_key.parse().unwrap(),
-                                        ),
-                                    ]);
-                                    engine.fetch_api(request)?;
-                                }
-                            }
-                            None => {}
-                        }
+                        let mut request = FetchRequest::new(node.id, url.as_str());
+                        request.headers = HeaderMap::from_iter(vec![
+                            (ACCEPT, "application/json".parse().unwrap()),
+                            (
+                                "X-Subscription-Token".parse().unwrap(),
+                                api_key.parse().unwrap(),
+                            ),
+                        ]);
+                        engine.fetch_api(request)?;
                     }
                     _ => {}
                 }
