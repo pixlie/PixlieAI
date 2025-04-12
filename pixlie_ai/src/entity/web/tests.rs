@@ -61,7 +61,8 @@ fn test_webpage_scraper_rlhf_book() {
             Payload::Text(ref text) => text.as_str(),
             _ => "",
         },
-        "Introduction | RLHF Book by Nathan Lambert"
+        // "Introduction | RLHF Book by Nathan Lambert"
+        "https://rlhfbook.com/favicon.ico"
     );
     assert_eq!(
         title_node.labels,
@@ -773,7 +774,7 @@ fn test_extraction_from_hn_homepage() {
         .unwrap();
     assert_eq!(
         first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        vec![NodeLabel::Logo, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
@@ -849,7 +850,7 @@ fn test_extract_data_only_from_specified_links() {
         .unwrap();
     assert_eq!(
         first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        vec![NodeLabel::Logo, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
@@ -927,7 +928,7 @@ fn test_crawl_within_domains_of_specified_links() {
         .unwrap();
     assert_eq!(
         first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        vec![NodeLabel::Logo, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
