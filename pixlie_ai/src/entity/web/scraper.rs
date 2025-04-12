@@ -46,23 +46,86 @@ impl<'a> Traverser<'a> {
         for element in given_el.child_elements() {
             let name = element.value().name();
             match name {
-                "title" => {
-                    let title_node_id = self
-                        .arced_engine
-                        .get_or_add_node(
-                            Payload::Text(clean_text(
-                                element.text().collect::<Vec<&str>>().join(""),
-                            )),
-                            vec![NodeLabel::Title, NodeLabel::Partial],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
-                    self.arced_engine.add_connection(
-                        (self.webpage_node_id.clone(), title_node_id),
-                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-                    )?;
+                "meta" => {
+                    let value = element.value();
+                    if let Some(content) = value.attr("content") {
+                        if let Some(property) = value.attr("property") {
+                            match property {
+                                "og:site_name" => self.add_text_node(&NodeLabel::Name, content, false)?,
+                                "og:url" => self.add_text_node(&NodeLabel::Url, content, false)?,
+                                "og:title" => self.add_text_node(&NodeLabel::Title, content, false)?,
+                                "og:description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "og:image" => {
+                                    if content.starts_with("http") {
+                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                    } else {
+                                        let base_url = self.webpage_url.join("/")?;
+                                        let content = base_url.join(content)?;
+                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                    }
+                                }
+                                "article:published_time" => self.add_text_node(&NodeLabel::CreatedAt, content, false)?,
+                                "article:modified_time" => self.add_text_node(&NodeLabel::ModifiedAt, content, false)?,
+                                "article:tag" => self.add_text_node(&NodeLabel::Tag, content, true)?,
+                                _ => {}
+                            }
+                        }
+                        if let Some(name) = value.attr("name") {
+                            match name {
+                                "twitter:title" => self.add_text_node(&NodeLabel::Title, content, false)?,
+                                "twitter:description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "twitter:image" => {
+                                    if content.starts_with("http") {
+                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                    } else {
+                                        let base_url = self.webpage_url.join("/")?;
+                                        let content = base_url.join(content)?;
+                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                    }
+                                }
+                                "title" => self.add_text_node(&NodeLabel::Title, content, false)?,
+                                "description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "image" => {
+                                    if content.starts_with("http") {
+                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                    } else {
+                                        let base_url = self.webpage_url.join("/")?;
+                                        let content = base_url.join(content)?;
+                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    } 
                 }
+                "img" => {
+                    if let Some(src) = element.value().attr("src") {
+                        if src.starts_with("http") {
+                            self.add_text_node(&NodeLabel::Image, src, false)?;
+                        } else {
+                            let base_url = self.webpage_url.join("/")?;
+                            let src = base_url.join(src)?;
+                            self.add_text_node(&NodeLabel::Image, &src.to_string(), false)?;
+                        }
+                    }
+                }
+                "link" => {
+                    if let Some(href) = element.value().attr("href") {
+                        if let Some(rel) = element.value().attr("rel") {
+                            if rel.contains("icon") {
+                                if href.starts_with("http") {
+                                    self.add_text_node(&NodeLabel::Logo, href, false)?;
+                                } else {
+                                    let base_url = self.webpage_url.join("/")?;
+                                    let href = base_url.join(href)?;
+                                    self.add_text_node(&NodeLabel::Logo, &href.to_string(), false)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                "title" => self.add_text_node(&NodeLabel::Title, &element.text().collect::<Vec<&str>>().join(""), false)?,
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = self
                         .arced_engine
@@ -327,6 +390,39 @@ impl<'a> Traverser<'a> {
         }
         Ok(())
     }
+    fn node_label_already_exists(&self, label: &NodeLabel) -> PiResult<bool> {
+        let child_ids = self
+            .arced_engine
+            .get_node_ids_connected_with_label(&self.webpage_node_id, &EdgeLabel::ParentOf)?;
+
+        Ok(child_ids.iter().any(|id| {
+            self.arced_engine
+                .get_node_by_id(id)
+                .map(|node| node.labels.contains(label))
+                .unwrap_or(false)
+        }))
+    }
+    fn add_text_node(&self, label: &NodeLabel, text: &str, can_add_multiple: bool) -> PiResult<()> {
+        if !can_add_multiple {
+            if self.node_label_already_exists(label)? {
+                return Ok(());
+            }
+        }
+        let text_node_id = self
+            .arced_engine
+            .get_or_add_node(
+                Payload::Text(clean_text(text.to_string())),
+                vec![label.clone(), NodeLabel::Partial],
+                true,
+                None,
+            )?
+            .get_node_id();
+        self.arced_engine.add_connection(
+            (self.webpage_node_id.clone(), text_node_id.clone()),
+            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
+        )?;
+        Ok(())
+    }
 }
 
 pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
@@ -378,6 +474,13 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
 
     match &node.payload {
         Payload::Text(payload) => {
+            if payload.contains("%PDF-") || payload.contains("trailer") || payload.contains("%%EOF") {
+                log::warn!(
+                    "Skipping non-HTML payload (likely a PDF) for node {:?}",
+                    node.id
+                );
+                return Ok(());
+            }    
             let document = Html::parse_document(&payload);
             let traverser = Traverser {
                 link_node_id: current_link_node_id.clone(),
