@@ -51,7 +51,7 @@ fn test_webpage_scraper_rlhf_book() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 82);
+    assert_eq!(children_of_webpage.len(), 86);
 
     let title_node = test_engine
         .get_node_by_id(children_of_webpage.first().unwrap())
