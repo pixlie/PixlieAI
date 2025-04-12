@@ -66,7 +66,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        vec![NodeLabel::Logo, NodeLabel::Partial]
     );
 
     let heading_node = test_engine
