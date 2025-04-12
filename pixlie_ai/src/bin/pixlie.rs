@@ -335,13 +335,19 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use pixlie_ai::{utils::version_check::{get_cargo_version, get_version_from_file}, PIXLIE_VERSION_NUMBER};
+    use pixlie_ai::{
+        utils::version_check::{get_cargo_version, get_version_from_file},
+        PIXLIE_VERSION_NUMBER,
+    };
 
     #[test]
     fn test_match_version_file_with_cargo_version() {
-        assert_eq!(get_version_from_file().unwrap(), get_cargo_version().unwrap());
+        assert_eq!(
+            get_version_from_file().unwrap(),
+            get_cargo_version().unwrap()
+        );
     }
-    
+
     #[test]
     fn test_match_cargo_version_with_code_version() {
         assert_eq!(get_cargo_version().unwrap(), PIXLIE_VERSION_NUMBER);
