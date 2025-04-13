@@ -4,7 +4,14 @@ import { APINodeItem } from "../api_types/APINodeItem.ts";
 import { EdgeLabel } from "../api_types/EdgeLabel.ts";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { getPixlieAIAPIRoot } from "../utils/api";
-import { IEngineStore, IProviderPropTypes } from "../utils/types";
+import {
+  IEngineEdges,
+  IEngineNodes,
+  IEngineStore,
+  INodeItem,
+  IProviderPropTypes,
+} from "../utils/types";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -41,16 +48,18 @@ const makeStore = () => {
       response.json().then((responsePayload: EngineResponsePayload) => {
         if (responsePayload.type === "Nodes") {
           let maxNodeWrittenAt = store.projects[projectId].nodesFetchedUpto;
-          responsePayload.data.forEach((node) => {
-            const writtenAt = node.written_at;
-            setStore("projects", projectId, "nodes", node.id, {
-              ...node,
-              isFetching: false,
-            });
-            if (writtenAt > maxNodeWrittenAt) {
-              maxNodeWrittenAt = writtenAt;
-            }
-          });
+          let nodes: IEngineNodes = Object.fromEntries(
+            responsePayload.data.map((node) => {
+              const writtenAt = node.written_at;
+              if (writtenAt > maxNodeWrittenAt) {
+                maxNodeWrittenAt = writtenAt;
+              }
+              let newNode = node as INodeItem;
+              newNode.isFetching = false;
+              return [newNode.id, newNode];
+            }),
+          );
+          setStore("projects", projectId, "nodes", nodes);
           setStore("projects", projectId, "nodesFetchedUpto", maxNodeWrittenAt);
         }
       });
@@ -74,16 +83,19 @@ const makeStore = () => {
         if (responsePayload.type === "Edges") {
           let maxEdgeWrittenAt = store.projects[projectId].edgesFetchedUpto;
 
-          Object.entries(responsePayload.data).forEach(([nodeId, apiEdges]) => {
-            if (apiEdges === undefined) {
-              return;
-            }
-            const writtenAt = apiEdges.written_at;
-            setStore("projects", projectId, "edges", Number(nodeId), apiEdges);
-            if (writtenAt > maxEdgeWrittenAt) {
-              maxEdgeWrittenAt = writtenAt;
-            }
-          });
+          let edges: IEngineEdges = Object.fromEntries(
+            Object.entries(responsePayload.data).map(([nodeId, apiEdges]) => {
+              if (apiEdges === undefined) {
+                return [Number(nodeId), {} as APINodeEdges];
+              }
+              const writtenAt = apiEdges.written_at;
+              if (writtenAt > maxEdgeWrittenAt) {
+                maxEdgeWrittenAt = writtenAt;
+              }
+              return [Number(nodeId), apiEdges];
+            }),
+          );
+          setStore("projects", projectId, "edges", edges);
           setStore("projects", projectId, "edgesFetchedUpto", maxEdgeWrittenAt);
         }
       });
@@ -148,10 +160,10 @@ const makeStore = () => {
   };
 
   const sync = (projectId: string) => {
-    if (projectId in store.sync) {
+    if (store.sync.includes(projectId)) {
       return;
     }
-
+    setStore("sync", (existing) => [...existing, projectId]);
     const fetcher = (projectId: string) => {
       return () => {
         if (
@@ -166,13 +178,11 @@ const makeStore = () => {
           fetchEdges(projectId);
           setStore("projects", projectId, "isFetching", false);
         });
-        if (store.sync.length > 0 && projectId in store.sync) {
+        if (store.sync.length > 0 && store.sync.includes(projectId)) {
           window.setTimeout(fetcher(projectId), 2000);
         }
       };
     };
-
-    setStore("sync", (existing) => [...existing, projectId]);
     window.setTimeout(fetcher(projectId), 100);
   };
 

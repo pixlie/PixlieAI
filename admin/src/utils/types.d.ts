@@ -25,9 +25,17 @@ interface INodeItem extends APINodeItem {
   isFetching: boolean;
 }
 
+interface IEngineNodes {
+  [nodeId: number]: INodeItem;
+}
+
+interface IEngineEdges {
+  [nodeId: number]: APINodeEdges;
+}
+
 interface IEngine {
-  nodes: { [nodeId: number]: INodeItem };
-  edges: { [nodeId: number]: APINodeEdges };
+  nodes: IEngineNodes;
+  edges: IEngineEdges;
   nodesFetchedUpto: bigint;
   edgesFetchedUpto: bigint;
   isFetching: boolean;
@@ -116,6 +124,8 @@ export type {
   ITextFormField,
   IBooleanFormField,
   IEngine,
+  IEngineEdges,
+  IEngineNodes,
   IEngineStore,
   INodeItem,
   INodeItemDisplayProps,
