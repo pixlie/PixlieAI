@@ -1,4 +1,4 @@
-import { Component, createMemo, For, Show } from "solid-js";
+import { Component, createMemo, For } from "solid-js";
 import { useLocation, useParams } from "@solidjs/router";
 import SidebarLink from "../widgets/navigation/SidebarLink.tsx";
 import { useEngine } from "../stores/engine.tsx";
@@ -10,63 +10,16 @@ interface IRoute {
   isActive?: boolean;
   children?: IRoute[];
   isOpen?: boolean;
+  isChild?: boolean;
 }
 
 const SidebarItem: Component<{ route: IRoute }> = (props) => {
   return (
     <>
-      <Show when={props.route.children?.length}>
-        <div class="flex items-center gap-2 w-full">
-          {/* <div class=""> */}
-          {props.route.isActive ? (
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 9l-7 7-7-7"
-              ></path>
-            </svg>
-          ) : (
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
-          )}
-          {/* </div> */}
-          <SidebarLink {...props.route} />
-        </div>
-      </Show>
-
-      <Show when={!props.route.children?.length}>
-        <SidebarLink {...props.route} />
-      </Show>
-
-      <Show when={props.route.isActive && props.route.children?.length}>
-        {/* <div class="border-l border-gray-150 ml-8 pl-3 my-3"> */}
-        <div class="pl-7 text-sm">
-          <For each={props.route.children}>
-            {(child) => <SidebarItem route={{ ...child }} />}
-          </For>
-        </div>
-        {/* </div> */}
-      </Show>
+      <SidebarLink {...props.route} />
+      <For each={props.route.children}>
+        {(child) => <SidebarItem route={{ ...child, isChild: true }} />}
+      </For>
     </>
   );
 };
@@ -128,30 +81,22 @@ const PerProjectRoutes: Component = () => {
           },
           {
             label: "Data",
-            href: `/p/${params.projectId}/data`,
-            isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/data`,
-            ),
             children: ["WebPage"].map((label) => ({
-              label: `${label}s`,
+              label: `${label}s`.replace(/([a-z])([A-Z])/g, "$1 $2"),
               href: `/p/${params.projectId}/data?label=${label}`,
-              isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/data?label=${label}`,
-              ),
+              isActive:
+                location.pathname.startsWith(`/p/${params.projectId}/data`) &&
+                location.search.includes(`label=${label}`),
             })),
           },
           {
             label: "Crawl",
-            href: `/p/${params.projectId}/crawl`,
-            isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/crawl`,
-            ),
             children: ["Domain", "Link"].map((label) => ({
               label: `${label}s`,
               href: `/p/${params.projectId}/crawl?label=${label}`,
-              isActive: location.pathname.startsWith(
-                `/p/${params.projectId}/crawl?label=${label}`,
-              ),
+              isActive:
+                location.pathname.startsWith(`/p/${params.projectId}/crawl`) &&
+                location.search.includes(`label=${label}`),
             })),
           },
         ]

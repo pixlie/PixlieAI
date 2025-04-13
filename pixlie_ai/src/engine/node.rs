@@ -88,18 +88,8 @@ impl NodeItem {
             WebPage::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), None)?;
-        } else if self.labels.contains(&NodeLabel::CrawlerSettings) {
-            match &self.payload {
-                Payload::CrawlerSettings(crawler_settings) => {
-                    match &crawler_settings.keywords_to_search_the_web_to_get_starting_urls {
-                        Some(_) => {
-                            WebSearch::process(self, arced_engine.clone(), None)?;
-                        }
-                        None => {}
-                    }
-                }
-                _ => {}
-            }
+        } else if self.labels.contains(&NodeLabel::WebSearch) {
+            WebSearch::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }
