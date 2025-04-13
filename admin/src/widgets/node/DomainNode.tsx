@@ -5,11 +5,11 @@ import { useParams } from "@solidjs/router";
 import { IEngine } from "../../utils/types";
 import { NodeLabel } from "../../api_types/NodeLabel";
 
-interface IDomainNodeProps {
+interface INodeProps {
   nodeId: number;
 }
 
-const DomainNode: Component<IDomainNodeProps> = (props) => {
+const DomainNode: Component<INodeProps> = (props) => {
   const [engine] = useEngine();
   const params = useParams();
   const [_, { getColors }] = useUIClasses();

@@ -66,6 +66,8 @@ pub struct EdgeWrite {
 #[derive(Clone, Deserialize, TS)]
 #[ts(export)]
 pub enum EngineRequestPayload {
+    Describe(Option<u32>),
+
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
@@ -569,6 +571,30 @@ pub fn handle_engine_api_request(
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
     let response: EngineResponsePayload = match request.payload {
+        EngineRequestPayload::Describe(optional_current_node_id) => {
+            // The describe request helps the UI show the graph in a way that makes it easy to comprehend
+            // We start with nodes in a manner similar to how we process and the UI can ask for further nodes
+
+            match optional_current_node_id {
+                Some(_current_node_id) => EngineResponsePayload::Nodes(vec![]),
+                None => {
+                    // We are at the root, we fetch the nodes with label Objective
+                    let mut node_ids_with_label =
+                        engine.get_node_ids_with_label(&NodeLabel::Objective);
+                    node_ids_with_label.sort();
+
+                    EngineResponsePayload::Nodes(
+                        node_ids_with_label
+                            .iter()
+                            .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                                Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
+                                None => None,
+                            })
+                            .collect(),
+                    )
+                }
+            }
+        }
         EngineRequestPayload::GetLabels => {
             let labels = engine.get_all_node_labels();
             EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())
@@ -577,14 +603,16 @@ pub fn handle_engine_api_request(
             let mut node_ids_with_label =
                 engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
             node_ids_with_label.sort();
-            let nodes: Vec<APINodeItem> = node_ids_with_label
-                .iter()
-                .filter_map(|node_id| match engine.get_node_by_id(node_id) {
-                    Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
-                    None => None,
-                })
-                .collect();
-            EngineResponsePayload::Nodes(nodes)
+
+            EngineResponsePayload::Nodes(
+                node_ids_with_label
+                    .iter()
+                    .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                        Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
+                        None => None,
+                    })
+                    .collect(),
+            )
         }
         EngineRequestPayload::GetNodesWithIds(mut node_ids) => {
             node_ids.sort();

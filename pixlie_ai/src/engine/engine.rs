@@ -90,7 +90,7 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
-            self.process_nodes();
+            // self.process_nodes();
         }
     }
 
@@ -254,7 +254,7 @@ impl Engine {
                             None
                         }
                     } else {
-                        if node_count < 10
+                        if node_count < 100
                             && all_labels_to_be_processed
                                 .iter()
                                 .any(|label| item.1.labels.contains(label))

@@ -16,6 +16,7 @@ use url::Url;
 
 // The project settings node contains high level settings that guide the flow of a project
 #[derive(Clone, Default, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct ProjectSettings {
     pub only_extract_data_from_specified_links: bool,
     pub only_crawl_direct_links_from_specified_links: bool,

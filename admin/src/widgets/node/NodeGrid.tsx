@@ -15,6 +15,11 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
     <>
       {props.nodeType ? (
         <>
+          {props.nodeType === "ProjectSettings" && (
+            <div class="grid grid-cols-1 gap-2">
+              <For each={getN()}>{(nodeId) => <></>}</For>
+            </div>
+          )}
           {props.nodeType === "Link" && (
             <div class="grid grid-cols-1 gap-2">
               <For each={getN()}>
