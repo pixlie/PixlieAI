@@ -835,7 +835,7 @@ fn test_extraction_from_hn_homepage() {
 #[test]
 fn test_extract_data_only_from_specified_links() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::project_settings::ProjectSettings;
     use crate::entity::web::link::Link;
