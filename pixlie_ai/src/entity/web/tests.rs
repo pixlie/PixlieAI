@@ -53,25 +53,66 @@ fn test_webpage_scraper_rlhf_book() {
         .unwrap();
     assert_eq!(children_of_webpage.len(), 86);
 
-    let title_node = test_engine
-        .get_node_by_id(children_of_webpage.first().unwrap())
-        .unwrap();
+    let image_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Image))
+        .collect();
+    assert_eq!(image_nodes.len(), 1);
+    let image_node = image_nodes.first().unwrap();
+    assert_eq!(
+        match image_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "https://github.com/natolambert/rlhf-book/blob/main/images/rlhf-book-share"
+    );
+
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
         match title_node.payload {
             Payload::Text(ref text) => text.as_str(),
             _ => "",
         },
-        // "Introduction | RLHF Book by Nathan Lambert"
-        "https://rlhfbook.com/favicon.ico"
-    );
-    assert_eq!(
-        title_node.labels,
-        vec![NodeLabel::Logo, NodeLabel::Partial]
+        "Introduction | RLHF Book by Nathan Lambert"
     );
 
-    let heading_node = test_engine
-        .get_node_by_id(children_of_webpage.get(1).unwrap())
-        .unwrap();
+    let description_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Description))
+        .collect();
+    assert_eq!(description_nodes.len(), 1);
+    let description_node = description_nodes.first().unwrap();
+    assert_eq!(
+        match description_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "The Reinforcement Learning from Human Feedback Book"
+    );
+
+    let heading_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Heading))
+        .collect();
+    assert_eq!(heading_nodes.len(), 17);
+    let heading_node = heading_nodes.first().unwrap();
     assert_eq!(
         match heading_node.payload {
             Payload::Text(ref text) => text.as_str(),
