@@ -29,4 +29,5 @@ export type NodeLabel =
   | "ModifiedAt"
   | "Url"
   | "Tag"
-  | "Description";
+  | "Description"
+  | "Metadata";
