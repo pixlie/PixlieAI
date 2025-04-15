@@ -69,6 +69,10 @@ fn test_webpage_scraper_rlhf_book() {
         },
         "https://github.com/natolambert/rlhf-book/blob/main/images/rlhf-book-share"
     );
+    assert_eq!(
+        image_node.labels,
+        vec![NodeLabel::Image, NodeLabel::Metadata]
+    );
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -86,6 +90,10 @@ fn test_webpage_scraper_rlhf_book() {
         },
         "Introduction | RLHF Book by Nathan Lambert"
     );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
+    );
 
     let description_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -102,6 +110,10 @@ fn test_webpage_scraper_rlhf_book() {
             _ => "",
         },
         "The Reinforcement Learning from Human Feedback Book"
+    );
+    assert_eq!(
+        description_node.labels,
+        vec![NodeLabel::Description, NodeLabel::Metadata]
     );
 
     let heading_nodes: Vec<ArcedNodeItem> = test_engine
@@ -826,6 +838,10 @@ fn test_extraction_from_hn_homepage() {
         },
         "Hacker News"
     );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
+    );
 
     // Count the number of Link nodes
     let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
@@ -910,7 +926,11 @@ fn test_extract_data_only_from_specified_links() {
             _ => "",
         },
         "Hacker News"
-        );
+    );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
+    );
 
     // Count the number of Link nodes
     let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
@@ -920,7 +940,7 @@ fn test_extract_data_only_from_specified_links() {
 #[test]
 fn test_crawl_within_domains_of_specified_links() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::project_settings::ProjectSettings;
     use crate::entity::web::link::Link;
@@ -982,12 +1002,25 @@ fn test_crawl_within_domains_of_specified_links() {
         .unwrap();
     assert_eq!(children_of_webpage.len(), 191);
 
-    let first_child_of_webpage = test_engine
-        .get_node_by_id(children_of_webpage.get(0).unwrap())
-        .unwrap();
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
-        first_child_of_webpage.labels,
-        vec![NodeLabel::Logo, NodeLabel::Partial]
+        match title_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "Hacker News"
+    );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
     );
 
     // Count the number of Link nodes
