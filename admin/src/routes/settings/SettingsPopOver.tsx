@@ -67,7 +67,7 @@ const SettingsPopOver: Component = () => {
           onClick={() => setVisible(false)}
           disabled={isActionRequired()}
         />
-        <div class="absolute right-0 z-20 w-96 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3">
+        <div class="absolute right-0 z-20 w-96 rounded-lg shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3">
           <StorageDir />
           {!!workspace.settings?.pathToStorageDir && (
             <>

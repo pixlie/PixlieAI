@@ -30,7 +30,7 @@ const SearchResults: Component<ISearchResultsProps> = (props) => {
     let prevNode: APINodeItem | null = null;
     const nodeMatcher = (node: APINodeItem) => {
       return (
-        node.labels.includes("Partial") &&
+        (node.labels.includes("Partial") || node.labels.includes("Metadata")) &&
         node.payload.type === "Text" &&
         node.payload.data.length > 0 &&
         props.searchTerms.some((searchTerm) =>
@@ -77,7 +77,7 @@ const SearchResults: Component<ISearchResultsProps> = (props) => {
         </For>
       </div>
       <NodeGrid
-        nodeType="WebPage"
+        nodeType="Search"
         source={() => getResultNodeIds().map((r) => r[0])}
         mode="preview"
         data={{

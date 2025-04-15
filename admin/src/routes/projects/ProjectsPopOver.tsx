@@ -27,11 +27,13 @@ const ProjectsPopOver: Component = () => {
           class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10 cursor-default"
           onClick={() => setVisible(false)}
         />
-        <div class="absolute right-0 z-20 w-72 rounded-md shadow-md  border-slate-200 border  bg-white  focus:outline-none flex flex-col py-2 gap-2">
-          {!workspace.projects?.length && (
-            <p class="text-gray-500 text-center">No activity yet!</p>
-          )}
-          <For each={workspace.projects}>
+        <div class="absolute right-0 z-20 w-72 max-h-72 rounded-lg overflow-hidden shadow-md border-slate-200 border  bg-white  focus:outline-none flex flex-col overflow-y-auto">
+          <For
+            each={workspace.projects}
+            fallback={
+              <p class="text-gray-500 text-center p-4">No activity yet!</p>
+            }
+          >
             {({ uuid, name }, i) => (
               <>
                 {i() > 0 && <hr />}
@@ -47,14 +49,14 @@ const ProjectsPopOver: Component = () => {
                 >
                   <div
                     class={
-                      "flex w-full items-center px-4 py-1 gap-2 hover:bg-blue-100 hover:text-gray-950 " +
+                      "flex w-full items-center px-4  py-3.5 gap-2 hover:text-slate-950 " +
                       (uuid === params.projectId
-                        ? "bg-slate-200 text-gray-950"
-                        : "text-gray-800")
+                        ? "font-medium bg-blue-100 text-slate-950 hover:bg-blue-100"
+                        : "text-slate-800 hover:bg-slate-50")
                     }
                   >
                     <div class="flex-1 overflow-hidden gap-1 flex flex-col items-center-center">
-                      <span class="block font-medium truncate text-left">
+                      <span class="block truncate text-left">
                         {name || "Project"}
                       </span>
                       {/* <p class="text-gray-500 text-xs">{`Status: ${project.isReady ? "Ready" : "In Progress"}`}</p> */}

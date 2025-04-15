@@ -21,4 +21,13 @@ export type NodeLabel =
   | "WebSearch"
   | "CrawlCondition"
   | "ProjectSettings"
-  | "CrawlerSettings";
+  | "CrawlerSettings"
+  | "Image"
+  | "Name"
+  | "Logo"
+  | "CreatedAt"
+  | "ModifiedAt"
+  | "Url"
+  | "Tag"
+  | "Description"
+  | "Metadata";
