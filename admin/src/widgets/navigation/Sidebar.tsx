@@ -38,7 +38,7 @@ const Sidebar: Component = () => {
             onClick={() => setCollapsed(!collapsed())}
           />
         </div>
-        <div class="overflow-y-auto ">
+        <div class="overflow-y-auto">
           <Show when={!collapsed()}>
             {!!params.projectId ? (
               <PerProjectRoutes />
