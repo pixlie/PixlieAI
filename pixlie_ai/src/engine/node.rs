@@ -68,6 +68,7 @@ pub enum NodeLabel {
     CreatedAt,
     ModifiedAt,
     Tag,
+    Metadata,
 }
 
 impl Default for NodeFlags {
