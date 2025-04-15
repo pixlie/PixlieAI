@@ -51,62 +51,138 @@ impl<'a> Traverser<'a> {
                     if let Some(content) = value.attr("content") {
                         if let Some(property) = value.attr("property") {
                             match property {
-                                "og:site_name" => self.add_text_node(&NodeLabel::Name, content, false)?,
-                                "og:url" => self.add_text_node(&NodeLabel::Url, content, false)?,
-                                "og:title" => self.add_text_node(&NodeLabel::Title, content, false)?,
-                                "og:description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "og:site_name" => self.add_text_node(
+                                    vec![NodeLabel::Name, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "og:url" => self.add_text_node(
+                                    vec![NodeLabel::Url, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "og:title" => self.add_text_node(
+                                    vec![NodeLabel::Title, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "og:description" => self.add_text_node(
+                                    vec![NodeLabel::Description, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
                                 "og:image" => {
                                     if content.starts_with("http") {
-                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            content,
+                                            false,
+                                        )?;
                                     } else {
                                         let base_url = self.webpage_url.join("/")?;
                                         let content = base_url.join(content)?;
-                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            &content.to_string(),
+                                            false,
+                                        )?;
                                     }
                                 }
-                                "article:published_time" => self.add_text_node(&NodeLabel::CreatedAt, content, false)?,
-                                "article:modified_time" => self.add_text_node(&NodeLabel::ModifiedAt, content, false)?,
-                                "article:tag" => self.add_text_node(&NodeLabel::Tag, content, true)?,
+                                "article:published_time" => self.add_text_node(
+                                    vec![NodeLabel::CreatedAt, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "article:modified_time" => self.add_text_node(
+                                    vec![NodeLabel::ModifiedAt, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "article:tag" => self.add_text_node(
+                                    vec![NodeLabel::Tag, NodeLabel::Metadata],
+                                    content,
+                                    true,
+                                )?,
                                 _ => {}
                             }
                         }
                         if let Some(name) = value.attr("name") {
                             match name {
-                                "twitter:title" => self.add_text_node(&NodeLabel::Title, content, false)?,
-                                "twitter:description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "twitter:title" => self.add_text_node(
+                                    vec![NodeLabel::Title, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "twitter:description" => self.add_text_node(
+                                    vec![NodeLabel::Description, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
                                 "twitter:image" => {
                                     if content.starts_with("http") {
-                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            content,
+                                            false,
+                                        )?;
                                     } else {
                                         let base_url = self.webpage_url.join("/")?;
                                         let content = base_url.join(content)?;
-                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            &content.to_string(),
+                                            false,
+                                        )?;
                                     }
                                 }
-                                "title" => self.add_text_node(&NodeLabel::Title, content, false)?,
-                                "description" => self.add_text_node(&NodeLabel::Description, content, false)?,
+                                "title" => self.add_text_node(
+                                    vec![NodeLabel::Title, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
+                                "description" => self.add_text_node(
+                                    vec![NodeLabel::Description, NodeLabel::Metadata],
+                                    content,
+                                    false,
+                                )?,
                                 "image" => {
                                     if content.starts_with("http") {
-                                        self.add_text_node(&NodeLabel::Image, content, false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            content,
+                                            false,
+                                        )?;
                                     } else {
                                         let base_url = self.webpage_url.join("/")?;
                                         let content = base_url.join(content)?;
-                                        self.add_text_node(&NodeLabel::Image, &content.to_string(), false)?;
+                                        self.add_text_node(
+                                            vec![NodeLabel::Image, NodeLabel::Metadata],
+                                            &content.to_string(),
+                                            false,
+                                        )?;
                                     }
                                 }
                                 _ => {}
                             }
                         }
-                    } 
+                    }
                 }
                 "img" => {
                     if let Some(src) = element.value().attr("src") {
                         if src.starts_with("http") {
-                            self.add_text_node(&NodeLabel::Image, src, false)?;
+                            self.add_text_node(
+                                vec![NodeLabel::Image, NodeLabel::Metadata],
+                                src,
+                                false,
+                            )?;
                         } else {
                             let base_url = self.webpage_url.join("/")?;
                             let src = base_url.join(src)?;
-                            self.add_text_node(&NodeLabel::Image, &src.to_string(), false)?;
+                            self.add_text_node(
+                                vec![NodeLabel::Image, NodeLabel::Metadata],
+                                &src.to_string(),
+                                false,
+                            )?;
                         }
                     }
                 }
@@ -115,17 +191,29 @@ impl<'a> Traverser<'a> {
                         if let Some(rel) = element.value().attr("rel") {
                             if rel.contains("icon") {
                                 if href.starts_with("http") {
-                                    self.add_text_node(&NodeLabel::Logo, href, false)?;
+                                    self.add_text_node(
+                                        vec![NodeLabel::Logo, NodeLabel::Metadata],
+                                        href,
+                                        false,
+                                    )?;
                                 } else {
                                     let base_url = self.webpage_url.join("/")?;
                                     let href = base_url.join(href)?;
-                                    self.add_text_node(&NodeLabel::Logo, &href.to_string(), false)?;
+                                    self.add_text_node(
+                                        vec![NodeLabel::Logo, NodeLabel::Metadata],
+                                        &href.to_string(),
+                                        false,
+                                    )?;
                                 }
                             }
                         }
                     }
                 }
-                "title" => self.add_text_node(&NodeLabel::Title, &element.text().collect::<Vec<&str>>().join(""), false)?,
+                "title" => self.add_text_node(
+                    vec![NodeLabel::Title, NodeLabel::Metadata],
+                    &element.text().collect::<Vec<&str>>().join(""),
+                    false,
+                )?,
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = self
                         .arced_engine
@@ -402,9 +490,14 @@ impl<'a> Traverser<'a> {
                 .unwrap_or(false)
         }))
     }
-    fn add_text_node(&self, label: &NodeLabel, text: &str, can_add_multiple: bool) -> PiResult<()> {
+    fn add_text_node(
+        &self,
+        labels: Vec<NodeLabel>,
+        text: &str,
+        can_add_multiple: bool,
+    ) -> PiResult<()> {
         if !can_add_multiple {
-            if self.node_label_already_exists(label)? {
+            if self.node_label_already_exists(&labels[0])? {
                 return Ok(());
             }
         }
@@ -412,7 +505,7 @@ impl<'a> Traverser<'a> {
             .arced_engine
             .get_or_add_node(
                 Payload::Text(clean_text(text.to_string())),
-                vec![label.clone(), NodeLabel::Partial],
+                labels,
                 true,
                 None,
             )?
@@ -474,13 +567,14 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
 
     match &node.payload {
         Payload::Text(payload) => {
-            if payload.contains("%PDF-") || payload.contains("trailer") || payload.contains("%%EOF") {
+            if payload.contains("%PDF-") || payload.contains("trailer") || payload.contains("%%EOF")
+            {
                 log::warn!(
                     "Skipping non-HTML payload (likely a PDF) for node {:?}",
                     node.id
                 );
                 return Ok(());
-            }    
+            }
             let document = Html::parse_document(&payload);
             let traverser = Traverser {
                 link_node_id: current_link_node_id.clone(),
