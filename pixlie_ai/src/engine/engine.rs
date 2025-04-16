@@ -226,6 +226,7 @@ impl Engine {
         let limited_labels_to_be_processed = vec![
             NodeLabel::Domain,
             NodeLabel::Objective,
+            NodeLabel::WebPage,
             NodeLabel::WebSearch,
         ];
         let all_labels_to_be_processed = vec![

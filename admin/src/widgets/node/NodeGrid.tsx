@@ -5,6 +5,7 @@ import SearchTermNode from "./SearchTermNode";
 import TopicNode from "./TopicNode";
 import ContentContainerNode from "./ContentContainerNode.tsx";
 import { INodeListItemProps } from "../../utils/types.tsx";
+import WebPageNode from "./WebPageNode.tsx";
 
 const NodeGrid: Component<INodeListItemProps> = (props) => {
   const getN = createMemo<Array<number>>(() => {
@@ -50,7 +51,7 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
               </For>
             </div>
           )}
-          {props.nodeType === "WebPage" && (
+          {props.nodeType === "Search" && (
             <div class="grid grid-cols-1 gap-2">
               <For each={getN()}>
                 {(nodeId) => (
@@ -60,6 +61,19 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
                     data={props.data?.data}
                     nodeData={props.data?.nodeData?.[nodeId]}
                   />
+                )}
+              </For>
+            </div>
+          )}
+          {props.nodeType === "WebPage" && (
+            <div class="columns-1 lg:columns-3 space-y-8 gap-8">
+              <For each={getN()}>
+                {(nodeId) => (
+                  <div class="break-inside-avoid overflow-visible will-change-transform">
+                  <WebPageNode
+                    nodeId={nodeId}
+                  />
+                  </div>
                 )}
               </For>
             </div>

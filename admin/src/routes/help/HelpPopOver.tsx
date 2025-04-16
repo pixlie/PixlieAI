@@ -46,13 +46,13 @@ const HelpPopOver: Component = () => {
           class="fixed inset-0 bg-slate-500/20 transition-opacity transition duration-500 ease-in-out z-10 cursor-default"
           onClick={() => setVisible(false)}
         />
-        <div class="absolute right-0 z-20 w-72 rounded-md shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col py-2 gap-2">
+        <div class="absolute right-0 z-20 whitespace-nowrap rounded-lg overflow-hidden shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col">
           {options.map(({ link, icon, title }, i) => (
             <>
               {i > 0 && <hr />}
               <a
                 href={link}
-                class="flex w-full items-center px-4 py-1 gap-2 hover:bg-blue-100"
+                class="flex w-full items-center px-4 py-3.5 gap-2 hover:bg-slate-50"
                 target="_blank"
                 rel="noreferrer"
               >

@@ -51,11 +51,38 @@ fn test_webpage_scraper_rlhf_book() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 82);
+    assert_eq!(children_of_webpage.len(), 86);
 
-    let title_node = test_engine
-        .get_node_by_id(children_of_webpage.first().unwrap())
-        .unwrap();
+    let image_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Image))
+        .collect();
+    assert_eq!(image_nodes.len(), 1);
+    let image_node = image_nodes.first().unwrap();
+    assert_eq!(
+        match image_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "https://github.com/natolambert/rlhf-book/blob/main/images/rlhf-book-share"
+    );
+    assert_eq!(
+        image_node.labels,
+        vec![NodeLabel::Image, NodeLabel::Metadata]
+    );
+
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
         match title_node.payload {
             Payload::Text(ref text) => text.as_str(),
@@ -65,12 +92,39 @@ fn test_webpage_scraper_rlhf_book() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        vec![NodeLabel::Title, NodeLabel::Metadata]
     );
 
-    let heading_node = test_engine
-        .get_node_by_id(children_of_webpage.get(1).unwrap())
-        .unwrap();
+    let description_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Description))
+        .collect();
+    assert_eq!(description_nodes.len(), 1);
+    let description_node = description_nodes.first().unwrap();
+    assert_eq!(
+        match description_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "The Reinforcement Learning from Human Feedback Book"
+    );
+    assert_eq!(
+        description_node.labels,
+        vec![NodeLabel::Description, NodeLabel::Metadata]
+    );
+
+    let heading_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Heading))
+        .collect();
+    assert_eq!(heading_nodes.len(), 17);
+    let heading_node = heading_nodes.first().unwrap();
     assert_eq!(
         match heading_node.payload {
             Payload::Text(ref text) => text.as_str(),
@@ -730,7 +784,7 @@ RLHF</a></li>
 #[test]
 fn test_extraction_from_hn_homepage() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::web::link::Link;
     use std::sync::Arc;
@@ -766,14 +820,27 @@ fn test_extraction_from_hn_homepage() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 222);
+    assert_eq!(children_of_webpage.len(), 224);
 
-    let first_child_of_webpage = test_engine
-        .get_node_by_id(children_of_webpage.get(0).unwrap())
-        .unwrap();
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
-        first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        match title_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "Hacker News"
+    );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
     );
 
     // Count the number of Link nodes
@@ -784,7 +851,7 @@ fn test_extraction_from_hn_homepage() {
 #[test]
 fn test_extract_data_only_from_specified_links() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::project_settings::ProjectSettings;
     use crate::entity::web::link::Link;
@@ -842,14 +909,27 @@ fn test_extract_data_only_from_specified_links() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 1);
+    assert_eq!(children_of_webpage.len(), 3);
 
-    let first_child_of_webpage = test_engine
-        .get_node_by_id(children_of_webpage.get(0).unwrap())
-        .unwrap();
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
-        first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        match title_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "Hacker News"
+    );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
     );
 
     // Count the number of Link nodes
@@ -860,7 +940,7 @@ fn test_extract_data_only_from_specified_links() {
 #[test]
 fn test_crawl_within_domains_of_specified_links() {
     use crate::engine::engine::get_test_engine;
-    use crate::engine::node::{NodeLabel, Payload};
+    use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::project_settings::ProjectSettings;
     use crate::entity::web::link::Link;
@@ -920,14 +1000,27 @@ fn test_crawl_within_domains_of_specified_links() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 189);
+    assert_eq!(children_of_webpage.len(), 191);
 
-    let first_child_of_webpage = test_engine
-        .get_node_by_id(children_of_webpage.get(0).unwrap())
-        .unwrap();
+    let title_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::Title))
+        .collect();
+    assert_eq!(title_nodes.len(), 1);
+    let title_node = title_nodes.first().unwrap();
     assert_eq!(
-        first_child_of_webpage.labels,
-        vec![NodeLabel::Title, NodeLabel::Partial]
+        match title_node.payload {
+            Payload::Text(ref text) => text.as_str(),
+            _ => "",
+        },
+        "Hacker News"
+    );
+    assert_eq!(
+        title_node.labels,
+        vec![NodeLabel::Title, NodeLabel::Metadata]
     );
 
     // Count the number of Link nodes

@@ -60,9 +60,7 @@ impl WebPage {
 
             match node.payload {
                 Payload::Text(ref text) => {
-                    if node.labels.contains(&NodeLabel::Title) && text.len() > 20 {
-                        content.push_str(&text);
-                    } else if node.labels.contains(&NodeLabel::Paragraph) && text.len() > 200 {
+                    if text.len() > 0 {
                         content.push_str(&text);
                     }
                 }
