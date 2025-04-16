@@ -78,9 +78,8 @@ impl ProjectForEngine {
         project
     }
     pub fn get_db_path(&self) -> PathBuf {
-        let mut path_to_storage_dir = self.path_to_storage_dir.clone();
-        path_to_storage_dir.push(format!("{}.rocksdb", self.project.uuid));
-        path_to_storage_dir
+        self.path_to_storage_dir
+            .join(format!("{}.rocksdb", self.project.uuid))
     }
     pub fn get_arced_db(&self) -> PiResult<Arc<DB>> {
         match self.arced_db.as_ref() {

@@ -254,7 +254,6 @@ fn main() {
                         continue;
                     }
                 };
-                // let project = Project::from_id(&project_id, path_to_storage_dir.clone());
                 let engine_project = ProjectForEngine::open(&project_id, path_to_storage_dir);
                 let (response_if_invalid_project_or_error, should_unload_engine) = match (
                     ProjectCollection::read_item(&project_id),
