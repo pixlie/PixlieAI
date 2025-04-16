@@ -14,11 +14,13 @@ use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
 use crate::error::PiError;
+use crate::projects::ProjectCollection;
+use crate::utils::crud::Crud;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
-use chrono::{DateTime, Utc};
 use log::debug;
+use sentry::types::ProjectId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -71,8 +73,8 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
-    GetAllNodes(Option<DateTime<Utc>>),
-    GetAllEdges(Option<DateTime<Utc>>),
+    GetAllNodes(i64),
+    GetAllEdges(i64),
 
     CreateNode(NodeWrite),
     CreateEdge(EdgeWrite),
@@ -86,7 +88,7 @@ pub enum EngineRequestPayload {
 pub struct APINodeEdges {
     #[ts(type = "Array<[number, string]>")]
     pub edges: Vec<(NodeId, String)>,
-    pub written_at: DateTime<Utc>,
+    pub written_at: i64,
 }
 
 #[derive(Clone, Serialize, TS)]
@@ -156,7 +158,7 @@ pub struct APINodeItem {
 
     #[serde(skip_deserializing)]
     pub flags: Vec<APINodeFlags>,
-    pub written_at: DateTime<Utc>,
+    pub written_at: i64,
 }
 
 impl APINodeItem {
@@ -187,7 +189,7 @@ impl APINodeItem {
             labels: arced_node.labels.clone(),
             payload,
             flags: APINodeFlags::from_node_flags(&arced_node.flags),
-            written_at: arced_node.written_at,
+            written_at: arced_node.written_at.timestamp_millis(),
         }
     }
 }
@@ -208,6 +210,53 @@ pub struct QueryNodes {
 #[derive(Deserialize)]
 pub struct QueryEdges {
     since: Option<i64>,
+}
+
+pub async fn describe(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to describe",
+        request_id, project_id
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::Describe(None),
+        },
+    ))?;
+
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload);
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
 }
 
 pub async fn get_labels(
@@ -306,33 +355,23 @@ pub async fn get_nodes(
                 payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
             },
         ))?;
-    } else if let Some(since) = &params.since {
+    } else {
+        let since = if let Some(since) = params.since {
+            since
+        } else {
+            0
+        };
         // Read the nodes written since the given timestamp
         debug!(
             "API request {} for project {} to get nodes since {}",
             request_id, project_id, since
         );
-        let since = DateTime::from_timestamp_millis(*since);
         api_state.main_tx.send(PiEvent::APIRequest(
             project_id.clone(),
             EngineRequest {
                 request_id: request_id.clone(),
                 project_id: project_id.clone(),
                 payload: EngineRequestPayload::GetAllNodes(since),
-            },
-        ))?;
-    } else {
-        debug!(
-            "API request {} for project {} to get all nodes",
-            request_id, project_id
-        );
-
-        api_state.main_tx.send(PiEvent::APIRequest(
-            project_id.clone(),
-            EngineRequest {
-                request_id: request_id.clone(),
-                project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetAllNodes(None),
             },
         ))?;
     }
@@ -377,9 +416,9 @@ pub async fn get_edges(
     let mut rx = api_state.api_channel_tx.subscribe();
 
     let since = if let Some(since) = params.since {
-        DateTime::<Utc>::from_timestamp_millis(since)
+        since
     } else {
-        None
+        0
     };
     api_state.main_tx.send(PiEvent::APIRequest(
         project_id.clone(),
@@ -570,91 +609,110 @@ pub fn handle_engine_api_request(
     engine: Arc<&Engine>,
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
-    let response: EngineResponsePayload = match request.payload {
-        EngineRequestPayload::Describe(optional_current_node_id) => {
-            // The describe request helps the UI show the graph in a way that makes it easy to comprehend
-            // We start with nodes in a manner similar to how we process and the UI can ask for further nodes
+    let response: EngineResponsePayload;
+    let project_read_result = ProjectCollection::read_item(&request.project_id);
 
-            match optional_current_node_id {
-                Some(_current_node_id) => EngineResponsePayload::Nodes(vec![]),
-                None => {
-                    // We are at the root, we fetch the nodes with label Objective
-                    let mut node_ids_with_label =
-                        engine.get_node_ids_with_label(&NodeLabel::Objective);
-                    node_ids_with_label.sort();
+    if project_read_result.is_err() {
+        let project_error = project_read_result.err().unwrap();
+        debug!(
+            "Project {} check failed, API request {}: {}",
+            request.project_id, request.request_id, project_error
+        );
+        response = EngineResponsePayload::Error(format!(
+            "Project {} check failed: {}",
+            request.project_id, project_error
+        ));
+    } else if !engine.db_exists() {
+        debug!(
+            "Project database for {} does not exist, cannot handle API request, deleting project",
+            request.project_id
+        );
+        ProjectCollection::delete(&request.project_id).ok();
+        response = EngineResponsePayload::Error(format!(
+            "Project {} DB does not exist",
+            request.project_id
+        ));
+    } else {
+        response = match request.payload {
+            EngineRequestPayload::Describe(optional_current_node_id) => {
+                // The describe request helps the UI show the graph in a way that makes it easy to comprehend
+                // We start with nodes in a manner similar to how we process and the UI can ask for further nodes
 
-                    EngineResponsePayload::Nodes(
-                        node_ids_with_label
-                            .iter()
-                            .filter_map(|node_id| match engine.get_node_by_id(node_id) {
-                                Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
-                                None => None,
-                            })
-                            .collect(),
-                    )
+                match optional_current_node_id {
+                    Some(_current_node_id) => EngineResponsePayload::Nodes(vec![]),
+                    None => {
+                        // We are at the root, we fetch the nodes with label Objective
+                        let mut node_ids_with_label =
+                            engine.get_node_ids_with_label(&NodeLabel::Objective);
+                        node_ids_with_label.sort();
+
+                        EngineResponsePayload::Nodes(
+                            node_ids_with_label
+                                .iter()
+                                .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                                    Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
+                                    None => None,
+                                })
+                                .collect(),
+                        )
+                    }
                 }
             }
-        }
-        EngineRequestPayload::GetLabels => {
-            let labels = engine.get_all_node_labels();
-            EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())
-        }
-        EngineRequestPayload::GetNodesWithLabel(label) => {
-            let mut node_ids_with_label =
-                engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
-            node_ids_with_label.sort();
-
-            EngineResponsePayload::Nodes(
-                node_ids_with_label
+            EngineRequestPayload::GetLabels => {
+                let labels = engine.get_all_node_labels();
+                EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())
+            }
+            EngineRequestPayload::GetNodesWithLabel(label) => {
+                let mut node_ids_with_label =
+                    engine.get_node_ids_with_label(&NodeLabel::from_str(&label)?);
+                node_ids_with_label.sort();
+                let nodes: Vec<APINodeItem> = node_ids_with_label
                     .iter()
                     .filter_map(|node_id| match engine.get_node_by_id(node_id) {
                         Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
                         None => None,
                     })
-                    .collect(),
-            )
-        }
-        EngineRequestPayload::GetNodesWithIds(mut node_ids) => {
-            node_ids.sort();
-            let mut nodes: Vec<APINodeItem> = vec![];
-            for node_id in node_ids {
-                if let Some(arced_node) = engine.get_node_by_id(&node_id) {
-                    nodes.push(APINodeItem::from_node(&arced_node));
-                }
+                    .collect();
+                EngineResponsePayload::Nodes(nodes)
             }
-            EngineResponsePayload::Nodes(nodes)
-        }
-        EngineRequestPayload::GetAllNodes(since) => {
-            let mut nodes: Vec<APINodeItem> = match since {
-                Some(since) => engine
+            EngineRequestPayload::GetNodesWithIds(mut node_ids) => {
+                node_ids.sort();
+                let mut nodes: Vec<APINodeItem> = vec![];
+                for node_id in node_ids {
+                    if let Some(arced_node) = engine.get_node_by_id(&node_id) {
+                        nodes.push(APINodeItem::from_node(&arced_node));
+                    }
+                }
+                EngineResponsePayload::Nodes(nodes)
+            }
+            EngineRequestPayload::GetAllNodes(since) => {
+                let mut nodes: Vec<APINodeItem> = engine
                     .get_all_nodes()
                     .iter()
                     .filter_map(|arced_node| {
-                        if arced_node.written_at > since {
+                        // Check if node was written after the given `since` unix timestamp
+                        // Compare at the millisecond level, since browser date objects
+                        // do not support sub-millisecond precision
+                        if arced_node.written_at.timestamp_millis() > since {
                             Some(APINodeItem::from_node(arced_node))
                         } else {
                             None
                         }
                     })
-                    .collect(),
+                    .collect();
+                nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
-                None => engine
-                    .get_all_nodes()
-                    .iter()
-                    .map(|arced_node| APINodeItem::from_node(arced_node))
-                    .collect(),
-            };
-            nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-            EngineResponsePayload::Nodes(nodes)
-        }
-        EngineRequestPayload::GetAllEdges(since) => {
-            let edges: HashMap<NodeId, APINodeEdges> = match since {
-                Some(since) => engine
+                EngineResponsePayload::Nodes(nodes)
+            }
+            EngineRequestPayload::GetAllEdges(since) => {
+                let edges: HashMap<NodeId, APINodeEdges> = engine
                     .get_all_edges()
                     .iter()
                     .filter_map(|(node_id, node_edges)| {
-                        if node_edges.written_at > since {
+                        // Check if node_edges was written after the given `since` unix timestamp
+                        // Compare at the millisecond level, since browser date objects
+                        // do not support sub-millisecond precision
+                        if node_edges.written_at.timestamp_millis() > since {
                             Some((
                                 **node_id,
                                 APINodeEdges {
@@ -663,113 +721,96 @@ pub fn handle_engine_api_request(
                                         .iter()
                                         .map(|x| (x.0, x.1.to_string()))
                                         .collect(),
-                                    written_at: node_edges.written_at.clone(),
+                                    written_at: node_edges.written_at.timestamp_millis(),
                                 },
                             ))
                         } else {
                             None
                         }
                     })
-                    .collect(),
-                None => engine
-                    .get_all_edges()
-                    .iter()
-                    .map(|(node_id, node_edges)| {
-                        (
-                            **node_id,
-                            APINodeEdges {
-                                edges: node_edges
-                                    .edges
-                                    .iter()
-                                    .map(|x| (x.0, x.1.to_string()))
-                                    .collect(),
-                                written_at: node_edges.written_at.clone(),
-                            },
-                        )
-                    })
-                    .collect(),
-            };
+                    .collect();
 
-            EngineResponsePayload::Edges(APIEdges(edges))
-        }
-        EngineRequestPayload::CreateNode(node_write) => {
-            let node_id = match node_write {
-                NodeWrite::Link(link_write) => Link::add(
-                    engine.clone(),
-                    &link_write.url,
-                    vec![NodeLabel::AddedByUser, NodeLabel::Link],
-                    vec![],
-                    true,
-                )?,
-                NodeWrite::SearchTerm(text) => engine
-                    .get_or_add_node(
-                        Payload::Text(text.to_string()),
-                        vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
+                EngineResponsePayload::Edges(APIEdges(edges))
+            }
+            EngineRequestPayload::CreateNode(node_write) => {
+                let node_id = match node_write {
+                    NodeWrite::Link(link_write) => Link::add(
+                        engine.clone(),
+                        &link_write.url,
+                        vec![NodeLabel::AddedByUser, NodeLabel::Link],
+                        vec![],
                         true,
-                        None,
-                    )?
-                    .get_node_id(),
-                NodeWrite::Objective(text) => engine
-                    .get_or_add_node(
-                        Payload::Text(text.to_string()),
-                        vec![NodeLabel::AddedByUser, NodeLabel::Objective],
-                        true,
-                        None,
-                    )?
-                    .get_node_id(),
-                NodeWrite::ProjectSettings(project_settings_write) => engine
-                    .get_or_add_node(
-                        Payload::ProjectSettings(ProjectSettings {
-                            only_extract_data_from_specified_links: project_settings_write
-                                .extract_data_only_from_specified_links,
-                            only_crawl_within_domains_of_specified_links: project_settings_write
-                                .crawl_within_domains_of_specified_links,
-                            only_crawl_direct_links_from_specified_links: project_settings_write
-                                .crawl_direct_links_from_specified_links,
-                        }),
-                        vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
-                        true,
-                        None,
-                    )?
-                    .get_node_id(),
-            };
-            EngineResponsePayload::NodeCreatedSuccessfully(node_id)
-        }
-        EngineRequestPayload::CreateEdge(edge_write) => {
-            engine.add_connection(edge_write.node_ids, edge_write.edge_labels)?;
-            EngineResponsePayload::EdgeCreatedSuccessfully
-        }
-        EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {
-            Some(node) => {
-                if node.labels.contains(&NodeLabel::SearchTerm) {
-                    match &node.payload {
-                        Payload::Text(_) => {
-                            let mut results: Vec<NodeItem> =
-                                SavedSearch::query(&node, engine.clone(), &node_id.into())?;
-                            results.sort_by(|a, b| a.id.cmp(&b.id));
+                    )?,
+                    NodeWrite::SearchTerm(text) => engine
+                        .get_or_add_node(
+                            Payload::Text(text.to_string()),
+                            vec![NodeLabel::AddedByUser, NodeLabel::SearchTerm],
+                            true,
+                            None,
+                        )?
+                        .get_node_id(),
+                    NodeWrite::Objective(text) => engine
+                        .get_or_add_node(
+                            Payload::Text(text.to_string()),
+                            vec![NodeLabel::AddedByUser, NodeLabel::Objective],
+                            true,
+                            None,
+                        )?
+                        .get_node_id(),
+                    NodeWrite::ProjectSettings(project_settings_write) => engine
+                        .get_or_add_node(
+                            Payload::ProjectSettings(ProjectSettings {
+                                only_extract_data_from_specified_links: project_settings_write
+                                    .extract_data_only_from_specified_links,
+                                only_crawl_within_domains_of_specified_links:
+                                    project_settings_write.crawl_within_domains_of_specified_links,
+                                only_crawl_direct_links_from_specified_links:
+                                    project_settings_write.crawl_direct_links_from_specified_links,
+                            }),
+                            vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
+                            true,
+                            None,
+                        )?
+                        .get_node_id(),
+                };
+                EngineResponsePayload::NodeCreatedSuccessfully(node_id)
+            }
+            EngineRequestPayload::CreateEdge(edge_write) => {
+                engine.add_connection(edge_write.node_ids, edge_write.edge_labels)?;
+                EngineResponsePayload::EdgeCreatedSuccessfully
+            }
+            EngineRequestPayload::Query(node_id) => match engine.get_node_by_id(&node_id) {
+                Some(node) => {
+                    if node.labels.contains(&NodeLabel::SearchTerm) {
+                        match &node.payload {
+                            Payload::Text(_) => {
+                                let mut results: Vec<NodeItem> =
+                                    SavedSearch::query(&node, engine.clone(), &node_id.into())?;
+                                results.sort_by(|a, b| a.id.cmp(&b.id));
 
-                            EngineResponsePayload::Nodes(
-                                results
-                                    .iter()
-                                    .map(|node| APINodeItem::from_node(&Arc::new(node.clone())))
-                                    .collect::<Vec<APINodeItem>>(),
-                            )
+                                EngineResponsePayload::Nodes(
+                                    results
+                                        .iter()
+                                        .map(|node| APINodeItem::from_node(&Arc::new(node.clone())))
+                                        .collect::<Vec<APINodeItem>>(),
+                                )
+                            }
+                            _ => EngineResponsePayload::Error(format!(
+                                "Query only works on search terms, not on {}",
+                                node.payload.to_string()
+                            )),
                         }
-                        _ => EngineResponsePayload::Error(format!(
+                    } else {
+                        EngineResponsePayload::Error(format!(
                             "Query only works on search terms, not on {}",
                             node.payload.to_string()
-                        )),
+                        ))
                     }
-                } else {
-                    EngineResponsePayload::Error(format!(
-                        "Query only works on search terms, not on {}",
-                        node.payload.to_string()
-                    ))
                 }
-            }
-            None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
-        },
-    };
+                None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
+            },
+        };
+    }
 
     main_channel_tx.send(PiEvent::APIResponse(
         request.project_id,

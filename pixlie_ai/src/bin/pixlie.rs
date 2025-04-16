@@ -6,13 +6,28 @@ use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
 use std::env::var;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use threadpool::ThreadPool;
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+        .format(|buf, record| {
+            let style = buf.default_level_style(record.level());
+            writeln!(
+                buf,
+                "[{style}{}{style:#} {}:{}] {}",
+                record.level(),
+                record.module_path().unwrap_or("<unknown>"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
     // Setup Sentry for error logging. The URL comes from environment variable
     match var("SENTRY_URL") {
@@ -25,8 +40,10 @@ fn main() {
                         ..Default::default()
                     },
                 ));
-                debug!("Sentry initialized for this CLI application, you can see errors at \
-                https://pixlie.sentry.io/issues/?project=4508832865648720");
+                debug!(
+                    "Sentry initialized for this CLI application, you can see errors at \
+                https://pixlie.sentry.io/issues/?project=4508832865648720"
+                );
             }
         }
         Err(_) => {}
@@ -318,13 +335,19 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use pixlie_ai::{utils::version_check::{get_cargo_version, get_version_from_file}, PIXLIE_VERSION_NUMBER};
+    use pixlie_ai::{
+        utils::version_check::{get_cargo_version, get_version_from_file},
+        PIXLIE_VERSION_NUMBER,
+    };
 
     #[test]
     fn test_match_version_file_with_cargo_version() {
-        assert_eq!(get_version_from_file().unwrap(), get_cargo_version().unwrap());
+        assert_eq!(
+            get_version_from_file().unwrap(),
+            get_cargo_version().unwrap()
+        );
     }
-    
+
     #[test]
     fn test_match_cargo_version_with_code_version() {
         assert_eq!(get_cargo_version().unwrap(), PIXLIE_VERSION_NUMBER);

@@ -312,6 +312,10 @@ impl Engine {
         }
     }
 
+    pub fn db_exists(&self) -> bool {
+        self.get_db_path().exists()
+    }
+
     fn get_arced_db(&self) -> PiResult<Arc<DB>> {
         match self.arced_db.as_ref() {
             Some(db) => Ok(db.clone()),

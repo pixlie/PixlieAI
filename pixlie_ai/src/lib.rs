@@ -43,7 +43,7 @@ pub enum ExternalData {
 }
 
 #[derive(Clone)]
-pub struct CrawRequest {
+pub struct CrawlRequest {
     pub domain: String,
     pub url: String,
 }
@@ -55,14 +55,16 @@ pub struct APIRequest {
 
 #[derive(Clone)]
 pub enum CrawlOrAPIRequest {
-    Crawl(CrawRequest),
+    Crawl(CrawlRequest),
     API(APIRequest),
 }
 
 impl CrawlOrAPIRequest {
     pub fn get_url(&self) -> String {
         match self {
-            CrawlOrAPIRequest::Crawl(crawl_request) => format!("https://{}{}", crawl_request.domain, crawl_request.url),
+            CrawlOrAPIRequest::Crawl(crawl_request) => {
+                format!("https://{}{}", crawl_request.domain, crawl_request.url)
+            }
             CrawlOrAPIRequest::API(api_request) => api_request.url.to_string(),
         }
     }
@@ -79,16 +81,12 @@ pub struct InternalFetchRequest {
 }
 
 impl InternalFetchRequest {
-    pub fn from_crawl_request(
-        request: FetchRequest,
-        project_id: String,
-        domain: String,
-    ) -> Self {
+    pub fn from_crawl_request(request: FetchRequest, project_id: String, domain: String) -> Self {
         Self {
             project_id,
             node_id: request.requesting_node_id,
             method: request.method,
-            crawl_or_api_request: CrawlOrAPIRequest::Crawl(CrawRequest {
+            crawl_or_api_request: CrawlOrAPIRequest::Crawl(CrawlRequest {
                 domain,
                 url: request.url,
             }),
@@ -96,18 +94,13 @@ impl InternalFetchRequest {
             body: request.body,
         }
     }
-    
-    pub fn from_api_request(
-        request: FetchRequest,
-        project_id: String,
-    ) -> Self {
+
+    pub fn from_api_request(request: FetchRequest, project_id: String) -> Self {
         Self {
             project_id,
             node_id: request.requesting_node_id,
             method: request.method,
-            crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest {
-                url: request.url,
-            }),
+            crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest { url: request.url }),
             headers: request.headers,
             body: request.body,
         }

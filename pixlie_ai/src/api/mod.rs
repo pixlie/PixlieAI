@@ -1,3 +1,4 @@
+use std::fmt::format;
 use crate::config::{Settings, WithHostname};
 use crate::error::PiError;
 use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
@@ -124,6 +125,10 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
         .service(
             web::resource(format!("{}/settings/setup_gliner", API_ROOT))
                 .route(web::post().to(config::api::request_setup_gliner)),
+        )
+        .service(
+            web::resource(format!("{}/engine/{{project_id}}/describe", API_ROOT))
+                .route(web::get().to(engine::api::describe))
         )
         .service(
             web::resource(format!("{}/engine/{{project_id}}/labels", API_ROOT))

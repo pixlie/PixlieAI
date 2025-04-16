@@ -13,6 +13,7 @@ import {
 import { useEngine } from "../../stores/engine";
 import { APINodeItem } from "../../api_types/APINodeItem";
 import { APINodeEdges } from "../../api_types/APINodeEdges";
+import { NodeLabel } from "../../api_types/NodeLabel";
 
 type TElement = {
   data: {
@@ -43,7 +44,7 @@ const getNodeLabel = (node: APINodeItem): string => {
 const getNodeUrl = (
   node: APINodeItem,
   nodes: APINodeItem[],
-  edges: { [nodeId: number]: APINodeEdges }
+  edges: { [nodeId: number]: APINodeEdges },
 ): string => {
   let url = `https://${node.payload.data}`;
   if (node.payload.type === "Link") {
@@ -66,7 +67,7 @@ const Graph = () => {
   const params = useParams();
 
   const [containerRef, setContainerRef] = createSignal<HTMLDivElement | null>(
-    null
+    null,
   );
 
   const getProject = createMemo(() => {
@@ -94,10 +95,10 @@ const Graph = () => {
       nodes
         .filter((node) =>
           node.labels?.some(
-            (label) =>
+            (label: NodeLabel) =>
               label === "Domain" ||
-              (label === "Link" && getNodeLabel(node) !== "/")
-          )
+              (label === "Link" && getNodeLabel(node) !== "/"),
+          ),
         )
         .map((node) => ({
           data: {
