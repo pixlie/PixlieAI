@@ -16,10 +16,10 @@ use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
+use crate::projects::{Project, ProjectForEngine, ProjectOwner};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
-use rocksdb::DB;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
@@ -34,21 +34,18 @@ pub struct Engine {
     edges: RwLock<Edges>,
 
     last_node_id: AtomicU32,
-    project_id: String,
-    path_to_storage_dir: PathBuf,
+    engine_project: ProjectForEngine,
 
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
     fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
 
     count_open_fetch_requests: AtomicU32,
-    arced_db: Option<Arc<DB>>,
 }
 
 impl Engine {
     fn new(
-        project_id: String,
-        path_to_storage_dir: PathBuf,
+        project: ProjectForEngine,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
@@ -58,33 +55,28 @@ impl Engine {
             edges: RwLock::new(Edges::new()),
             // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
             last_node_id: AtomicU32::new(0),
-            project_id,
-            path_to_storage_dir,
+            engine_project: project,
 
             my_pi_channel,
             main_channel_tx,
             fetcher_tx,
 
             count_open_fetch_requests: AtomicU32::new(0),
-            arced_db: None,
         };
         engine
     }
 
     pub fn open_project(
-        path_to_storage_dir: PathBuf,
-        project_id: &String,
+        engine_project: ProjectForEngine,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> Engine {
-        Engine::new(
-            project_id.clone(),
-            path_to_storage_dir,
-            my_pi_channel,
-            main_channel_tx,
-            fetcher_tx,
-        )
+        Engine::new(engine_project, my_pi_channel, main_channel_tx, fetcher_tx)
+    }
+
+    pub fn load_project_db(&mut self) -> PiResult<()> {
+        self.engine_project.load_db()
     }
 
     pub fn ticker(&self) {
@@ -98,7 +90,7 @@ impl Engine {
         // We tell the main thread that we are done ticking
         match self
             .main_channel_tx
-            .send(PiEvent::EngineExit(self.project_id.clone()))
+            .send(PiEvent::EngineExit(self.get_project_id().clone()))
         {
             Ok(_) => {}
             Err(err) => {
@@ -113,7 +105,7 @@ impl Engine {
         for event in self.my_pi_channel.rx.iter() {
             match event {
                 PiEvent::APIRequest(project_id, request) => {
-                    if self.project_id == project_id {
+                    if self.get_project_id() == project_id {
                         let request_id = request.request_id;
                         match handle_engine_api_request(
                             request,
@@ -293,38 +285,6 @@ impl Engine {
         }
     }
 
-    fn get_db_path(&self) -> PathBuf {
-        let mut path_to_storage_dir = self.path_to_storage_dir.clone();
-        path_to_storage_dir.push(format!("{}.rocksdb", self.project_id));
-        path_to_storage_dir
-    }
-
-    pub fn init_db(&mut self) -> PiResult<()> {
-        match DB::open_default(self.get_db_path().as_os_str()) {
-            Ok(db) => {
-                self.arced_db = Some(Arc::new(db));
-                Ok(())
-            }
-            Err(error) => Err(PiError::InternalError(format!(
-                "Cannot open DB for project: {}",
-                error
-            ))),
-        }
-    }
-
-    pub fn db_exists(&self) -> bool {
-        self.get_db_path().exists()
-    }
-
-    fn get_arced_db(&self) -> PiResult<Arc<DB>> {
-        match self.arced_db.as_ref() {
-            Some(db) => Ok(db.clone()),
-            None => Err(PiError::InternalError(
-                "Cannot get DB: DB is not initialized".to_string(),
-            )),
-        }
-    }
-
     fn create_node(&self, id: NodeId, payload: Payload, labels: Vec<NodeLabel>) -> PiResult<()> {
         let arced_id = Arc::new(id);
 
@@ -342,7 +302,7 @@ impl Engine {
                         written_at: Utc::now(),
                     }),
                 );
-                nodes.save_item_chunk_to_disk(self.get_arced_db()?, &id)?;
+                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &id)?;
             }
             Err(error) => {
                 return Err(PiError::InternalError(format!(
@@ -351,8 +311,6 @@ impl Engine {
                 )));
             }
         }
-
-        // TODO: Store the node in nodes_by_label_id for the label from Payload and given labels
         Ok(())
     }
 
@@ -431,8 +389,8 @@ impl Engine {
                     .push((*arced_node_ids.0, edge_labels.1));
                 // Update the last written time for the child node
                 edges.data.get_mut(&arced_node_ids.1).unwrap().written_at = Utc::now();
-                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.0)?;
-                edges.save_item_chunk_to_disk(self.get_arced_db()?, &node_ids.1)?;
+                edges.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &node_ids.0)?;
+                edges.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &node_ids.1)?;
             }
             Err(err) => {
                 return Err(PiError::InternalError(format!(
@@ -448,7 +406,7 @@ impl Engine {
         match self.nodes.write() {
             Ok(mut nodes) => {
                 nodes.update_node(node_id, payload)?;
-                nodes.save_item_chunk_to_disk(self.get_arced_db()?, node_id)?;
+                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, node_id)?;
                 Ok(())
             }
             Err(err) => {
@@ -493,9 +451,15 @@ impl Engine {
         }
     }
 
-    pub fn load_from_disk(&mut self) -> PiResult<()> {
+    pub fn preload_data_from_db(&mut self) -> PiResult<()> {
+        // Load all nodes and edges from the database
+        // We need to run this before loading the project database
+        // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
+        // to open the database with their prefix extractors and once the database
+        // is opened(and locked), we cannot open it again with a different prefix
+        // extractor or set a prefix extractor
         let last_node_id = match self.nodes.write() {
-            Ok(mut nodes) => nodes.load_all_from_disk(&self.get_db_path())?,
+            Ok(mut nodes) => nodes.load_all_from_disk(&self.engine_project.get_db_path())?,
             Err(err) => {
                 return Err(PiError::InternalError(format!(
                     "Error locking nodes: {}",
@@ -509,7 +473,7 @@ impl Engine {
         }
         match self.edges.write() {
             Ok(mut edges) => {
-                edges.load_all_from_disk(&self.get_db_path())?;
+                edges.load_all_from_disk(&self.engine_project.get_db_path())?;
             }
             Err(err) => {
                 error!("Error locking edges: {}", err);
@@ -689,7 +653,7 @@ impl Engine {
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             InternalFetchRequest::from_crawl_request(
                 fetch_request,
-                self.project_id.clone(),
+                self.get_project_id(),
                 domain_name,
             ),
         )) {
@@ -743,7 +707,7 @@ impl Engine {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
-            InternalFetchRequest::from_api_request(fetch_request, self.project_id.clone()),
+            InternalFetchRequest::from_api_request(fetch_request, self.get_project_id()),
         )) {
             Ok(_) => {}
             Err(err) => {
@@ -844,14 +808,14 @@ impl Engine {
     }
 
     pub fn get_project_id(&self) -> String {
-        self.project_id.clone()
+        self.engine_project.project.uuid.clone()
     }
 
     pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
         match self.nodes.write() {
             Ok(mut nodes) => {
                 nodes.toggle_flag(node_id, flag);
-                nodes.save_item_chunk_to_disk(self.get_arced_db()?, node_id)?;
+                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, node_id)?;
                 Ok(())
             }
             Err(err) => {
@@ -870,19 +834,26 @@ pub fn get_test_engine() -> Engine {
         .prefix("_path_for_test_engine")
         .tempdir()
         .expect("Failed to create temporary path for the _path_for_test_engine.");
-    let project_id = "test_project_id".to_string();
     let path_to_storage_dir = PathBuf::from(temp_dir.path());
+    let engine_project = ProjectForEngine::new(
+        Project::new(
+            Some("Test project".to_string()),
+            Some("Test project description".to_string()),
+            ProjectOwner::Myself,
+        ),
+        path_to_storage_dir.clone(),
+    )
+    .unwrap();
     let channel_for_engine = PiChannel::new();
     let main_channel = PiChannel::new();
     let pi_channel_tx = main_channel.tx.clone();
     let (fetcher_tx, _fetcher_rx) = tokio::sync::mpsc::channel::<PiEvent>(100);
     let mut engine = Engine::open_project(
-        path_to_storage_dir,
-        &project_id,
+        engine_project,
         channel_for_engine,
         pi_channel_tx,
         fetcher_tx,
     );
-    engine.init_db().unwrap();
+    engine.engine_project.load_db().unwrap();
     engine
 }

@@ -1,7 +1,11 @@
 use log::{debug, error, info};
 use pixlie_ai::api::APIChannel;
 use pixlie_ai::config::{download_admin_site, Settings};
+use pixlie_ai::engine::api::{EngineResponse, EngineResponsePayload};
 use pixlie_ai::engine::Engine;
+use pixlie_ai::error::PiError;
+use pixlie_ai::projects::{ProjectCollection, ProjectForEngine};
+use pixlie_ai::utils::crud::Crud;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
@@ -130,58 +134,46 @@ fn main() {
         }
     });
 
-    fn load_project(
-        project_id: String,
+    fn load_engine(
+        engine_project: ProjectForEngine,
         channels_per_project: Arc<Mutex<HashMap<String, PiChannel>>>,
         pi_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
         pool: Arc<ThreadPool>,
     ) {
-        debug!("Loading project {} into CLI", project_id);
+        debug!("Loading project {} into CLI", engine_project.project.uuid);
 
         match channels_per_project.try_lock() {
             Ok(mut channels_per_project) => {
-                channels_per_project.insert(project_id.clone(), PiChannel::new());
-                let my_pi_channel = match channels_per_project.get(&project_id) {
+                channels_per_project.insert(engine_project.project.uuid.clone(), PiChannel::new());
+                let my_pi_channel = match channels_per_project.get(&engine_project.project.uuid) {
                     Some(my_pi_channel) => my_pi_channel.clone(),
                     None => {
-                        error!("Cannot find per engine channel for project {}", project_id);
-                        return;
-                    }
-                };
-                let settings: Settings = match Settings::get_cli_settings() {
-                    Ok(settings) => settings,
-                    Err(err) => {
-                        error!("Error reading settings: {}", err);
-                        return;
-                    }
-                };
-                let path_to_storage_dir = match settings.path_to_storage_dir {
-                    Some(path) => PathBuf::from(path),
-                    None => {
-                        error!("Cannot find path to storage directory");
+                        error!(
+                            "Cannot find per engine channel for project {}",
+                            engine_project.project.uuid
+                        );
                         return;
                     }
                 };
 
                 let mut engine = Engine::open_project(
-                    path_to_storage_dir,
-                    &project_id,
+                    engine_project,
                     my_pi_channel.clone(),
                     pi_channel_tx,
                     fetcher_tx,
                 );
-                match engine.load_from_disk() {
+                match engine.preload_data_from_db() {
                     Ok(_) => {}
                     Err(err) => {
-                        error!("Error loading from disk: {}", err);
+                        error!("Error pre-loading graph data from disk: {}", err);
                         return;
                     }
                 };
-                match engine.init_db() {
+                match engine.load_project_db() {
                     Ok(_) => {}
                     Err(err) => {
-                        error!("Error initializing DB: {}", err);
+                        error!("Error loading DB: {}", err);
                         return;
                     }
                 };
@@ -212,22 +204,145 @@ fn main() {
             PiEvent::APIRequest(project_id, request) => {
                 let channels_per_project_inner = channels_per_project.clone();
                 let channel_exists: bool = match channels_per_project.try_lock() {
-                    Ok(channels_per_project) => {
-                        match channels_per_project.contains_key(&project_id) {
-                            // Project is already loaded, we will send the API request to the engine
-                            true => true,
-                            // Project is not loaded, we will load it
-                            false => false,
-                        }
-                    }
+                    Ok(channels_per_project) => channels_per_project.contains_key(&project_id),
                     Err(err) => {
                         error!("Error locking channels_per_project: {}", err);
                         false
                     }
                 };
-                if !channel_exists {
-                    load_project(
+                let path_to_storage_dir = match Settings::get_cli_settings() {
+                    Ok(settings) => match settings.path_to_storage_dir {
+                        Some(path) => PathBuf::from(path),
+                        None => {
+                            error!("Cannot find path to storage directory");
+                            match api_channel.tx.send(PiEvent::APIResponse(
+                                project_id.clone(),
+                                EngineResponse {
+                                    request_id: request.request_id,
+                                    payload: EngineResponsePayload::Error(
+                                        "Path to storage directory not configured yet".to_string(),
+                                    ),
+                                },
+                            )) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error sending PiEvent in API broadcast channel: {}",
+                                        err
+                                    );
+                                }
+                            }
+                            continue;
+                        }
+                    },
+                    Err(err) => {
+                        error!("Error reading settings: {}", err);
+                        match api_channel.tx.send(PiEvent::APIResponse(
+                            project_id.clone(),
+                            EngineResponse {
+                                request_id: request.request_id,
+                                payload: EngineResponsePayload::Error(
+                                    "Error reading settings".to_string(),
+                                ),
+                            },
+                        )) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("Error sending PiEvent in API broadcast channel: {}", err);
+                            }
+                        }
+                        continue;
+                    }
+                };
+                // let project = Project::from_id(&project_id, path_to_storage_dir.clone());
+                let engine_project = ProjectForEngine::open(&project_id, path_to_storage_dir);
+                let (response_if_invalid_project_or_error, should_unload_engine) = match (
+                    ProjectCollection::read_item(&project_id),
+                    engine_project.db_exists(),
+                ) {
+                    (Ok(_), true) => (None, false),
+                    (Ok(_), false) => {
+                        error!("Project DB for {project_id} does not exist, deleting project");
+                        ProjectCollection::delete(&project_id).ok();
+                        (
+                            Some(EngineResponse {
+                                request_id: request.request_id,
+                                payload: EngineResponsePayload::Error(format!(
+                                    "Project {project_id} does not exist"
+                                )),
+                            }),
+                            true,
+                        )
+                    }
+                    (Err(PiError::CrudNotFoundError(item, msg)), db_exists) => {
+                        if db_exists {
+                            debug!("{msg}: {item:?}, DB found, can be deleted");
+                            // TODO: delete the dangling DB folder, if it is safe to do so
+                            // match project.get_db_path() {
+                            //     Ok(path) => {
+                            //         std::fs::remove_dir_all(path).ok();
+                            //     }
+                            //     Err(err) => {}
+                            // }
+                        }
+                        (
+                            Some(EngineResponse {
+                                request_id: request.request_id,
+                                payload: EngineResponsePayload::Error(format!(
+                                    "Project {project_id} does not exist"
+                                )),
+                            }),
+                            true,
+                        )
+                    }
+                    (Err(err), _) => {
+                        debug!("Error reading project {project_id}: {}", err);
+                        (
+                            Some(EngineResponse {
+                                request_id: request.request_id,
+                                payload: EngineResponsePayload::Error(format!(
+                                    "Error while validating project {project_id}: {err}"
+                                )),
+                            }),
+                            false,
+                        )
+                    }
+                };
+                if let Some(response_if_invalid_project_or_error) =
+                    response_if_invalid_project_or_error
+                {
+                    // If the project is invalid or an error occurred, we send an error response
+                    // back to the API.
+                    // If the project is invalid, we remove it's channel if it exists
+                    match api_channel.tx.send(PiEvent::APIResponse(
                         project_id.clone(),
+                        EngineResponse {
+                            request_id: request.request_id,
+                            payload: response_if_invalid_project_or_error.payload,
+                        },
+                    )) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Error sending PiEvent in API broadcast channel: {}", err);
+                        }
+                    }
+                    if should_unload_engine && channel_exists {
+                        match channels_per_project.try_lock() {
+                            Ok(mut channels_per_project) => {
+                                channels_per_project.remove(&project_id);
+                            }
+                            Err(err) => {
+                                error!("Error locking channels_per_project: {}", err);
+                            }
+                        };
+                    }
+                    // We do not process the request further, else the engine will be loaded
+                    // and the request will be sent to it despite the absence of the DB
+                    continue;
+                }
+                if !channel_exists {
+                    load_engine(
+                        engine_project,
                         channels_per_project_inner,
                         main_channel_iter.clone().tx,
                         fetcher_tx.clone(),
