@@ -31,7 +31,15 @@ pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl 
         ),
         path_to_storage_dir,
     ) {
-        Ok(engine_project) => engine_project,
+        Ok(engine_project) => {
+            // TODO: Ideally this should be called in ProjectForEngine::new,
+            // but tests are failing if it is called there.
+            // We can move this call there once Settings is refactored to be
+            // cleanly testable and functions dependent on Settings are
+            // moved to impl Settings
+            ProjectCollection::create(engine_project.project.clone())?;
+            engine_project
+        }
         Err(err) => {
             return Err(PiError::InternalError(format!(
                 "Cannot create project: {}",

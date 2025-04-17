@@ -104,6 +104,8 @@ pub fn check_cli_settings() -> PiResult<()> {
     Ok(())
 }
 
+// TODO: Move and refactor this logic to impl Settings::new,
+// eliminate the need for get_cli_settings_path
 pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     let mut path_to_config_dir = config_dir().unwrap();
     path_to_config_dir.push("pixlie_ai");
@@ -117,6 +119,8 @@ pub fn get_cli_settings_path() -> PiResult<(PathBuf, PathBuf)> {
     Ok((path_to_config_dir, path_to_config_file))
 }
 
+// TODO: Move this function to impl Settings, eliminate the need for
+// get_cli_settings_path
 pub fn download_admin_site() -> PiResult<()> {
     // We download admin.tar.gz from our GitHub release
     let static_admin_dir = get_static_admin_dir()?;
@@ -179,6 +183,8 @@ pub fn download_admin_site() -> PiResult<()> {
     Ok(())
 }
 
+// TODO: Move this function to impl Settings, eliminate the need for
+// get_cli_settings_path
 pub fn get_static_admin_dir() -> PiResult<PathBuf> {
     let (path_to_config_dir, _path_to_config_file) = get_cli_settings_path()?;
     let mut static_root = PathBuf::from(path_to_config_dir.clone());

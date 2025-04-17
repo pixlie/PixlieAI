@@ -73,7 +73,12 @@ impl ProjectForEngine {
             arced_db: None,
         };
         project.init_db()?;
-        ProjectCollection::create(project.project.clone())?;
+        // TODO: Ideally this should be called here, but tests are failing
+        // if it is called here.
+        // We can move this call here once Settings is refactored to be
+        // cleanly testable and functions dependent on Settings are
+        // moved to impl Settings
+        // ProjectCollection::create(project.project.clone())?;
         Ok(project)
     }
     pub fn open(uuid: &str, path_to_storage_dir: PathBuf) -> Self {
