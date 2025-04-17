@@ -6,7 +6,6 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use super::{EdgeLabel, NodeEdges, NodeFlags};
-use crate::config::Settings;
 use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
 use crate::engine::edges::Edges;
 use crate::engine::node::{
