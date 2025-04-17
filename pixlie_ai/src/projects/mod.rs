@@ -4,6 +4,7 @@ use crate::{
     error::{PiError, PiResult},
     utils::crud::{Crud, CrudItem},
 };
+use log::{debug, error, info};
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -59,6 +60,11 @@ pub struct ProjectForEngine {
     pub arced_db: Option<Arc<DB>>,
 }
 
+pub struct EngineProjectValidationResult {
+    pub error_response_message_for_api: Option<String>,
+    pub should_unload_engine: bool,
+}
+
 impl ProjectForEngine {
     pub fn new(project: Project, path_to_storage_dir: PathBuf) -> PiResult<Self> {
         let mut project = Self {
@@ -67,6 +73,7 @@ impl ProjectForEngine {
             arced_db: None,
         };
         project.init_db()?;
+        ProjectCollection::create(project.project.clone())?;
         Ok(project)
     }
     pub fn open(uuid: &str, path_to_storage_dir: PathBuf) -> Self {
@@ -116,6 +123,68 @@ impl ProjectForEngine {
     }
     pub fn db_exists(&self) -> bool {
         self.get_db_path().exists()
+    }
+
+    pub fn validate_record_and_db(&self) -> PiResult<EngineProjectValidationResult> {
+        let project_in_collection = ProjectCollection::read_item(&self.project.uuid);
+        let mut validation_result = EngineProjectValidationResult {
+            error_response_message_for_api: None,
+            should_unload_engine: false,
+        };
+        let db_exists = self.db_exists();
+        match project_in_collection.as_ref() {
+            Ok(project) => {
+                if self.project.uuid != project.uuid {
+                    return Err(PiError::InternalError(format!(
+                        "Project ID mismatch: {} != {}",
+                        self.project.uuid, project.uuid
+                    )));
+                }
+                if !db_exists {
+                    error!(
+                        "Project DB for {} does not exist, deleting project",
+                        project.uuid
+                    );
+                    if ProjectCollection::delete(&project.uuid).is_err() {
+                        error!("Error deleting project {} from collection", project.uuid);
+                    } else {
+                        info!(
+                            "Project {} deleted from collection as DB was not found",
+                            project.uuid
+                        );
+                    }
+                }
+            }
+            Err(PiError::CrudNotFoundError(item, msg)) => {
+                debug!("{msg}: {item:?}");
+                validation_result.error_response_message_for_api = Some(format!(
+                    "Project {} does not exist: {msg}",
+                    self.project.uuid
+                ));
+                validation_result.should_unload_engine = true;
+                if db_exists {
+                    info!(
+                        "{msg}: {item:?}, DB found at {} can be deleted",
+                        self.get_db_path().display()
+                    );
+                    // TODO: delete the dangling DB folder, if it is safe to do so
+                    // std::fs::remove_dir_all(self.get_db_path()).unwrap_or_else(|_| {
+                    //     error!(
+                    //         "Failed to delete DB folder at {}",
+                    //         self.get_db_path().display()
+                    //     );
+                    // });
+                }
+            }
+            Err(err) => {
+                debug!("Error reading project {}: {err}", self.project.uuid);
+                validation_result.error_response_message_for_api = Some(format!(
+                    "Error while validating project {}: {err}",
+                    self.project.uuid
+                ));
+            }
+        };
+        Ok(validation_result)
     }
 }
 

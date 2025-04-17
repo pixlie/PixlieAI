@@ -31,10 +31,7 @@ pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl 
         ),
         path_to_storage_dir,
     ) {
-        Ok(engine_project) => {
-            ProjectCollection::create(engine_project.project.clone())?;
-            engine_project
-        }
+        Ok(engine_project) => engine_project,
         Err(err) => {
             return Err(PiError::InternalError(format!(
                 "Cannot create project: {}",
