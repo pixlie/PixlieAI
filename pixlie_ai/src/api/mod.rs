@@ -4,6 +4,8 @@ use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
+use actix_web::http::StatusCode;
+use actix_web::HttpResponse;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     http,
@@ -105,6 +107,12 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
             let mut static_admin_default = PathBuf::from(config::get_static_admin_dir()?.clone());
             static_admin_default.push("index.html");
             let (req, _) = req.into_parts();
+            if req.path() == "/api" || req.path().starts_with("/api/") {
+                return Ok(ServiceResponse::new(
+                    req,
+                    HttpResponse::build(StatusCode::NOT_FOUND).into(),
+                ));
+            }
             let file = NamedFile::open_async(static_admin_default.clone()).await?;
             let res = file.into_response(&req);
             Ok(ServiceResponse::new(req, res))
