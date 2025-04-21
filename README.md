@@ -7,26 +7,49 @@ AI powered knowledge graphs for semantically accurate insights. From online sear
 
 ## What is Pixlie?
 
-Point Pixlie at any website and describe what you need - from pricing data to project details. Our open-source intelligent crawler does the rest, no coding required.
+Pixlie is an autonomous knowledge construction system that transforms how you interact with information. Beyond simple data retrieval, Pixlie builds rich semantic understanding through dynamic knowledge graphs.
+At its core, Pixlie employs a multi-agent AI architecture that:
+
+- **Understands your objective** - Start with a simple prompt or question
+- **Autonomously discovers relevant information** - Our intelligent agents extract, connect, and contextualize data
+- **Constructs a living knowledge graph** - Entities and relationships are explicitly modeled, not just vectorized
+- **Self-improves as it learns** - Internal prompts continuously optimize based on new discoveries
+
+Unlike vector databases that flatten semantic meaning into numerical proximities, Pixlie preserves the true structure of information - people connect to organizations, events happen at specific times, concepts relate to each other through defined relationships - creating a foundation for genuinely intelligent insights.
+
+## What makes Pixlie different?
+
+### Beyond Vector Databases
+Vector databases are good for storing and querying semantic data, but they don't model the underlying data accurately. Pixlie uses a sophisticated hybrid approach:
+
+- **Multi-model intelligence** - We leverage both large language models and specialized smaller models tailored to specific tasks (entity recognition, classification, relationship extraction)
+- **Task-specific agents** - Different components of our system use the most appropriate model for each job, balancing accuracy with efficiency
+- **Granular semantic modeling** - Each entity (person, place, date, event) is stored as a distinct node in the graph with explicit relationships to other entities
+- **Adaptive processing pipeline** - The system selects the optimal processing approach based on the content and objective
+
+This architecture makes our approach more accurate for complex information needs while remaining computationally efficient and cost effective.
+
+### Privacy-First
+We're committed to true data privacy. Pixlie is completely self-hosted with no data leaving your environment - a crucial advantage in today's regulatory landscape.
+
+### Transparent
+We believe in transparency and community-driven development. Our core offering is open source with optional paid features for enterprise needs and we are building in public.
 
 ## Features
 
-- Objective driven projects to create knowledge graphs ("Track companies on Indian stock exchanges")
-- Use Anthropic Claude (other models' support coming soon) with your own API keys
-- Use Brave Search API for web search with your own API keys
+- **Objective driven projects** to create knowledge graphs ("Track companies on Indian stock exchanges")
+- **Privacy-first architecture** - completely self-hosted with no data leaving your environment
+- **Use Anthropic Claude** (other models' support coming soon) with your own API keys
+- **Use Brave Search API** for web search with your own API keys
 - Built-in simple web crawler
-- Runs on your laptop or on the cloud
-- Collaborate with your team (paid feature)
-- Extract entities like people, places, dates, events, etc. (some paid features)
-- Search your knowledge graph
-- Use as your default search engine
-- Simple to download and install
-- Completely UI driven
+- **Runs anywhere** - on your laptop or on the cloud
+- Team collaboration (paid feature)
+- **Entity extraction** - identify people, places, dates, events, etc. (some paid features)
+- Explore your knowledge graph (coming soon)
+- **Open source** with transparent development
 
 
-Watch this video to see Pixlie in action:
-
-[![Pixlie Latest Release](https://img.youtube.com/vi/mF9KuFYNF4s/0.jpg)](https://www.youtube.com/watch?v=mF9KuFYNF4s)
+## See how Pixlie currently works
 
 Choose your objective - what do you want to discover with Pixlie?:
 ![Set your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-objective.png)
@@ -46,12 +69,23 @@ The content extracted from these links:
 Search through the results for specifics:
 ![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-resultsv0-2-0.png)
 
+## 🚀 Roadmap
+We're actively developing Pixlie with these exciting features on the horizon:
+
+### Coming Soon
+
+- **Knowledge Graph Explorer** - Interactive visual interface to browse, explore, and edit your knowledge graph
+- **Self-Correcting Prompt System** - AI that automatically refines its prompts as it learns from new information
+- **Multi-Agent Architecture** - Specialized agents working together (crawler, classifier, analyzer) to build comprehensive knowledge graphs
+- **Notifications** of new matches on monitored websites
+- **Desktop Application** - Native experience across platforms
+- **Advanced Document Support** - Ingest CSV, JSON, Markdown, and more file formats beyond web content
+
 ## How can I use Pixlie?
 
 At the moment Pixlie can be used on your laptop for personal web research (desktop app coming soon!). Pixlie is open source, with the option of enterprise licensing for those who want to utilize Pixlie's search and knowledge graph within their product. 
 
-Pixlie is open source and is under active development. Our work is done in public, please star this repository, it
-means a lot to us.
+Pixlie is under active development. Our work is done in public, please star this repository, it means a lot to us.
 
 ## Documentation for developers
 
@@ -64,6 +98,7 @@ If you want to use Pixlie, please see the [USE.md](USE.md) file.
 ## REST API
 
 Pixlie has a REST API that you can use to interact with the graph. We use Bruno to document the API.
+
 You can find the API spec in the `rest_api` directory.
 
 ## Stay in Touch
@@ -80,12 +115,10 @@ Join the discussion or get support on [Discord](https://discord.gg/5W9U9RPTGp).
 
 ## FAQ
 
-## Is Pixlie an alternative to using vector databases?
+### Is Pixlie an alternative to using vector databases?
 
 Yes, Pixlie is an alternative to using vector databases. Vector databases are good for storing and querying semantic
-data, but they do not model the underlying data accurately. In Pixlie, we use LLMs to classify individual pieces of
-semantically meaningful data. Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph,
-along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
+data, but they do not model the underlying data accurately. In Pixlie, we leverage both LLMs and specialized smaller models tailored to specific tasks (entity recognition, classification, relationship extraction). Each individual entity, such as a person, place, date, event, etc., is stored separately in the graph, along with its relationships to other entities. This makes our graph based approach better where accuracy is important.
 
 ### What is the difference between Domains, Links and WebPages?
 **Link Nodes** are the URLs we discover using Brave & AI based on the Objective. When each Link Node is processed, we store domains for these Links in our database as separate nodes - one node for every domain.
