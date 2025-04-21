@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 actix-cors = { version = "0.7.0", default-features = false }
 actix-files = { version = "0.6.6", default-features = false }
-actix-web = { version = "4.9.0", default-features = false, features = ["rustls-0_23"] }
+actix-web = { version = "4.9.0", default-features = false, features = ["macros", "rustls-0_23"] }
 bytes = { version = "1.9.0", default-features = false, features = ["std"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 config = { version = "0.14.0", default-features = false, features = ["toml"] }

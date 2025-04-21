@@ -6,13 +6,15 @@ use crate::{
     error::{PiError, PiResult},
     utils::crud::Crud,
 };
-use actix_web::{web, Responder};
+use actix_web::{get, post, web, Responder, Scope};
 
+#[get("")]
 pub async fn read_projects() -> PiResult<impl Responder> {
     let projects = ProjectCollection::read_list()?;
     Ok(web::Json(projects))
 }
 
+#[post("")]
 pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl Responder> {
     let settings: Settings = Settings::get_cli_settings()?;
     let path_to_storage_dir = match settings.path_to_storage_dir {
@@ -49,4 +51,10 @@ pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl 
     };
 
     Ok(web::Json(engine_project.project))
+}
+
+pub fn api_projects_scope() -> Scope {
+    web::scope("/projects")
+        .service(read_projects)
+        .service(create_project)
 }

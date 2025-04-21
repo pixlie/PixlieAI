@@ -1,10 +1,15 @@
+use crate::config::api::api_settings_scope;
 use crate::config::{Settings, WithHostname};
+use crate::engine::api::api_engine_scope;
 use crate::error::PiError;
+use crate::projects::api::api_projects_scope;
+use crate::workspace::api::api_workspace_scope;
 use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
 use actix_web::http::StatusCode;
+use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::HttpResponse;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
@@ -33,8 +38,9 @@ pub struct ApiState {
     pub req_id: AtomicCell<u32>,
 }
 
+#[actix_web::get("")]
 async fn hello() -> impl Responder {
-    "Hello, world! I am the API of Pixlie AI."
+    HttpResponse::Ok().body("Hello, world! I am the API of Pixlie AI.")
 }
 
 fn load_rustls_config(with_hostname: &WithHostname) -> PiResult<ServerConfig> {
@@ -118,62 +124,15 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
             Ok(ServiceResponse::new(req, res))
         }));
 
+    let api_scope = web::scope(API_ROOT)
+        .service(hello)
+        .service(api_settings_scope())
+        .service(api_projects_scope())
+        .service(api_workspace_scope())
+        .service(api_engine_scope());
+
     app_config
-        .service(web::resource(API_ROOT).route(web::get().to(hello)))
-        .service(
-            web::resource(format!("{}/settings", API_ROOT))
-                .route(web::get().to(config::api::read_settings))
-                .route(web::put().to(config::api::update_settings)),
-        )
-        .service(
-            web::resource(format!("{}/settings/status", API_ROOT))
-                .route(web::get().to(config::api::check_settings_status)),
-        )
-        .service(
-            web::resource(format!("{}/settings/setup_gliner", API_ROOT))
-                .route(web::post().to(config::api::request_setup_gliner)),
-        )
-        .service(
-            web::resource(format!("{}/engine/{{project_id}}/labels", API_ROOT))
-                .route(web::get().to(engine::api::get_labels)),
-        )
-        .service(
-            web::resource(format!("{}/engine/{{project_id}}/nodes", API_ROOT))
-                .route(web::get().to(engine::api::get_nodes))
-                .route(web::post().to(engine::api::create_node)),
-        )
-        .service(
-            web::resource(format!("{}/engine/{{project_id}}/edges", API_ROOT))
-                .route(web::get().to(engine::api::get_edges))
-                .route(web::post().to(engine::api::create_edge)),
-        )
-        .service(
-            web::resource(format!(
-                "{}/engine/{{project_id}}/query/{{node_id}}",
-                API_ROOT
-            ))
-            .route(web::get().to(engine::api::search_results)),
-        )
-        // .service(
-        //     web::resource(format!(
-        //         "{}/engine/{{project_id}}/domain/{{node_id}}",
-        //         API_ROOT
-        //     ))
-        //     .route(web::put().to(engine::api::toggle_crawl))
-        // )
-        .service(
-            web::resource(format!("{}/projects", API_ROOT))
-                .route(web::get().to(projects::api::read_projects))
-                .route(web::post().to(projects::api::create_project)),
-        )
-        .service(
-            web::resource(format!("{}/workspace", API_ROOT))
-                .route(web::get().to(workspace::api::read_default_workspace)),
-        )
-        .service(
-            web::resource(format!("{}/workspace/{{workspace_id}}", API_ROOT))
-                .route(web::put().to(workspace::api::update_workspace)),
-        )
+        .service(api_scope)
         // This is the admin UI and should be the last service
         .service(static_admin);
 }

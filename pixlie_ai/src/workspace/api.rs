@@ -1,9 +1,10 @@
 use super::{APIProvider, Workspace, WorkspaceCollection, WorkspaceUpdate};
 use crate::utils::crud::CrudItem;
 use crate::{error::PiResult, utils::crud::Crud};
-use actix_web::{web, Responder};
+use actix_web::{get, put, web, Responder, Scope};
 use std::collections::HashMap;
 
+#[get("")]
 pub async fn read_default_workspace() -> PiResult<impl Responder> {
     let mut item = WorkspaceCollection::get_default()?;
     // Keep only first 10 characters of the API keys
@@ -15,6 +16,7 @@ pub async fn read_default_workspace() -> PiResult<impl Responder> {
     Ok(web::Json(item))
 }
 
+#[put("")]
 pub async fn update_workspace(
     workspace_id: web::Path<String>,
     update: web::Json<WorkspaceUpdate>,
@@ -30,4 +32,10 @@ pub async fn update_workspace(
     }
     WorkspaceCollection::update(&item.get_id(), Workspace { api_keys, ..item })?;
     Ok(web::Json(item_id))
+}
+
+pub fn api_workspace_scope() -> Scope {
+    web::scope("/workspace")
+        .service(read_default_workspace)
+        .service(update_workspace)
 }

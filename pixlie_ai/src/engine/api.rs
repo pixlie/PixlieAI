@@ -16,7 +16,7 @@ use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
-use actix_web::{web, Responder};
+use actix_web::{get, post, web, Responder, Scope};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -207,6 +207,7 @@ pub struct QueryEdges {
     since: Option<i64>,
 }
 
+#[get("/labels")]
 pub async fn get_labels(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
@@ -254,6 +255,7 @@ pub async fn get_labels(
     }
 }
 
+#[get("/nodes")]
 pub async fn get_nodes(
     project_id: web::Path<String>,
     params: web::Query<QueryNodes>,
@@ -349,6 +351,7 @@ pub async fn get_nodes(
     }
 }
 
+#[get("/edges")]
 pub async fn get_edges(
     project_id: web::Path<String>,
     params: web::Query<QueryEdges>,
@@ -403,6 +406,7 @@ pub async fn get_edges(
     }
 }
 
+#[post("/nodes")]
 pub async fn create_node(
     project_id: web::Path<String>,
     node: web::Json<NodeWrite>,
@@ -454,6 +458,7 @@ pub async fn create_node(
     }
 }
 
+#[post("/edges")]
 pub async fn create_edge(
     project_id: web::Path<String>,
     edge: web::Json<EdgeWrite>,
@@ -508,6 +513,7 @@ pub async fn create_edge(
     }
 }
 
+#[get("/query/{node_id}")]
 pub async fn search_results(
     path: web::Path<(String, u32)>,
     api_state: web::Data<ApiState>,
@@ -550,6 +556,16 @@ pub async fn search_results(
             "Could not get a response".to_string(),
         ))),
     }
+}
+
+pub fn api_engine_scope() -> Scope {
+    web::scope("/engine/{project_id}")
+        .service(get_labels)
+        .service(get_nodes)
+        .service(get_edges)
+        .service(create_node)
+        .service(create_edge)
+        .service(search_results)
 }
 
 pub fn handle_engine_api_request(
