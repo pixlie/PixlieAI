@@ -22,6 +22,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use strum::{Display, EnumString};
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 #[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
@@ -36,7 +37,9 @@ pub enum Payload {
 pub(crate) type NodeId = u32;
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 
-#[derive(Clone, Debug, Deserialize, Display, EnumString, Eq, Hash, PartialEq, Serialize, TS)]
+#[derive(
+    Clone, Debug, Deserialize, Display, EnumString, Eq, Hash, PartialEq, Serialize, ToSchema, TS,
+)]
 #[ts(export)]
 pub enum NodeLabel {
     AddedByUser,

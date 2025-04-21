@@ -1,22 +1,21 @@
-use crate::config::api::api_settings_scope;
 use crate::config::{Settings, WithHostname};
-use crate::engine::api::api_engine_scope;
+use crate::engine::api::configure_api_engine;
 use crate::error::PiError;
-use crate::projects::api::api_projects_scope;
-use crate::workspace::api::api_workspace_scope;
-use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
+use crate::projects::api::configure_api_projects;
+use crate::workspace::api::configure_api_workspace;
+use crate::{config, engine, error::PiResult, projects, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
-use actix_web::http::StatusCode;
-use actix_web::middleware::{NormalizePath, TrailingSlash};
+
 use actix_web::HttpResponse;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
-    http,
+    get, http,
     middleware::Logger,
     rt, web, App, HttpServer, Responder,
 };
+use config::api::configure_api_pixlie_settings;
 use crossbeam_utils::atomic::AtomicCell;
 use log::{debug, error, info};
 use rustls::pki_types::PrivateKeyDer;
@@ -25,6 +24,9 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
+use utoipa::OpenApi;
+use utoipa_actix_web::AppExt;
+use utoipa_swagger_ui::SwaggerUi;
 
 const API_ROOT: &str = "/api";
 
@@ -38,7 +40,15 @@ pub struct ApiState {
     pub req_id: AtomicCell<u32>,
 }
 
-#[actix_web::get("")]
+/// Check if the Pixlie AI API is running
+#[utoipa::path(
+    responses(
+        (status = 200, description = "Pixlie AI API is running", body = String),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "pixlie_ai",
+)]
+#[get("")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello, world! I am the API of Pixlie AI.")
 }
@@ -99,7 +109,31 @@ fn load_rustls_config(with_hostname: &WithHostname) -> PiResult<ServerConfig> {
     }
 }
 
-fn configure_app(app_config: &mut web::ServiceConfig) {
+#[derive(OpenApi)]
+#[openapi(
+    servers(
+        (url = "/api", description = "Pixlie AI API"),
+    ),
+    paths(
+        hello,
+        projects::api::read_projects,
+        projects::api::create_project,
+        engine::api::get_labels,
+        engine::api::get_nodes,
+        engine::api::get_edges,
+        engine::api::create_node,
+        engine::api::create_edge,
+        engine::api::search_results,
+    ),
+    tags(
+        (name = "pixlie_ai", description = "Pixlie AI"),
+        (name = "projects", description = "Projects in the default workspace"),
+        (name = "engine", description = "Engine to access a project's graph. Each project has its own engine in Pixlie AI."),
+    ),
+)]
+struct ApiDoc;
+
+fn configure_static_admin(app_config: &mut web::ServiceConfig) {
     let static_admin_dir = match config::get_static_admin_dir() {
         Ok(static_admin_dir) => static_admin_dir,
         Err(err) => {
@@ -113,28 +147,22 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
             let mut static_admin_default = PathBuf::from(config::get_static_admin_dir()?.clone());
             static_admin_default.push("index.html");
             let (req, _) = req.into_parts();
-            if req.path() == "/api" || req.path().starts_with("/api/") {
-                return Ok(ServiceResponse::new(
-                    req,
-                    HttpResponse::build(StatusCode::NOT_FOUND).into(),
-                ));
-            }
             let file = NamedFile::open_async(static_admin_default.clone()).await?;
             let res = file.into_response(&req);
             Ok(ServiceResponse::new(req, res))
         }));
+    app_config.service(static_admin);
+}
 
-    let api_scope = web::scope(API_ROOT)
-        .service(hello)
-        .service(api_settings_scope())
-        .service(api_projects_scope())
-        .service(api_workspace_scope())
-        .service(api_engine_scope());
-
-    app_config
-        .service(api_scope)
-        // This is the admin UI and should be the last service
-        .service(static_admin);
+fn configure_app(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
+    app_config.service(
+        utoipa_actix_web::scope(API_ROOT)
+            .service(hello)
+            .configure(configure_api_pixlie_settings)
+            .configure(configure_api_projects)
+            .configure(configure_api_workspace)
+            .configure(configure_api_engine),
+    );
 }
 
 pub fn api_manager(
@@ -176,10 +204,17 @@ pub fn api_manager(
                                 ]);
 
                             App::new()
-                                .wrap(cors)
-                                .wrap(Logger::new("%r: %s %b %T"))
+                                .into_utoipa_app()
+                                .openapi(ApiDoc::openapi())
+                                .openapi_service(|api| {
+                                    SwaggerUi::new("/swagger/{_:.*}")
+                                        .url("/api-docs/openapi.json", api)
+                                })
+                                .map(|app| app.wrap(cors).wrap(Logger::new("%r: %s %b %T")))
                                 .app_data(api_state.clone())
                                 .configure(configure_app)
+                                .into_app()
+                                .configure(configure_static_admin)
                         })
                         .bind_rustls_0_23((with_hostname.hostname.clone(), 58236), host_config)?
                         .workers(1)
@@ -211,10 +246,16 @@ pub fn api_manager(
                         ]);
 
                     App::new()
-                        .wrap(cors)
-                        .wrap(Logger::new("%r: %s %b %T"))
+                        .into_utoipa_app()
+                        .openapi(ApiDoc::openapi())
+                        .openapi_service(|api| {
+                            SwaggerUi::new("/swagger/{_:.*}").url("/api-docs/openapi.json", api)
+                        })
+                        .map(|app| app.wrap(cors).wrap(Logger::new("%r: %s %b %T")))
                         .app_data(api_state.clone())
                         .configure(configure_app)
+                        .into_app()
+                        .configure(configure_static_admin)
                 })
                 .bind(("localhost", 58236))?
                 .workers(1)

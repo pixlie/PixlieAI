@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
 use url::Url;
+use utoipa::ToSchema;
 
 // The project settings node contains high level settings that guide the flow of a project
-#[derive(Clone, Default, Deserialize, Serialize, TS)]
+#[derive(Clone, Default, Deserialize, Serialize, ToSchema, TS)]
 pub struct ProjectSettings {
     pub only_extract_data_from_specified_links: bool,
     pub only_crawl_direct_links_from_specified_links: bool,

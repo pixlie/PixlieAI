@@ -16,7 +16,7 @@ use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
-use actix_web::{get, post, web, Responder, Scope};
+use actix_web::{get, post, web, Responder};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,6 +24,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 #[derive(Clone)]
 pub struct EngineRequest {
@@ -32,13 +33,13 @@ pub struct EngineRequest {
     pub payload: EngineRequestPayload,
 }
 
-#[derive(Clone, Deserialize, TS)]
+#[derive(Clone, Deserialize, ToSchema, TS)]
 #[ts(export)]
 pub struct LinkWrite {
     pub url: String,
 }
 
-#[derive(Clone, Deserialize, TS)]
+#[derive(Clone, Deserialize, ToSchema, TS)]
 #[ts(export)]
 pub struct ProjectSettingsWrite {
     pub extract_data_only_from_specified_links: bool,
@@ -46,7 +47,7 @@ pub struct ProjectSettingsWrite {
     pub crawl_direct_links_from_specified_links: bool,
 }
 
-#[derive(Clone, Deserialize, Display, TS)]
+#[derive(Clone, Deserialize, Display, ToSchema, TS)]
 #[ts(export)]
 pub enum NodeWrite {
     Link(LinkWrite),
@@ -55,7 +56,7 @@ pub enum NodeWrite {
     ProjectSettings(ProjectSettingsWrite),
 }
 
-#[derive(Clone, Deserialize, TS)]
+#[derive(Clone, Deserialize, ToSchema, TS)]
 #[ts(export)]
 pub struct EdgeWrite {
     node_ids: (NodeId, NodeId),
@@ -78,7 +79,7 @@ pub enum EngineRequestPayload {
     Query(u32),
 }
 
-#[derive(Clone, Serialize, TS)]
+#[derive(Clone, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct APINodeEdges {
     #[ts(type = "Array<[number, string]>")]
@@ -86,11 +87,11 @@ pub struct APINodeEdges {
     pub written_at: i64,
 }
 
-#[derive(Clone, Serialize, TS)]
+#[derive(Clone, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 
-#[derive(Clone, Serialize, TS)]
+#[derive(Clone, Serialize, ToSchema, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum EngineResponsePayload {
@@ -102,7 +103,7 @@ pub enum EngineResponsePayload {
     Error(String),
 }
 
-#[derive(Clone, Display, Deserialize, Serialize, TS)]
+#[derive(Clone, Display, Deserialize, Serialize, ToSchema, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum APIPayload {
@@ -144,7 +145,7 @@ impl APINodeFlags {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct APINodeItem {
     pub id: NodeId,
@@ -207,6 +208,22 @@ pub struct QueryEdges {
     since: Option<i64>,
 }
 
+/// Get all labels for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/labels",
+    responses(
+        (status = 200, description = "Labels retrieved successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project (UUID)",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
 #[get("/labels")]
 pub async fn get_labels(
     project_id: web::Path<String>,
@@ -247,14 +264,31 @@ pub async fn get_labels(
     }
 
     debug!("Got response for request {}", request_id);
-    match response_opt {
+    let x = match response_opt {
         Some(response) => Ok(web::Json(response)),
         None => Ok(web::Json(EngineResponsePayload::Error(
             "Could not get a response".to_string(),
         ))),
-    }
+    };
+    x
 }
 
+/// Get all nodes for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/nodes",
+    responses(
+        (status = 200, description = "Nodes retrieved successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project (UUID)",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
 #[get("/nodes")]
 pub async fn get_nodes(
     project_id: web::Path<String>,
@@ -351,6 +385,22 @@ pub async fn get_nodes(
     }
 }
 
+/// Get all edges for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/edges",
+    responses(
+        (status = 200, description = "Edges retrieved successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project (UUID)",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
 #[get("/edges")]
 pub async fn get_edges(
     project_id: web::Path<String>,
@@ -406,6 +456,23 @@ pub async fn get_edges(
     }
 }
 
+/// Create a new node for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/nodes",
+    request_body = NodeWrite,
+    responses(
+        (status = 200, description = "Node created successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project (UUID)",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
 #[post("/nodes")]
 pub async fn create_node(
     project_id: web::Path<String>,
@@ -458,6 +525,23 @@ pub async fn create_node(
     }
 }
 
+/// Create a new edge for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/edges",
+    request_body = EdgeWrite,
+    responses(
+        (status = 200, description = "Edge created successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project (UUID)",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
 #[post("/edges")]
 pub async fn create_edge(
     project_id: web::Path<String>,
@@ -513,6 +597,27 @@ pub async fn create_edge(
     }
 }
 
+/// Get the results of a search for a node in a project
+#[utoipa::path(
+    path = "/engine/{project_id}/query/{node_id}",
+    responses(
+        (status = 200, description = "Query results retrieved successfully", body = EngineResponsePayload),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id",
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+        (
+            "node_id",
+            description = "The ID of the node to query",
+            example = 123
+        ),
+    ),
+    tag = "engine",
+)]
 #[get("/query/{node_id}")]
 pub async fn search_results(
     path: web::Path<(String, u32)>,
@@ -558,14 +663,16 @@ pub async fn search_results(
     }
 }
 
-pub fn api_engine_scope() -> Scope {
-    web::scope("/engine/{project_id}")
-        .service(get_labels)
-        .service(get_nodes)
-        .service(get_edges)
-        .service(create_node)
-        .service(create_edge)
-        .service(search_results)
+pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
+    app_config.service(
+        utoipa_actix_web::scope::scope("/engine/{project_id}")
+            .service(get_labels)
+            .service(get_nodes)
+            .service(get_edges)
+            .service(create_node)
+            .service(create_edge)
+            .service(search_results),
+    );
 }
 
 pub fn handle_engine_api_request(

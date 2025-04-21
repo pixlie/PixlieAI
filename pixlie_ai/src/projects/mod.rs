@@ -8,10 +8,11 @@ use log::{debug, error, info};
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 pub mod api;
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum ProjectOwner {
     Myself,
@@ -19,7 +20,7 @@ pub enum ProjectOwner {
     Organization(String),
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct Project {
     pub uuid: String,
@@ -28,7 +29,7 @@ pub struct Project {
     pub owner: ProjectOwner,
 }
 
-#[derive(Deserialize, Serialize, TS)]
+#[derive(Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct ProjectCreate {
     pub name: Option<String>,

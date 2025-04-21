@@ -3,10 +3,11 @@ use crate::utils::crud::{Crud, CrudItem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 pub mod api;
 
-#[derive(Clone, Deserialize, Eq, Hash, PartialEq, Serialize, TS)]
+#[derive(Clone, Deserialize, Eq, Hash, PartialEq, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum APIProvider {
     Anthropic,
@@ -18,7 +19,7 @@ pub enum APIProvider {
 //
 // For now, there is only one workspace (created automatically).
 // All projects share the same workspace.
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export, rename_all = "camelCase")]
 pub struct Workspace {
     pub uuid: String,
@@ -42,7 +43,7 @@ impl Workspace {
     }
 }
 
-#[derive(Deserialize, Serialize, TS)]
+#[derive(Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct WorkspaceUpdate {
     pub name: Option<String>,        // Not used yet

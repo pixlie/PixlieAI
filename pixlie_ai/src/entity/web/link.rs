@@ -11,9 +11,10 @@ use std::ops::Deref;
 use std::sync::Arc;
 use ts_rs::TS;
 use url::Url;
+use utoipa::ToSchema;
 
 // A link that should fetch
-#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, TS)]
+#[derive(Clone, Default, Deserialize, Serialize, Eq, PartialEq, ToSchema, TS)]
 pub struct Link {
     pub path: String, // Relative to the domain
     pub query: Option<String>,
