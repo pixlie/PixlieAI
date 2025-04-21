@@ -46,6 +46,15 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
+interface INodesAndEdges {
+  nodes: APINodeItem[];
+  edges: IEngineEdges;
+}
+
+interface IExplorerStore {
+  projects: { [projectId: string]: INodesAndEdges };
+}
+
 interface INodeItemDisplayProps {
   nodeId: number;
   mode: "regular" | "preview";
@@ -127,6 +136,7 @@ export type {
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
+  IExplorerStore,
   INodeItem,
   INodeItemDisplayProps,
   INodeListItemProps,

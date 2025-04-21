@@ -3,6 +3,7 @@ import type { EdgeWrite } from "./EdgeWrite";
 import type { NodeWrite } from "./NodeWrite";
 
 export type EngineRequestPayload =
+  | { Explore: number | null }
   | "GetLabels"
   | { GetNodesWithLabel: string }
   | { GetNodesWithIds: Array<number> }

@@ -1,4 +1,3 @@
-use std::fmt::format;
 use crate::config::{Settings, WithHostname};
 use crate::error::PiError;
 use crate::{config, engine, error::PiResult, projects, workspace, PiEvent};
@@ -16,6 +15,7 @@ use log::{debug, error, info};
 use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
+use std::fmt::format;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -127,8 +127,8 @@ fn configure_app(app_config: &mut web::ServiceConfig) {
                 .route(web::post().to(config::api::request_setup_gliner)),
         )
         .service(
-            web::resource(format!("{}/engine/{{project_id}}/describe", API_ROOT))
-                .route(web::get().to(engine::api::describe))
+            web::resource(format!("{}/engine/{{project_id}}/explore", API_ROOT))
+                .route(web::get().to(engine::api::explore)),
         )
         .service(
             web::resource(format!("{}/engine/{{project_id}}/labels", API_ROOT))

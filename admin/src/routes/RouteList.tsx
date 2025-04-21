@@ -66,10 +66,10 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
-            label: "Node editor",
-            href: `/p/${params.projectId}/node-editor`,
+            label: "Explorer",
+            href: `/p/${params.projectId}/explorer`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/node-editor`,
+              `/p/${params.projectId}/explorer`,
             ),
           },
           {

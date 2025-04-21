@@ -19,6 +19,7 @@ use crate::utils::crud::Crud;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
+use itertools::Itertools;
 use log::debug;
 use sentry::types::ProjectId;
 use serde::{Deserialize, Serialize};
@@ -68,7 +69,7 @@ pub struct EdgeWrite {
 #[derive(Clone, Deserialize, TS)]
 #[ts(export)]
 pub enum EngineRequestPayload {
-    Describe(Option<u32>),
+    Explore(Option<u32>), // Optional node id to start from
 
     GetLabels,
     GetNodesWithLabel(String),
@@ -96,6 +97,13 @@ pub struct APINodeEdges {
 pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 
 #[derive(Clone, Serialize, TS)]
+#[ts(export)]
+pub struct Explore {
+    pub nodes: Vec<APINodeItem>,
+    pub edges: APIEdges,
+}
+
+#[derive(Clone, Serialize, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum EngineResponsePayload {
@@ -104,6 +112,7 @@ pub enum EngineResponsePayload {
     Nodes(Vec<APINodeItem>),
     Labels(Vec<String>),
     Edges(APIEdges),
+    Explore(Explore),
     Error(String),
 }
 
@@ -212,14 +221,14 @@ pub struct QueryEdges {
     since: Option<i64>,
 }
 
-pub async fn describe(
+pub async fn explore(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
     debug!(
-        "API request {} for project {} to describe",
+        "API request {} for project {} to explore",
         request_id, project_id
     );
     // Subscribe to the API channel, so we can receive the response
@@ -230,7 +239,7 @@ pub async fn describe(
         EngineRequest {
             request_id: request_id.clone(),
             project_id: project_id.clone(),
-            payload: EngineRequestPayload::Describe(None),
+            payload: EngineRequestPayload::Explore(None),
         },
     ))?;
 
@@ -246,7 +255,7 @@ pub async fn describe(
                 }
                 _ => {}
             },
-            Err(err) => {}
+            Err(_err) => {}
         }
     }
 
@@ -634,29 +643,116 @@ pub fn handle_engine_api_request(
         ));
     } else {
         response = match request.payload {
-            EngineRequestPayload::Describe(optional_current_node_id) => {
-                // The describe request helps the UI show the graph in a way that makes it easy to comprehend
-                // We start with nodes in a manner similar to how we process and the UI can ask for further nodes
-
-                match optional_current_node_id {
-                    Some(_current_node_id) => EngineResponsePayload::Nodes(vec![]),
+            EngineRequestPayload::Explore(optional_current_node_id) => {
+                // The `Explore` request helps the UI show the graph in a way that makes it easy to visualize.
+                // We start with nodes in a manner similar to how we process, and the UI can ask for further nodes.
+                let starting_node = match optional_current_node_id {
+                    Some(current_node_id) => {
+                        engine.get_node_by_id(&current_node_id).ok_or_else(|| {
+                            PiError::InternalError("Cannot find given starting node".to_string())
+                        })?
+                    }
                     None => {
-                        // We are at the root, we fetch the nodes with label Objective
+                        // When no starting node is given, we find the first objective node
                         let mut node_ids_with_label =
                             engine.get_node_ids_with_label(&NodeLabel::Objective);
                         node_ids_with_label.sort();
 
-                        EngineResponsePayload::Nodes(
-                            node_ids_with_label
-                                .iter()
-                                .filter_map(|node_id| match engine.get_node_by_id(node_id) {
-                                    Some(arced_node) => Some(APINodeItem::from_node(&arced_node)),
-                                    None => None,
-                                })
-                                .collect(),
-                        )
+                        node_ids_with_label
+                            .iter()
+                            .find_map(|node_id| match engine.get_node_by_id(node_id) {
+                                Some(arced_node) => Some(arced_node),
+                                None => None,
+                            })
+                            .ok_or_else(|| {
+                                PiError::InternalError(
+                                    "Could not find the starting Objective node".to_string(),
+                                )
+                            })?
+                    }
+                };
+
+                // With the starting node, we fetch nodes and edges.
+                // We fetch 3 levels of nodes, and 2 levels of edges between them.
+                let max_depth = 4;
+                let node_labels_of_interest = [
+                    NodeLabel::Objective,
+                    NodeLabel::ProjectSettings,
+                    NodeLabel::CrawlerSettings,
+                    NodeLabel::Link,
+                    NodeLabel::Domain,
+                    NodeLabel::WebSearch,
+                ];
+
+                let mut node_ids_to_check: Vec<Vec<NodeId>> = vec![vec![starting_node.id]]; // By depth
+                let mut node_ids: Vec<NodeId> = vec![starting_node.id];
+                let mut nodes: Vec<ArcedNodeItem> = vec![starting_node];
+                let mut edges: HashMap<NodeId, APINodeEdges> = HashMap::new();
+
+                // Loop over nodes connected to the current node and add them to nodes and edges to explore.
+                for depth in 0..max_depth {
+                    node_ids_to_check.push(vec![]);
+                    for node_id in node_ids_to_check[depth].clone().iter() {
+                        match engine.get_connected_nodes(node_id) {
+                            Ok(optional_edges) => {
+                                match optional_edges {
+                                    Some(node_edges) => {
+                                        // Read and populate the connected nodes
+                                        for edge in node_edges.edges.iter() {
+                                            if node_ids.contains(&edge.0) {
+                                                continue;
+                                            }
+
+                                            match engine.get_node_by_id(&edge.0) {
+                                                Some(node) => {
+                                                    // Are we interested in this node?
+                                                    match node_labels_of_interest
+                                                        .iter()
+                                                        .find(|label| node.labels.contains(label))
+                                                    {
+                                                        Some(_) => {
+                                                            node_ids.push(node.id);
+
+                                                            node_ids_to_check[depth + 1]
+                                                                .push(node.id);
+
+                                                            // Save the node
+                                                            nodes.push(node);
+                                                        }
+                                                        None => {}
+                                                    }
+                                                }
+                                                None => {}
+                                            }
+                                        }
+
+                                        // Save all the edges
+                                        edges.insert(
+                                            node_id.clone(),
+                                            APINodeEdges {
+                                                edges: node_edges
+                                                    .edges
+                                                    .iter()
+                                                    .map(|x| (x.0, x.1.to_string()))
+                                                    .collect(),
+                                                written_at: node_edges
+                                                    .written_at
+                                                    .timestamp_millis(),
+                                            },
+                                        );
+                                    }
+                                    None => {}
+                                }
+                            }
+                            Err(_) => {}
+                        }
                     }
                 }
+
+                EngineResponsePayload::Explore(Explore {
+                    nodes: nodes.iter().map(|x| APINodeItem::from_node(x)).collect(),
+                    edges: APIEdges(edges),
+                })
             }
             EngineRequestPayload::GetLabels => {
                 let labels = engine.get_all_node_labels();

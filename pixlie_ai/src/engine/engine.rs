@@ -20,6 +20,7 @@ use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
 use rocksdb::DB;
+use scraper::Node;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
@@ -517,6 +518,17 @@ impl Engine {
             }
         }
         Ok(())
+    }
+
+    pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
+        // Return all nodes that are connected to me
+        match self.edges.try_read() {
+            Ok(edges) => match edges.data.get(my_node_id) {
+                Some(my_node_edges) => Ok(Some(my_node_edges.clone())),
+                None => Ok(None),
+            },
+            Err(_) => Err(PiError::GraphError("Error locking edges".to_string())),
+        }
     }
 
     pub fn get_node_ids_connected_with_label(
