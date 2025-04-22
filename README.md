@@ -52,22 +52,22 @@ We believe in transparency and community-driven development. Our core offering i
 ## See how Pixlie currently works
 
 Choose your objective - what do you want to discover with Pixlie?:
-![Set your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-objective.png)
+![Set your objective](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-objective.png)
 
 Information will instantly be populated. Let Pixlie search a while and see...
 
 
 A list of links discovered based on your objective:
-![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
+![links found](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-links.png)
 
 A list of domains (as many links may come from one domain):
-![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
+![domains crawled](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-domains.png)
 
 The content extracted from these links:
-![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
+![Web pages relevant to your objective](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-web-pages.png)
 
 Search through the results for specifics:
-![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-resultsv0-2-0.png)
+![Search Results](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-search.png)
 
 ## 🚀 Roadmap
 We're actively developing Pixlie with these exciting features on the horizon:
