@@ -1,6 +1,6 @@
 use log::{debug, error, info};
 use pixlie_ai::api::APIChannel;
-use pixlie_ai::config::{download_admin_site, Settings};
+use pixlie_ai::config::Settings;
 use pixlie_ai::engine::api::{EngineResponse, EngineResponsePayload};
 use pixlie_ai::engine::Engine;
 use pixlie_ai::error::{PiError, PiResult};
@@ -74,11 +74,16 @@ fn main() {
     // The API channel is used by the API server and the CLI
     let api_channel = APIChannel::new();
     let main_channel_tx = main_channel.tx.clone();
-    match download_admin_site() {
-        Ok(_) => {}
-        Err(err) => {
-            error!("Error downloading admin site: {}", err);
-            return;
+
+    #[cfg(not(debug_assertions))]
+    {
+        use pixlie_ai::config::download_admin_site;
+        match download_admin_site() {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Error downloading admin site: {}", err);
+                return;
+            }
         }
     }
     {
