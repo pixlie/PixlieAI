@@ -101,6 +101,10 @@ Pixlie has a REST API that you can use to interact with the graph. We use Bruno 
 
 You can find the API spec in the `rest_api` directory.
 
+## Contribute
+
+We are happily taking contributions! If you are interested in contributing to Pixlie, please join our [Discord Channel](https://discord.gg/5W9U9RPTGp) or reach out to us to set up a call. Share where you want to contribute. We have a lot of _to dos_ stuck in our head that we are happy to put on our [project board](https://github.com/orgs/pixlie/projects/5) if we know someone is interested in taking it on. 
+
 ## Stay in Touch
 
 If you want to be notified when Pixlie is ready for use, please subscribe to
