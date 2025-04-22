@@ -22,12 +22,13 @@ use std::{
 };
 use tar::Archive;
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 pub mod api;
 pub mod gliner;
 pub mod python;
 
-#[derive(Debug, Deserialize, Serialize, TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export, rename_all = "camelCase")]
 pub struct Settings {
     pub path_to_storage_dir: Option<String>,
@@ -41,13 +42,13 @@ pub struct WithHostname {
     pub path_to_key: PathBuf,
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum SettingsIncompleteReason {
     StorageDirNotConfigured,
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, ToSchema, TS)]
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum SettingsStatus {

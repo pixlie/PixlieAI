@@ -6,13 +6,34 @@ use crate::{
     error::{PiError, PiResult},
     utils::crud::Crud,
 };
-use actix_web::{web, Responder};
+use actix_web::{get, post, web, Responder};
 
+/// Get a list of all projects
+#[utoipa::path(
+    path = "/projects",
+    responses(
+        (status = 200, description = "Projects retrieved successfully", body = Vec<Project>),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "projects",
+)]
+#[get("")]
 pub async fn read_projects() -> PiResult<impl Responder> {
     let projects = ProjectCollection::read_list()?;
     Ok(web::Json(projects))
 }
 
+/// Create a new project
+#[utoipa::path(
+    path = "/projects",
+    request_body = ProjectCreate,
+    responses(
+        (status = 200, description = "Project created successfully", body = Project),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "projects",
+)]
+#[post("")]
 pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl Responder> {
     let settings: Settings = Settings::get_cli_settings()?;
     let path_to_storage_dir = match settings.path_to_storage_dir {
@@ -49,4 +70,12 @@ pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl 
     };
 
     Ok(web::Json(engine_project.project))
+}
+
+pub fn configure_api_projects(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
+    app_config.service(
+        utoipa_actix_web::scope::scope("/projects")
+            .service(read_projects)
+            .service(create_project),
+    );
 }

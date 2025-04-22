@@ -5,11 +5,17 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use std::borrow::Cow;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use utoipa::{
+    openapi::{schema::SchemaType, ObjectBuilder, Schema, SchemaFormat, Type},
+    PartialSchema, ToSchema,
+};
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct LossyLocation {
     pub latitude: Option<f32>,
@@ -22,7 +28,34 @@ pub struct LossyLocation {
     pub country: String,
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+// https://github.com/juhaku/utoipa/issues/1057
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+pub struct DateTimeWrapper(pub DateTime<Utc>);
+
+impl PartialSchema for DateTimeWrapper {
+    fn schema() -> utoipa::openapi::RefOr<Schema> {
+        utoipa::openapi::RefOr::T(Schema::Object(
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(Type::String))
+                .format(Some(SchemaFormat::KnownFormat(
+                    utoipa::openapi::KnownFormat::Time,
+                )))
+                .build(),
+        ))
+    }
+}
+
+impl ToSchema for DateTimeWrapper {
+    fn name() -> Cow<'static, str> {
+        Cow::Borrowed("DateTimeWrapper")
+    }
+
+    fn schemas(_schemas: &mut Vec<(String, utoipa::openapi::RefOr<Schema>)>) {
+        // No nested types to register
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum TypedData {
     SmallInteger(i8),
@@ -30,22 +63,22 @@ pub enum TypedData {
     Float(f32),
     String(String),
     Boolean(bool),
-    Date(DateTime<Utc>),
-    Time(DateTime<Utc>),
-    DateTime(DateTime<Utc>),
+    Date(DateTimeWrapper),
+    Time(DateTimeWrapper),
+    DateTime(DateTimeWrapper),
     Email(String),
     Link(String),
     Currency(String),
     Place(LossyLocation),
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum CellData {
     TypedData(TypedData),
     NamedEntity(String, String),
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct TableRow(pub Vec<CellData>);
