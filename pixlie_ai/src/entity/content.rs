@@ -28,6 +28,7 @@ pub struct LossyLocation {
     pub country: String,
 }
 
+// https://github.com/juhaku/utoipa/issues/1057
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 pub struct DateTimeWrapper(pub DateTime<Utc>);
 
