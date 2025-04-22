@@ -141,7 +141,7 @@ pub enum APIPayload {
     CrawlerSettings(CrawlerSettings),
 }
 
-#[derive(Clone, Default, Serialize, TS)]
+#[derive(Clone, Default, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum APINodeFlags {
     #[default]
@@ -172,7 +172,7 @@ impl APINodeFlags {
 }
 
 /// Schema for a node in any API response.
-#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
+#[derive(Clone, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct APINodeItem {
     /// The ID of the node
@@ -183,7 +183,6 @@ pub struct APINodeItem {
     pub payload: APIPayload,
 
     /// The flags of the node. This can be used to indicate if the node is processed, requesting, etc.
-    #[serde(skip_deserializing)]
     pub flags: Vec<APINodeFlags>,
     /// Unix timestamp of when the node was last written to.
     pub written_at: i64,
