@@ -46,9 +46,20 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
+interface IPosition {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 interface INodesAndEdges {
   nodes: APINodeItem[];
   edges: IEngineEdges;
+  siblingNodes: Array<Array<number>>;
+
+  canvasPosition: IPosition;
+  nodePositions: Array<IPosition>;
 }
 
 interface IExplorerStore {
@@ -136,6 +147,7 @@ export type {
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
+  IPosition,
   IExplorerStore,
   INodeItem,
   INodeItemDisplayProps,

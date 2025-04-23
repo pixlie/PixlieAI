@@ -25,7 +25,7 @@ pub use engine::Engine;
 
 // pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 
-#[derive(Clone, Deserialize, Display, PartialEq, Serialize, TS)]
+#[derive(Clone, Deserialize, Display, Eq, Hash, PartialEq, Serialize, TS)]
 #[ts(export)]
 pub enum EdgeLabel {
     RelatedTo,

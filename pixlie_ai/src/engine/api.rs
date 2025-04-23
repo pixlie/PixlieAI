@@ -19,7 +19,6 @@ use crate::{api::ApiState, error::PiResult};
 use actix_web::{web, Responder};
 use itertools::Itertools;
 use log::debug;
-use sentry::types::ProjectId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -99,6 +98,7 @@ pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 pub struct Explore {
     pub nodes: Vec<APINodeItem>,
     pub edges: APIEdges,
+    pub sibling_nodes: Vec<Vec<NodeId>>, // Nodes that are grouped together because they are siblings
 }
 
 #[derive(Clone, Serialize, TS)]
@@ -662,11 +662,13 @@ pub fn handle_engine_api_request(
             let mut node_ids: Vec<NodeId> = vec![starting_node.id];
             let mut nodes: Vec<ArcedNodeItem> = vec![starting_node];
             let mut edges: HashMap<NodeId, APINodeEdges> = HashMap::new();
+            let mut sibling_nodes: Vec<Vec<NodeId>> = vec![];
 
             // Loop over nodes connected to the current node and add them to nodes and edges to explore.
             for depth in 0..max_depth {
                 node_ids_to_check.push(vec![]);
                 for node_id in node_ids_to_check[depth].clone().iter() {
+                    let mut visited_sibling_nodes: HashMap<String, Vec<NodeId>> = HashMap::new();
                     match engine.get_connected_nodes(node_id) {
                         Ok(optional_edges) => {
                             match optional_edges {
@@ -690,12 +692,33 @@ pub fn handle_engine_api_request(
                                                         node_ids_to_check[depth + 1].push(node.id);
 
                                                         // Save the node
-                                                        nodes.push(node);
+                                                        nodes.push(node.clone());
+
+                                                        // If this node is connected to the starting node using the same edge label
+                                                        // as an earlier node, then it is a sibling of the starting node.
+                                                        visited_sibling_nodes
+                                                            .entry(
+                                                                node.labels
+                                                                    .iter()
+                                                                    .sorted()
+                                                                    .join(","),
+                                                            )
+                                                            .and_modify(|siblings| {
+                                                                siblings.push(node.id);
+                                                            })
+                                                            .or_insert(vec![node.id]);
                                                     }
                                                     None => {}
                                                 }
                                             }
                                             None => {}
+                                        }
+                                    }
+
+                                    // For every group of siblings with length > 1, we insert into node_siblings
+                                    for (_edge_label, siblings) in visited_sibling_nodes.iter() {
+                                        if siblings.len() > 1 {
+                                            sibling_nodes.push(siblings.clone());
                                         }
                                     }
 
@@ -723,6 +746,7 @@ pub fn handle_engine_api_request(
             EngineResponsePayload::Explore(Explore {
                 nodes: nodes.iter().map(|x| APINodeItem::from_node(x)).collect(),
                 edges: APIEdges(edges),
+                sibling_nodes,
             })
         }
         EngineRequestPayload::GetLabels => {

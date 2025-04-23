@@ -34,9 +34,23 @@ pub enum Payload {
 }
 
 pub(crate) type NodeId = u32;
+
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 
-#[derive(Clone, Debug, Deserialize, Display, EnumString, Eq, Hash, PartialEq, Serialize, TS)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    EnumString,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    TS,
+)]
 #[ts(export)]
 pub enum NodeLabel {
     AddedByUser,

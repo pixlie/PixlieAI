@@ -2,4 +2,8 @@
 import type { APIEdges } from "./APIEdges";
 import type { APINodeItem } from "./APINodeItem";
 
-export type Explore = { nodes: Array<APINodeItem>; edges: APIEdges };
+export type Explore = {
+  nodes: Array<APINodeItem>;
+  edges: APIEdges;
+  sibling_nodes: Array<Array<number>>;
+};
