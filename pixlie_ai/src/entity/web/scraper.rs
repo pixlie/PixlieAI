@@ -20,8 +20,6 @@ use url::Url;
 fn clean_text(text: String) -> String {
     let text: Vec<String> = text
         .trim()
-        .replace("\n", " ")
-        .replace("\t", " ")
         .split_whitespace()
         .map(|x| x.to_string())
         .collect();
