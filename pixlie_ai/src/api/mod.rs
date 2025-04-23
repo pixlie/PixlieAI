@@ -21,12 +21,15 @@ use log::{debug, error, info};
 use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
+use serde_json::json;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa_rapidoc::RapiDoc;
+use utoipa_redoc::{Redoc, Servable};
+use utoipa_swagger_ui::{Config, SwaggerUi};
 
 const API_ROOT: &str = "/api";
 
@@ -209,11 +212,28 @@ pub fn api_manager(
                                 .openapi_service(|api| {
                                     SwaggerUi::new("/swagger/{_:.*}")
                                         .url("/api-docs/openapi.json", api)
+                                        .config(
+                                            Config::default()
+                                                .with_syntax_highlight(false)
+                                                .query_config_enabled(true),
+                                        )
                                 })
                                 .map(|app| app.wrap(cors).wrap(Logger::new("%r: %s %b %T")))
                                 .app_data(api_state.clone())
                                 .configure(configure_app)
                                 .into_app()
+                                .service(Redoc::with_url_and_config(
+                                    "/redoc",
+                                    ApiDoc::openapi(),
+                                    || json!({}),
+                                ))
+                                .service(
+                                    RapiDoc::with_openapi(
+                                        "/api-docs/openapi.json",
+                                        ApiDoc::openapi(),
+                                    )
+                                    .path("/rapidoc"),
+                                )
                                 .configure(configure_static_admin)
                         })
                         .bind_rustls_0_23((with_hostname.hostname.clone(), 58236), host_config)?
@@ -249,12 +269,30 @@ pub fn api_manager(
                         .into_utoipa_app()
                         .openapi(ApiDoc::openapi())
                         .openapi_service(|api| {
-                            SwaggerUi::new("/swagger/{_:.*}").url("/api-docs/openapi.json", api)
+                            SwaggerUi::new("/swagger/{_:.*}")
+                                .url("/api-docs/openapi.json", api)
+                                .config(
+                                    Config::default()
+                                        .with_syntax_highlight(false)
+                                        .query_config_enabled(true),
+                                )
                         })
                         .map(|app| app.wrap(cors).wrap(Logger::new("%r: %s %b %T")))
                         .app_data(api_state.clone())
                         .configure(configure_app)
                         .into_app()
+                        .service(Redoc::with_url_and_config(
+                            "/redoc",
+                            ApiDoc::openapi(),
+                            || json!({}),
+                        ))
+                        .service(
+                            utoipa_rapidoc::RapiDoc::with_openapi(
+                                "/api-docs/openapi.json",
+                                ApiDoc::openapi(),
+                            )
+                            .path("/rapidoc"),
+                        )
                         .configure(configure_static_admin)
                 })
                 .bind(("localhost", 58236))?
