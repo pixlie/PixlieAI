@@ -7,8 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use utoipa::{ToSchema};
 
-#[derive(Clone, Default, Deserialize, Serialize, TS)]
+#[derive(Clone, Default, Deserialize, Serialize, ToSchema, TS)]
 pub struct Metadata {
     pub author: Option<String>,
     pub creator: Option<String>,
