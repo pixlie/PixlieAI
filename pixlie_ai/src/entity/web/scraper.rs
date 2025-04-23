@@ -250,18 +250,21 @@ impl<'a> Traverser<'a> {
                         (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
-                "ul" => {
+                "ul" | "ol" => {
                     if !element.has_children() {
                         continue;
                     }
+                    let labels = vec![
+                        if name == "ul" {
+                            NodeLabel::UnorderedPoints
+                        } else {
+                            NodeLabel::OrderedPoints
+                        },
+                        NodeLabel::Partial,
+                    ];
                     let bullet_points_node_id = self
                         .arced_engine
-                        .get_or_add_node(
-                            Payload::Tree,
-                            vec![NodeLabel::UnorderedPoints, NodeLabel::Partial],
-                            true,
-                            None,
-                        )?
+                        .get_or_add_node(Payload::Tree, labels, true, None)?
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), bullet_points_node_id),
@@ -276,32 +279,15 @@ impl<'a> Traverser<'a> {
                     self.traverse(
                         element,
                         Some(bullet_points_node_id),
-                        Some(NodeLabel::UnorderedPoints.to_string()),
+                        Some(
+                            (if name == "ul" {
+                                NodeLabel::UnorderedPoints
+                            } else {
+                                NodeLabel::OrderedPoints
+                            })
+                            .to_string(),
+                        ),
                     )?;
-                }
-                "ol" => {
-                    if !element.has_children() {
-                        continue;
-                    }
-                    let bullet_points_node_id = self
-                        .arced_engine
-                        .get_or_add_node(
-                            Payload::Tree,
-                            vec![NodeLabel::OrderedPoints, NodeLabel::Partial],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
-                    self.arced_engine.add_connection(
-                        (self.webpage_node_id.clone(), bullet_points_node_id),
-                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-                    )?;
-                    if let Some(parent_node_id) = parent_node_id {
-                        self.arced_engine.add_connection(
-                            (parent_node_id, bullet_points_node_id.clone()),
-                            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-                        )?;
-                    }
                 }
                 "li" => {
                     // List items are stored only when parent is present and is either an ordered or an unordered list
