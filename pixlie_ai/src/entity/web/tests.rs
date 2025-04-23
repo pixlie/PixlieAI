@@ -51,7 +51,7 @@ fn test_webpage_scraper_rlhf_book() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 86);
+    assert_eq!(children_of_webpage.len(), 83);
 
     let image_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -92,7 +92,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Metadata]
+        vec![NodeLabel::Title, NodeLabel::Partial]
     );
 
     let description_nodes: Vec<ArcedNodeItem> = test_engine
@@ -840,7 +840,7 @@ fn test_extraction_from_hn_homepage() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Metadata]
+        vec![NodeLabel::Title, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
@@ -909,7 +909,7 @@ fn test_extract_data_only_from_specified_links() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 3);
+    assert_eq!(children_of_webpage.len(), 2);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -929,7 +929,7 @@ fn test_extract_data_only_from_specified_links() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Metadata]
+        vec![NodeLabel::Title, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
@@ -1000,7 +1000,7 @@ fn test_crawl_within_domains_of_specified_links() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 191);
+    assert_eq!(children_of_webpage.len(), 190);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -1020,7 +1020,7 @@ fn test_crawl_within_domains_of_specified_links() {
     );
     assert_eq!(
         title_node.labels,
-        vec![NodeLabel::Title, NodeLabel::Metadata]
+        vec![NodeLabel::Title, NodeLabel::Partial]
     );
 
     // Count the number of Link nodes
