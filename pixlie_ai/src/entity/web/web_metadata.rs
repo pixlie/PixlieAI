@@ -10,7 +10,7 @@ use ts_rs::TS;
 use utoipa::{ToSchema};
 
 #[derive(Clone, Default, Deserialize, Serialize, ToSchema, TS)]
-pub struct Metadata {
+pub struct WebMetadata {
     pub author: Option<String>,
     pub creator: Option<String>,
     pub description: Option<String>,

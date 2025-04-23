@@ -64,7 +64,7 @@ const ContentContainerNode: Component<INodeItemDisplayProps> = (props) => {
         (!node.labels.includes("Title") &&
           (props.nodeData?.partialNodeIds
             ? props.nodeData.partialNodeIds.includes(node.id)
-            : node.labels.includes("Metadata") &&
+            : node.labels.includes("Partial") &&
               node.payload.type === "Text" &&
               node.payload.data.trim().length > 0)),
     ).map((node) => node.id),

@@ -19,6 +19,7 @@ export type NodeLabel =
   | "UnorderedPoints"
   | "WebPage"
   | "WebSearch"
+  | "WebMetadata"
   | "CrawlCondition"
   | "ProjectSettings"
   | "CrawlerSettings"
@@ -29,5 +30,4 @@ export type NodeLabel =
   | "Url"
   | "CreatedAt"
   | "ModifiedAt"
-  | "Tag"
-  | "Metadata";
+  | "Tag";

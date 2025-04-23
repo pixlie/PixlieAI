@@ -13,7 +13,7 @@ use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
-use crate::entity::web::metadata::Metadata;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::web_page::WebPage;
 use crate::error::PiResult;
 use crate::{ExternalData, FetchError, FetchResponse};
@@ -28,7 +28,7 @@ use utoipa::ToSchema;
 #[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
     Link(Link),
-    Metadata(Metadata),
+    WebMetadata(WebMetadata),
     Text(String),
     Tree, // Tree can contain nodes of any payload type, including other trees
     TableRow(TableRow),
@@ -62,6 +62,7 @@ pub enum NodeLabel {
     UnorderedPoints,
     WebPage,
     WebSearch,
+    WebMetadata,
     CrawlCondition,
     ProjectSettings,
     CrawlerSettings,
@@ -73,7 +74,6 @@ pub enum NodeLabel {
     CreatedAt,
     ModifiedAt,
     Tag,
-    Metadata,
 }
 
 impl Default for NodeFlags {

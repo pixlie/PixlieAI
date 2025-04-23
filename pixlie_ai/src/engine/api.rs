@@ -13,7 +13,7 @@ use crate::entity::crawler::CrawlerSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
-use crate::entity::web::metadata::Metadata;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
@@ -128,8 +128,8 @@ pub enum APIPayload {
     /// Currently only used for nodes representing web URLs, in which case the owner is
     /// a node representing it's domain.
     Link(Link),
-    /// A metadata payload.
-    Metadata(Metadata),
+    /// A metadata payload for a web page.
+    WebMetadata(WebMetadata),
     /// A text payload.
     Text(String),
     /// [WIP] A tree payload.
@@ -204,7 +204,7 @@ impl APINodeItem {
                 }
             }
             Payload::Link(link) => APIPayload::Link(link.clone()),
-            Payload::Metadata(metadata) => APIPayload::Metadata(metadata.clone()),
+            Payload::WebMetadata(web_metadata) => APIPayload::WebMetadata(web_metadata.clone()),
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),

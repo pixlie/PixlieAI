@@ -4,14 +4,14 @@ import { useParams } from "@solidjs/router";
 
 import ShareOptions from "../interactable/ShareOptions.tsx";
 import LoaderIcon from "../../assets/icons/tabler-loader.svg";
-import { Metadata } from "../../api_types/Metadata.ts";
+import { WebMetadata } from "../../api_types/WebMetadata.ts";
 
 interface WebPageNodeProps {
   nodeId: number;
 }
 
 interface WebPagePreviewContainerProps {
-  metadata: Metadata;
+  metadata: WebMetadata;
 }
 
 interface WebPagePreviewProps extends WebPagePreviewContainerProps {
@@ -132,16 +132,16 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
   const [_, { getRelatedNodes }] = useEngine();
   const params = useParams();
 
-  const getMetadata = createMemo<Metadata | null>(() => {
+  const getWebMetadata = createMemo<WebMetadata | null>(() => {
     return getRelatedNodes(params.projectId, props.nodeId, "ParentOf", (n) =>
-      n.labels.includes("Metadata")
-    )?.[0]?.payload.data as Metadata | null;
+      n.labels.includes("WebMetadata")
+    )?.[0]?.payload.data as WebMetadata | null;
   });
 
   return (
     <>
-      {!!getMetadata() ? (
-        <WebPagePreviewContainer metadata={getMetadata()!} />
+      {!!getWebMetadata() ? (
+        <WebPagePreviewContainer metadata={getWebMetadata()!} />
       ) : (
         <div class="h-10 w-full flex items-center justify-center border border-slate-200 rounded-xl shadow-sm bg-white text-slate-500">
           <LoaderIcon />

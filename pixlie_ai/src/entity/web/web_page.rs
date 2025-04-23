@@ -8,7 +8,7 @@
 use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
-use crate::entity::web::metadata::Metadata;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::scraper::scrape;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
@@ -41,8 +41,8 @@ pub fn get_link_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(
     }
 }
 
-pub fn get_metadata_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(Metadata, NodeId)> {
-    // Each WebPage may have a child Metadata node
+pub fn get_metadata_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(WebMetadata, NodeId)> {
+    // Each WebPage may have a child WebMetadata node
     let related_node_ids =
         engine.get_node_ids_connected_with_label(node_id, &EdgeLabel::ChildOf)?;
     let first_related_node_id = related_node_ids.first().ok_or_else(|| {
@@ -51,9 +51,9 @@ pub fn get_metadata_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResu
 
     match engine.get_node_by_id(first_related_node_id) {
         Some(node) => match node.payload {
-            Payload::Metadata(ref metadata) => Ok((metadata.clone(), *first_related_node_id)),
+            Payload::WebMetadata(ref metadata) => Ok((metadata.clone(), *first_related_node_id)),
             _ => Err(PiError::GraphError(
-                "Cannot find child Metadata node for WebPage node".to_string(),
+                "Cannot find child WebMetadata node for WebPage node".to_string(),
             )),
         },
         None => {

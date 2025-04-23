@@ -10,7 +10,7 @@ use crate::engine::{EdgeLabel, Engine};
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
-use crate::entity::web::metadata::Metadata;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::web_page::{get_link_of_webpage, get_metadata_of_webpage};
 use crate::error::{PiError, PiResult};
 use log::error;
@@ -31,7 +31,7 @@ fn clean_text(text: String) -> String {
 
 struct Traverser<'a> {
     link_node_id: NodeId,
-    metadata_node_id: NodeId,
+    web_metadata_node_id: NodeId,
     webpage_node_id: NodeId,
     webpage_url: Url,
     arced_engine: Arc<&'a Engine>,
@@ -358,58 +358,58 @@ impl<'a> Traverser<'a> {
         if content.is_empty() {
             return Ok(());
         }
-        let metadata_node = self
+        let node = self
             .arced_engine
-            .get_node_by_id(&self.metadata_node_id)
-            .ok_or_else(|| PiError::GraphError("Metadata node not found".into()))?;
-        let mut metadata = match &metadata_node.payload {
-            Payload::Metadata(existing) => existing.clone(),
+            .get_node_by_id(&self.web_metadata_node_id)
+            .ok_or_else(|| PiError::GraphError("WebMetadata node not found".into()))?;
+        let mut payload = match &node.payload {
+            Payload::WebMetadata(existing) => existing.clone(),
             _ => {
                 return Err(PiError::InternalError(
-                    "Node does not contain Metadata".into(),
+                    "Node does not contain WebMetadata".into(),
                 ))
             }
         };
         match attr.to_lowercase().as_str() {
-            attr if attr.contains("url") => metadata.url = Some(content.to_string()),
-            attr if attr.contains("site_name") => metadata.site_name = Some(content.to_string()),
+            attr if attr.contains("url") => payload.url = Some(content.to_string()),
+            attr if attr.contains("site_name") => payload.site_name = Some(content.to_string()),
             attr if attr.contains("image") || attr.contains("thumbnail") => {
                 if content.contains("fav")
                     || content.contains("apple-touch")
                     || content.contains(".ico")
                 {
-                    metadata.favicon = Some(self.resolve_image(content)?)
+                    payload.favicon = Some(self.resolve_image(content)?)
                 } else if !attr.contains("width") && !attr.contains("height") {
-                    metadata.image = Some(self.resolve_image(content)?)
+                    payload.image = Some(self.resolve_image(content)?)
                 } else {
                     return Ok(());
                 }
             }
-            attr if attr.contains("title") => metadata.title = Some(content.to_string()),
+            attr if attr.contains("title") => payload.title = Some(content.to_string()),
             attr if attr.contains("description") => {
-                metadata.description = Some(content.to_string())
+                payload.description = Some(content.to_string())
             }
-            attr if attr.contains("tags") || attr.contains("keywords") => metadata
+            attr if attr.contains("tags") || attr.contains("keywords") => payload
                 .tags
                 .get_or_insert_with(Vec::new)
                 .push(content.to_string()),
             attr if attr.contains("published_time") => {
-                metadata.published_time = Some(content.to_string())
+                payload.published_time = Some(content.to_string())
             }
             attr if attr.contains("modified_time") || attr.contains("updated_time") => {
-                metadata.modified_time = Some(content.to_string())
+                payload.modified_time = Some(content.to_string())
             }
-            attr if attr.contains("author") => metadata.author = Some(content.to_string()),
-            attr if attr.contains("creator") => metadata.creator = Some(content.to_string()),
-            attr if attr.contains("lang") => metadata.language = Some(content.to_string()),
-            attr if attr.contains("locale") => metadata.locale = Some(content.to_string()),
+            attr if attr.contains("author") => payload.author = Some(content.to_string()),
+            attr if attr.contains("creator") => payload.creator = Some(content.to_string()),
+            attr if attr.contains("lang") => payload.language = Some(content.to_string()),
+            attr if attr.contains("locale") => payload.locale = Some(content.to_string()),
             _ => {
                 return Ok(());
             }
         }
         let _ = self
             .arced_engine
-            .update_node(&metadata_node.id, Payload::Metadata(metadata));
+            .update_node(&node.id, Payload::WebMetadata(payload));
         Ok(())
     }
 
@@ -427,13 +427,13 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
     // Find the Link node that is the parent of this WebPage node
     let (current_link, current_link_node_id) = get_link_of_webpage(engine.clone(), &node.id)?;
 
-    let current_metadata_node_id = match get_metadata_of_webpage(engine.clone(), &node.id) {
-        Ok((_metadata, id)) => id,
+    let web_metadata_node_id = match get_metadata_of_webpage(engine.clone(), &node.id) {
+        Ok((_, id)) => id,
         Err(_) => {
             let new_id = engine
                 .get_or_add_node(
-                    Payload::Metadata(Metadata::default()),
-                    vec![NodeLabel::Metadata],
+                    Payload::WebMetadata(WebMetadata::default()),
+                    vec![NodeLabel::WebMetadata],
                     true,
                     None,
                 )?
@@ -504,7 +504,7 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
             let document = Html::parse_document(&payload);
             let traverser = Traverser {
                 link_node_id: current_link_node_id.clone(),
-                metadata_node_id: current_metadata_node_id.clone(),
+                web_metadata_node_id: web_metadata_node_id.clone(),
                 webpage_node_id: node.id.clone(),
                 webpage_url: current_url,
                 arced_engine: engine,
