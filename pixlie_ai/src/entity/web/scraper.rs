@@ -378,10 +378,8 @@ impl<'a> Traverser<'a> {
                     || content.contains("apple-touch")
                     || content.contains(".ico")
                 {
-                    log::info!("🔍 FAVICON FOUND: {}", content);
                     metadata.favicon = Some(self.resolve_image(content)?)
                 } else if !attr.contains("width") && !attr.contains("height") {
-                    log::info!("📸 IMAGE FOUND: {}", content);
                     metadata.image = Some(self.resolve_image(content)?)
                 } else {
                     return Ok(());
