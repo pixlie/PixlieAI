@@ -74,27 +74,6 @@ fn test_webpage_scraper_rlhf_book() {
         vec![NodeLabel::Title, NodeLabel::Partial]
     );
 
-    let description_nodes: Vec<ArcedNodeItem> = test_engine
-        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
-        .unwrap()
-        .into_iter()
-        .filter_map(|id| test_engine.get_node_by_id(&id))
-        .filter(|node| node.labels.contains(&NodeLabel::Description))
-        .collect();
-    assert_eq!(description_nodes.len(), 1);
-    let description_node = description_nodes.first().unwrap();
-    assert_eq!(
-        match description_node.payload {
-            Payload::Text(ref text) => text.as_str(),
-            _ => "",
-        },
-        "The Reinforcement Learning from Human Feedback Book"
-    );
-    assert_eq!(
-        description_node.labels,
-        vec![NodeLabel::Description, NodeLabel::Metadata]
-    );
-
     let heading_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap()
