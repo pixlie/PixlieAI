@@ -36,6 +36,8 @@ pub struct EngineRequest {
 #[derive(Clone, Deserialize, ToSchema, TS)]
 #[ts(export)]
 pub struct LinkWrite {
+    /// The URL of the link
+    #[schema(value_type = url::Url)]
     pub url: String,
 }
 
@@ -84,6 +86,8 @@ pub enum EngineRequestPayload {
 #[derive(Clone, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct APINodeEdges {
+    // TODO: The edges should be Vec<(NodeId, EdgeLabel)>
+    // Change this and handle chain-effects, if any
     #[ts(type = "Array<[number, string]>")]
     pub edges: Vec<(NodeId, String)>,
     pub written_at: i64,
@@ -109,6 +113,9 @@ pub enum EngineResponsePayload {
     EdgeCreatedSuccessfully,
     /// Response for node query. Returns a list of nodes.
     Nodes(Vec<APINodeItem>),
+
+    // TODO: The below should be Labels(Vec<NodeLabel>)
+    // Change this and handle chain-effects, if any
     /// Response for label retrieval. Returns a list of labels.
     Labels(Vec<String>),
     /// Response for edge retrieval. Returns a list of edges.
@@ -229,6 +236,8 @@ pub struct EngineResponse {
 
 #[derive(Deserialize, IntoParams)]
 pub struct QueryNodes {
+    // TODO: The below should be Option<NodeLabel>
+    // Change this and handle chain-effects, if any
     /// The node label to filter nodes by.
     /// If provided, ids & since will be ignored.
     label: Option<String>,
@@ -260,8 +269,8 @@ pub struct QueryEdges {
     ),
     params(
         (
-            "project_id",
-            description = "The ID of the project (UUID)",
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
     ),
@@ -329,8 +338,8 @@ pub async fn get_labels(
     ),
     params(
         (
-            "project_id",
-            description = "The ID of the project (UUID)",
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
         QueryNodes,
@@ -446,8 +455,8 @@ pub async fn get_nodes(
     ),
     params(
         (
-            "project_id",
-            description = "The ID of the project (UUID)",
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
         QueryEdges,
@@ -523,8 +532,8 @@ pub async fn get_edges(
     ),
     params(
         (
-            "project_id",
-            description = "The ID of the project (UUID)",
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
     ),
@@ -596,8 +605,8 @@ pub async fn create_node(
     ),
     params(
         (
-            "project_id",
-            description = "The ID of the project (UUID)",
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
     ),
@@ -673,12 +682,12 @@ pub async fn create_edge(
     ),
     params(
         (
-            "project_id",
+            "project_id" = uuid::Uuid,
             description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
         (
-            "node_id",
+            "node_id" = NodeId,
             description = "The ID of the node to query",
             example = 123
         ),
