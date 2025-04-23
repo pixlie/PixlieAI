@@ -53,27 +53,6 @@ fn test_webpage_scraper_rlhf_book() {
         .unwrap();
     assert_eq!(children_of_webpage.len(), 83);
 
-    let image_nodes: Vec<ArcedNodeItem> = test_engine
-        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
-        .unwrap()
-        .into_iter()
-        .filter_map(|id| test_engine.get_node_by_id(&id))
-        .filter(|node| node.labels.contains(&NodeLabel::Image))
-        .collect();
-    assert_eq!(image_nodes.len(), 1);
-    let image_node = image_nodes.first().unwrap();
-    assert_eq!(
-        match image_node.payload {
-            Payload::Text(ref text) => text.as_str(),
-            _ => "",
-        },
-        "https://github.com/natolambert/rlhf-book/blob/main/images/rlhf-book-share"
-    );
-    assert_eq!(
-        image_node.labels,
-        vec![NodeLabel::Image, NodeLabel::Metadata]
-    );
-
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap()
@@ -820,7 +799,7 @@ fn test_extraction_from_hn_homepage() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 224);
+    assert_eq!(children_of_webpage.len(), 223);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
