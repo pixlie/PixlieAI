@@ -42,6 +42,7 @@ impl<'a> Traverser<'a> {
         parent_node_label: Option<String>,
     ) -> PiResult<()> {
         for element in given_el.child_elements() {
+            let mut already_traversed = false;
             let name = element.value().name();
             match name {
                 "meta" => {
@@ -288,6 +289,7 @@ impl<'a> Traverser<'a> {
                             .to_string(),
                         ),
                     )?;
+                    already_traversed = true;
                 }
                 "li" => {
                     // List items are stored only when parent is present and is either an ordered or an unordered list
@@ -456,7 +458,7 @@ impl<'a> Traverser<'a> {
                 // }
                 _ => {}
             }
-            if element.has_children() {
+            if !already_traversed && element.has_children() {
                 self.traverse(element, None, None)?;
             }
         }

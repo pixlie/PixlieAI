@@ -11,6 +11,7 @@ fn test_webpage_scraper_rlhf_book() {
     use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::web::link::Link;
+    use std::panic;
     use std::sync::Arc;
     use url::Url;
 
@@ -51,7 +52,7 @@ fn test_webpage_scraper_rlhf_book() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 86);
+    assert_eq!(children_of_webpage.len(), 82);
 
     let image_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -246,13 +247,18 @@ fn test_webpage_scraper_rlhf_book() {
     }
     assert_eq!(count_matches, some_links.len());
 
-    let mut bullet_points_node_ids =
+    let mut unordered_points_node_ids =
         test_engine.get_node_ids_with_label(&NodeLabel::UnorderedPoints);
-    bullet_points_node_ids.sort();
-    assert_eq!(bullet_points_node_ids.len(), 7);
+    unordered_points_node_ids.sort();
+    assert_eq!(unordered_points_node_ids.len(), 3);
+
+    let mut ordered_points_node_ids =
+        test_engine.get_node_ids_with_label(&NodeLabel::OrderedPoints);
+    ordered_points_node_ids.sort();
+    assert_eq!(ordered_points_node_ids.len(), 6);
 
     let first_bullet_point_node = test_engine
-        .get_node_by_id(bullet_points_node_ids.first().unwrap())
+        .get_node_by_id(unordered_points_node_ids.first().unwrap())
         .unwrap();
     assert_eq!(
         first_bullet_point_node.labels,
@@ -280,7 +286,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
 
     let second_bullet_point_node = test_engine
-        .get_node_by_id(bullet_points_node_ids.get(1).unwrap())
+        .get_node_by_id(unordered_points_node_ids.get(1).unwrap())
         .unwrap();
     assert_eq!(
         second_bullet_point_node.labels,
@@ -313,7 +319,7 @@ fn test_webpage_scraper_rlhf_book() {
     );
 
     let third_bullet_point_node = test_engine
-        .get_node_by_id(bullet_points_node_ids.get(2).unwrap())
+        .get_node_by_id(unordered_points_node_ids.get(2).unwrap())
         .unwrap();
     assert_eq!(
         third_bullet_point_node.labels,
