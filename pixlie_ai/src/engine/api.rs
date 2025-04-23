@@ -128,7 +128,7 @@ pub enum APIPayload {
     /// Currently only used for nodes representing web URLs, in which case the owner is
     /// a node representing it's domain.
     Link(Link),
-    //? A metadata payload.
+    /// A metadata payload.
     Metadata(Metadata),
     /// A text payload.
     Text(String),
