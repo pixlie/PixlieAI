@@ -27,11 +27,7 @@ fn test_webpage_scraper_rlhf_book() {
     )
     .unwrap();
 
-    let path_to_webpage = Path::new(file!())
-        .parent()
-        .unwrap()
-        .join("test_files")
-        .join("rlhf_book_intro.html");
+    let path_to_webpage = Path::new("fixtures/rlhf_book_intro.html");
     let webpage_node_id = test_engine
         .get_or_add_node(
             Payload::Text(read_to_string(path_to_webpage).unwrap()),
@@ -377,11 +373,7 @@ fn test_extraction_from_hn_homepage() {
         true,
     )
     .unwrap();
-    let path_to_webpage = Path::new(file!())
-        .parent()
-        .unwrap()
-        .join("test_files")
-        .join("hn_homepage.html");
+    let path_to_webpage = Path::new("fixtures/hn_homepage.html");
     let webpage_node_id = test_engine
         .get_or_add_node(
             Payload::Text(read_to_string(path_to_webpage).unwrap()),
@@ -473,11 +465,7 @@ fn test_extract_data_only_from_specified_links() {
         )
         .unwrap();
 
-    let path_to_webpage = Path::new(file!())
-        .parent()
-        .unwrap()
-        .join("test_files")
-        .join("hn_homepage.html");
+    let path_to_webpage = Path::new("fixtures/hn_homepage.html");
     let webpage_node_id = test_engine
         .get_or_add_node(
             Payload::Text(read_to_string(path_to_webpage).unwrap()),
@@ -568,11 +556,7 @@ fn test_crawl_within_domains_of_specified_links() {
             (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
         )
         .unwrap();
-    let path_to_webpage = Path::new(file!())
-        .parent()
-        .unwrap()
-        .join("test_files")
-        .join("hn_homepage.html");
+    let path_to_webpage = Path::new("fixtures/hn_homepage.html");
     let webpage_node_id = test_engine
         .get_or_add_node(
             Payload::Text(read_to_string(path_to_webpage).unwrap()),
