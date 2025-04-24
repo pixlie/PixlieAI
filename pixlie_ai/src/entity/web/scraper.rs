@@ -20,12 +20,45 @@ use url::Url;
 fn clean_text(text: String) -> String {
     let text: Vec<String> = text
         .trim()
-        .replace("\n", " ")
-        .replace("\t", " ")
         .split_whitespace()
         .map(|x| x.to_string())
         .collect();
     text.join(" ")
+}
+
+fn text_without_subtrees(element: &ElementRef) -> String {
+    // This function ignores ul, ol and table elements and their subtree
+    // while calculating the text.
+    // This is done to exclude such subtree text from the final text of an element, that
+    // is expected to have nested children that we are explicitly processing as trees.
+    // The function currently supports only the <li> element
+    // Elements for future support include all sub-elements of <table>
+    if element.value().name() != "li" {
+        return element.text().collect::<Vec<&str>>().join("");
+    }
+    let mut text: Vec<String> = vec![];
+    for child in element.children() {
+        let value = child.value();
+        if value.is_text() {
+            if let Some(elem_text) = value.as_text() {
+                let elem_text = elem_text.trim();
+                if !elem_text.is_empty() {
+                    text.push(elem_text.to_string());
+                }
+            }
+        } else if value.is_element() {
+            let sub_element_ref = ElementRef::wrap(child);
+            if let Some(sub_element_ref) = sub_element_ref {
+                match sub_element_ref.value().name() {
+                    "ul" | "ol" | "table" => {}
+                    _ => {
+                        text.push(text_without_subtrees(&sub_element_ref));
+                    }
+                }
+            }
+        }
+    }
+    text.join("")
 }
 
 struct Traverser<'a> {
@@ -44,6 +77,7 @@ impl<'a> Traverser<'a> {
         parent_node_label: Option<String>,
     ) -> PiResult<()> {
         for element in given_el.child_elements() {
+            let mut already_traversed = false;
             let name = element.value().name();
             match name {
                 "meta" => {
@@ -236,11 +270,7 @@ impl<'a> Traverser<'a> {
                         .arced_engine
                         .get_or_add_node(
                             Payload::Text(clean_text(
-                                element
-                                    .text()
-                                    .map(|x| x.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join(""),
+                                element.text().collect::<Vec<&str>>().join(""),
                             )),
                             vec![NodeLabel::Paragraph, NodeLabel::Partial],
                             true,
@@ -252,18 +282,21 @@ impl<'a> Traverser<'a> {
                         (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
                     )?;
                 }
-                "ul" => {
+                "ul" | "ol" => {
                     if !element.has_children() {
                         continue;
                     }
+                    let labels = vec![
+                        if name == "ul" {
+                            NodeLabel::UnorderedPoints
+                        } else {
+                            NodeLabel::OrderedPoints
+                        },
+                        NodeLabel::Partial,
+                    ];
                     let bullet_points_node_id = self
                         .arced_engine
-                        .get_or_add_node(
-                            Payload::Tree,
-                            vec![NodeLabel::UnorderedPoints, NodeLabel::Partial],
-                            true,
-                            None,
-                        )?
+                        .get_or_add_node(Payload::Tree, labels, true, None)?
                         .get_node_id();
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), bullet_points_node_id),
@@ -278,32 +311,16 @@ impl<'a> Traverser<'a> {
                     self.traverse(
                         element,
                         Some(bullet_points_node_id),
-                        Some(NodeLabel::UnorderedPoints.to_string()),
+                        Some(
+                            (if name == "ul" {
+                                NodeLabel::UnorderedPoints
+                            } else {
+                                NodeLabel::OrderedPoints
+                            })
+                            .to_string(),
+                        ),
                     )?;
-                }
-                "ol" => {
-                    if !element.has_children() {
-                        continue;
-                    }
-                    let bullet_points_node_id = self
-                        .arced_engine
-                        .get_or_add_node(
-                            Payload::Tree,
-                            vec![NodeLabel::OrderedPoints, NodeLabel::Partial],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
-                    self.arced_engine.add_connection(
-                        (self.webpage_node_id.clone(), bullet_points_node_id),
-                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-                    )?;
-                    if let Some(parent_node_id) = parent_node_id {
-                        self.arced_engine.add_connection(
-                            (parent_node_id, bullet_points_node_id.clone()),
-                            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-                        )?;
-                    }
+                    already_traversed = true;
                 }
                 "li" => {
                     // List items are stored only when parent is present and is either an ordered or an unordered list
@@ -314,9 +331,7 @@ impl<'a> Traverser<'a> {
                             let list_item_node_id = self
                                 .arced_engine
                                 .get_or_add_node(
-                                    Payload::Text(clean_text(
-                                        element.text().take(1).collect::<Vec<&str>>().join(""),
-                                    )),
+                                    Payload::Text(clean_text(text_without_subtrees(&element))),
                                     vec![NodeLabel::ListItem, NodeLabel::Partial],
                                     true,
                                     None,
@@ -472,7 +487,7 @@ impl<'a> Traverser<'a> {
                 // }
                 _ => {}
             }
-            if element.has_children() {
+            if !already_traversed && element.has_children() {
                 self.traverse(element, None, None)?;
             }
         }
