@@ -494,7 +494,7 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
 
     match &node.payload {
         Payload::Text(payload) => {
-            if !payload.to_lowercase().contains("<html") && !payload.contains("<!DOCTYPE html") {
+            if !payload.to_lowercase().contains("<html") {
                 log::warn!(
                     "Skipping content that doesn't appear to be HTML for node {:?}",
                     node.id
