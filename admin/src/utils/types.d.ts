@@ -46,11 +46,15 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
-interface IPosition {
+interface IElementPosition {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
+}
+
+interface INodePosition extends IElementPosition {
+  nodeIds: number[]; // Multiple sibling nodes can be represented in one display element
 }
 
 interface INodesAndEdges {
@@ -58,8 +62,8 @@ interface INodesAndEdges {
   edges: IEngineEdges;
   siblingNodes: Array<Array<number>>;
 
-  canvasPosition: IPosition;
-  nodePositions: Array<IPosition>;
+  canvasPosition: IElementPosition;
+  nodePositions: Array<INodePosition>;
 }
 
 interface IExplorerStore {
@@ -147,7 +151,8 @@ export type {
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
-  IPosition,
+  IElementPosition,
+  INodePosition,
   IExplorerStore,
   INodeItem,
   INodeItemDisplayProps,
