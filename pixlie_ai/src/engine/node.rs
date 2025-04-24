@@ -66,14 +66,6 @@ pub enum NodeLabel {
     CrawlCondition,
     ProjectSettings,
     CrawlerSettings,
-    Image,
-    Logo,
-    Name,
-    Description,
-    Url,
-    CreatedAt,
-    ModifiedAt,
-    Tag,
 }
 
 impl Default for NodeFlags {

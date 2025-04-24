@@ -22,12 +22,4 @@ export type NodeLabel =
   | "WebMetadata"
   | "CrawlCondition"
   | "ProjectSettings"
-  | "CrawlerSettings"
-  | "Image"
-  | "Logo"
-  | "Name"
-  | "Description"
-  | "Url"
-  | "CreatedAt"
-  | "ModifiedAt"
-  | "Tag";
+  | "CrawlerSettings";
