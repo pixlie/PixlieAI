@@ -269,6 +269,26 @@ pub struct QueryEdges {
     since: Option<i64>,
 }
 
+#[utoipa::path(
+    path = "/engine/{project_id}/explore",
+    responses(
+        (
+            status = 200,
+            description = "Explore data retrieved successfully. Returns `EngineResponsePayload` of `type` `Explore` or `Error`.",
+            body = EngineResponsePayload
+        ),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
+#[get("/explore")]
 pub async fn explore(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
@@ -807,7 +827,8 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
             .service(get_edges)
             .service(create_node)
             .service(create_edge)
-            .service(search_results),
+            .service(search_results)
+            .service(explore),
     );
 }
 

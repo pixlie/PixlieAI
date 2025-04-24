@@ -7,7 +7,6 @@ use crate::{config, engine, error::PiResult, projects, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
-
 use actix_web::HttpResponse;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
@@ -21,7 +20,6 @@ use log::{debug, error, info};
 use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::fmt::format;
 use serde_json::json;
 use std::fs::File;
 use std::io::BufReader;
