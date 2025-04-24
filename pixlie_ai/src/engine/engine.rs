@@ -82,7 +82,7 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
-            self.process_nodes();
+            // self.process_nodes();
         }
     }
 
@@ -247,7 +247,7 @@ impl Engine {
                             None
                         }
                     } else {
-                        if node_count < 10
+                        if node_count < 100
                             && all_labels_to_be_processed
                                 .iter()
                                 .any(|label| item.1.labels.contains(label))
@@ -481,6 +481,17 @@ impl Engine {
             }
         }
         Ok(())
+    }
+
+    pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
+        // Return all nodes that are connected to me
+        match self.edges.try_read() {
+            Ok(edges) => match edges.data.get(my_node_id) {
+                Some(my_node_edges) => Ok(Some(my_node_edges.clone())),
+                None => Ok(None),
+            },
+            Err(_) => Err(PiError::GraphError("Error locking edges".to_string())),
+        }
     }
 
     pub fn get_node_ids_connected_with_label(

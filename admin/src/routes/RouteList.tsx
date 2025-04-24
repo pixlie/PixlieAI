@@ -65,6 +65,13 @@ const PerProjectRoutes: Component = () => {
               `/p/${params.projectId}/workflow`,
             ),
           },
+          // {
+          //   label: "Explorer",
+          //   href: `/p/${params.projectId}/explorer`,
+          //   isActive: location.pathname.startsWith(
+          //     `/p/${params.projectId}/explorer`,
+          //   ),
+          // },
           {
             label: "Search",
             href: `/p/${params.projectId}/search`,
@@ -76,7 +83,7 @@ const PerProjectRoutes: Component = () => {
             label: "Graph",
             href: `/p/${params.projectId}/graph`,
             isActive: location.pathname.startsWith(
-              `/p/${params.projectId}/graph`
+              `/p/${params.projectId}/graph`,
             ),
           },
           {

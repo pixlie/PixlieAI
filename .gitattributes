@@ -1,0 +1,3 @@
+pixlie_ai/fixtures/* linguist-vendored
+gliner/** linguist-vendored
+.ci/** linguist-vendored

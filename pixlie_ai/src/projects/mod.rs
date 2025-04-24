@@ -23,9 +23,13 @@ pub enum ProjectOwner {
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct Project {
+    /// Project ID (UUID)
     pub uuid: String,
+    /// Project name - this is assigned by AI
     pub name: Option<String>,
+    /// Project description - currently unused
     pub description: Option<String>,
+    /// Project owner - for future use, currently defaults to Myself
     pub owner: ProjectOwner,
 }
 
