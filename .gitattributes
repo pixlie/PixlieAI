@@ -1,3 +1,3 @@
-pixlie_ai/src/fixtures/* linguist-vendored
+pixlie_ai/fixtures/* linguist-vendored
 gliner/** linguist-vendored
 .ci/** linguist-vendored
