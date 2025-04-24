@@ -51,23 +51,26 @@ We believe in transparency and community-driven development. Our core offering i
 
 ## See how Pixlie currently works
 
+Watch our latest product update on YouTube:
+[![YouTube Thumbnail](https://img.youtube.com/vi/jeFaP2eELf8/maxresdefault.jpg)](https://www.youtube.com/watch?v=jeFaP2eELf8)
+
 Choose your objective - what do you want to discover with Pixlie?:
-![Set your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-objective.png)
+![Set your objective](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-objective.png)
 
 Information will instantly be populated. Let Pixlie search a while and see...
 
 
 A list of links discovered based on your objective:
-![links found](https://pixlie.com/images/screenshots/pixlie-screenshot-links.png?v=2)
+![links found](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-links.png)
 
 A list of domains (as many links may come from one domain):
-![domains crawled](https://pixlie.com/images/screenshots/pixlie-screenshot-domains.png?v=2)
+![domains crawled](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-domains.png)
 
 The content extracted from these links:
-![Web pages relevant to your objective](https://pixlie.com/images/screenshots/pixlie-screenshot-webpages.png)
+![Web pages relevant to your objective](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-web-pages.png)
 
 Search through the results for specifics:
-![Search Results](https://pixlie.com/images/screenshots/pixlie-screenshot-search-resultsv0-2-0.png)
+![Search Results](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-search.png)
 
 ## 🚀 Roadmap
 We're actively developing Pixlie with these exciting features on the horizon:
@@ -100,6 +103,10 @@ If you want to use Pixlie, please see the [USE.md](USE.md) file.
 Pixlie has a REST API that you can use to interact with the graph. We use Bruno to document the API.
 
 You can find the API spec in the `rest_api` directory.
+
+## Contribute
+
+We are happily taking contributions! If you are interested in contributing to Pixlie, please join our [Discord Channel](https://discord.gg/5W9U9RPTGp) or reach out to us to set up a call. Share where you want to contribute. We have a lot of _to dos_ stuck in our head that we are happy to put on our [project board](https://github.com/orgs/pixlie/projects/5) if we know someone is interested in taking it on. 
 
 ## Stay in Touch
 

@@ -12,8 +12,9 @@ use crate::utils::llm::{clean_ts_type, LLMSchema};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
+use utoipa::ToSchema;
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct CrawlerSettings {
     pub keywords_to_search_the_web_to_get_starting_urls: Option<Vec<String>>,

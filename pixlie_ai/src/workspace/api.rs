@@ -1,9 +1,18 @@
 use super::{APIProvider, Workspace, WorkspaceCollection, WorkspaceUpdate};
 use crate::utils::crud::CrudItem;
 use crate::{error::PiResult, utils::crud::Crud};
-use actix_web::{web, Responder};
+use actix_web::{get, put, web, Responder};
 use std::collections::HashMap;
 
+#[utoipa::path(
+    path = "/workspace",
+    responses(
+        (status = 200, description = "Workspace(default) retrieved successfully", body = Workspace),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "workspace",
+)]
+#[get("")]
 pub async fn read_default_workspace() -> PiResult<impl Responder> {
     let mut item = WorkspaceCollection::get_default()?;
     // Keep only first 10 characters of the API keys
@@ -15,6 +24,17 @@ pub async fn read_default_workspace() -> PiResult<impl Responder> {
     Ok(web::Json(item))
 }
 
+/// Update the workspace
+#[utoipa::path(
+    path = "/workspace/{workspace_id}",
+    request_body = WorkspaceUpdate,
+    responses(
+        (status = 200, description = "Workspace updated successfully", body = String),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "workspace",
+)]
+#[put("{workspace_id}")]
 pub async fn update_workspace(
     workspace_id: web::Path<String>,
     update: web::Json<WorkspaceUpdate>,
@@ -30,4 +50,12 @@ pub async fn update_workspace(
     }
     WorkspaceCollection::update(&item.get_id(), Workspace { api_keys, ..item })?;
     Ok(web::Json(item_id))
+}
+
+pub fn configure_api_workspace(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
+    app_config.service(
+        utoipa_actix_web::scope::scope("/workspace")
+            .service(read_default_workspace)
+            .service(update_workspace),
+    );
 }

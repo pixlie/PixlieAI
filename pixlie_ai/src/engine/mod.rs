@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use ts_rs::TS;
+use utoipa::ToSchema;
 
 pub mod api;
 mod edges;
@@ -25,7 +26,7 @@ pub use engine::Engine;
 
 // pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 
-#[derive(Clone, Deserialize, Display, Eq, Hash, PartialEq, Serialize, TS)]
+#[derive(Clone, Deserialize, Display, Eq, Hash, PartialEq, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum EdgeLabel {
     RelatedTo,

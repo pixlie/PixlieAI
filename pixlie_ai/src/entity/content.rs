@@ -8,8 +8,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use utoipa::ToSchema;
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct LossyLocation {
     pub latitude: Option<f32>,
@@ -22,7 +23,7 @@ pub struct LossyLocation {
     pub country: String,
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum TypedData {
     SmallInteger(i8),
@@ -39,13 +40,13 @@ pub enum TypedData {
     Place(LossyLocation),
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub enum CellData {
     TypedData(TypedData),
     NamedEntity(String, String),
 }
 
-#[derive(Clone, Deserialize, Serialize, TS)]
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct TableRow(pub Vec<CellData>);
