@@ -40,6 +40,8 @@ const Workflow: Component = () => {
               x.labels.includes("AddedByAI" as NodeLabel) ||
               x.labels.includes("AddedByWebSearch" as NodeLabel)),
         )
+        .sort((a, b) => a.id - b.id)
+        .slice(0, 10)
         .map((x) => x.id);
     } else {
       return [];
@@ -72,9 +74,27 @@ const Workflow: Component = () => {
         )}
 
         <div>
+          <Heading size={3}>Project Settings</Heading>
+          <NodeGrid
+            nodeType="ProjectSettings"
+            source={() => []}
+            mode="regular"
+          />
+        </div>
+
+        <div>
+          <Heading size={3}>Crawler Settings</Heading>
+          <NodeGrid
+            nodeType="CrawlerSettings"
+            source={() => []}
+            mode="regular"
+          />
+        </div>
+
+        <div>
           <Heading size={3}>Starting links</Heading>
           <NodeGrid
-            nodeType={"Link"}
+            nodeType="Link"
             source={getStartingLinkIds}
             mode="regular"
           />

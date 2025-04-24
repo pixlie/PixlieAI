@@ -161,15 +161,13 @@ const LinkNode: Component<ILinkNodeProps> = (props) => {
   return (
     <>
       {!!getNode() ? (
-        <>
-          <Payload
-            id={props.nodeId}
-            flags={getNode()!.flags}
-            payload={getNode()!.payload.data as Link}
-            showFlags={props.showFlags}
-            data={props.data}
-          />
-        </>
+        <Payload
+          id={props.nodeId}
+          flags={getNode()!.flags}
+          payload={getNode()!.payload.data as Link}
+          showFlags={props.showFlags}
+          data={props.data}
+        />
       ) : null}
     </>
   );

@@ -5,9 +5,9 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use super::node::ArcedNodeItem;
+use super::node::{ArcedNodeItem, NodeLabel};
 use super::{EdgeLabel, Engine, NodeFlags};
-use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
+use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::project_settings::ProjectSettings;
@@ -17,6 +17,7 @@ use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
 use actix_web::{get, post, web, Responder};
+use itertools::Itertools;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -68,6 +69,8 @@ pub struct EdgeWrite {
 #[derive(Clone, Deserialize, TS)]
 #[ts(export)]
 pub enum EngineRequestPayload {
+    Explore(Option<u32>), // Optional node id to start from
+
     GetLabels,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
@@ -98,9 +101,18 @@ pub struct APINodeEdges {
 #[ts(export)]
 pub struct APIEdges(HashMap<NodeId, APINodeEdges>);
 
+/// Schema for response to the `explore` API request.
+#[derive(Clone, Serialize, ToSchema, TS)]
+#[ts(export)]
+pub struct Explore {
+    pub nodes: Vec<APINodeItem>,
+    pub edges: APIEdges,
+    pub sibling_nodes: Vec<Vec<NodeId>>, // Nodes that are grouped together because they are siblings
+}
+
 /// Engine's response for an API request.
 ///
-/// API requests for a project are sent to it's engine.
+/// API requests for a project are sent to its engine.
 /// The engine responds with an `EngineResponsePayload`, which is directly passed on as
 /// the API response.
 #[derive(Clone, Serialize, ToSchema, TS)]
@@ -111,7 +123,7 @@ pub enum EngineResponsePayload {
     NodeCreatedSuccessfully(NodeId),
     /// Response for edge creation.
     EdgeCreatedSuccessfully,
-    /// Response for node query. Returns a list of nodes.
+    /// Response for a node query. Returns a list of nodes.
     Nodes(Vec<APINodeItem>),
 
     // TODO: The below should be Labels(Vec<NodeLabel>)
@@ -120,6 +132,7 @@ pub enum EngineResponsePayload {
     Labels(Vec<String>),
     /// Response for edge retrieval. Returns a list of edges.
     Edges(APIEdges),
+    Explore(Explore),
     /// Error response.
     Error(String),
 }
@@ -132,7 +145,7 @@ pub enum EngineResponsePayload {
 pub enum APIPayload {
     /// A relative link to a resource, with the containing node connected to it's owner.
     /// Currently only used for nodes representing web URLs, in which case the owner is
-    /// a node representing it's domain.
+    /// a node representing its domain.
     Link(Link),
     /// A text payload.
     Text(String),
@@ -254,6 +267,73 @@ pub struct QueryEdges {
     /// The timestamp (in milliseconds) to filter edges by.
     /// Edges written after this timestamp will be returned.
     since: Option<i64>,
+}
+
+#[utoipa::path(
+    path = "/engine/{project_id}/explore",
+    responses(
+        (
+            status = 200,
+            description = "Explore data retrieved successfully. Returns `EngineResponsePayload` of `type` `Explore` or `Error`.",
+            body = EngineResponsePayload
+        ),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
+#[get("/explore")]
+pub async fn explore(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to explore",
+        request_id, project_id
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::Explore(None),
+        },
+    ))?;
+
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload);
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".to_string(),
+        ))),
+    }
 }
 
 /// Get all labels for a project
@@ -747,7 +827,8 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
             .service(get_edges)
             .service(create_node)
             .service(create_edge)
-            .service(search_results),
+            .service(search_results)
+            .service(explore),
     );
 }
 
@@ -757,6 +838,138 @@ pub fn handle_engine_api_request(
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
     let response = match request.payload {
+        EngineRequestPayload::Explore(optional_current_node_id) => {
+            // The `Explore` request helps the UI show the graph in a way that makes it easy to visualize.
+            // We start with nodes in a manner similar to how we process, and the UI can ask for further nodes.
+            let starting_node = match optional_current_node_id {
+                Some(current_node_id) => {
+                    engine.get_node_by_id(&current_node_id).ok_or_else(|| {
+                        PiError::InternalError("Cannot find given starting node".to_string())
+                    })?
+                }
+                None => {
+                    // When no starting node is given, we find the first objective node
+                    let mut node_ids_with_label =
+                        engine.get_node_ids_with_label(&NodeLabel::Objective);
+                    node_ids_with_label.sort();
+
+                    node_ids_with_label
+                        .iter()
+                        .find_map(|node_id| match engine.get_node_by_id(node_id) {
+                            Some(arced_node) => Some(arced_node),
+                            None => None,
+                        })
+                        .ok_or_else(|| {
+                            PiError::InternalError(
+                                "Could not find the starting Objective node".to_string(),
+                            )
+                        })?
+                }
+            };
+
+            // With the starting node, we fetch nodes and edges.
+            // We fetch 3 levels of nodes, and 2 levels of edges between them.
+            let max_depth = 4;
+            let node_labels_of_interest = [
+                NodeLabel::Objective,
+                NodeLabel::ProjectSettings,
+                NodeLabel::CrawlerSettings,
+                NodeLabel::Link,
+                NodeLabel::Domain,
+                NodeLabel::WebSearch,
+            ];
+
+            let mut node_ids_to_check: Vec<Vec<NodeId>> = vec![vec![starting_node.id]]; // By depth
+            let mut node_ids: Vec<NodeId> = vec![starting_node.id];
+            let mut nodes: Vec<ArcedNodeItem> = vec![starting_node];
+            let mut edges: HashMap<NodeId, APINodeEdges> = HashMap::new();
+            let mut sibling_nodes: Vec<Vec<NodeId>> = vec![];
+
+            // Loop over nodes connected to the current node and add them to nodes and edges to explore.
+            for depth in 0..max_depth {
+                node_ids_to_check.push(vec![]);
+                for node_id in node_ids_to_check[depth].clone().iter() {
+                    let mut visited_sibling_nodes: HashMap<String, Vec<NodeId>> = HashMap::new();
+                    match engine.get_connected_nodes(node_id) {
+                        Ok(optional_edges) => {
+                            match optional_edges {
+                                Some(node_edges) => {
+                                    // Read and populate the connected nodes
+                                    for edge in node_edges.edges.iter() {
+                                        if node_ids.contains(&edge.0) {
+                                            continue;
+                                        }
+
+                                        match engine.get_node_by_id(&edge.0) {
+                                            Some(node) => {
+                                                // Are we interested in this node?
+                                                match node_labels_of_interest
+                                                    .iter()
+                                                    .find(|label| node.labels.contains(label))
+                                                {
+                                                    Some(_) => {
+                                                        node_ids.push(node.id);
+
+                                                        node_ids_to_check[depth + 1].push(node.id);
+
+                                                        // Save the node
+                                                        nodes.push(node.clone());
+
+                                                        // If this node is connected to the starting node using the same edge label
+                                                        // as an earlier node, then it is a sibling of the starting node.
+                                                        visited_sibling_nodes
+                                                            .entry(
+                                                                node.labels
+                                                                    .iter()
+                                                                    .sorted()
+                                                                    .join(","),
+                                                            )
+                                                            .and_modify(|siblings| {
+                                                                siblings.push(node.id);
+                                                            })
+                                                            .or_insert(vec![node.id]);
+                                                    }
+                                                    None => {}
+                                                }
+                                            }
+                                            None => {}
+                                        }
+                                    }
+
+                                    // For every group of siblings with length > 1, we insert into node_siblings
+                                    for (_edge_label, siblings) in visited_sibling_nodes.iter() {
+                                        if siblings.len() > 1 {
+                                            sibling_nodes.push(siblings.clone());
+                                        }
+                                    }
+
+                                    // Save all the edges
+                                    edges.insert(
+                                        node_id.clone(),
+                                        APINodeEdges {
+                                            edges: node_edges
+                                                .edges
+                                                .iter()
+                                                .map(|x| (x.0, x.1.to_string()))
+                                                .collect(),
+                                            written_at: node_edges.written_at.timestamp_millis(),
+                                        },
+                                    );
+                                }
+                                None => {}
+                            }
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+
+            EngineResponsePayload::Explore(Explore {
+                nodes: nodes.iter().map(|x| APINodeItem::from_node(x)).collect(),
+                edges: APIEdges(edges),
+                sibling_nodes,
+            })
+        }
         EngineRequestPayload::GetLabels => {
             let labels = engine.get_all_node_labels();
             EngineResponsePayload::Labels(labels.iter().map(|x| x.to_string()).collect())

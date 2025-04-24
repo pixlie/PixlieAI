@@ -7,7 +7,6 @@ use crate::{config, engine, error::PiResult, projects, PiEvent};
 use actix_cors::Cors;
 use actix_files::{Files, NamedFile};
 use actix_web::http::header::HeaderName;
-
 use actix_web::HttpResponse;
 use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},

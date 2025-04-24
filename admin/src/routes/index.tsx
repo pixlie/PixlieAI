@@ -12,6 +12,7 @@ import HelpContainer from "./help/HelpContainer";
 import Contact from "./help/Contact";
 import CreateProject from "./projects/CreateProject.tsx";
 import Graph from "./projects/Graph.tsx";
+import Explorer from "./projects/Explorer.tsx";
 
 const Routes: Component = () => {
   return (
@@ -23,6 +24,7 @@ const Routes: Component = () => {
           <Route path="/create" component={CreateProject} />
           <Route path="/:projectId" component={PerProjectWrapper}>
             <Route path="/workflow" component={Workflow} />
+            <Route path="/explorer" component={Explorer} />
             <Route path="/insights" component={Insights} />
             <Route path="/data" component={Data} />
             <Route path="/search" component={Search} />
