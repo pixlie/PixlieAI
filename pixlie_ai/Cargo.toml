@@ -49,9 +49,11 @@ url = { version = "2.5.3", default-features = false }
 uuid = { version = "1.12.0", default-features = false, features = ["v4"] }
 tempfile = "3.17.1"
 bitflags = { version = "2.9.0", default-features = false, features = ["serde"] }
-utoipa = { version = "5.3.1", features = ["actix_extras"] }
+utoipa = { version = "5.3.1", features = ["actix_extras", "chrono", "non_strict_integers", "url", "uuid"] }
 utoipa-swagger-ui = { version = "9.0.1", features = ["actix-web"] }
 utoipa-actix-web = "0.1.2"
+utoipa-redoc = { version = "6.0.0", features = ["actix-web"] }
+utoipa-rapidoc = { version = "6.0.0", features = ["actix-web"] }
 
 # https://github.com/johnthagen/min-sized-rust
 [profile.release]

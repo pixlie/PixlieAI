@@ -51,8 +51,7 @@ We believe in transparency and community-driven development. Our core offering i
 
 ## See how Pixlie currently works
 
-Watch our latest product update on YouTube:
-[![YouTube Thumbnail](https://img.youtube.com/vi/jeFaP2eELf8/maxresdefault.jpg)](https://www.youtube.com/watch?v=jeFaP2eELf8)
+![See Pixlie in Action](https://pixlie.com/images/screenshots/Gif-24-Apr-2025-2.gif)
 
 Choose your objective - what do you want to discover with Pixlie?:
 ![Set your objective](https://pixlie.com/images/screenshots/20250422-pixlie-screenshot-objective.png)

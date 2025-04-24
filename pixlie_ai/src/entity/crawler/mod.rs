@@ -15,6 +15,7 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
+#[ts(export)]
 pub struct CrawlerSettings {
     pub keywords_to_search_the_web_to_get_starting_urls: Option<Vec<String>>,
     pub crawl_link_if_anchor_text_has_any_of_these_keywords: Option<Vec<String>>,
