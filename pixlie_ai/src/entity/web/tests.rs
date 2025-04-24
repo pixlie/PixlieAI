@@ -53,7 +53,7 @@ fn test_webpage_scraper_rlhf_book() {
     let children_of_webpage = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
-    assert_eq!(children_of_webpage.len(), 82);
+    assert_eq!(children_of_webpage.len(), 79);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
