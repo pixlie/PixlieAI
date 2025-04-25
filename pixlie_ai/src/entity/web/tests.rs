@@ -11,7 +11,6 @@ fn test_webpage_scraper_rlhf_book() {
     use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::web::link::Link;
-    use crate::entity::web::web_metadata::WebMetadata;
     use std::fs::read_to_string;
     use std::path::Path;
     use std::sync::Arc;

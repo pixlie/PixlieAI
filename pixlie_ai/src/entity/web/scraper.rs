@@ -546,7 +546,7 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
                 link_node_id: current_link_node_id.clone(),
                 web_metadata_node_id: web_metadata_node_id.clone(),
                 webpage_node_id: node.id.clone(),
-                webpage_url: current_url,
+                webpage_url: current_url.clone(),
                 arced_engine: engine,
                 project_settings,
             };
