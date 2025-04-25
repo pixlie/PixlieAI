@@ -1,5 +1,6 @@
 import { batch, Component, createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
+import { EdgeLabel } from "../api_types/EdgeLabel.ts";
 import { EngineResponsePayload } from "../api_types/EngineResponsePayload.ts";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import {
@@ -11,6 +12,12 @@ import {
 const makeStore = () => {
   const [store, setStore] = createStore<IExplorerStore>({
     projects: {},
+    nodeLabelsOfInterest: ["Objective", "CrawlerSettings"],
+    configurableNodeLabels: ["CrawlerSettings"],
+    edgeLabelsOfInterest: [
+      "SuggestedFor" as EdgeLabel,
+      "BelongsTo" as EdgeLabel,
+    ],
   });
 
   const setProjectId = (projectId: string) => {
@@ -88,10 +95,10 @@ const makeStore = () => {
     height: number,
   ) => {
     setStore("projects", projectId, "canvasPosition", {
-      x1: Math.round(x),
-      y1: Math.round(y),
-      x2: Math.round(x) + Math.round(width),
-      y2: Math.round(y) + Math.round(height),
+      x1: x,
+      y1: y,
+      x2: x + width,
+      y2: y + height,
     });
   };
 
@@ -105,11 +112,10 @@ const makeStore = () => {
     // We try to place each node on the canvas, starting from the top left corner
     // Nodes should not overlap
 
-    width = Math.round(width);
-    height = Math.round(height);
+    const canvasPosition = store.projects[projectId].canvasPosition;
 
     let x1: number = 0;
-    let y1: number = 0;
+    let y1: number = (canvasPosition.y2 - canvasPosition.y1 - height) / 2;
     let nearNode: INodePosition | undefined;
 
     const getPositionOnCircleAroundNode = (
@@ -120,8 +126,12 @@ const makeStore = () => {
       const breadth = nodePosition.y2 - nodePosition.y1;
       const radius = length > breadth ? length : breadth;
       return {
-        x: (nodePosition.x1 + nodePosition.x2) / 2 + radius * Math.cos(angle),
-        y: (nodePosition.y1 + nodePosition.y2) / 2 + radius * Math.sin(angle),
+        x:
+          (nodePosition.x1 + nodePosition.x2) / 2 +
+          radius * Math.cos((angle * Math.PI) / 180),
+        y:
+          (nodePosition.y1 + nodePosition.y2) / 2 +
+          radius * Math.sin((angle * Math.PI) / 180),
       };
     };
 
@@ -132,7 +142,7 @@ const makeStore = () => {
       });
 
       if (nearNode) {
-        const positionOnCircle = getPositionOnCircleAroundNode(nearNode, 270);
+        const positionOnCircle = getPositionOnCircleAroundNode(nearNode, 0);
         x1 = positionOnCircle.x;
         y1 = positionOnCircle.y;
       }
@@ -156,21 +166,23 @@ const makeStore = () => {
           nodeIds: nodeIds,
           x1: x1,
           y1: y1,
-          x2: x1 + Math.round(width),
-          y2: y1 + Math.round(height),
+          x2: x1 + width,
+          y2: y1 + height,
         };
       } else {
         // Try to find a new position by incrementing x and y
         if (nearNode) {
           // When we are planning to place this node near another, we try to place nodes in a circle.
-
           // const positionOnCircle = getPositionOnCircleAroundNode(
           //   nearNode,
           //   100,
           //   loopCount * 30,
           // );
-          x1 = overlap.x1 + 50;
-          y1 = overlap.y2 + 50;
+          const positionOnCircle = getPositionOnCircleAroundNode(
+            nearNode,
+            loopCount * 5,
+          );
+          [x1, y1] = [positionOnCircle.x, positionOnCircle.y];
         } else {
           x1 = overlap.x1 + 50;
           y1 = overlap.y2 + 50;
@@ -186,7 +198,6 @@ const makeStore = () => {
       store.projects[projectId].nodePositions.length,
       newPosition,
     );
-    // console.log(newPosition);
     return newPosition;
   };
 

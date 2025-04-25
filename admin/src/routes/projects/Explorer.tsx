@@ -1,18 +1,18 @@
-import { Component, createEffect, createMemo, For, onMount } from "solid-js";
-import { ExplorerProvider, useExplorer } from "../../stores/explorer.tsx";
-import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import Paragraph from "../../widgets/typography/Paragraph.tsx";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { useParams } from "@solidjs/router";
-import Heading from "../../widgets/typography/Heading.tsx";
+import { Component, createEffect, createMemo, For, onMount } from "solid-js";
+import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { CrawlerSettings } from "../../api_types/CrawlerSettings.ts";
-import { Link } from "../../api_types/Link.ts";
 import { EdgeLabel } from "../../api_types/EdgeLabel.ts";
+import { Link } from "../../api_types/Link.ts";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import { ExplorerProvider, useExplorer } from "../../stores/explorer.tsx";
+import Heading from "../../widgets/typography/Heading.tsx";
+import Paragraph from "../../widgets/typography/Paragraph.tsx";
 
-const edgeLabelsOfInterest: EdgeLabel[] = [
-  "SuggestedFor" as EdgeLabel,
-  "BelongsTo" as EdgeLabel,
-];
+// const edgeLabelsOfInterest: EdgeLabel[] = [
+//   "SuggestedFor" as EdgeLabel,
+//   "BelongsTo" as EdgeLabel,
+// ];
 
 interface IListOfCollapsibleTextsProps {
   texts: string[];
@@ -44,7 +44,9 @@ const NodeDisplay: Component<APINodeItem> = (props: APINodeItem) => {
         let nearEdge = explorer.projects[params.projectId].edges[
           props.id
         ].edges.find((nodeIdAndEdgeLabel) =>
-          edgeLabelsOfInterest.includes(nodeIdAndEdgeLabel[1] as EdgeLabel),
+          explorer.edgeLabelsOfInterest.includes(
+            nodeIdAndEdgeLabel[1] as EdgeLabel,
+          ),
         );
 
         if (nearEdge) {
@@ -66,15 +68,16 @@ const NodeDisplay: Component<APINodeItem> = (props: APINodeItem) => {
     }
   });
 
-  const labelsOfInterest = ["Objective", "CrawlerSettings", "WebSearch"];
+  // const nodeLabelsOfInterest = ["Objective", "CrawlerSettings", "WebSearch"];
   return (
     <>
-      {labelsOfInterest.some((label) =>
+      {explorer.nodeLabelsOfInterest.some((label) =>
         props.labels.includes(label as NodeLabel),
       ) ? (
         <div
-          class="absolute px-4 py-6 shadow-lg ring-1 ring-black/5 rounded bg-stone-100"
+          class="absolute px-4 py-6 shadow-lg ring-1 ring-black/5 rounded bg-stone-100 max-w-[50%]"
           ref={elementRef}
+          data-id={props.id}
         >
           {props.labels.includes("Objective" as NodeLabel) && (
             <>
@@ -123,6 +126,10 @@ interface INodeGroupDisplayProps {
   nodeIds: number[];
 }
 
+interface InnerProps {
+  parent: HTMLDivElement;
+}
+
 const NodeGroupDisplay: Component<INodeGroupDisplayProps> = (
   props: INodeGroupDisplayProps,
 ) => {
@@ -151,7 +158,9 @@ const NodeGroupDisplay: Component<INodeGroupDisplayProps> = (
         let nearEdge = explorer.projects[params.projectId].edges[
           firstNode()!.id
         ].edges.find((nodeIdAndEdgeLabel) =>
-          edgeLabelsOfInterest.includes(nodeIdAndEdgeLabel[1] as EdgeLabel),
+          explorer.edgeLabelsOfInterest.includes(
+            nodeIdAndEdgeLabel[1] as EdgeLabel,
+          ),
         );
 
         if (nearEdge) {
@@ -175,8 +184,9 @@ const NodeGroupDisplay: Component<INodeGroupDisplayProps> = (
 
   return (
     <div
-      class="absolute px-4 py-6 shadow-lg ring-1 ring-black/5 rounded bg-stone-100"
+      class="absolute px-4 py-6 shadow-lg ring-1 ring-black/5 rounded bg-stone-100 max-w-[50%]"
       ref={elementRef}
+      data-ids={props.nodeIds}
     >
       {firstNode()?.labels.includes("WebSearch" as NodeLabel) && (
         <>
@@ -199,23 +209,11 @@ const NodeGroupDisplay: Component<INodeGroupDisplayProps> = (
   );
 };
 
-const Inner: Component = () => {
+const Inner: Component<InnerProps> = (props: InnerProps) => {
   const [explorer, { setProjectId, explore, setCanvasPosition }] =
     useExplorer();
   const params = useParams();
-  let canvasRef: HTMLDivElement | undefined;
-
-  onMount(() => {
-    if (!!params.projectId && canvasRef) {
-      setCanvasPosition(
-        params.projectId as string,
-        canvasRef.getBoundingClientRect().x,
-        canvasRef.getBoundingClientRect().y,
-        canvasRef.getBoundingClientRect().width,
-        canvasRef.getBoundingClientRect().height,
-      );
-    }
-  });
+  let canvasRef = props.parent;
 
   onMount(() => {
     if (
@@ -223,7 +221,18 @@ const Inner: Component = () => {
       !Object.keys(explorer.projects).includes(params.projectId)
     ) {
       setProjectId(params.projectId);
-      explore(params.projectId);
+      setTimeout(() => {
+        queueMicrotask(() => {
+          setCanvasPosition(
+            params.projectId as string,
+            0,
+            0,
+            canvasRef.clientWidth,
+            canvasRef.clientHeight,
+          );
+          explore(params.projectId);
+        });
+      }, 150);
     }
   });
 
@@ -298,7 +307,7 @@ const Inner: Component = () => {
           ].edges
             .filter(
               (edge) =>
-                edgeLabelsOfInterest.includes(edge[1] as EdgeLabel) &&
+                explorer.edgeLabelsOfInterest.includes(edge[1] as EdgeLabel) &&
                 allNodeIdsDisplayed.includes(edge[0]),
             )
             .map((edge) => edge[0])) {
@@ -354,11 +363,11 @@ const Inner: Component = () => {
 const Explorer: Component = () => {
   // The node editor is created with free positioned divs that can be dragged and dropped.
   // Each node's position can be saved (later). Nodes are connected with edges which are SVG paths
-
+  let canvasRef!: HTMLDivElement;
   return (
     <ExplorerProvider>
-      <div class="relative w-full h-full">
-        <Inner />
+      <div class="relative w-full h-full" ref={canvasRef}>
+        <Inner parent={canvasRef} />
       </div>
     </ExplorerProvider>
   );

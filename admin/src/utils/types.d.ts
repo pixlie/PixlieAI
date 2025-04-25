@@ -1,10 +1,12 @@
 import { JSX, JSXElement } from "solid-js";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
+import { APINodeItem } from "../api_types/APINodeItem";
+import { EdgeLabel } from "../api_types/EdgeLabel.ts";
+import { NodeLabel } from "../api_types/NodeLabel.ts";
+import { Project } from "../api_types/Project";
 import { Settings } from "../api_types/Settings";
 import { SettingsStatus } from "../api_types/SettingsStatus";
-import { Project } from "../api_types/Project";
-import { APINodeItem } from "../api_types/APINodeItem";
 import { Workspace } from "../api_types/Workspace";
-import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 import { ThemableItem } from "./uIClasses/types";
 
 interface IProviderPropTypes {
@@ -68,6 +70,9 @@ interface INodesAndEdges {
 
 interface IExplorerStore {
   projects: { [projectId: string]: INodesAndEdges };
+  nodeLabelsOfInterest: NodeLabel[];
+  configurableNodeLabels: NodeLabel[];
+  edgeLabelsOfInterest: EdgeLabel[];
 }
 
 interface INodeItemDisplayProps {
@@ -142,22 +147,22 @@ interface ILabel {
 }
 
 export type {
-  IProviderPropTypes,
-  IWorkspace,
-  IFormField,
-  ITextFormField,
+  IActionsWrapper,
+  IActionsWrapperAction,
   IBooleanFormField,
+  IElementPosition,
   IEngine,
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
-  IElementPosition,
-  INodePosition,
   IExplorerStore,
+  IFormField,
+  ILabel,
   INodeItem,
   INodeItemDisplayProps,
   INodeListItemProps,
-  IActionsWrapper,
-  IActionsWrapperAction,
-  ILabel,
+  INodePosition,
+  IProviderPropTypes,
+  ITextFormField,
+  IWorkspace,
 };
