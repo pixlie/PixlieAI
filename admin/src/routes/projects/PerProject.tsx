@@ -14,7 +14,7 @@ const PerProjectInner: Component<IPerProjectInnerProps> = (props) => {
     if (!!params.projectId) {
       setProjectId(params.projectId);
       // It is set to OFF temporarily
-      // sync(params.projectId);
+      sync(params.projectId);
     }
   });
 
