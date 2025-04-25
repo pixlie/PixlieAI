@@ -96,7 +96,7 @@ impl<'a> Traverser<'a> {
                     if let Some(href) = element.value().attr("href") {
                         if let Some(rel) = element.value().attr("rel") {
                             if rel.contains("icon") {
-                                self.update_metadata_node("image", href)?;
+                                self.update_metadata_node("favicon", href)?;
                             }
                         }
                     }
@@ -121,6 +121,10 @@ impl<'a> Traverser<'a> {
                     self.arced_engine.add_connection(
                         (self.webpage_node_id.clone(), title_node_id),
                         (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
+                    )?;
+                    self.update_metadata_node(
+                        "title",
+                        &clean_text(element.text().collect::<Vec<&str>>().join("")),
                     )?;
                 }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
@@ -386,24 +390,45 @@ impl<'a> Traverser<'a> {
             }
         };
         match attr.to_lowercase().as_str() {
-            attr if attr.contains("url") => payload.url = Some(content.to_string()),
-            attr if attr.contains("site_name") => payload.site_name = Some(content.to_string()),
-            attr if attr.contains("image") || attr.contains("thumbnail") => {
-                if content.contains("fav")
-                    || content.contains("apple-touch")
-                    || content.contains(".ico")
-                {
-                    payload.favicon = Some(self.resolve_image(content)?)
-                } else if !attr.contains("width") && !attr.contains("height") {
-                    payload.image = Some(self.resolve_image(content)?)
-                } else {
+            attr if attr.contains("url") => {
+                if payload.url.is_some() {
                     return Ok(());
                 }
+                payload.url = Some(content.to_string())
             }
-            attr if attr.contains("title") => payload.title = Some(content.to_string()),
-            attr if attr.contains("description") => {
-                payload.description = Some(content.to_string())
+            attr if attr.contains("site_name") => payload.site_name = Some(content.to_string()),
+            attr if attr.contains("favicon") => {
+                if payload.favicon.is_some() {
+                    return Ok(());
+                }
+                payload.favicon = Some(self.resolve_image(content)?)
             }
+            attr if attr.contains("image") || attr.contains("thumbnail") => {
+                if !attr.contains("width") && !attr.contains("height") {
+                    return Ok(());
+                }
+                let is_probably_favicon = content.contains("fav")
+                    || content.contains("apple-touch")
+                    || content.contains(".ico");
+                if is_probably_favicon {
+                    if payload.favicon.is_some() {
+                        return Ok(());
+                    }
+                    payload.favicon = Some(self.resolve_image(content)?)
+                } else {
+                    if payload.image.is_some() {
+                        return Ok(());
+                    }
+                    payload.image = Some(self.resolve_image(content)?)
+                }
+            }
+            attr if attr.contains("title") => {
+                if payload.title.is_some() {
+                    return Ok(());
+                }
+                payload.title = Some(content.to_string())
+            }
+            attr if attr.contains("description") => payload.description = Some(content.to_string()),
             attr if attr.contains("tags") || attr.contains("keywords") => payload
                 .tags
                 .get_or_insert_with(Vec::new)
@@ -525,6 +550,7 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
                 arced_engine: engine,
                 project_settings,
             };
+            traverser.update_metadata_node("url", current_url.clone().as_str())?;
             traverser.traverse(document.root_element(), None, None)?;
         }
         _ => {

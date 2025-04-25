@@ -11,6 +11,7 @@ fn test_webpage_scraper_rlhf_book() {
     use crate::engine::node::{ArcedNodeItem, NodeLabel, Payload};
     use crate::engine::EdgeLabel;
     use crate::entity::web::link::Link;
+    use crate::entity::web::web_metadata::WebMetadata;
     use std::fs::read_to_string;
     use std::path::Path;
     use std::sync::Arc;
@@ -54,6 +55,42 @@ fn test_webpage_scraper_rlhf_book() {
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(children_of_webpage.len(), 79);
+
+    let web_metadata_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::WebMetadata))
+        .collect();
+    assert_eq!(web_metadata_nodes.len(), 1);
+    let web_metadata_node = web_metadata_nodes.first().unwrap();
+    match &web_metadata_node.payload {
+        Payload::WebMetadata(web_metadata) => {
+            assert_eq!(
+                web_metadata.url.as_deref().unwrap_or(""),
+                "https://rlhfbook.com/c/01-introduction.html"
+            );
+            assert_eq!(
+                web_metadata.favicon.as_deref().unwrap_or(""),
+                "https://rlhfbook.com/favicon.ico"
+            );
+            assert_eq!(
+                web_metadata.title.as_deref().unwrap_or(""),
+                "Introduction | RLHF Book by Nathan Lambert"
+            );
+            assert_eq!(
+                web_metadata.description.as_deref().unwrap_or(""),
+                "The Reinforcement Learning from Human Feedback Book"
+            );
+            assert_eq!(
+                web_metadata.author.as_deref().unwrap_or(""),
+                "Nathan Lambert"
+            );
+        }
+        _ => (),
+    }
+    assert_eq!(web_metadata_node.labels, vec![NodeLabel::WebMetadata]);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -354,6 +391,27 @@ fn test_extraction_from_hn_homepage() {
         .unwrap();
     assert_eq!(children_of_webpage.len(), 223);
 
+    let web_metadata_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::WebMetadata))
+        .collect();
+    assert_eq!(web_metadata_nodes.len(), 1);
+    let web_metadata_node = web_metadata_nodes.first().unwrap();
+    match &web_metadata_node.payload {
+        Payload::WebMetadata(web_metadata) => {
+            assert_eq!(
+                web_metadata.url.as_deref().unwrap_or(""),
+                "https://news.ycombinator.com/"
+            );
+            assert_eq!(web_metadata.title.as_deref().unwrap_or(""), "Hacker News");
+        }
+        _ => (),
+    }
+    assert_eq!(web_metadata_node.labels, vec![NodeLabel::WebMetadata]);
+
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap()
@@ -445,6 +503,27 @@ fn test_extract_data_only_from_specified_links() {
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(children_of_webpage.len(), 2);
+
+    let web_metadata_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::WebMetadata))
+        .collect();
+    assert_eq!(web_metadata_nodes.len(), 1);
+    let web_metadata_node = web_metadata_nodes.first().unwrap();
+    match &web_metadata_node.payload {
+        Payload::WebMetadata(web_metadata) => {
+            assert_eq!(
+                web_metadata.url.as_deref().unwrap_or(""),
+                "https://news.ycombinator.com/"
+            );
+            assert_eq!(web_metadata.title.as_deref().unwrap_or(""), "Hacker News");
+        }
+        _ => (),
+    }
+    assert_eq!(web_metadata_node.labels, vec![NodeLabel::WebMetadata]);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
@@ -538,6 +617,27 @@ fn test_crawl_within_domains_of_specified_links() {
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
         .unwrap();
     assert_eq!(children_of_webpage.len(), 190);
+
+    let web_metadata_nodes: Vec<ArcedNodeItem> = test_engine
+        .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
+        .unwrap()
+        .into_iter()
+        .filter_map(|id| test_engine.get_node_by_id(&id))
+        .filter(|node| node.labels.contains(&NodeLabel::WebMetadata))
+        .collect();
+    assert_eq!(web_metadata_nodes.len(), 1);
+    let web_metadata_node = web_metadata_nodes.first().unwrap();
+    match &web_metadata_node.payload {
+        Payload::WebMetadata(web_metadata) => {
+            assert_eq!(
+                web_metadata.url.as_deref().unwrap_or(""),
+                "https://news.ycombinator.com/"
+            );
+            assert_eq!(web_metadata.title.as_deref().unwrap_or(""), "Hacker News");
+        }
+        _ => (),
+    }
+    assert_eq!(web_metadata_node.labels, vec![NodeLabel::WebMetadata]);
 
     let title_nodes: Vec<ArcedNodeItem> = test_engine
         .get_node_ids_connected_with_label(&webpage_node_id, &EdgeLabel::ParentOf)
