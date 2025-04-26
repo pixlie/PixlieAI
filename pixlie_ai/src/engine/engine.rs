@@ -82,7 +82,7 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
-            // self.process_nodes();
+            self.process_nodes();
         }
     }
 
