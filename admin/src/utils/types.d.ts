@@ -48,28 +48,46 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
-interface IElementPosition {
+interface IExplorerRootElement {
+  w: number;
+  h: number;
+}
+
+interface IExplorerWorkflowElement {
+  id: string;
   x1: number;
   y1: number;
-  x2: number;
-  y2: number;
+  w: number;
+  h: number;
+  type: WorkflowElementType;
+  nodeIds: number[];
 }
 
-interface INodePosition extends IElementPosition {
-  nodeIds: number[]; // Multiple sibling nodes can be represented in one display element
+interface IExplorerNodes {
+  [nodeId: string]: APINodeItem;
+}
+interface IExplorerEdges {
+  [nodeId: string]: APINodeEdges;
 }
 
-interface INodesAndEdges {
-  nodes: APINodeItem[];
-  edges: IEngineEdges;
+interface IExplorerWorkflowElements {
+  [key: string]: IExplorerWorkflowElement;
+}
+
+interface IExplorerProject {
+  nodes: IExplorerNodes;
+  edges: IExplorerEdges;
   siblingNodes: Array<Array<number>>;
 
-  canvasPosition: IElementPosition;
-  nodePositions: Array<INodePosition>;
+  rootElement: IExplorerRootElement | undefined;
+  workflow: string[];
+  workflowElements: IExplorerWorkflowElements;
+  loaded: boolean;
+  ready: boolean;
 }
 
 interface IExplorerStore {
-  projects: { [projectId: string]: INodesAndEdges };
+  projects: { [projectId: string]: IExplorerProject };
   nodeLabelsOfInterest: NodeLabel[];
   configurableNodeLabels: NodeLabel[];
   edgeLabelsOfInterest: EdgeLabel[];
@@ -150,12 +168,17 @@ export type {
   IActionsWrapper,
   IActionsWrapperAction,
   IBooleanFormField,
-  IElementPosition,
   IEngine,
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
+  IExplorerEdges,
+  IExplorerNodes,
+  IExplorerProject,
+  IExplorerRootElement,
   IExplorerStore,
+  IExplorerWorkflowElement,
+  IExplorerWorkflowElements,
   IFormField,
   ILabel,
   INodeItem,

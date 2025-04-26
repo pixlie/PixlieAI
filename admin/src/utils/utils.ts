@@ -80,3 +80,21 @@ export const slugify = (str: string) => {
     .replace(/^--+$/g, "-")
     .replace(/^-+|-+$/, "");
 };
+
+export const polynomial_rolling_hash = (arr: number[]): string => {
+  const base = 53; // A prime number
+  const mod = 1e9 + 9; // A large prime to avoid overflow
+  let hash = 0; // Initialize hash
+  let power = 1; // Initialize power of base
+
+  for (let i = 0; i < arr.length; i++) {
+    // Update hash with the current element
+    // Mod twice at each step to avoid integer overflow
+    hash = (hash + ((arr[i] * power) % mod)) % mod;
+    // Update power
+    // Mod to avoid integer overflow
+    power = (power * base) % mod;
+  }
+
+  return hash.toString();
+};
