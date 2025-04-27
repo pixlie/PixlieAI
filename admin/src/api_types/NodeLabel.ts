@@ -19,15 +19,7 @@ export type NodeLabel =
   | "UnorderedPoints"
   | "WebPage"
   | "WebSearch"
+  | "WebMetadata"
   | "CrawlCondition"
   | "ProjectSettings"
-  | "CrawlerSettings"
-  | "Image"
-  | "Logo"
-  | "Name"
-  | "Description"
-  | "Url"
-  | "CreatedAt"
-  | "ModifiedAt"
-  | "Tag"
-  | "Metadata";
+  | "CrawlerSettings";
