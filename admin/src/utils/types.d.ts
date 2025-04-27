@@ -49,16 +49,29 @@ interface IEngineStore {
 }
 
 interface IExplorerRootElement {
+  domState: DOMRect | undefined;
+}
+
+interface IExplorerElementRelativePosition {
+  x: number;
+  y: number;
+}
+interface IExplorerElementRelativeSize {
   w: number;
   h: number;
 }
 
+interface IExplorerWorkflowElementState {
+  position: IExplorerElementRelativePosition;
+  size: IExplorerElementRelativeSize;
+}
+
 interface IExplorerWorkflowElement {
   id: string;
-  x1: number;
-  y1: number;
-  w: number;
-  h: number;
+  state: {
+    dom: DOMRect | undefined;
+    relative: IExplorerWorkflowElementState | undefined;
+  };
   type: WorkflowElementType;
   nodeIds: number[];
 }
@@ -79,7 +92,7 @@ interface IExplorerProject {
   edges: IExplorerEdges;
   siblingNodes: Array<Array<number>>;
 
-  rootElement: IExplorerRootElement | undefined;
+  rootElement: IExplorerRootElement;
   workflow: string[];
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
@@ -173,18 +186,20 @@ export type {
   IEngineNodes,
   IEngineStore,
   IExplorerEdges,
+  IExplorerElementRelativePosition as IExplorerNodePosition,
   IExplorerNodes,
+  IExplorerElementRelativeSize as IExplorerNodeSize,
   IExplorerProject,
   IExplorerRootElement,
   IExplorerStore,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
+  IExplorerWorkflowElementState,
   IFormField,
   ILabel,
   INodeItem,
   INodeItemDisplayProps,
   INodeListItemProps,
-  INodePosition,
   IProviderPropTypes,
   ITextFormField,
   IWorkspace,

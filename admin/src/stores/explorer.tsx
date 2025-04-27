@@ -7,9 +7,9 @@ import { NodeLabel } from "../api_types/NodeLabel.ts";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { WorkflowElementType } from "../utils/enums.ts";
 import {
-  IExplorerProject,
   IExplorerStore,
   IExplorerWorkflowElement,
+  IExplorerWorkflowElements,
   IProviderPropTypes,
 } from "../utils/types";
 import { polynomial_rolling_hash } from "../utils/utils.ts";
@@ -33,10 +33,12 @@ const makeStore = () => {
         siblingNodes: [],
         workflow: [],
         workflowElements: {},
-        rootElement: undefined,
+        rootElement: {
+          domState: undefined,
+        },
         loaded: false,
         ready: false,
-      } as IExplorerProject);
+      });
     }
   };
 
@@ -113,11 +115,7 @@ const makeStore = () => {
               wf_time,
               "ms",
             );
-            if (
-              !!store.projects[projectId].rootElement &&
-              store.projects[projectId].rootElement.w !== 0 &&
-              store.projects[projectId].rootElement.h !== 0
-            ) {
+            if (!!store.projects[projectId].rootElement.domState) {
               // Update/refresh the explorer render parameters, viz
               // the positions of workflowElements
             }
@@ -130,11 +128,15 @@ const makeStore = () => {
       });
   };
 
-  const updateRootElement = (projectId: string, w: number, h: number) => {
-    setStore("projects", projectId, "rootElement", {
-      w,
-      h,
-    });
+  const updateRootElement = (
+    projectId: string,
+    domState: DOMRect | undefined,
+  ) => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cant updateRootElement.");
+      return;
+    }
+    setStore("projects", projectId, "rootElement", "domState", domState);
   };
 
   const refreshWorkflowElements = (projectId: string) => {
@@ -178,34 +180,36 @@ const makeStore = () => {
         !nonSiblingNodeIdsWithoutElement.includes(elId) &&
         !siblingGroupIdsWithoutElement.includes(elId),
     );
-    const initialSize = {
-      x1: 0,
-      y1: 0,
-      w: 0,
-      h: 0,
-    };
-    const workflowElementsToAdd = Object.fromEntries(
+    const workflowElementsToAdd: IExplorerWorkflowElements = Object.fromEntries(
       nonSiblingNodeIdsWithoutElement
-        .map((nodeId) => {
+        .map<[string, IExplorerWorkflowElement]>((nodeId) => {
           const node = project.nodes[parseInt(nodeId)];
-          return {
-            id: polynomial_rolling_hash([node.id]),
-            ...initialSize,
-            type: WorkflowElementType.Node,
-            nodeIds: [node.id],
-          };
+          const id = polynomial_rolling_hash([node.id]);
+          return [
+            id,
+            {
+              id,
+              state: { dom: undefined, relative: undefined },
+              type: WorkflowElementType.Node,
+              nodeIds: [node.id],
+            },
+          ];
         })
         .concat(
-          siblingGroupIdsWithoutElement.map((hash) => {
-            return {
-              id: hash,
-              ...initialSize,
-              type: WorkflowElementType.NodeSiblingGroup,
-              nodeIds: siblingGroupsHashmap[hash],
-            } as IExplorerWorkflowElement;
-          }),
-        )
-        .map((elem) => [elem.id, elem as IExplorerWorkflowElement]),
+          siblingGroupIdsWithoutElement.map<[string, IExplorerWorkflowElement]>(
+            (hash) => {
+              return [
+                hash,
+                {
+                  id: hash,
+                  state: { dom: undefined, relative: undefined },
+                  type: WorkflowElementType.NodeSiblingGroup,
+                  nodeIds: siblingGroupsHashmap[hash],
+                },
+              ];
+            },
+          ),
+        ),
     );
 
     batch(() => {
