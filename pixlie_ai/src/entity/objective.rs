@@ -171,7 +171,7 @@ impl Objective {
     }
 
     fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-        Ok(Anthropic::parse_response(response)?)
+        Ok(Anthropic::parse_response::<LLMResponse>(response)?)
     }
 }
 

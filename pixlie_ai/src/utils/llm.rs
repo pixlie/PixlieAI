@@ -7,7 +7,6 @@
 
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
-use crate::entity::pixlie::LLMResponse;
 use crate::error::{PiError, PiResult};
 use crate::FetchRequest;
 use std::sync::Arc;
@@ -55,5 +54,7 @@ pub trait LLMProvider {
         ))
     }
 
-    fn parse_response(response: &str) -> PiResult<LLMResponse>;
+    fn parse_response<T>(response: &str) -> PiResult<T>
+    where
+        T: serde::de::DeserializeOwned;
 }

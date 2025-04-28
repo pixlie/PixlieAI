@@ -5,7 +5,6 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::entity::pixlie::LLMResponse;
 use crate::utils::llm::LLMProvider;
 use crate::workspace::{APIProvider, WorkspaceCollection};
 use crate::{
@@ -18,6 +17,7 @@ use log::debug;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use reqwest::Method;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -113,31 +113,24 @@ impl LLMProvider for Anthropic {
         Ok(request)
     }
 
-    fn parse_response(response: &str) -> PiResult<LLMResponse> {
+    fn parse_response<T: DeserializeOwned>(response: &str) -> PiResult<T> {
         let claude_response: ClaudeResponse = serde_json::from_str(response)?;
         if claude_response.content.len() != 1 {
             return Err(PiError::CouldNotParseResponseFromLLM(
                 LL_MODEL_HAIKU.to_string(),
             ));
         }
+        let text = &claude_response.content[0].text;
         // Check if the text starts a Markdown code block
-        if claude_response.content[0].text.starts_with("```json") {
-            let payload = claude_response.content[0]
-                .text
-                .trim_start_matches("```json");
-            let payload = payload.trim_end_matches("```");
-            let payload: LLMResponse = serde_json::from_str(payload)?;
-            Ok(payload)
-        } else if claude_response.content[0].text.starts_with("```") {
-            let payload = claude_response.content[0].text.trim_start_matches("```");
-            let payload = payload.trim_end_matches("```");
-            let payload: LLMResponse = serde_json::from_str(payload)?;
-            Ok(payload)
+        let payload = if text.starts_with("```json") {
+            text.trim_start_matches("```json").trim_end_matches("```")
+        } else if text.starts_with("```") {
+            text.trim_start_matches("```").trim_end_matches("```")
         } else {
-            let payload: LLMResponse =
-                serde_json::from_str(claude_response.content[0].text.as_str())?;
-            Ok(payload)
-        }
+            text
+        };
+        serde_json::from_str(payload)
+            .map_err(|e| PiError::CouldNotParseResponseFromLLM(format!("JSON parse error: {}", e)))
     }
 }
 
