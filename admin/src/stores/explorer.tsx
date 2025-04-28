@@ -7,9 +7,11 @@ import { NodeLabel } from "../api_types/NodeLabel.ts";
 import { getPixlieAIAPIRoot } from "../utils/api";
 import { WorkflowElementType } from "../utils/enums.ts";
 import {
+  IExplorerProject,
   IExplorerStore,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
+  IExplorerWorkflowNode,
   IProviderPropTypes,
 } from "../utils/types";
 import { polynomial_rolling_hash } from "../utils/utils.ts";
@@ -17,17 +19,14 @@ import { polynomial_rolling_hash } from "../utils/utils.ts";
 const makeStore = () => {
   const [store, setStore] = createStore<IExplorerStore>({
     projects: {},
-    nodeLabelsOfInterest: ["Objective", "CrawlerSettings"],
+    nodeLabelsOfInterest: ["Objective", "CrawlerSettings", "WebSearch", "Link"],
     configurableNodeLabels: ["CrawlerSettings"],
-    edgeLabelsOfInterest: [
-      "SuggestedFor" as EdgeLabel,
-      "BelongsTo" as EdgeLabel,
-    ],
+    edgeLabelsOfInterest: ["Suggests"],
   });
 
   const setProjectId = (projectId: string) => {
     if (!Object.keys(store.projects).includes(projectId)) {
-      setStore("projects", projectId, {
+      const newProject: IExplorerProject = {
         nodes: {},
         edges: {},
         siblingNodes: [],
@@ -38,7 +37,8 @@ const makeStore = () => {
         },
         loaded: false,
         ready: false,
-      });
+      };
+      setStore("projects", projectId, newProject);
     }
   };
 
@@ -106,6 +106,7 @@ const makeStore = () => {
             );
             const wf_start = new Date().getTime();
             refreshWorkflowElements(projectId);
+            buildWorkflowTree(projectId);
             const wf_end = new Date().getTime();
             const wf_time = wf_end - wf_start;
             console.info(
@@ -139,6 +140,25 @@ const makeStore = () => {
     setStore("projects", projectId, "rootElement", "domState", domState);
   };
 
+  const updateWorkflowElement = (
+    projectId: string,
+    elementId: string,
+    domState: DOMRect | undefined,
+  ) => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cant updateWorkflowElement.");
+      return;
+    }
+    setStore(
+      "projects",
+      projectId,
+      "workflowElements",
+      elementId,
+      "state",
+      "dom",
+      domState,
+    );
+  };
   const refreshWorkflowElements = (projectId: string) => {
     if (!Object.keys(store.projects).includes(projectId)) {
       console.error("Project ID not found. Cant refreshWorkflowElements.");
@@ -160,14 +180,26 @@ const makeStore = () => {
             } else nodeLabels[label]++;
           }
           return (
+            store.nodeLabelsOfInterest.some((label) =>
+              node.labels.includes(label),
+            ) &&
             !totalSiblingNodeIds.includes(node.id) &&
             !existingWorkflowElementIds.includes(node.id.toString())
           );
         })
         .map((node) => node.id.toString());
     console.info("Node label report:", nodeLabels);
+    const siblingGroupsOfInterest = project.siblingNodes
+      .map((siblingGroup) =>
+        siblingGroup.filter((nodeId) =>
+          store.nodeLabelsOfInterest.some((label) =>
+            project.nodes[nodeId].labels.includes(label),
+          ),
+        ),
+      )
+      .filter((group) => group.length > 0);
     const siblingGroupsHashmap = Object.fromEntries(
-      project.siblingNodes.map((siblingGroup) => [
+      siblingGroupsOfInterest.map((siblingGroup) => [
         polynomial_rolling_hash(siblingGroup),
         siblingGroup,
       ]),
@@ -190,6 +222,8 @@ const makeStore = () => {
             {
               id,
               state: { dom: undefined, relative: undefined },
+              labels: node.labels,
+              edges: {},
               type: WorkflowElementType.Node,
               nodeIds: [node.id],
             },
@@ -203,6 +237,14 @@ const makeStore = () => {
                 {
                   id: hash,
                   state: { dom: undefined, relative: undefined },
+                  labels: Array.from(
+                    new Set(
+                      siblingGroupsHashmap[hash]
+                        .map((nodeId) => project.nodes[nodeId].labels)
+                        .flat(),
+                    ),
+                  ),
+                  edges: {},
                   type: WorkflowElementType.NodeSiblingGroup,
                   nodeIds: siblingGroupsHashmap[hash],
                 },
@@ -211,18 +253,12 @@ const makeStore = () => {
           ),
         ),
     );
-
     batch(() => {
       setStore(
         produce((state) => {
+          // TODO: Remove corresponding node from workflow
           idsToRemoveFromWorkflow.forEach((elId) => {
             delete state.projects[projectId].workflowElements[elId];
-            if (elId in state.projects[projectId].workflow) {
-              state.projects[projectId].workflow.splice(
-                state.projects[projectId].workflow.indexOf(elId),
-                1,
-              );
-            }
           });
         }),
       );
@@ -232,15 +268,122 @@ const makeStore = () => {
         "workflowElements",
         workflowElementsToAdd,
       );
-      Object.keys(workflowElementsToAdd).forEach((elId) => {
-        setStore(
-          "projects",
-          projectId,
-          "workflow",
-          store.projects[projectId].workflow.length,
-          elId,
-        );
+    });
+    const nodeIdToWorkflowElementMap: Record<string, string> = {};
+    const workflowElementIds = Object.keys(project.workflowElements);
+    workflowElementIds.forEach((elId) => {
+      const el = project.workflowElements[elId];
+      el.nodeIds.forEach((nodeId) => {
+        nodeIdToWorkflowElementMap[nodeId] = elId;
       });
+    });
+    batch(() => {
+      setStore(
+        produce((state) => {
+          const project = state.projects[projectId];
+          const workflowElements = project.workflowElements;
+          for (const [sourceNodeId, { edges }] of Object.entries(
+            project.edges,
+          )) {
+            for (const [targetNodeId, edge] of edges) {
+              const edgeLabel = edge as EdgeLabel;
+              if (store.edgeLabelsOfInterest.includes(edgeLabel)) {
+                const sourceWorkflowElement =
+                  workflowElements[nodeIdToWorkflowElementMap[sourceNodeId]];
+                const targetWorkflowElementId =
+                  nodeIdToWorkflowElementMap[targetNodeId];
+                if (sourceWorkflowElement && targetWorkflowElementId) {
+                  if (!sourceWorkflowElement.edges[edgeLabel]) {
+                    sourceWorkflowElement.edges[edgeLabel] = [];
+                  }
+                  if (
+                    !sourceWorkflowElement.edges[edgeLabel].includes(
+                      targetWorkflowElementId,
+                    )
+                  ) {
+                    sourceWorkflowElement.edges[edgeLabel].push(
+                      targetWorkflowElementId,
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }),
+      );
+    });
+  };
+
+  const buildWorkflowTree = (projectId: string) => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cannot buildWorkflowTree.");
+      return undefined;
+    }
+
+    const project = store.projects[projectId];
+    const workflowElements = project.workflowElements;
+
+    const visited = new Set<string>();
+
+    const buildTree = (
+      id: string,
+      depth = 0,
+    ): IExplorerWorkflowNode | undefined => {
+      visited.add(id);
+      const element = workflowElements[id];
+
+      if (!element) {
+        console.warn(`Workflow element with ID ${id} not found.`);
+        return undefined;
+      }
+
+      const children: ReturnType<typeof buildTree>[] = [];
+
+      const suggestEdges = element.edges?.Suggests || [];
+      for (const elem in workflowElements) {
+        if (suggestEdges.includes(workflowElements[elem].id)) {
+          if (!visited.has(workflowElements[elem].id)) {
+            const childTree = buildTree(workflowElements[elem].id, depth + 1);
+            if (childTree) {
+              children.push(childTree);
+            }
+          }
+        }
+      }
+
+      return {
+        id,
+        children,
+      };
+    };
+
+    const roots: ReturnType<typeof buildTree>[] = [];
+    const allTargets = new Set<string>();
+
+    // Collect all target node hashes
+    Object.values(workflowElements).forEach((el) => {
+      const suggests = el.edges?.Suggests || [];
+      suggests.forEach((targetId) => {
+        allTargets.add(targetId);
+      });
+    });
+
+    // Find root nodes — nodes NOT targeted by anyone
+    Object.keys(workflowElements).forEach((id) => {
+      if (!allTargets.has(id)) {
+        const rootTree = buildTree(id);
+        if (rootTree) {
+          roots.push(rootTree);
+        }
+      }
+    });
+    batch(() => {
+      setStore(
+        "projects",
+        projectId,
+        "workflow",
+        roots.filter((x) => !!x),
+      );
     });
   };
 
@@ -250,6 +393,7 @@ const makeStore = () => {
       explore,
       setProjectId,
       updateRootElement,
+      updateWorkflowElement,
     },
   ] as const; // `as const` forces tuple type inference
 };

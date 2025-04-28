@@ -66,14 +66,25 @@ interface IExplorerWorkflowElementState {
   size: IExplorerElementRelativeSize;
 }
 
+interface IExplorerWorkflowEdges {
+  [label: string]: Array<string>;
+}
+
 interface IExplorerWorkflowElement {
   id: string;
   state: {
     dom: DOMRect | undefined;
     relative: IExplorerWorkflowElementState | undefined;
   };
+  labels: Array<NodeLabel>;
+  edges: IExplorerWorkflowEdges;
   type: WorkflowElementType;
   nodeIds: number[];
+}
+
+interface IExplorerWorkflowNode {
+  id: string;
+  children: WorkflowNode[];
 }
 
 interface IExplorerNodes {
@@ -93,7 +104,7 @@ interface IExplorerProject {
   siblingNodes: Array<Array<number>>;
 
   rootElement: IExplorerRootElement;
-  workflow: string[];
+  workflow: IExplorerWorkflowNode[];
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
   ready: boolean;
@@ -186,15 +197,17 @@ export type {
   IEngineNodes,
   IEngineStore,
   IExplorerEdges,
-  IExplorerElementRelativePosition as IExplorerNodePosition,
+  IExplorerWorkflowEdges as IExplorerElementEdges,
+  IExplorerElementRelativePosition,
+  IExplorerElementRelativeSize,
   IExplorerNodes,
-  IExplorerElementRelativeSize as IExplorerNodeSize,
   IExplorerProject,
   IExplorerRootElement,
   IExplorerStore,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
   IExplorerWorkflowElementState,
+  IExplorerWorkflowNode,
   IFormField,
   ILabel,
   INodeItem,
