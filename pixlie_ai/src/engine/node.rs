@@ -8,6 +8,7 @@
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -34,6 +35,7 @@ pub enum Payload {
     TableRow(TableRow),
     ProjectSettings(ProjectSettings),
     CrawlerSettings(CrawlerSettings),
+    ClassifierSettings(ClassifierSettings),
 }
 
 pub(crate) type NodeId = u32;
@@ -65,6 +67,7 @@ pub enum NodeLabel {
     CrawlCondition,
     ProjectSettings,
     CrawlerSettings,
+    ClassifierSettings,
 }
 
 impl Default for NodeFlags {
@@ -89,12 +92,12 @@ impl NodeItem {
             Domain::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Link) {
             Link::process(self, arced_engine.clone(), None)?;
-        } else if self.labels.contains(&NodeLabel::WebPage) {
-            WebPage::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::WebSearch) {
             WebSearch::process(self, arced_engine.clone(), None)?;
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }
@@ -128,7 +131,13 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
-        }
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response)),
+            )?;
+        } 
         Ok(())
     }
 
@@ -145,6 +154,8 @@ impl NodeItem {
             Objective::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::WebSearch) {
             WebSearch::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         }
         Ok(())
     }

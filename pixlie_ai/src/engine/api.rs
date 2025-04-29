@@ -10,6 +10,7 @@ use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
@@ -162,6 +163,8 @@ pub enum APIPayload {
     /// These are the settings of the Pixlie AI crawler, based on which it
     /// crawls the web.
     CrawlerSettings(CrawlerSettings),
+    /// These are the settings of the Pixlie AI classifier, based on which it classifies content.
+    ClassifierSettings(ClassifierSettings),
 }
 
 #[derive(Clone, Default, Serialize, ToSchema, TS)]
@@ -233,6 +236,9 @@ impl APINodeItem {
             }
             Payload::CrawlerSettings(crawler_settings) => {
                 APIPayload::CrawlerSettings(crawler_settings.clone())
+            }
+            Payload::ClassifierSettings(classifier_settings) => {
+                APIPayload::ClassifierSettings(classifier_settings.clone())
             }
         };
         APINodeItem {
@@ -878,6 +884,7 @@ pub fn handle_engine_api_request(
                 NodeLabel::Objective,
                 NodeLabel::ProjectSettings,
                 NodeLabel::CrawlerSettings,
+                NodeLabel::ClassifierSettings,
                 NodeLabel::Link,
                 NodeLabel::Domain,
                 NodeLabel::WebSearch,
