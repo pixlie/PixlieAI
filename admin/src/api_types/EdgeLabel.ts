@@ -9,4 +9,8 @@ export type EdgeLabel =
   | "OwnerOf"
   | "BelongsTo"
   | "Suggests"
-  | "SuggestedFor";
+  | "SuggestedFor"
+  | "Classifies"
+  | "ClassifiedFor"
+  | "Matches"
+  | "MatchedFor";

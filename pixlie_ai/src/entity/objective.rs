@@ -115,6 +115,24 @@ impl Objective {
                                     None => {}
                                 }
                             }
+                            Tool::Classifier(classifier_settings) => {
+                                let classifier_settings_node_id = engine
+                                    .get_or_add_node(
+                                        Payload::ClassifierSettings(classifier_settings.clone()),
+                                        vec![
+                                            NodeLabel::AddedByAI,
+                                            NodeLabel::ClassifierSettings,
+                                        ],
+                                        true,
+                                        None,
+                                    )?
+                                    .get_node_id();
+
+                                engine.add_connection(
+                                    (node.id, classifier_settings_node_id),
+                                    (EdgeLabel::Classifies, EdgeLabel::ClassifiedFor),
+                                )?;
+                            }
                         }
                     }
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;

@@ -68,6 +68,8 @@ pub enum NodeLabel {
     ProjectSettings,
     CrawlerSettings,
     ClassifierSettings,
+    Insight,
+    Reason,
 }
 
 impl Default for NodeFlags {
