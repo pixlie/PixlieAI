@@ -5,6 +5,10 @@ import { useParams } from "@solidjs/router";
 import ShareOptions from "../interactable/ShareOptions.tsx";
 import LoaderIcon from "../../assets/icons/tabler-loader.svg";
 import { WebMetadata } from "../../api_types/WebMetadata.ts";
+import SparkleIcon from "../../assets/icons/tabler-sparkles.svg";
+import BrainIcon from "../../assets/icons/tabler-brain.svg";
+import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { Link } from "../../api_types/Link.ts";
 
 interface WebPageNodeProps {
   nodeId: number;
@@ -12,21 +16,38 @@ interface WebPageNodeProps {
 
 interface WebPagePreviewContainerProps {
   metadata: WebMetadata;
+  insight?: string;
+  reason?: string;
 }
 
 interface WebPagePreviewProps extends WebPagePreviewContainerProps {
   showShareOptions: boolean;
 }
 
+function cleanUrl(url: string | null): string {
+  if (!url) return "";
+  try {
+    const { hostname } = new URL(url);
+    return hostname.replace(/^www\./, "");
+  } catch (error) {
+    console.error("Invalid URL:", url);
+    return url; // fallback
+  }
+}
+
 const WebPagePreview: Component<WebPagePreviewProps> = ({
   metadata,
+  insight,
+  reason,
   showShareOptions,
 }) => {
   const [imageVisible, setImageVisible] = createSignal(true);
   const [faviconVisible, setFaviconVisible] = createSignal(true);
 
   return (
-    <div class="flex flex-col w-full bg-white border border-slate-200 rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden">
+    <div
+      class={`flex flex-col w-full bg-white ${!!insight ? "border-2 border-green-500 bg-green-50" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
+    >
       {metadata.image && imageVisible() && (
         <img
           src={metadata.image}
@@ -43,22 +64,28 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
           rel="noreferrer"
           class="w-full flex flex-col gap-3"
         >
-          {metadata.site_name && (
-            <div class="flex items-center gap-2">
-              {metadata.favicon && faviconVisible() && (
-                <img
-                  src={metadata.favicon}
-                  class="w-6 h-6 object-contain"
-                  alt="logo"
-                  onError={() => setFaviconVisible(false)}
-                />
-              )}
-
-              <p class="text-xs text-slate-500 font-semibold rounded-full px-2 py-1 bg-slate-100 group-hover:bg-blue-200/50 group-hover:text-blue-600 transition-all duration-50 ease-in-out">
-                {metadata.site_name}
+          <div class="flex items-center gap-2">
+            {metadata.favicon && faviconVisible() && (
+              <img
+                src={metadata.favicon}
+                class="w-6 h-6 object-contain"
+                alt="logo"
+                onError={() => setFaviconVisible(false)}
+              />
+            )}
+            <div>
+              <p class="text-xs text-slate-500 font-semibold rounded-full px-2 py-1 bg-slate-100 group-hover:bg-blue-200/50 group-hover:text-blue-600 transition-all duration-50 ease-in-out line-clamp-1">
+                {metadata.site_name
+                  ? metadata.site_name
+                  : cleanUrl(metadata.url)}
               </p>
             </div>
-          )}
+            {insight && (
+              <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
+                Match
+              </span>
+            )}
+          </div>
 
           {(metadata.title || metadata.description) && (
             <div class="flex flex-col gap-1.5">
@@ -94,6 +121,26 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
                     {`#${tag}`}
                   </p>
                 ))}
+            </div>
+          )}
+
+          {reason && (
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center gap-2 text-lg font-medium text-fuchsia-600">
+                <BrainIcon />
+                <p>Reasoning</p>
+              </div>
+              <p class="text-md text-slate-700 leading-snug">{reason}</p>
+            </div>
+          )}
+
+          {insight && (
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center gap-2 text-lg font-medium text-purple-600">
+                <SparkleIcon />
+                <p>Insights</p>
+              </div>
+              <p class="text-md text-slate-700 leading-snug">{insight}</p>
             </div>
           )}
         </a>
@@ -132,16 +179,77 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
   const [_, { getRelatedNodes }] = useEngine();
   const params = useParams();
 
+  const getLinkNode = createMemo<APINodeItem | null>(() => {
+    return getRelatedNodes(
+      params.projectId,
+      props.nodeId,
+      "ContentOf",
+      (n) => n.payload.type === "Link"
+    )[0];
+  });
+
+  const getDomainNode = createMemo<APINodeItem | null>(() => {
+    const linkNode = getLinkNode();
+    if (!linkNode?.id) return null;
+    const domainNode = getRelatedNodes(
+      params.projectId,
+      linkNode.id,
+      "BelongsTo",
+      (n) => n.labels.includes("Domain")
+    )[0];
+    return domainNode;
+  });
+
+  const getInsight = createMemo<string | null>(() => {
+    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
+      n.labels.includes("Insight")
+    )[0]?.payload.data as string | null;
+  });
+
+  const getReason = createMemo<string | null>(() => {
+    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
+      n.labels.includes("Reason")
+    )[0]?.payload.data as string | null;
+  });
+
+  const getFullUrl = createMemo<string | null>(() => {
+    const domain = getDomainNode()?.payload.data as string | null;
+    const link = getLinkNode()?.payload.data as Link | null;
+    if (!domain || !link) return null;
+    return `https://${domain.replace(/^(?:https?:\/\/)?(?:www\.)?/, "")}${link.path}${link.query ? "?" + link.query : ""}`;
+  });
+
+  const getHostName = createMemo<string | null>(() => {
+    const domain = getDomainNode()?.payload.data as string | null;
+    if (!domain) return null;
+    return domain.replace(/^(?:https?:\/\/)?(?:www\.)?/, "");
+  });
+
   const getWebMetadata = createMemo<WebMetadata | null>(() => {
-    return getRelatedNodes(params.projectId, props.nodeId, "ParentOf", (n) =>
-      n.labels.includes("WebMetadata")
+    const metadata = getRelatedNodes(
+      params.projectId,
+      props.nodeId,
+      "ParentOf",
+      (n) => n.labels.includes("WebMetadata")
     )?.[0]?.payload.data as WebMetadata | null;
+    if (!metadata) return null;
+    if (!metadata.url) {
+      metadata.url = getFullUrl();
+    }
+    if (!metadata.site_name) {
+      metadata.site_name = getHostName();
+    }
+    return metadata;
   });
 
   return (
     <>
       {!!getWebMetadata() ? (
-        <WebPagePreviewContainer metadata={getWebMetadata()!} />
+        <WebPagePreviewContainer
+          metadata={getWebMetadata()!}
+          insight={!!getInsight()! ? getInsight()! : undefined}
+          reason={!!getReason()! ? getReason()! : undefined}
+        />
       ) : (
         <div class="h-10 w-full flex items-center justify-center border border-slate-200 rounded-xl shadow-sm bg-white text-slate-500">
           <LoaderIcon />
