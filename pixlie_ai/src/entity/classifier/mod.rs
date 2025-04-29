@@ -87,7 +87,7 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
         .collect::<Vec<String>>()
         .join("\n\n");
 
-    log::info!("✏️ Content to classify: {}", content.clone());
+    // log::info!("✏️ Content to classify: {}", content.clone());
 
     let query = engine
     .get_node_ids_with_label(&NodeLabel::Objective)
@@ -118,7 +118,7 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
             })
     })?;
 
-    log::info!("❓ Query to classify: {}", query.clone());
+    // log::info!("❓ Query to classify: {}", query.clone());
 
     Ok(format!(
         r#"Your task is to analyze the following content and classify it as either relevant or irrelevant based on the given query.
