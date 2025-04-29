@@ -77,7 +77,7 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
         .filter(|node| {
             matches!(
                 node.labels.as_slice(),
-                [NodeLabel::Title | NodeLabel::Heading, ..]
+                [NodeLabel::Title | NodeLabel::Heading | NodeLabel::Paragraph, ..]
             )
         })
         .filter_map(|node| match &node.payload {
