@@ -110,12 +110,8 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
                 ?.map((tag) => tag.trim())
                 ?.filter((tag) => tag.length > 0)
                 ?.map((tag, i) => (
-                  // <p
-                  //   class="text-xs text-slate-500 font-semibold rounded px-2 py-1 bg-slate-100 group-hover:bg-yellow-200/50 group-hover:text-yellow-600 transition-all duration-50 ease-in-out"
-                  //   id={`tag-${i}-${tag}`}
-                  // >
                   <p
-                    class="text-xs text-slate-400 underline"
+                    class="text-xs text-slate-500 font-semibold rounded-full px-2 py-1 bg-slate-100 group-hover:bg-yellow-200/50 group-hover:text-yellow-600 transition-all duration-50 ease-in-out"
                     id={`tag-${i}-${tag}`}
                   >
                     {`#${tag}`}
