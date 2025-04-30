@@ -22,4 +22,7 @@ export type NodeLabel =
   | "WebMetadata"
   | "CrawlCondition"
   | "ProjectSettings"
-  | "CrawlerSettings";
+  | "CrawlerSettings"
+  | "ClassifierSettings"
+  | "Insight"
+  | "Reason";

@@ -8,6 +8,7 @@
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::utils::llm::LLMPrompt;
 use crate::{
@@ -23,15 +24,17 @@ use ts_rs::TS;
 #[derive(Deserialize, TS)]
 pub enum Tool {
     Crawler(CrawlerSettings),
+    Classifier(ClassifierSettings),
     // NamedEntityExtraction(Vec<NamedEntity>),
 }
 
 impl LLMSchema for Tool {
     fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_crawl = CrawlerSettings::get_schema_for_llm(node, engine)?;
+        let ts_crawl = CrawlerSettings::get_schema_for_llm(node, engine.clone())?;
+        let ts_classify = ClassifierSettings::get_schema_for_llm(node, engine.clone())?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
-        Ok(format!("{}\n{}", ts_crawl, ts_self))
+        Ok(format!("{}\n{}\n{}", ts_crawl, ts_classify, ts_self))
     }
 }
 
@@ -53,6 +56,7 @@ impl LLMSchema for LLMResponse {
 #[derive(Display)]
 pub enum PixlieFeature {
     Crawler,
+    Classifier,
 }
 
 #[derive(Serialize)]

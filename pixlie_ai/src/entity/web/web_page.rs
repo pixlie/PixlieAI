@@ -5,11 +5,14 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{NodeId, NodeItem, Payload};
+use crate::engine::node::{NodeId, ArcedNodeId, NodeItem, ArcedNodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::scraper::scrape;
+use crate::entity::classifier::{classify, LLMResponse};
+use crate::services::anthropic::Anthropic;
+use crate::utils::llm::LLMProvider;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
 use log::error;
@@ -93,6 +96,10 @@ impl WebPage {
             }
         }
         content
+    }
+
+    fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
+        Ok(Anthropic::parse_response::<LLMResponse>(response)?)
     }
 
     // pub fn get_partial_content_nodes(
@@ -195,10 +202,52 @@ impl WebPage {
     pub fn process(
         node: &NodeItem,
         engine: Arc<&Engine>,
-        _data_from_previous_request: Option<ExternalData>,
+        data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
-        scrape(node, engine.clone())?;
-        engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)
+        match data_from_previous_request {
+            Some(external_data) => match external_data {
+                ExternalData::Response(response) => {
+                    let parsed_response = &Self::parse_llm_response(&response.contents)?;
+                    if parsed_response.is_relevant {
+                        log::info!("🟢 WebPage node {} is relevant.", node.id);
+                        let insight_node_id = engine
+                        .get_or_add_node(
+                            Payload::Text(parsed_response.insight.clone()),
+                            vec![NodeLabel::Insight, NodeLabel::AddedByAI],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
+                        engine.add_connection(
+                            (node.id.clone(), insight_node_id),
+                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
+                        )?;
+                        let reason_node_id = engine
+                            .get_or_add_node(
+                                Payload::Text(parsed_response.reason.clone()),
+                                vec![NodeLabel::Reason, NodeLabel::AddedByAI],
+                                true,
+                                None,
+                            )?
+                            .get_node_id();
+                        engine.add_connection(
+                            (node.id.clone(), reason_node_id),
+                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
+                        )?;
+                        engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
+                    } else {
+                        log::info!("🔴 WebPage node {} is not relevant.", node.id);
+                        engine.toggle_flag(&node.id, NodeFlags::IS_BLOCKED)?;
+                    }
+                }
+                ExternalData::Error(_error) => {}
+            },
+            None => {
+                scrape(node, engine.clone())?;
+                classify(node, engine.clone())?;
+            }
+        }
+        Ok(())
     }
 }
 
