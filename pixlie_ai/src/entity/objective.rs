@@ -225,8 +225,8 @@ mod tests {
         type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
-            llm_schema.replace('\n', " "),
-            expected_schema.replace('\n', " ")
+            llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
+            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
         );
     }
 
@@ -305,8 +305,8 @@ mod tests {
         type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
-            llm_schema.replace('\n', " "),
-            expected_schema.replace('\n', " ")
+            llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
+            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
         );
     }
 }
