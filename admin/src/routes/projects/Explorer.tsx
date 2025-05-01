@@ -90,6 +90,7 @@ const Explorer: Component = () => {
         !!explorer.projects[params.projectId] &&
         explorer.projects[params.projectId].loaded ? (
           explorer.projects[params.projectId].rootElement &&
+          explorer.projects[params.projectId].ready &&
           !!explorer.projects[params.projectId].workflow ? (
             <>
               <div
@@ -138,13 +139,13 @@ const Explorer: Component = () => {
               )}
             </>
           ) : (
-            <div class="flex items-center justify-center w-full h-full text-gray-500">
-              <LoaderIcon /> Preparing to explore the project...
+            <div class="flex flex-col gap-2 items-center justify-center w-full h-full text-gray-500">
+              <LoaderIcon /> Preparing to explore Pixlie's workflow...
             </div>
           )
         ) : (
-          <div class="flex items-center justify-center w-full h-full text-gray-500">
-            <LoaderIcon /> Loading...
+          <div class="flex flex-col gap-2 items-center justify-center w-full h-full text-gray-500">
+            <LoaderIcon /> Loading data...
           </div>
         )}
       </div>

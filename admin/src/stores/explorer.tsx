@@ -61,6 +61,7 @@ const makeStore = () => {
           domState: undefined,
         },
         loaded: false,
+        ready: false,
       };
       setStore("projects", projectId, newProject);
     }
@@ -72,35 +73,40 @@ const makeStore = () => {
       return;
     }
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    const fetchStart = new Date().getTime();
     fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/explore`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     })
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to fetch nodes");
         }
+        console.info(
+          "Time taken to fetch data:",
+          new Date().getTime() - fetchStart,
+          "ms",
+        );
+        setStore("projects", projectId, "loaded", true);
         return response.json();
       })
-      .then((response: EngineResponsePayload) => {
-        if (response.type === "Explore") {
+      .then((responsePayload: EngineResponsePayload) => {
+        if (responsePayload.type === "Explore") {
           const startTime = new Date().getTime();
           batch(() => {
             setStore(
               produce((state) => {
                 const project = state.projects[projectId];
                 project.nodes = Object.fromEntries(
-                  response.data.nodes.map((node) => [node.id, node]),
+                  responsePayload.data.nodes.map((node) => [node.id, node]),
                 );
-                Object.entries(response.data.edges).forEach(
+                Object.entries(responsePayload.data.edges).forEach(
                   ([nodeId, edges]) => {
                     if (!!edges) {
                       project.edges[parseInt(nodeId)] = edges;
                     }
                   },
                 );
-                project.siblingNodes = response.data.sibling_nodes;
+                project.siblingNodes = responsePayload.data.sibling_nodes;
               }),
             );
             console.info(
@@ -124,11 +130,11 @@ const makeStore = () => {
             console.info(
               "Workflow Elements after refresh:",
               Object.keys(store.projects[projectId].workflowElements).length,
-              "Time taken to refresh workflow elements:",
+              "Time taken to refresh workflow elements and build workflow tree:",
               wf_time,
               "ms",
             );
-            setStore("projects", projectId, "loaded", true);
+            setStore("projects", projectId, "ready", true);
             if (!!store.projects[projectId].rootElement.domState) {
               refreshRenderParameters(projectId);
             }

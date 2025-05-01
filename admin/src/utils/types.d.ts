@@ -118,12 +118,13 @@ interface IExplorerWorkflowDisplayState {
 interface IExplorerProject {
   nodes: IExplorerNodes;
   edges: IExplorerEdges;
-  siblingNodes: Array<Array<number>>;
+  siblingNodes: number[][];
   rootElement: IExplorerRootElement;
   displayState: IExplorerWorkflowDisplayState;
   workflow: IExplorerWorkflowNode[];
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
+  ready: boolean;
 }
 
 interface IExplorerSettings {
