@@ -148,7 +148,7 @@ const makeStore = () => {
           });
           const endTime = new Date().getTime();
           const timeTaken = endTime - startTime;
-          console.log("Total time taken to update store:", timeTaken, "ms");
+          console.info("Total time taken to update store:", timeTaken, "ms");
         }
       });
   };
@@ -475,12 +475,6 @@ const makeStore = () => {
       parent: string = "",
     ): Record<string, string[]> => {
       if (tree.length === 0) return {};
-      const balancedTree = balanceByTreeWeight(tree);
-      console.log(
-        tree.map((n) => [n.id, n.treeSize].join(",")),
-        "=>",
-        balancedTree.map((n) => [n.id, n.treeSize].join(",")),
-      );
       const processQueue = {
         [parent]: balanceByTreeWeight(tree).map((node) => node.id),
       };

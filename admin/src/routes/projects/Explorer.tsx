@@ -247,9 +247,6 @@ const Workflow: Component<IWorkflowProps> = (props: IWorkflowProps) => {
   if (!props.workflow) {
     return "";
   }
-  onMount(() => {
-    console.log("Layer", props.layer || 1, "mounted");
-  });
   return (
     <>
       <For each={props.workflow}>
