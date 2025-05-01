@@ -9,6 +9,7 @@ import { WorkflowElementType } from "../utils/enums.ts";
 import {
   IExplorerProject,
   IExplorerStore,
+  IExplorerWorkflowDisplayState,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
   IExplorerWorkflowNode,
@@ -19,9 +20,21 @@ import { polynomial_rolling_hash } from "../utils/utils.ts";
 const makeStore = () => {
   const [store, setStore] = createStore<IExplorerStore>({
     projects: {},
-    nodeLabelsOfInterest: ["Objective", "CrawlerSettings", "WebSearch", "Link"],
-    configurableNodeLabels: ["CrawlerSettings"],
-    edgeLabelsOfInterest: ["Suggests"],
+    settings: {
+      nodeLabelsOfInterest: [
+        "Objective",
+        "CrawlerSettings",
+        "ProjectSettings",
+        "WebSearch",
+        "Link",
+      ],
+      configurableNodeLabels: ["CrawlerSettings"],
+      edgeLabelsOfInterest: ["Suggests"],
+      horizontalSpacing: 80,
+      verticalSpacing: 30,
+      horizontalMargin: 30,
+      verticalMargin: 20,
+    },
   });
 
   const setProjectId = (projectId: string) => {
@@ -32,6 +45,17 @@ const makeStore = () => {
         siblingNodes: [],
         workflow: [],
         workflowElements: {},
+        displayState: {
+          scale: 1,
+          size: {
+            width: 0,
+            height: 0,
+          },
+          translate: {
+            x: 0,
+            y: 0,
+          },
+        },
         rootElement: {
           domState: undefined,
         },
@@ -140,6 +164,7 @@ const makeStore = () => {
     setStore("projects", projectId, "rootElement", "domState", domState);
   };
 
+  const ongoingWorkflowElementUpdates = new Map<string, number>();
   const updateWorkflowElement = (
     projectId: string,
     elementId: string,
@@ -149,15 +174,23 @@ const makeStore = () => {
       console.error("Project ID not found. Cant updateWorkflowElement.");
       return;
     }
-    setStore(
-      "projects",
-      projectId,
-      "workflowElements",
-      elementId,
-      "state",
-      "dom",
-      domState,
-    );
+    const key = `${projectId}::${elementId}`;
+    const callId = Math.round(performance.now() * 1000);
+    ongoingWorkflowElementUpdates.set(key, callId);
+    queueMicrotask(() => {
+      // Exit early if this is an outdated call
+      if (ongoingWorkflowElementUpdates.get(key) !== callId) return;
+      batch(() => {
+        setStore(
+          produce((state) => {
+            state.projects[projectId].workflowElements[elementId].state.dom =
+              domState;
+          }),
+        );
+        if (ongoingWorkflowElementUpdates.get(key) !== callId) return;
+        refreshRenderParameters(projectId);
+      });
+    });
   };
   const refreshWorkflowElements = (projectId: string) => {
     if (!Object.keys(store.projects).includes(projectId)) {
@@ -180,7 +213,7 @@ const makeStore = () => {
             } else nodeLabels[label]++;
           }
           return (
-            store.nodeLabelsOfInterest.some((label) =>
+            store.settings.nodeLabelsOfInterest.some((label) =>
               node.labels.includes(label),
             ) &&
             !totalSiblingNodeIds.includes(node.id) &&
@@ -192,7 +225,7 @@ const makeStore = () => {
     const siblingGroupsOfInterest = project.siblingNodes
       .map((siblingGroup) =>
         siblingGroup.filter((nodeId) =>
-          store.nodeLabelsOfInterest.some((label) =>
+          store.settings.nodeLabelsOfInterest.some((label) =>
             project.nodes[nodeId].labels.includes(label),
           ),
         ),
@@ -221,7 +254,7 @@ const makeStore = () => {
             id,
             {
               id,
-              state: { dom: undefined, relative: undefined },
+              state: { dom: undefined, relative: undefined, layer: 1 },
               labels: node.labels,
               edges: {},
               type: WorkflowElementType.Node,
@@ -236,7 +269,7 @@ const makeStore = () => {
                 hash,
                 {
                   id: hash,
-                  state: { dom: undefined, relative: undefined },
+                  state: { dom: undefined, relative: undefined, layer: 1 },
                   labels: Array.from(
                     new Set(
                       siblingGroupsHashmap[hash]
@@ -287,7 +320,7 @@ const makeStore = () => {
           )) {
             for (const [targetNodeId, edge] of edges) {
               const edgeLabel = edge as EdgeLabel;
-              if (store.edgeLabelsOfInterest.includes(edgeLabel)) {
+              if (store.settings.edgeLabelsOfInterest.includes(edgeLabel)) {
                 const sourceWorkflowElement =
                   workflowElements[nodeIdToWorkflowElementMap[sourceNodeId]];
                 const targetWorkflowElementId =
@@ -331,14 +364,18 @@ const makeStore = () => {
     ): IExplorerWorkflowNode | undefined => {
       visited.add(id);
       const element = workflowElements[id];
-
       if (!element) {
         console.warn(`Workflow element with ID ${id} not found.`);
         return undefined;
       }
-
+      setStore(
+        produce((state) => {
+          const project = state.projects[projectId];
+          project.workflowElements[id].state.layer = depth + 1;
+        }),
+      );
       const children: ReturnType<typeof buildTree>[] = [];
-
+      let treeSize = 0;
       const suggestEdges = element.edges?.Suggests || [];
       for (const elem in workflowElements) {
         if (suggestEdges.includes(workflowElements[elem].id)) {
@@ -346,13 +383,16 @@ const makeStore = () => {
             const childTree = buildTree(workflowElements[elem].id, depth + 1);
             if (childTree) {
               children.push(childTree);
+              treeSize += childTree.treeSize;
             }
           }
         }
       }
+      treeSize += children.length;
 
       return {
         id,
+        treeSize,
         children,
       };
     };
@@ -384,6 +424,237 @@ const makeStore = () => {
         "workflow",
         roots.filter((x) => !!x),
       );
+    });
+  };
+
+  const ongoingRenderParametersUpdates = new Map<string, number>();
+  const refreshRenderParameters = (projectId: string) => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cannot refreshRenderParameters.");
+      return;
+    }
+    const key = projectId;
+    const callId = Math.round(performance.now() * 1000);
+    ongoingRenderParametersUpdates.set(key, callId);
+    const project = store.projects[projectId];
+    const workflowElements = project.workflowElements;
+
+    // Track per-layer top cursor and max width
+    const maxWidthByLayer: Record<number, number> = {};
+    const layerHeights: Record<string, number> = {};
+
+    const balanceByTreeWeight = (
+      arr: IExplorerWorkflowNode[],
+      isFirstCall: boolean = true,
+      isRight: boolean = false,
+    ): IExplorerWorkflowNode[] => {
+      if (arr.length <= 1) return arr.slice();
+      const arrCopy = arr.slice();
+      if (arrCopy.every((n) => n.treeSize === arrCopy[0].treeSize))
+        return arrCopy;
+      const left: IExplorerWorkflowNode[] = [];
+      const right: IExplorerWorkflowNode[] = [];
+      if (isFirstCall) {
+        arrCopy.sort((a, b) => a.treeSize - b.treeSize);
+      }
+      const center = arrCopy.pop();
+      let toLeft = isRight;
+      while (arrCopy.length > 0) {
+        if (toLeft) left.unshift(arrCopy.pop()!);
+        else right.unshift(arrCopy.pop()!);
+        toLeft = !toLeft;
+      }
+      return [
+        ...balanceByTreeWeight(left, false),
+        center!,
+        ...balanceByTreeWeight(right, false, true),
+      ];
+    };
+    const makeProcessQueues = (
+      tree: IExplorerWorkflowNode[],
+      parent: string = "",
+    ): Record<string, string[]> => {
+      if (tree.length === 0) return {};
+      const balancedTree = balanceByTreeWeight(tree);
+      console.log(
+        tree.map((n) => [n.id, n.treeSize].join(",")),
+        "=>",
+        balancedTree.map((n) => [n.id, n.treeSize].join(",")),
+      );
+      const processQueue = {
+        [parent]: balanceByTreeWeight(tree).map((node) => node.id),
+      };
+      for (const node of tree) {
+        if (node.children.length > 0) {
+          const childQueues = makeProcessQueues(node.children, node.id);
+          for (const queueParent in childQueues) {
+            processQueue[queueParent] = childQueues[queueParent];
+          }
+        }
+        const element = workflowElements[node.id];
+        const dom = element.state.dom;
+        if (!(element.state.layer in layerHeights)) {
+          layerHeights[element.state.layer] = 0;
+        }
+        if (!(element.state.layer in maxWidthByLayer)) {
+          maxWidthByLayer[element.state.layer] = 0;
+        }
+        if (dom) {
+          if (dom.width > maxWidthByLayer[element.state.layer]) {
+            maxWidthByLayer[element.state.layer] = dom.width;
+          }
+          layerHeights[element.state.layer] +=
+            dom.height + store.settings.verticalSpacing;
+        }
+      }
+      return processQueue;
+    };
+    const queues = makeProcessQueues(project.workflow);
+    Object.keys(layerHeights).forEach((l) => {
+      layerHeights[l] = Math.max(
+        layerHeights[l] +
+          2 * store.settings.verticalMargin -
+          store.settings.verticalSpacing,
+        project.rootElement.domState?.height || 0,
+      );
+    });
+    const maxLayerHeight = Math.max(...Object.values(layerHeights));
+    batch(() => {
+      for (const queueParent in queues) {
+        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
+        const queue = queues[queueParent];
+        const parent = !!queueParent
+          ? workflowElements[queueParent]
+          : undefined;
+        const parentRel = parent ? parent.state.relative : undefined;
+        const parentDom = parent ? parent.state.dom : undefined;
+        const processingIndices: number[] = [];
+        const middleIndex = Math.floor(queue.length / 2);
+        const isOdd = queue.length % 2 === 1;
+        if (isOdd) {
+          processingIndices.push(middleIndex);
+        }
+        for (let i = 0; i < middleIndex; i++) {
+          processingIndices.push(middleIndex - i - 1);
+          processingIndices.push(middleIndex + i + +isOdd);
+        }
+        enum Directions {
+          up = 1,
+          down = -1,
+        }
+        let direction: Directions = Directions.up;
+        interface IProcessingParameters {
+          [Directions.up]?: { height: number; y: number };
+          [Directions.down]?: { height: number; y: number };
+        }
+        let previous: IProcessingParameters = {};
+        let initialized: boolean = false;
+        for (const elementIndex of processingIndices) {
+          const elementId = queue[elementIndex];
+          const workflowElement = workflowElements[elementId];
+          const dom = workflowElement.state.dom;
+          if (!dom) continue;
+          const layer = workflowElement.state.layer;
+          const { width, height } = dom;
+
+          // Centered placement
+          const x =
+            (parentRel && parentDom
+              ? parentRel.position.x +
+                (maxWidthByLayer[layer - 1] + parentDom.width) / 2 +
+                store.settings.horizontalSpacing
+              : store.settings.horizontalMargin) +
+            (maxWidthByLayer[layer] - width) / 2;
+
+          // Right placement
+          // const x =
+          //   (parentRel && parentDom
+          //     ? parentRel.position.x +
+          //       parentDom.width +
+          //       store.settings.horizontalSpacing
+          //     : store.settings.horizontalMargin) +
+          //   maxWidthByLayer[layer] -
+          //   width;
+
+          let y = 0;
+          if (!initialized) {
+            y =
+              (parentRel && parentDom
+                ? parentRel.position.y + parentDom.height / 2
+                : maxLayerHeight / 2) -
+              (isOdd ? height / 2 : height + store.settings.verticalMargin / 2);
+          } else {
+            if (direction == Directions.up) {
+              y = previous[Directions.up]?.y || 0;
+              y -= dom.height + store.settings.verticalSpacing;
+            } else if (direction == Directions.down) {
+              y =
+                (previous[Directions.down]?.y ||
+                  previous[Directions.up]?.y ||
+                  0) +
+                (previous[Directions.down]?.height ||
+                  previous[Directions.up]?.height ||
+                  0);
+              y += store.settings.verticalSpacing;
+            }
+          }
+          previous[direction] = {
+            height,
+            y: y,
+          };
+          direction = -direction;
+          initialized = true;
+
+          if (
+            workflowElements[elementId].state.relative?.position.x !== x ||
+            workflowElements[elementId].state.relative?.position.y !== y
+          ) {
+            setStore(
+              produce((state) => {
+                const element =
+                  state.projects[projectId].workflowElements[elementId];
+                element.state.relative = {
+                  position: { key: `${x}-${y}`, x, y },
+                  size: { w: 0, h: 0 },
+                };
+              }),
+            );
+          }
+        }
+      }
+      if (
+        project.rootElement.domState &&
+        Object.values(workflowElements).every((el) => !!el.state.relative)
+      ) {
+        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
+        const totalWidth =
+          2 * store.settings.horizontalMargin +
+          Object.values(maxWidthByLayer).reduce(
+            (acc, width) => acc + width,
+            0,
+          ) +
+          store.settings.horizontalSpacing *
+            (Object.keys(maxWidthByLayer).length - 1);
+        const scale = Math.min(
+          project.rootElement.domState.width / totalWidth || 1,
+          project.rootElement.domState.height / maxLayerHeight || 1,
+        );
+        const size = {
+          width: totalWidth,
+          height: maxLayerHeight,
+        };
+        const style: IExplorerWorkflowDisplayState = {
+          scale,
+          size,
+          translate: {
+            x: (project.rootElement.domState.width - size.width * scale) / 2,
+            y: (project.rootElement.domState.height - size.height * scale) / 2,
+          },
+        };
+        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
+        setStore("projects", projectId, "displayState", style);
+      }
+      ongoingRenderParametersUpdates.delete(key);
     });
   };
 

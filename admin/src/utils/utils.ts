@@ -43,6 +43,18 @@ export const snakeCasedToCamelCasedKeys = (obj: any): any => {
   }
 };
 
+export const identifierToTitle = (str: string) => {
+  return (
+    str
+      .replace(/_/g, " ") // Replace underscores with spaces
+      // Add space between lowercase and uppercase letters
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .replace(/^./, (match) => match.toUpperCase()) // Capitalize the first letter
+      .trim()
+  ); // Remove leading/trailing whitespace
+};
+
 export const utcStringToLocaleStringAgo = (
   utcString: string | null | undefined,
 ) => {

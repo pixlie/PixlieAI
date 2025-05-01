@@ -53,6 +53,7 @@ interface IExplorerRootElement {
 }
 
 interface IExplorerElementRelativePosition {
+  key: string | undefined;
   x: number;
   y: number;
 }
@@ -75,6 +76,7 @@ interface IExplorerWorkflowElement {
   state: {
     dom: DOMRect | undefined;
     relative: IExplorerWorkflowElementState | undefined;
+    layer: number;
   };
   labels: Array<NodeLabel>;
   edges: IExplorerWorkflowEdges;
@@ -84,6 +86,7 @@ interface IExplorerWorkflowElement {
 
 interface IExplorerWorkflowNode {
   id: string;
+  treeSize: number;
   children: WorkflowNode[];
 }
 
@@ -98,23 +101,43 @@ interface IExplorerWorkflowElements {
   [key: string]: IExplorerWorkflowElement;
 }
 
+interface IExplorerWorkflowDisplayState {
+  scale: number;
+  size: {
+    width: number;
+    height: number;
+  };
+  translate: {
+    x: number;
+    y: number;
+  };
+}
+
 interface IExplorerProject {
   nodes: IExplorerNodes;
   edges: IExplorerEdges;
   siblingNodes: Array<Array<number>>;
-
   rootElement: IExplorerRootElement;
+  displayState: IExplorerWorkflowDisplayState;
   workflow: IExplorerWorkflowNode[];
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
   ready: boolean;
 }
 
-interface IExplorerStore {
-  projects: { [projectId: string]: IExplorerProject };
+interface IExplorerSettings {
   nodeLabelsOfInterest: NodeLabel[];
   configurableNodeLabels: NodeLabel[];
   edgeLabelsOfInterest: EdgeLabel[];
+  horizontalSpacing: number;
+  verticalSpacing: number;
+  horizontalMargin: number;
+  verticalMargin: number;
+}
+
+interface IExplorerStore {
+  projects: { [projectId: string]: IExplorerProject };
+  settings: IExplorerSettings;
 }
 
 interface INodeItemDisplayProps {
@@ -197,13 +220,14 @@ export type {
   IEngineNodes,
   IEngineStore,
   IExplorerEdges,
-  IExplorerWorkflowEdges as IExplorerElementEdges,
   IExplorerElementRelativePosition,
   IExplorerElementRelativeSize,
   IExplorerNodes,
   IExplorerProject,
   IExplorerRootElement,
   IExplorerStore,
+  IExplorerWorkflowDisplayState,
+  IExplorerWorkflowEdges,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
   IExplorerWorkflowElementState,
