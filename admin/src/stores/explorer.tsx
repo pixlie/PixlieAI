@@ -60,7 +60,6 @@ const makeStore = () => {
           domState: undefined,
         },
         loaded: false,
-        ready: false,
       };
       setStore("projects", projectId, newProject);
     }
@@ -88,33 +87,21 @@ const makeStore = () => {
           const startTime = new Date().getTime();
           batch(() => {
             setStore(
-              "projects",
-              projectId,
-              "nodes",
-              Object.fromEntries(
-                response.data.nodes.map((node) => [node.id, node]),
-              ),
-            );
-            for (const [nodeId, edges] of Object.entries(response.data.edges)) {
-              if (!!edges) {
-                setStore(
-                  "projects",
-                  projectId,
-                  "edges",
-                  parseInt(nodeId),
-                  edges,
+              produce((state) => {
+                const project = state.projects[projectId];
+                project.nodes = Object.fromEntries(
+                  response.data.nodes.map((node) => [node.id, node]),
                 );
-              }
-            }
-            for (const siblingNodes of response.data.sibling_nodes) {
-              setStore(
-                "projects",
-                projectId,
-                "siblingNodes",
-                store.projects[projectId].siblingNodes.length,
-                siblingNodes,
-              );
-            }
+                Object.entries(response.data.edges).forEach(
+                  ([nodeId, edges]) => {
+                    if (!!edges) {
+                      project.edges[parseInt(nodeId)] = edges;
+                    }
+                  },
+                );
+                project.siblingNodes = response.data.sibling_nodes;
+              }),
+            );
             console.info(
               "Explore data fetched",
               "Nodes:",
@@ -140,11 +127,10 @@ const makeStore = () => {
               wf_time,
               "ms",
             );
-            if (!!store.projects[projectId].rootElement.domState) {
-              // Update/refresh the explorer render parameters, viz
-              // the positions of workflowElements
-            }
             setStore("projects", projectId, "loaded", true);
+            if (!!store.projects[projectId].rootElement.domState) {
+              refreshRenderParameters(projectId);
+            }
           });
           const endTime = new Date().getTime();
           const timeTaken = endTime - startTime;
@@ -161,7 +147,10 @@ const makeStore = () => {
       console.error("Project ID not found. Cant updateRootElement.");
       return;
     }
-    setStore("projects", projectId, "rootElement", "domState", domState);
+    batch(() => {
+      setStore("projects", projectId, "rootElement", "domState", domState);
+      refreshRenderParameters(projectId);
+    });
   };
 
   const ongoingWorkflowElementUpdates = new Map<string, number>();
@@ -198,7 +187,7 @@ const makeStore = () => {
       return;
     }
     const project = store.projects[projectId];
-    const totalSiblingNodeIds = project.siblingNodes.flat();
+    const allSiblingNodeIds = project.siblingNodes.flat();
     const existingWorkflowElementIds = Object.keys(project.workflowElements);
     const nodeLabels: Record<NodeLabel, number> = {} as Record<
       NodeLabel,
@@ -216,7 +205,7 @@ const makeStore = () => {
             store.settings.nodeLabelsOfInterest.some((label) =>
               node.labels.includes(label),
             ) &&
-            !totalSiblingNodeIds.includes(node.id) &&
+            !allSiblingNodeIds.includes(node.id) &&
             !existingWorkflowElementIds.includes(node.id.toString())
           );
         })
@@ -376,6 +365,8 @@ const makeStore = () => {
       );
       const children: ReturnType<typeof buildTree>[] = [];
       let treeSize = 0;
+
+      // TODO: Add support for more edge labels
       const suggestEdges = element.edges?.Suggests || [];
       for (const elem in workflowElements) {
         if (suggestEdges.includes(workflowElements[elem].id)) {
@@ -400,6 +391,7 @@ const makeStore = () => {
     const roots: ReturnType<typeof buildTree>[] = [];
     const allTargets = new Set<string>();
 
+    // TODO: Add support for more edge labels
     // Collect all target node hashes
     Object.values(workflowElements).forEach((el) => {
       const suggests = el.edges?.Suggests || [];
@@ -427,6 +419,34 @@ const makeStore = () => {
     });
   };
 
+  const balanceByTreeWeight = (
+    arr: IExplorerWorkflowNode[],
+    isFirstCall: boolean = true,
+    isRight: boolean = false,
+  ): IExplorerWorkflowNode[] => {
+    if (arr.length <= 1) return arr.slice();
+    const arrCopy = arr.slice();
+    if (arrCopy.every((n) => n.treeSize === arrCopy[0].treeSize))
+      return arrCopy;
+    const left: IExplorerWorkflowNode[] = [];
+    const right: IExplorerWorkflowNode[] = [];
+    if (isFirstCall) {
+      arrCopy.sort((a, b) => a.treeSize - b.treeSize);
+    }
+    const center = arrCopy.pop();
+    let toLeft = isRight;
+    while (arrCopy.length > 0) {
+      if (toLeft) left.unshift(arrCopy.pop()!);
+      else right.unshift(arrCopy.pop()!);
+      toLeft = !toLeft;
+    }
+    return [
+      ...balanceByTreeWeight(left, false),
+      center!,
+      ...balanceByTreeWeight(right, false, true),
+    ];
+  };
+
   const ongoingRenderParametersUpdates = new Map<string, number>();
   const refreshRenderParameters = (projectId: string) => {
     if (!Object.keys(store.projects).includes(projectId)) {
@@ -439,37 +459,9 @@ const makeStore = () => {
     const project = store.projects[projectId];
     const workflowElements = project.workflowElements;
 
-    // Track per-layer top cursor and max width
+    // Track per-layer heights and max width
     const maxWidthByLayer: Record<number, number> = {};
     const layerHeights: Record<string, number> = {};
-
-    const balanceByTreeWeight = (
-      arr: IExplorerWorkflowNode[],
-      isFirstCall: boolean = true,
-      isRight: boolean = false,
-    ): IExplorerWorkflowNode[] => {
-      if (arr.length <= 1) return arr.slice();
-      const arrCopy = arr.slice();
-      if (arrCopy.every((n) => n.treeSize === arrCopy[0].treeSize))
-        return arrCopy;
-      const left: IExplorerWorkflowNode[] = [];
-      const right: IExplorerWorkflowNode[] = [];
-      if (isFirstCall) {
-        arrCopy.sort((a, b) => a.treeSize - b.treeSize);
-      }
-      const center = arrCopy.pop();
-      let toLeft = isRight;
-      while (arrCopy.length > 0) {
-        if (toLeft) left.unshift(arrCopy.pop()!);
-        else right.unshift(arrCopy.pop()!);
-        toLeft = !toLeft;
-      }
-      return [
-        ...balanceByTreeWeight(left, false),
-        center!,
-        ...balanceByTreeWeight(right, false, true),
-      ];
-    };
     const makeProcessQueues = (
       tree: IExplorerWorkflowNode[],
       parent: string = "",
@@ -550,6 +542,10 @@ const makeStore = () => {
           if (!dom) continue;
           const layer = workflowElement.state.layer;
           const { width, height } = dom;
+
+          // TODO: Implement placement based on incoming and outgoing edges ratio
+          // More incoming edges tends to left edge of layer
+          // More outgoing edges tends to right edge of layer
 
           // Centered placement
           const x =
@@ -637,13 +633,14 @@ const makeStore = () => {
           width: totalWidth,
           height: maxLayerHeight,
         };
+        const translate = {
+          x: (project.rootElement.domState.width - size.width * scale) / 2,
+          y: (project.rootElement.domState.height - size.height * scale) / 2,
+        };
         const style: IExplorerWorkflowDisplayState = {
           scale,
           size,
-          translate: {
-            x: (project.rootElement.domState.width - size.width * scale) / 2,
-            y: (project.rootElement.domState.height - size.height * scale) / 2,
-          },
+          translate,
         };
         if (ongoingRenderParametersUpdates.get(key) !== callId) return;
         setStore("projects", projectId, "displayState", style);

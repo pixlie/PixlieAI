@@ -122,7 +122,6 @@ interface IExplorerProject {
   workflow: IExplorerWorkflowNode[];
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
-  ready: boolean;
 }
 
 interface IExplorerSettings {
