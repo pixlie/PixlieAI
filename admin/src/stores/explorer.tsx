@@ -343,20 +343,12 @@ const makeStore = () => {
     });
   };
 
-  const buildWorkflowTree = (
-    projectId: string,
-  ): IExplorerWorkflow | undefined => {
-    if (!Object.keys(store.projects).includes(projectId)) {
-      console.error("Project ID not found. Cannot buildWorkflowTree.");
-      return undefined;
-    }
-
-    const project = store.projects[projectId];
-    const workflowElements = project.workflowElements;
-
+  const getTreeBuilder = (projectId: string) => {
     const visited = new Set<string>();
 
-    const buildTree = (
+    const workflowElements = store.projects[projectId].workflowElements;
+
+    const treeBuilder = (
       id: string,
       depth = 0,
     ): IExplorerWorkflowNode | undefined => {
@@ -380,7 +372,7 @@ const makeStore = () => {
       for (const elem in workflowElements) {
         if (suggestEdges.includes(workflowElements[elem].id)) {
           if (!visited.has(workflowElements[elem].id)) {
-            const childTree = buildTree(workflowElements[elem].id, depth + 1);
+            const childTree = treeBuilder(workflowElements[elem].id, depth + 1);
             if (childTree) {
               children.push(childTree);
               treeSize += childTree.treeSize;
@@ -390,14 +382,24 @@ const makeStore = () => {
       }
       treeSize += children.length;
 
-      return {
-        id,
-        treeSize,
-        children,
-      };
+      return { id, treeSize, children: balanceByTreeWeight(children) };
     };
+    return treeBuilder;
+  };
 
-    const roots: ReturnType<typeof buildTree>[] = [];
+  const buildWorkflowTree = (
+    projectId: string,
+  ): IExplorerWorkflow | undefined => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cannot buildWorkflowTree.");
+      return undefined;
+    }
+
+    const project = store.projects[projectId];
+    const workflowElements = project.workflowElements;
+
+    const buildTree = getTreeBuilder(projectId);
+    const roots: IExplorerWorkflow = [];
     const allTargets = new Set<string>();
 
     // TODO: Add support for more edge labels
@@ -423,7 +425,7 @@ const makeStore = () => {
         "projects",
         projectId,
         "workflow",
-        roots.filter((x) => !!x),
+        balanceByTreeWeight(roots.filter((x) => !!x)),
       );
     });
   };
@@ -477,7 +479,7 @@ const makeStore = () => {
     ): Record<string, string[]> => {
       if (tree.length === 0) return {};
       const processQueue = {
-        [parent]: balanceByTreeWeight(tree).map((node) => node.id),
+        [parent]: tree.map((node) => node.id),
       };
       for (const node of tree) {
         if (node.children.length > 0) {
