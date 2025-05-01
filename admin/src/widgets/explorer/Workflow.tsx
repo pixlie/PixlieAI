@@ -1,9 +1,9 @@
 import { Component, For } from "solid-js";
-import { IExplorerWorkflowNode } from "../../utils/types";
+import { IExplorerWorkflow } from "../../utils/types";
 import WorkflowNode from "../../widgets/explorer/WorkflowNode.tsx";
 
 interface IWorkflowProps {
-  workflow: IExplorerWorkflowNode[] | undefined;
+  workflow: IExplorerWorkflow | undefined;
   layer?: number;
 }
 

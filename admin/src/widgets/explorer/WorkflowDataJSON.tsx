@@ -1,8 +1,8 @@
 import { Component } from "solid-js";
-import { IExplorerWorkflowNode } from "../../utils/types";
+import { IExplorerWorkflow } from "../../utils/types";
 
 const WorkflowDataJSON: Component<{
-  workflow: IExplorerWorkflowNode[] | undefined;
+  workflow: IExplorerWorkflow | undefined;
   onClose: () => void;
 }> = (props) => {
   return props.workflow ? (

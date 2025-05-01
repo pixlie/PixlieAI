@@ -87,8 +87,10 @@ interface IExplorerWorkflowElement {
 interface IExplorerWorkflowNode {
   id: string;
   treeSize: number;
-  children: WorkflowNode[];
+  children: IExplorerWorkflow;
 }
+
+type IExplorerWorkflow = IExplorerWorkflowNode[];
 
 interface IExplorerNodes {
   [nodeId: string]: APINodeItem;
@@ -225,6 +227,7 @@ export type {
   IExplorerProject,
   IExplorerRootElement,
   IExplorerStore,
+  IExplorerWorkflow,
   IExplorerWorkflowDisplayState,
   IExplorerWorkflowEdges,
   IExplorerWorkflowElement,

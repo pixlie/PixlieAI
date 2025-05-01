@@ -9,6 +9,7 @@ import { WorkflowElementType } from "../utils/enums.ts";
 import {
   IExplorerProject,
   IExplorerStore,
+  IExplorerWorkflow,
   IExplorerWorkflowDisplayState,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
@@ -336,7 +337,9 @@ const makeStore = () => {
     });
   };
 
-  const buildWorkflowTree = (projectId: string) => {
+  const buildWorkflowTree = (
+    projectId: string,
+  ): IExplorerWorkflow | undefined => {
     if (!Object.keys(store.projects).includes(projectId)) {
       console.error("Project ID not found. Cannot buildWorkflowTree.");
       return undefined;
@@ -363,7 +366,7 @@ const makeStore = () => {
           project.workflowElements[id].state.layer = depth + 1;
         }),
       );
-      const children: ReturnType<typeof buildTree>[] = [];
+      const children: IExplorerWorkflow = [];
       let treeSize = 0;
 
       // TODO: Add support for more edge labels
@@ -420,16 +423,16 @@ const makeStore = () => {
   };
 
   const balanceByTreeWeight = (
-    arr: IExplorerWorkflowNode[],
+    arr: IExplorerWorkflow,
     isFirstCall: boolean = true,
     isRight: boolean = false,
-  ): IExplorerWorkflowNode[] => {
+  ): IExplorerWorkflow => {
     if (arr.length <= 1) return arr.slice();
     const arrCopy = arr.slice();
     if (arrCopy.every((n) => n.treeSize === arrCopy[0].treeSize))
       return arrCopy;
-    const left: IExplorerWorkflowNode[] = [];
-    const right: IExplorerWorkflowNode[] = [];
+    const left: IExplorerWorkflow = [];
+    const right: IExplorerWorkflow = [];
     if (isFirstCall) {
       arrCopy.sort((a, b) => a.treeSize - b.treeSize);
     }
@@ -463,7 +466,7 @@ const makeStore = () => {
     const maxWidthByLayer: Record<number, number> = {};
     const layerHeights: Record<string, number> = {};
     const makeProcessQueues = (
-      tree: IExplorerWorkflowNode[],
+      tree: IExplorerWorkflow,
       parent: string = "",
     ): Record<string, string[]> => {
       if (tree.length === 0) return {};
