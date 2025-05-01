@@ -115,6 +115,21 @@ impl Objective {
                                     None => {}
                                 }
                             }
+                            Tool::Classifier(classifier_settings) => {
+                                let classifier_settings_node_id = engine
+                                    .get_or_add_node(
+                                        Payload::ClassifierSettings(classifier_settings.clone()),
+                                        vec![NodeLabel::AddedByAI, NodeLabel::ClassifierSettings],
+                                        true,
+                                        None,
+                                    )?
+                                    .get_node_id();
+
+                                engine.add_connection(
+                                    (node.id, classifier_settings_node_id),
+                                    (EdgeLabel::Classifies, EdgeLabel::ClassifiedFor),
+                                )?;
+                            }
                         }
                     }
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
@@ -171,7 +186,7 @@ impl Objective {
     }
 
     fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-        Ok(Anthropic::parse_response(response)?)
+        Ok(Anthropic::parse_response::<LLMResponse>(response)?)
     }
 }
 
@@ -205,12 +220,14 @@ mod tests {
 
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
+        let expected_schema = r#"type CrawlerSettings = { keywords_to_search_the_web_to_get_starting_urls: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+        type ClassifierSettings = { query_to_classify_content_as_relevant_or_irrelevant_to_objective: string, };
+        type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
+        type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
-            llm_schema,
-            r#"type CrawlerSettings = { keywords_to_search_the_web_to_get_starting_urls: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
-type Tool = { "Crawler": CrawlerSettings };
-type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#
-        )
+            llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
+            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
+        );
     }
 
     #[test]
@@ -283,12 +300,14 @@ type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_acc
 
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
+        let expected_schema = r#"type CrawlerSettings = { crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+        type ClassifierSettings = { query_to_classify_content_as_relevant_or_irrelevant_to_objective: string, };
+        type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
+        type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
-            llm_schema,
-            r#"type CrawlerSettings = { crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
-type Tool = { "Crawler": CrawlerSettings };
-type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#
-        )
+            llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
+            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
+        );
     }
 }
 

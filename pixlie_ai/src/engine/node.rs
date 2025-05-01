@@ -8,11 +8,13 @@
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
 use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::web_page::WebPage;
 use crate::error::PiResult;
 use crate::{ExternalData, FetchError, FetchResponse};
@@ -27,11 +29,13 @@ use utoipa::ToSchema;
 #[derive(Clone, Display, Deserialize, Serialize)]
 pub enum Payload {
     Link(Link),
+    WebMetadata(WebMetadata),
     Text(String),
     Tree, // Tree can contain nodes of any payload type, including other trees
     TableRow(TableRow),
     ProjectSettings(ProjectSettings),
     CrawlerSettings(CrawlerSettings),
+    ClassifierSettings(ClassifierSettings),
 }
 
 pub(crate) type NodeId = u32;
@@ -59,18 +63,13 @@ pub enum NodeLabel {
     UnorderedPoints,
     WebPage,
     WebSearch,
+    WebMetadata,
     CrawlCondition,
     ProjectSettings,
     CrawlerSettings,
-    Image,
-    Logo,
-    Name,
-    Description,
-    Url,
-    CreatedAt,
-    ModifiedAt,
-    Tag,
-    Metadata,
+    ClassifierSettings,
+    Insight,
+    Reason,
 }
 
 impl Default for NodeFlags {
@@ -95,12 +94,12 @@ impl NodeItem {
             Domain::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Link) {
             Link::process(self, arced_engine.clone(), None)?;
-        } else if self.labels.contains(&NodeLabel::WebPage) {
-            WebPage::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Objective) {
             Objective::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::WebSearch) {
             WebSearch::process(self, arced_engine.clone(), None)?;
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }
@@ -134,7 +133,13 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
-        }
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response)),
+            )?;
+        } 
         Ok(())
     }
 
@@ -151,6 +156,8 @@ impl NodeItem {
             Objective::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::WebSearch) {
             WebSearch::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
+        } else if self.labels.contains(&NodeLabel::WebPage) {
+            WebPage::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         }
         Ok(())
     }

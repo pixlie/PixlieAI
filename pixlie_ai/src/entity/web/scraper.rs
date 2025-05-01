@@ -10,7 +10,8 @@ use crate::engine::{EdgeLabel, Engine};
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
-use crate::entity::web::web_page::get_link_of_webpage;
+use crate::entity::web::web_metadata::WebMetadata;
+use crate::entity::web::web_page::{get_link_of_webpage, get_metadata_of_webpage};
 use crate::error::{PiError, PiResult};
 use log::error;
 use scraper::{ElementRef, Html};
@@ -63,6 +64,7 @@ fn text_without_subtrees(element: &ElementRef) -> String {
 
 struct Traverser<'a> {
     link_node_id: NodeId,
+    web_metadata_node_id: NodeId,
     webpage_node_id: NodeId,
     webpage_url: Url,
     arced_engine: Arc<&'a Engine>,
@@ -81,142 +83,12 @@ impl<'a> Traverser<'a> {
             let name = element.value().name();
             match name {
                 "meta" => {
-                    let value = element.value();
-                    if let Some(content) = value.attr("content") {
-                        if let Some(property) = value.attr("property") {
-                            match property {
-                                "og:site_name" => self.add_text_node(
-                                    vec![NodeLabel::Name, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "og:url" => self.add_text_node(
-                                    vec![NodeLabel::Url, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "og:title" => self.add_text_node(
-                                    vec![NodeLabel::Title, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "og:description" => self.add_text_node(
-                                    vec![NodeLabel::Description, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "og:image" => {
-                                    if content.starts_with("http") {
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            content,
-                                            false,
-                                        )?;
-                                    } else {
-                                        let base_url = self.webpage_url.join("/")?;
-                                        let content = base_url.join(content)?;
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            &content.to_string(),
-                                            false,
-                                        )?;
-                                    }
-                                }
-                                "article:published_time" => self.add_text_node(
-                                    vec![NodeLabel::CreatedAt, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "article:modified_time" => self.add_text_node(
-                                    vec![NodeLabel::ModifiedAt, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "article:tag" => self.add_text_node(
-                                    vec![NodeLabel::Tag, NodeLabel::Metadata],
-                                    content,
-                                    true,
-                                )?,
-                                _ => {}
-                            }
+                    if let Some(content) = element.value().attr("content") {
+                        if let Some(property) = element.value().attr("property") {
+                            self.update_metadata_node(&property, content)?;
                         }
-                        if let Some(name) = value.attr("name") {
-                            match name {
-                                "twitter:title" => self.add_text_node(
-                                    vec![NodeLabel::Title, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "twitter:description" => self.add_text_node(
-                                    vec![NodeLabel::Description, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "twitter:image" => {
-                                    if content.starts_with("http") {
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            content,
-                                            false,
-                                        )?;
-                                    } else {
-                                        let base_url = self.webpage_url.join("/")?;
-                                        let content = base_url.join(content)?;
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            &content.to_string(),
-                                            false,
-                                        )?;
-                                    }
-                                }
-                                "title" => self.add_text_node(
-                                    vec![NodeLabel::Title, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "description" => self.add_text_node(
-                                    vec![NodeLabel::Description, NodeLabel::Metadata],
-                                    content,
-                                    false,
-                                )?,
-                                "image" => {
-                                    if content.starts_with("http") {
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            content,
-                                            false,
-                                        )?;
-                                    } else {
-                                        let base_url = self.webpage_url.join("/")?;
-                                        let content = base_url.join(content)?;
-                                        self.add_text_node(
-                                            vec![NodeLabel::Image, NodeLabel::Metadata],
-                                            &content.to_string(),
-                                            false,
-                                        )?;
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                "img" => {
-                    if let Some(src) = element.value().attr("src") {
-                        if src.starts_with("http") {
-                            self.add_text_node(
-                                vec![NodeLabel::Image, NodeLabel::Metadata],
-                                src,
-                                false,
-                            )?;
-                        } else {
-                            let base_url = self.webpage_url.join("/")?;
-                            let src = base_url.join(src)?;
-                            self.add_text_node(
-                                vec![NodeLabel::Image, NodeLabel::Metadata],
-                                &src.to_string(),
-                                false,
-                            )?;
+                        if let Some(name) = element.value().attr("name") {
+                            self.update_metadata_node(&name, content)?;
                         }
                     }
                 }
@@ -224,30 +96,37 @@ impl<'a> Traverser<'a> {
                     if let Some(href) = element.value().attr("href") {
                         if let Some(rel) = element.value().attr("rel") {
                             if rel.contains("icon") {
-                                if href.starts_with("http") {
-                                    self.add_text_node(
-                                        vec![NodeLabel::Logo, NodeLabel::Metadata],
-                                        href,
-                                        false,
-                                    )?;
-                                } else {
-                                    let base_url = self.webpage_url.join("/")?;
-                                    let href = base_url.join(href)?;
-                                    self.add_text_node(
-                                        vec![NodeLabel::Logo, NodeLabel::Metadata],
-                                        &href.to_string(),
-                                        false,
-                                    )?;
-                                }
+                                self.update_metadata_node("favicon", href)?;
                             }
                         }
                     }
                 }
-                "title" => self.add_text_node(
-                    vec![NodeLabel::Title, NodeLabel::Metadata],
-                    &element.text().collect::<Vec<&str>>().join(""),
-                    false,
-                )?,
+                "img" => {
+                    if let Some(src) = element.value().attr("src") {
+                        self.update_metadata_node("image", src)?;
+                    }
+                }
+                "title" => {
+                    let title_node_id = self
+                        .arced_engine
+                        .get_or_add_node(
+                            Payload::Text(clean_text(
+                                element.text().collect::<Vec<&str>>().join(""),
+                            )),
+                            vec![NodeLabel::Title, NodeLabel::Partial],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
+                    self.arced_engine.add_connection(
+                        (self.webpage_node_id.clone(), title_node_id),
+                        (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
+                    )?;
+                    self.update_metadata_node(
+                        "title",
+                        &clean_text(element.text().collect::<Vec<&str>>().join("")),
+                    )?;
+                }
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                     let heading_node_id = self
                         .arced_engine
@@ -493,49 +372,122 @@ impl<'a> Traverser<'a> {
         }
         Ok(())
     }
-    fn node_label_already_exists(&self, label: &NodeLabel) -> PiResult<bool> {
-        let child_ids = self
-            .arced_engine
-            .get_node_ids_connected_with_label(&self.webpage_node_id, &EdgeLabel::ParentOf)?;
 
-        Ok(child_ids.iter().any(|id| {
-            self.arced_engine
-                .get_node_by_id(id)
-                .map(|node| node.labels.contains(label))
-                .unwrap_or(false)
-        }))
-    }
-    fn add_text_node(
-        &self,
-        labels: Vec<NodeLabel>,
-        text: &str,
-        can_add_multiple: bool,
-    ) -> PiResult<()> {
-        if !can_add_multiple {
-            if self.node_label_already_exists(&labels[0])? {
+    fn update_metadata_node(&self, attr: &str, content: &str) -> PiResult<()> {
+        if content.is_empty() {
+            return Ok(());
+        }
+        let node = self
+            .arced_engine
+            .get_node_by_id(&self.web_metadata_node_id)
+            .ok_or_else(|| PiError::GraphError("WebMetadata node not found".into()))?;
+        let mut payload = match &node.payload {
+            Payload::WebMetadata(existing) => existing.clone(),
+            _ => {
+                return Err(PiError::InternalError(
+                    "Node does not contain WebMetadata".into(),
+                ))
+            }
+        };
+        match attr.to_lowercase().as_str() {
+            attr if attr.contains("url") => {
+                if payload.url.is_some() {
+                    return Ok(());
+                }
+                payload.url = Some(content.to_string())
+            }
+            attr if attr.contains("site_name") => payload.site_name = Some(content.to_string()),
+            attr if attr.contains("favicon") => {
+                if payload.favicon.is_some() {
+                    return Ok(());
+                }
+                payload.favicon = Some(self.resolve_image(content)?)
+            }
+            attr if attr.contains("image") || attr.contains("thumbnail") => {
+                if !attr.contains("width") && !attr.contains("height") {
+                    return Ok(());
+                }
+                let is_probably_favicon = content.contains("fav")
+                    || content.contains("apple-touch")
+                    || content.contains(".ico");
+                if is_probably_favicon {
+                    if payload.favicon.is_some() {
+                        return Ok(());
+                    }
+                    payload.favicon = Some(self.resolve_image(content)?)
+                } else {
+                    if payload.image.is_some() {
+                        return Ok(());
+                    }
+                    payload.image = Some(self.resolve_image(content)?)
+                }
+            }
+            attr if attr.contains("title") => {
+                if payload.title.is_some() {
+                    return Ok(());
+                }
+                payload.title = Some(content.to_string())
+            }
+            attr if attr.contains("description") => payload.description = Some(content.to_string()),
+            attr if attr.contains("tags") || attr.contains("keywords") => payload
+                .tags
+                .get_or_insert_with(Vec::new)
+                .push(content.to_string()),
+            attr if attr.contains("published_time") => {
+                payload.published_time = Some(content.to_string())
+            }
+            attr if attr.contains("modified_time") || attr.contains("updated_time") => {
+                payload.modified_time = Some(content.to_string())
+            }
+            attr if attr.contains("author") => payload.author = Some(content.to_string()),
+            attr if attr.contains("creator") => payload.creator = Some(content.to_string()),
+            attr if attr.contains("lang") => payload.language = Some(content.to_string()),
+            attr if attr.contains("locale") => payload.locale = Some(content.to_string()),
+            _ => {
                 return Ok(());
             }
         }
-        let text_node_id = self
+        let _ = self
             .arced_engine
-            .get_or_add_node(
-                Payload::Text(clean_text(text.to_string())),
-                labels,
-                true,
-                None,
-            )?
-            .get_node_id();
-        self.arced_engine.add_connection(
-            (self.webpage_node_id.clone(), text_node_id.clone()),
-            (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
-        )?;
+            .update_node(&node.id, Payload::WebMetadata(payload));
         Ok(())
+    }
+
+    fn resolve_image(&self, content: &str) -> PiResult<String> {
+        if content.starts_with("http") {
+            Ok(content.to_string())
+        } else {
+            let base_url = self.webpage_url.join("/")?;
+            Ok(base_url.join(content)?.to_string())
+        }
     }
 }
 
 pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
     // Find the Link node that is the parent of this WebPage node
     let (current_link, current_link_node_id) = get_link_of_webpage(engine.clone(), &node.id)?;
+
+    let web_metadata_node_id = match get_metadata_of_webpage(engine.clone(), &node.id) {
+        Ok((_, id)) => id,
+        Err(_) => {
+            let new_id = engine
+                .get_or_add_node(
+                    Payload::WebMetadata(WebMetadata::default()),
+                    vec![NodeLabel::WebMetadata],
+                    true,
+                    None,
+                )?
+                .get_node_id();
+
+            engine.add_connection(
+                (node.id.clone(), new_id.clone()),
+                (EdgeLabel::ParentOf, EdgeLabel::ChildOf),
+            )?;
+
+            new_id
+        }
+    };
+
     let existing_domain =
         Domain::find_existing(engine.clone(), FindDomainOf::Node(current_link_node_id))?;
     if existing_domain.is_none() {
@@ -582,10 +534,9 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
 
     match &node.payload {
         Payload::Text(payload) => {
-            if payload.contains("%PDF-") || payload.contains("trailer") || payload.contains("%%EOF")
-            {
+            if !payload.to_lowercase().contains("<html") {
                 log::warn!(
-                    "Skipping non-HTML payload (likely a PDF) for node {:?}",
+                    "Skipping content that doesn't appear to be HTML for node {:?}",
                     node.id
                 );
                 return Ok(());
@@ -593,11 +544,13 @@ pub fn scrape(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
             let document = Html::parse_document(&payload);
             let traverser = Traverser {
                 link_node_id: current_link_node_id.clone(),
+                web_metadata_node_id: web_metadata_node_id.clone(),
                 webpage_node_id: node.id.clone(),
-                webpage_url: current_url,
+                webpage_url: current_url.clone(),
                 arced_engine: engine,
                 project_settings,
             };
+            traverser.update_metadata_node("url", current_url.clone().as_str())?;
             traverser.traverse(document.root_element(), None, None)?;
         }
         _ => {

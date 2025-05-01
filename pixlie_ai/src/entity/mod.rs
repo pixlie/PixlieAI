@@ -14,6 +14,7 @@ Not all entity types have a corresponding node. Some nodes have an internal type
 and therefore many entities may point to the same node.
 */
 pub mod content;
+pub mod classifier;
 pub mod crawler;
 pub mod email;
 pub mod objective;

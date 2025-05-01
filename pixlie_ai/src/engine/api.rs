@@ -10,9 +10,11 @@ use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
+use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
@@ -147,6 +149,8 @@ pub enum APIPayload {
     /// Currently only used for nodes representing web URLs, in which case the owner is
     /// a node representing its domain.
     Link(Link),
+    /// A metadata payload for a web page.
+    WebMetadata(WebMetadata),
     /// A text payload.
     Text(String),
     /// [WIP] A tree payload.
@@ -159,6 +163,8 @@ pub enum APIPayload {
     /// These are the settings of the Pixlie AI crawler, based on which it
     /// crawls the web.
     CrawlerSettings(CrawlerSettings),
+    /// These are the settings of the Pixlie AI classifier, based on which it classifies content.
+    ClassifierSettings(ClassifierSettings),
 }
 
 #[derive(Clone, Default, Serialize, ToSchema, TS)]
@@ -221,6 +227,7 @@ impl APINodeItem {
                 }
             }
             Payload::Link(link) => APIPayload::Link(link.clone()),
+            Payload::WebMetadata(web_metadata) => APIPayload::WebMetadata(web_metadata.clone()),
             // The empty string is garbage, just to keep the type system happy
             Payload::Tree => APIPayload::Tree("".to_string()),
             Payload::TableRow(table_row) => APIPayload::TableRow(table_row.clone()),
@@ -229,6 +236,9 @@ impl APINodeItem {
             }
             Payload::CrawlerSettings(crawler_settings) => {
                 APIPayload::CrawlerSettings(crawler_settings.clone())
+            }
+            Payload::ClassifierSettings(classifier_settings) => {
+                APIPayload::ClassifierSettings(classifier_settings.clone())
             }
         };
         APINodeItem {
@@ -874,6 +884,7 @@ pub fn handle_engine_api_request(
                 NodeLabel::Objective,
                 NodeLabel::ProjectSettings,
                 NodeLabel::CrawlerSettings,
+                NodeLabel::ClassifierSettings,
                 NodeLabel::Link,
                 NodeLabel::Domain,
                 NodeLabel::WebSearch,
