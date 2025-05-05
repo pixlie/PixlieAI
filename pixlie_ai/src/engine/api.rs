@@ -842,7 +842,7 @@ pub async fn search_results(
     }
 }
 
-/// Get all relevant web pages for a project
+/// Get all matches for a project
 // TODO: add params for different types of matches
 #[utoipa::path(
     path = "/engine/{project_id}/matches",
@@ -860,7 +860,6 @@ pub async fn search_results(
             description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
-        QueryNodes,
     ),
     tag = "engine",
 )]
