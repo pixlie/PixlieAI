@@ -115,6 +115,14 @@ interface IExplorerWorkflowDisplayState {
   };
 }
 
+interface IExplorerWorkflowLayer {
+  height: number;
+  width: number;
+  upperBound?: number;
+  lowerBound?: number;
+}
+type IExplorerWorkflowLayers = IExplorerWorkflowLayer[];
+
 interface IExplorerProject {
   nodes: IExplorerNodes;
   edges: IExplorerEdges;
@@ -122,6 +130,7 @@ interface IExplorerProject {
   rootElement: IExplorerRootElement;
   displayState: IExplorerWorkflowDisplayState;
   workflow: IExplorerWorkflowNode[];
+  layers: IExplorerWorkflowLayers;
   workflowElements: IExplorerWorkflowElements;
   loaded: boolean;
   ready: boolean;
@@ -234,6 +243,8 @@ export type {
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
   IExplorerWorkflowElementState,
+  IExplorerWorkflowLayer,
+  IExplorerWorkflowLayers,
   IExplorerWorkflowNode,
   IFormField,
   ILabel,

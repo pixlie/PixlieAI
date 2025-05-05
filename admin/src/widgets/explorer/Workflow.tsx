@@ -4,7 +4,6 @@ import WorkflowNode from "../../widgets/explorer/WorkflowNode.tsx";
 
 interface IWorkflowProps {
   workflow: IExplorerWorkflow | undefined;
-  layer?: number;
 }
 
 const Workflow: Component<IWorkflowProps> = (props: IWorkflowProps) => {
@@ -15,12 +14,7 @@ const Workflow: Component<IWorkflowProps> = (props: IWorkflowProps) => {
     <>
       <For each={props.workflow}>
         {(workflowNode) => {
-          return (
-            <WorkflowNode
-              workflowElementId={workflowNode.id}
-              layer={props.layer || 1}
-            />
-          );
+          return <WorkflowNode workflowElementId={workflowNode.id} />;
         }}
       </For>
       <For each={props.workflow}>
@@ -28,10 +22,7 @@ const Workflow: Component<IWorkflowProps> = (props: IWorkflowProps) => {
           workflowNode.children.length > 0 ? (
             <>
               {workflowNode.children.length > 0 && (
-                <Workflow
-                  workflow={workflowNode.children}
-                  layer={(props.layer || 1) + 1}
-                />
+                <Workflow workflow={workflowNode.children} />
               )}
             </>
           ) : (

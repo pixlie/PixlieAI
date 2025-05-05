@@ -13,6 +13,8 @@ import {
   IExplorerWorkflowDisplayState,
   IExplorerWorkflowElement,
   IExplorerWorkflowElements,
+  IExplorerWorkflowLayer,
+  IExplorerWorkflowLayers,
   IExplorerWorkflowNode,
   IProviderPropTypes,
 } from "../utils/types";
@@ -45,6 +47,7 @@ const makeStore = () => {
         edges: {},
         siblingNodes: [],
         workflow: [],
+        layers: [],
         workflowElements: {},
         displayState: {
           scale: 1,
@@ -361,7 +364,7 @@ const makeStore = () => {
       setStore(
         produce((state) => {
           const project = state.projects[projectId];
-          project.workflowElements[id].state.layer = depth + 1;
+          project.workflowElements[id].state.layer = depth;
         }),
       );
       const children: IExplorerWorkflow = [];
@@ -458,7 +461,94 @@ const makeStore = () => {
     ];
   };
 
-  const ongoingRenderParametersUpdates = new Map<string, number>();
+  const ongoingLayerParameterUpdates = new Map<string, number>();
+  const refreshLayerParameters = (projectId: string) => {
+    if (!Object.keys(store.projects).includes(projectId)) {
+      console.error("Project ID not found. Cannot refreshLayerParameters.");
+      return;
+    }
+    const key = projectId;
+    const callId = Math.round(performance.now() * 1000);
+    ongoingLayerParameterUpdates.set(key, callId);
+    const project = store.projects[projectId];
+    const workflowElements = project.workflowElements;
+    const layers: IExplorerWorkflowLayers = [];
+    const layerTemplate: IExplorerWorkflowLayer = {
+      height: 0,
+      width: 0,
+    };
+    batch(() => {
+      Object.values(workflowElements).forEach((element) => {
+        if (ongoingLayerParameterUpdates.get(key) !== callId) return;
+        const dom = element.state.dom;
+        if (dom) {
+          if (!layers[element.state.layer]) {
+            layers[element.state.layer] = { ...layerTemplate };
+          }
+          layers[element.state.layer].height +=
+            dom.height + store.settings.verticalSpacing;
+          if (dom.width > layers[element.state.layer].width) {
+            layers[element.state.layer].width = dom.width;
+          }
+        }
+        setStore(
+          produce((state) => {
+            layers.forEach((layer, index) => {
+              if (ongoingLayerParameterUpdates.get(key) !== callId) return;
+              if (layer) {
+                if (!state.projects[projectId].layers[index]) {
+                  state.projects[projectId].layers[index] = layer;
+                } else {
+                  state.projects[projectId].layers[index].width = layer.width;
+                  state.projects[projectId].layers[index].height = layer.height;
+                }
+              }
+            });
+          }),
+        );
+      });
+
+      // TODO: Refactor layer height calculation
+      // Need to rethink layer heights for sibling groups instead of full layer
+      // Maybe rely on upperBound & lowerBound to calculate height and absolutely
+      // shift canvas accordingly = low-hanging fruit and reliable solution.
+      // Also, make treeSize comparision to place 2 nodes closer or apart.
+      // But, need to reduce the factor as we go deeper into layers.
+      setStore(
+        produce((state) => {
+          state.projects[projectId].layers.forEach((layer) => {
+            layer.height = Math.max(
+              layer.height +
+                2 * store.settings.verticalMargin -
+                store.settings.verticalSpacing,
+              project.rootElement.domState?.height || 0,
+            );
+          });
+        }),
+      );
+    });
+  };
+
+  const makeElementRenderQueues = (
+    tree: IExplorerWorkflow,
+    parent: string = "",
+  ): Record<string, string[]> => {
+    if (tree.length === 0) return {};
+    const processQueue = {
+      [parent]: tree.map((node) => node.id),
+    };
+    for (const node of tree) {
+      if (node.children.length > 0) {
+        const childQueues = makeElementRenderQueues(node.children, node.id);
+        for (const queueParent in childQueues) {
+          processQueue[queueParent] = childQueues[queueParent];
+        }
+      }
+    }
+    return processQueue;
+  };
+
+  const ongoingRenderParameterUpdates = new Map<string, number>();
   const refreshRenderParameters = (projectId: string) => {
     if (!Object.keys(store.projects).includes(projectId)) {
       console.error("Project ID not found. Cannot refreshRenderParameters.");
@@ -466,88 +556,47 @@ const makeStore = () => {
     }
     const key = projectId;
     const callId = Math.round(performance.now() * 1000);
-    ongoingRenderParametersUpdates.set(key, callId);
+    ongoingRenderParameterUpdates.set(key, callId);
     const project = store.projects[projectId];
     const workflowElements = project.workflowElements;
-
-    // Track per-layer heights and max width
-    const maxWidthByLayer: Record<number, number> = {};
-    const layerHeights: Record<string, number> = {};
-    const makeProcessQueues = (
-      tree: IExplorerWorkflow,
-      parent: string = "",
-    ): Record<string, string[]> => {
-      if (tree.length === 0) return {};
-      const processQueue = {
-        [parent]: tree.map((node) => node.id),
-      };
-      for (const node of tree) {
-        if (node.children.length > 0) {
-          const childQueues = makeProcessQueues(node.children, node.id);
-          for (const queueParent in childQueues) {
-            processQueue[queueParent] = childQueues[queueParent];
-          }
-        }
-        const element = workflowElements[node.id];
-        const dom = element.state.dom;
-        if (!(element.state.layer in layerHeights)) {
-          layerHeights[element.state.layer] = 0;
-        }
-        if (!(element.state.layer in maxWidthByLayer)) {
-          maxWidthByLayer[element.state.layer] = 0;
-        }
-        if (dom) {
-          if (dom.width > maxWidthByLayer[element.state.layer]) {
-            maxWidthByLayer[element.state.layer] = dom.width;
-          }
-          layerHeights[element.state.layer] +=
-            dom.height + store.settings.verticalSpacing;
-        }
-      }
-      return processQueue;
-    };
-    const queues = makeProcessQueues(project.workflow);
-    Object.keys(layerHeights).forEach((l) => {
-      layerHeights[l] = Math.max(
-        layerHeights[l] +
-          2 * store.settings.verticalMargin -
-          store.settings.verticalSpacing,
-        project.rootElement.domState?.height || 0,
-      );
-    });
-    const maxLayerHeight = Math.max(...Object.values(layerHeights));
+    if (ongoingRenderParameterUpdates.get(key) !== callId) return;
+    refreshLayerParameters(projectId);
+    const renderQueues = makeElementRenderQueues(project.workflow);
+    const maxLayerHeight = Math.max(
+      ...Object.values(project.layers).map((layer) => layer.height),
+    );
     batch(() => {
-      for (const queueParent in queues) {
-        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
-        const queue = queues[queueParent];
+      for (const queueParent in renderQueues) {
+        if (ongoingRenderParameterUpdates.get(key) !== callId) return;
+        const renderQueue = renderQueues[queueParent];
         const parent = !!queueParent
           ? workflowElements[queueParent]
           : undefined;
         const parentRel = parent ? parent.state.relative : undefined;
         const parentDom = parent ? parent.state.dom : undefined;
-        const processingIndices: number[] = [];
-        const middleIndex = Math.floor(queue.length / 2);
-        const isOdd = queue.length % 2 === 1;
-        if (isOdd) {
-          processingIndices.push(middleIndex);
+        const orderedRenderIndices: number[] = [];
+        const middleIndex = Math.floor(renderQueue.length / 2);
+        const isQueueLengthOdd = renderQueue.length % 2 === 1;
+        if (isQueueLengthOdd) {
+          orderedRenderIndices.push(middleIndex);
         }
         for (let i = 0; i < middleIndex; i++) {
-          processingIndices.push(middleIndex - i - 1);
-          processingIndices.push(middleIndex + i + +isOdd);
+          orderedRenderIndices.push(middleIndex - i - 1);
+          orderedRenderIndices.push(middleIndex + i + +isQueueLengthOdd);
         }
         enum Directions {
           up = 1,
           down = -1,
         }
         let direction: Directions = Directions.up;
-        interface IProcessingParameters {
+        interface ILastRenderParameters {
           [Directions.up]?: { height: number; y: number };
           [Directions.down]?: { height: number; y: number };
         }
-        let previous: IProcessingParameters = {};
-        let initialized: boolean = false;
-        for (const elementIndex of processingIndices) {
-          const elementId = queue[elementIndex];
+        let lastRender: ILastRenderParameters = {};
+        let renderStarted: boolean = false;
+        for (const elementRenderIndex of orderedRenderIndices) {
+          const elementId = renderQueue[elementRenderIndex];
           const workflowElement = workflowElements[elementId];
           const dom = workflowElement.state.dom;
           if (!dom) continue;
@@ -560,12 +609,13 @@ const makeStore = () => {
 
           // Centered placement
           const x =
-            (parentRel && parentDom
+            (parent && parentRel && parentDom
               ? parentRel.position.x +
-                (maxWidthByLayer[layer - 1] + parentDom.width) / 2 +
+                (project.layers[parent.state.layer].width + parentDom.width) /
+                  2 +
                 store.settings.horizontalSpacing
               : store.settings.horizontalMargin) +
-            (maxWidthByLayer[layer] - width) / 2;
+            (project.layers[layer].width - width) / 2;
 
           // Right placement
           // const x =
@@ -574,37 +624,39 @@ const makeStore = () => {
           //       parentDom.width +
           //       store.settings.horizontalSpacing
           //     : store.settings.horizontalMargin) +
-          //   maxWidthByLayer[layer] -
+          //   project.layers[layer].width -
           //   width;
 
           let y = 0;
-          if (!initialized) {
+          if (!renderStarted) {
             y =
               (parentRel && parentDom
                 ? parentRel.position.y + parentDom.height / 2
                 : maxLayerHeight / 2) -
-              (isOdd ? height / 2 : height + store.settings.verticalMargin / 2);
+              (isQueueLengthOdd
+                ? height / 2
+                : height + store.settings.verticalMargin / 2);
           } else {
             if (direction == Directions.up) {
-              y = previous[Directions.up]?.y || 0;
+              y = lastRender[Directions.up]?.y || 0;
               y -= dom.height + store.settings.verticalSpacing;
             } else if (direction == Directions.down) {
               y =
-                (previous[Directions.down]?.y ||
-                  previous[Directions.up]?.y ||
+                (lastRender[Directions.down]?.y ||
+                  lastRender[Directions.up]?.y ||
                   0) +
-                (previous[Directions.down]?.height ||
-                  previous[Directions.up]?.height ||
+                (lastRender[Directions.down]?.height ||
+                  lastRender[Directions.up]?.height ||
                   0);
               y += store.settings.verticalSpacing;
             }
           }
-          previous[direction] = {
+          lastRender[direction] = {
             height,
             y: y,
           };
           direction = -direction;
-          initialized = true;
+          renderStarted = true;
 
           if (
             workflowElements[elementId].state.relative?.position.x !== x ||
@@ -627,19 +679,21 @@ const makeStore = () => {
         project.rootElement.domState &&
         Object.values(workflowElements).every((el) => !!el.state.relative)
       ) {
-        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
+        if (ongoingRenderParameterUpdates.get(key) !== callId) return;
         const totalWidth =
           2 * store.settings.horizontalMargin +
-          Object.values(maxWidthByLayer).reduce(
-            (acc, width) => acc + width,
+          Object.values(project.layers).reduce(
+            (acc, layer) => acc + layer.width,
             0,
           ) +
-          store.settings.horizontalSpacing *
-            (Object.keys(maxWidthByLayer).length - 1);
-        const scale = Math.min(
-          project.rootElement.domState.width / totalWidth || 1,
-          project.rootElement.domState.height / maxLayerHeight || 1,
-        );
+          store.settings.horizontalSpacing * (project.layers.length - 1);
+        const scale =
+          Math.floor(
+            Math.min(
+              project.rootElement.domState.width / totalWidth || 1,
+              project.rootElement.domState.height / maxLayerHeight || 1,
+            ) * 100,
+          ) / 100;
         const size = {
           width: totalWidth,
           height: maxLayerHeight,
@@ -653,10 +707,10 @@ const makeStore = () => {
           size,
           translate,
         };
-        if (ongoingRenderParametersUpdates.get(key) !== callId) return;
+        if (ongoingRenderParameterUpdates.get(key) !== callId) return;
         setStore("projects", projectId, "displayState", style);
       }
-      ongoingRenderParametersUpdates.delete(key);
+      ongoingRenderParameterUpdates.delete(key);
     });
   };
 

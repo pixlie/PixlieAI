@@ -15,7 +15,6 @@ import Heading from "../../widgets/typography/Heading.tsx";
 
 interface IWorkflowNodeProps {
   workflowElementId: string;
-  layer: number;
 }
 
 const WorkflowNode: Component<IWorkflowNodeProps> = (
