@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
-use crate::engine::{EdgeLabel, Engine, NodeFlags};
+use crate::engine::{EdgeLabel, Engine};
 use crate::error::PiError;
 use crate::error::PiResult;
 use crate::services::anthropic::Anthropic;
@@ -31,7 +31,7 @@ pub struct LLMResponse {
 }
 
 impl LLMSchema for ClassifierSettings {
-    fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+    fn get_schema_for_llm(node: &NodeItem, _engine: Arc<&Engine>) -> PiResult<String> {
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         match node.payload {
@@ -53,7 +53,7 @@ impl LLMSchema for ClassifierSettings {
 }
 
 impl LLMSchema for LLMResponse {
-    fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+    fn get_schema_for_llm(_node: &NodeItem, _engine: Arc<&Engine>) -> PiResult<String> {
         let ts_self = clean_ts_type(&Self::export_to_string()?);
         Ok(ts_self)
     }

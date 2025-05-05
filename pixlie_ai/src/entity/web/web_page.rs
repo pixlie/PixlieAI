@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{NodeId, ArcedNodeId, NodeItem, ArcedNodeItem, NodeLabel, Payload};
+use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
