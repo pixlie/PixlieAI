@@ -11,6 +11,7 @@ use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::classifier::ClassifierSettings;
+use crate::entity::web::domain::{Domain, FindDomainOf};   
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::link::Link;
@@ -74,6 +75,7 @@ pub enum EngineRequestPayload {
     Explore(Option<u32>), // Optional node id to start from
 
     GetLabels,
+    GetMatches,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
     GetAllNodes(i64),
@@ -112,6 +114,16 @@ pub struct Explore {
     pub sibling_nodes: Vec<Vec<NodeId>>, // Nodes that are grouped together because they are siblings
 }
 
+#[derive(Clone, Serialize, TS, ToSchema)]
+#[ts(export)]
+pub struct APIMatch {
+    pub node_id: NodeId,
+    pub full_url: String,
+    pub metadata: WebMetadata,  // TODO: support other types of matches
+    pub insight: String,
+    pub reason: String,
+}
+
 /// Engine's response for an API request.
 ///
 /// API requests for a project are sent to its engine.
@@ -127,13 +139,14 @@ pub enum EngineResponsePayload {
     EdgeCreatedSuccessfully,
     /// Response for a node query. Returns a list of nodes.
     Nodes(Vec<APINodeItem>),
-
+    /// Response for edge retrieval. Returns a list of edges.
+    Edges(APIEdges),
     // TODO: The below should be Labels(Vec<NodeLabel>)
     // Change this and handle chain-effects, if any
     /// Response for label retrieval. Returns a list of labels.
     Labels(Vec<String>),
-    /// Response for edge retrieval. Returns a list of edges.
-    Edges(APIEdges),
+    /// Response for matches retrieval. Returns a list of matches.
+    Matches(Vec<APIMatch>),
     Explore(Explore),
     /// Error response.
     Error(String),
@@ -829,6 +842,72 @@ pub async fn search_results(
     }
 }
 
+/// Get all relevant web pages for a project
+// TODO: add params for different types of matches
+#[utoipa::path(
+    path = "/engine/{project_id}/matches",
+    responses(
+        (
+            status = 200,
+            description = "Matches retrieved successfully. Returns `EngineResponsePayload` of `type` `Matches` or `Error`.",
+            body = EngineResponsePayload
+        ),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+        QueryNodes,
+    ),
+    tag = "engine",
+)]
+#[get("/matches")]
+pub async fn get_matches(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+
+    debug!("API request {} for project {} to get matches", request_id, project_id);
+
+    // Subscribe to receive engine response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id,
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::GetMatches,
+        },
+    ))?;
+
+    let mut response_opt = None;
+    while response_opt.is_none() {
+        match rx.recv().await {
+            Ok(PiEvent::APIResponse(p_id, response)) => {
+                if p_id == project_id && response.request_id == request_id {
+                    response_opt = Some(response.payload);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+
+    match response_opt {
+        Some(response) => Ok(web::Json(response)),
+        None => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".into(),
+        ))),
+    }
+}
+
 pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
     app_config.service(
         utoipa_actix_web::scope::scope("/engine/{project_id}")
@@ -838,6 +917,7 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
             .service(create_node)
             .service(create_edge)
             .service(search_results)
+            .service(get_matches)
             .service(explore),
     );
 }
@@ -1132,6 +1212,121 @@ pub fn handle_engine_api_request(
             }
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
+        EngineRequestPayload::GetMatches => {
+            let mut results = vec![];
+        
+            for node in engine.get_all_nodes() {
+                if !node.labels.contains(&NodeLabel::WebPage) {
+                    continue;
+                }
+        
+                let connected = match engine.get_connected_nodes(&node.id)? {
+                    Some(edges) => edges,
+                    None => continue,
+                };
+
+                let full_url = connected.edges.iter().find_map(|(id, label)| {
+                    if *label == EdgeLabel::ParentOf {
+                        engine.get_node_by_id(id).and_then(|n| {
+                            if n.labels.contains(&NodeLabel::Link) {
+                                match &n.payload {
+                                    Payload::Link(link) => {
+                                        let domain_node = Domain::find_existing(
+                                            engine.clone(),
+                                            FindDomainOf::Node(*id),
+                                        ).ok().flatten()?;
+                                        let domain_name = Domain::get_domain_name(&domain_node).ok()?;
+                                        Some(format!("https://{}{}", domain_name, link.get_full_link()))
+                                    },
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                });
+                if full_url.is_none() {
+                    continue;
+                }
+                let full_url = full_url.unwrap();
+        
+                let metadata = connected.edges.iter().find_map(|(id, label)| {
+                    if *label == EdgeLabel::ParentOf {
+                        engine.get_node_by_id(id).and_then(|n| {
+                            if n.labels.contains(&NodeLabel::WebMetadata) {
+                                match &n.payload {
+                                    Payload::WebMetadata(meta) => Some(meta.clone()),
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                });
+                if metadata.is_none() {
+                    continue;
+                }
+                let metadata = metadata.unwrap();
+        
+                let insight = connected.edges.iter().find_map(|(id, label)| {
+                    if *label == EdgeLabel::Matches {
+                        engine.get_node_by_id(id).and_then(|n| {
+                            if n.labels.contains(&NodeLabel::Insight) {
+                                match &n.payload {
+                                    Payload::Text(text) => Some(text.clone()),
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                });
+                if insight.is_none() {
+                    continue;
+                }
+                let insight = insight.unwrap();
+        
+                let reason = connected.edges.iter().find_map(|(id, label)| {
+                    if *label == EdgeLabel::Matches {
+                        engine.get_node_by_id(id).and_then(|n| {
+                            if n.labels.contains(&NodeLabel::Reason) {
+                                match &n.payload {
+                                    Payload::Text(text) => Some(text.clone()),
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                });
+                if reason.is_none() {
+                    continue;
+                }
+                let reason = reason.unwrap();
+
+                results.push(APIMatch {
+                    node_id: node.id,
+                    full_url,
+                    metadata,
+                    insight,
+                    reason,
+                });
+            }
+        
+            EngineResponsePayload::Matches(results)
+        }
     };
 
     main_channel_tx.send(PiEvent::APIResponse(

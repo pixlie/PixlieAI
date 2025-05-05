@@ -126,6 +126,7 @@ fn load_rustls_config(with_hostname: &WithHostname) -> PiResult<ServerConfig> {
         engine::api::create_node,
         engine::api::create_edge,
         engine::api::search_results,
+        engine::api::get_matches,
     ),
     tags(
         (name = "pixlie_ai", description = "Pixlie AI"),
