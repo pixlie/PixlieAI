@@ -476,6 +476,12 @@ const makeStore = () => {
     const layerTemplate: IExplorerWorkflowLayer = {
       height: 0,
       width: 0,
+      boundaries: {
+        topY: 0,
+        bottomY: 0,
+        leftX: 0,
+        rightX: 0,
+      },
     };
     batch(() => {
       Object.values(workflowElements).forEach((element) => {
@@ -496,11 +502,25 @@ const makeStore = () => {
             layers.forEach((layer, index) => {
               if (ongoingLayerParameterUpdates.get(key) !== callId) return;
               if (layer) {
+                const projectLayers = state.projects[projectId].layers;
                 if (!state.projects[projectId].layers[index]) {
-                  state.projects[projectId].layers[index] = layer;
+                  projectLayers[index] = layer;
                 } else {
-                  state.projects[projectId].layers[index].width = layer.width;
-                  state.projects[projectId].layers[index].height = layer.height;
+                  projectLayers[index].width = layer.width;
+                  projectLayers[index].height = layer.height;
+                  projectLayers[index].boundaries.leftX =
+                    store.settings.horizontalMargin +
+                    projectLayers
+                      .slice(0, index)
+                      .reduce(
+                        (acc, projectLayer) =>
+                          acc +
+                          projectLayer.width +
+                          store.settings.horizontalSpacing,
+                        0,
+                      );
+                  projectLayers[index].boundaries.rightX =
+                    projectLayers[index].boundaries.leftX + layer.width;
                 }
               }
             });
@@ -523,6 +543,7 @@ const makeStore = () => {
                 store.settings.verticalSpacing,
               project.rootElement.domState?.height || 0,
             );
+            layer.boundaries.bottomY = layer.height;
           });
         }),
       );
@@ -651,10 +672,7 @@ const makeStore = () => {
               y += store.settings.verticalSpacing;
             }
           }
-          lastRender[direction] = {
-            height,
-            y: y,
-          };
+          lastRender[direction] = { height, y };
           direction = -direction;
           renderStarted = true;
 
@@ -666,10 +684,23 @@ const makeStore = () => {
               produce((state) => {
                 const element =
                   state.projects[projectId].workflowElements[elementId];
+                const boundaries =
+                  state.projects[projectId].layers[element.state.layer]
+                    .boundaries;
                 element.state.relative = {
-                  position: { key: `${x}-${y}`, x, y },
+                  position: { x, y },
                   size: { w: 0, h: 0 },
                 };
+                if (y - store.settings.verticalMargin < boundaries.topY) {
+                  boundaries.topY = y - store.settings.verticalMargin;
+                }
+                if (
+                  y + height + store.settings.verticalMargin >
+                  boundaries.bottomY
+                ) {
+                  boundaries.bottomY =
+                    y + height + store.settings.verticalMargin;
+                }
               }),
             );
           }
@@ -680,33 +711,28 @@ const makeStore = () => {
         Object.values(workflowElements).every((el) => !!el.state.relative)
       ) {
         if (ongoingRenderParameterUpdates.get(key) !== callId) return;
-        const totalWidth =
+        const width =
           2 * store.settings.horizontalMargin +
           Object.values(project.layers).reduce(
             (acc, layer) => acc + layer.width,
             0,
           ) +
           store.settings.horizontalSpacing * (project.layers.length - 1);
+        let translateY = -Math.min(
+          ...project.layers.map((layer) => layer.boundaries.topY),
+        );
+        let height = Math.max(maxLayerHeight) + translateY;
+
         const scale =
           Math.floor(
             Math.min(
-              project.rootElement.domState.width / totalWidth || 1,
+              project.rootElement.domState.width / width || 1,
               project.rootElement.domState.height / maxLayerHeight || 1,
             ) * 100,
           ) / 100;
-        const size = {
-          width: totalWidth,
-          height: maxLayerHeight,
-        };
-        const translate = {
-          x: (project.rootElement.domState.width - size.width * scale) / 2,
-          y: (project.rootElement.domState.height - size.height * scale) / 2,
-        };
-        const style: IExplorerWorkflowDisplayState = {
-          scale,
-          size,
-          translate,
-        };
+        const size = { width, height };
+        const translate = { x: 0, y: translateY };
+        const style: IExplorerWorkflowDisplayState = { scale, size, translate };
         if (ongoingRenderParameterUpdates.get(key) !== callId) return;
         setStore("projects", projectId, "displayState", style);
       }

@@ -153,7 +153,7 @@ const WorkflowNode: Component<IWorkflowNodeProps> = (
   });
   return !!getWorkflowElement() ? (
     <div
-      class="absolute p-2 shadow-lg ring-1 ring-black/5 rounded-xl bg-stone-100 -left-full transition-all duration-1000"
+      class="absolute p-2 shadow-lg ring-1 ring-black/5 rounded-xl bg-stone-100 -left-full transition-all"
       ref={setWorkflowNodeRef}
       style={getNodeStyle()}
       data-id={getWorkflowElementId()}

@@ -53,7 +53,6 @@ interface IExplorerRootElement {
 }
 
 interface IExplorerElementRelativePosition {
-  key: string | undefined;
   x: number;
   y: number;
 }
@@ -118,8 +117,12 @@ interface IExplorerWorkflowDisplayState {
 interface IExplorerWorkflowLayer {
   height: number;
   width: number;
-  upperBound?: number;
-  lowerBound?: number;
+  boundaries: {
+    topY: number;
+    bottomY: number;
+    leftX: number;
+    rightX: number;
+  };
 }
 type IExplorerWorkflowLayers = IExplorerWorkflowLayer[];
 

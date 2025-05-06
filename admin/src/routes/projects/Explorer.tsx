@@ -13,6 +13,7 @@ import { ExplorerProvider, useExplorer } from "../../stores/explorer.tsx";
 import Workflow from "../../widgets/explorer/Workflow.tsx";
 import WorkflowDataJSON from "../../widgets/explorer/WorkflowDataJSON.tsx";
 import WorkflowElementDataJSON from "../../widgets/explorer/WorkflowElementsDataJSON.tsx";
+import WorkflowPaths from "../../widgets/explorer/WorkflowPaths.tsx";
 
 const Explorer: Component = () => {
   // The node editor is created with free positioned divs that can be dragged and dropped.
@@ -33,6 +34,7 @@ const Explorer: Component = () => {
     ) {
       setProjectId(params.projectId);
       explore(params.projectId);
+      getLayers();
       if (explorerRef() && !!explorerSize.width && !!explorerSize.height) {
         updateRootElement(
           params.projectId as string,
@@ -44,15 +46,15 @@ const Explorer: Component = () => {
   createEffect(() => {
     if (
       !!params.projectId &&
-      Object.keys(explorer.projects).includes(params.projectId) &&
-      explorerRef() &&
-      explorerSize.width &&
-      explorerSize.height
+      Object.keys(explorer.projects).includes(params.projectId)
     ) {
-      updateRootElement(
-        params.projectId as string,
-        explorerRef()!.getBoundingClientRect(),
-      );
+      getLayers();
+      if (explorerRef() && explorerSize.width && explorerSize.height) {
+        updateRootElement(
+          params.projectId as string,
+          explorerRef()!.getBoundingClientRect(),
+        );
+      }
     }
   });
   onCleanup(() => {
@@ -75,10 +77,17 @@ const Explorer: Component = () => {
         height: displayState.size.height
           ? `${displayState.size.height}px`
           : "100%",
-        // translate: `translate(${displayState.translate.x}px, ${displayState.translate.y}px)`,
+        top: `${displayState.translate.y}px`,
+        left: `${displayState.translate.x}px`,
       };
     }
     return {};
+  });
+  const getLayers = createMemo(() => {
+    return explorer.projects[params.projectId]?.layers || [];
+  });
+  const getWorkflow = createMemo(() => {
+    return explorer.projects[params.projectId]?.workflow || [];
   });
   return (
     <ExplorerProvider>
@@ -91,21 +100,19 @@ const Explorer: Component = () => {
         explorer.projects[params.projectId].loaded ? (
           explorer.projects[params.projectId].rootElement &&
           explorer.projects[params.projectId].ready &&
-          !!explorer.projects[params.projectId].workflow ? (
+          !!getWorkflow() ? (
             <>
               <div
                 class="absolute top-0 left-0 w-full h-full transform-gpu origin-top-left"
                 style={getDisplayStyle()}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                  <g fill="none" stroke="gray" stroke-width="0.5">
-                    {/* <For each={getPaths()}>{(path) => <path d={path} />}</For> */}
-                  </g>
-                </svg>
                 {explorer.projects[params.projectId].workflow && (
-                  <Workflow
-                    workflow={explorer.projects[params.projectId].workflow}
-                  />
+                  <>
+                    <WorkflowPaths projectId={params.projectId} />
+                    <Workflow
+                      workflow={explorer.projects[params.projectId].workflow}
+                    />
+                  </>
                 )}
               </div>
               <div class="absolute top-1 right-1">
