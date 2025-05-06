@@ -44,6 +44,14 @@ RUST_LOG=debug cargo run --bin cli
 
 Change the `RUST_LOG` to `info` or `debug` depending on the level of logging you want.
 
+## API Documentation
+
+We have 3 API documentation available when running Pixlie locally:
+
+- `/swagger`  - chokes on large responses quite bad.
+- `/redoc` - doesn't have the 'Try it out’ feature.
+- `/rapidoc` - It does not have reported choking issues and documentation & nav are quite good. But due to some bug, {project_id} is not showing up as an input parameter, so effectively the engine endpoints are currently unusable.
+
 ## Releasing a new version
 
 To release a new version, you need to follow these steps:
