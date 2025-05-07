@@ -957,8 +957,8 @@ pub fn handle_engine_api_request(
             };
 
             // With the starting node, we fetch nodes and edges.
-            // We fetch 3 levels of nodes, and 2 levels of edges between them.
-            let max_depth = 4;
+            // We fetch 5 levels of nodes, and 4 levels of edges between them.
+            let max_depth = 6;
             let node_labels_of_interest = [
                 NodeLabel::Objective,
                 NodeLabel::ProjectSettings,

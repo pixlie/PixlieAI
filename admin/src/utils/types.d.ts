@@ -1,10 +1,12 @@
 import { JSX, JSXElement } from "solid-js";
+import { APINodeEdges } from "../api_types/APINodeEdges.ts";
+import { APINodeItem } from "../api_types/APINodeItem";
+import { EdgeLabel } from "../api_types/EdgeLabel.ts";
+import { NodeLabel } from "../api_types/NodeLabel.ts";
+import { Project } from "../api_types/Project";
 import { Settings } from "../api_types/Settings";
 import { SettingsStatus } from "../api_types/SettingsStatus";
-import { Project } from "../api_types/Project";
-import { APINodeItem } from "../api_types/APINodeItem";
 import { Workspace } from "../api_types/Workspace";
-import { APINodeEdges } from "../api_types/APINodeEdges.ts";
 import { ThemableItem } from "./uIClasses/types";
 
 interface IProviderPropTypes {
@@ -46,28 +48,110 @@ interface IEngineStore {
   sync: Array<string>;
 }
 
-interface IElementPosition {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+interface IExplorerRootElement {
+  domState: DOMRect | undefined;
 }
 
-interface INodePosition extends IElementPosition {
-  nodeIds: number[]; // Multiple sibling nodes can be represented in one display element
+interface IExplorerElementRelativePosition {
+  x: number;
+  y: number;
+}
+interface IExplorerElementRelativeSize {
+  w: number;
+  h: number;
 }
 
-interface INodesAndEdges {
-  nodes: APINodeItem[];
-  edges: IEngineEdges;
-  siblingNodes: Array<Array<number>>;
+interface IExplorerWorkflowElementState {
+  position: IExplorerElementRelativePosition;
+  size: IExplorerElementRelativeSize;
+}
 
-  canvasPosition: IElementPosition;
-  nodePositions: Array<INodePosition>;
+interface IExplorerWorkflowEdges {
+  [label: string]: Array<string>;
+}
+
+interface IExplorerWorkflowElement {
+  id: string;
+  state: {
+    dom: DOMRect | undefined;
+    relative: IExplorerWorkflowElementState | undefined;
+    layer: number;
+  };
+  labels: Array<NodeLabel>;
+  edges: IExplorerWorkflowEdges;
+  type: WorkflowElementType;
+  nodeIds: number[];
+}
+
+interface IExplorerWorkflowNode {
+  id: string;
+  treeSize: number;
+  children: IExplorerWorkflow;
+}
+
+type IExplorerWorkflow = IExplorerWorkflowNode[];
+
+interface IExplorerNodes {
+  [nodeId: string]: APINodeItem;
+}
+interface IExplorerEdges {
+  [nodeId: string]: APINodeEdges;
+}
+
+interface IExplorerWorkflowElements {
+  [key: string]: IExplorerWorkflowElement;
+}
+
+interface IExplorerWorkflowDisplayState {
+  scale: number;
+  size: {
+    width: number;
+    height: number;
+  };
+  translate: {
+    x: number;
+    y: number;
+  };
+}
+
+interface IExplorerWorkflowLayer {
+  height: number;
+  width: number;
+  boundaries: {
+    topY: number;
+    bottomY: number;
+    leftX: number;
+    rightX: number;
+  };
+}
+type IExplorerWorkflowLayers = IExplorerWorkflowLayer[];
+
+interface IExplorerProject {
+  nodes: IExplorerNodes;
+  edges: IExplorerEdges;
+  siblingNodes: number[][];
+  rootElement: IExplorerRootElement;
+  displayState: IExplorerWorkflowDisplayState;
+  workflow: IExplorerWorkflowNode[];
+  layers: IExplorerWorkflowLayers;
+  workflowElements: IExplorerWorkflowElements;
+  loaded: boolean;
+  ready: boolean;
+}
+
+interface IExplorerSettings {
+  nodeLabelsOfInterest: NodeLabel[];
+  configurableNodeLabels: NodeLabel[];
+  edgeLabelsOfInterest: EdgeLabel[];
+  horizontalSpacing: number;
+  verticalSpacing: number;
+  horizontalMargin: number;
+  verticalMargin: number;
 }
 
 interface IExplorerStore {
-  projects: { [projectId: string]: INodesAndEdges };
+  projects: { [projectId: string]: IExplorerProject };
+  settings: IExplorerSettings;
 }
 
 interface INodeItemDisplayProps {
@@ -142,22 +226,35 @@ interface ILabel {
 }
 
 export type {
-  IProviderPropTypes,
-  IWorkspace,
-  IFormField,
-  ITextFormField,
+  IActionsWrapper,
+  IActionsWrapperAction,
   IBooleanFormField,
   IEngine,
   IEngineEdges,
   IEngineNodes,
   IEngineStore,
-  IElementPosition,
-  INodePosition,
+  IExplorerEdges,
+  IExplorerElementRelativePosition,
+  IExplorerElementRelativeSize,
+  IExplorerNodes,
+  IExplorerProject,
+  IExplorerRootElement,
   IExplorerStore,
+  IExplorerWorkflow,
+  IExplorerWorkflowDisplayState,
+  IExplorerWorkflowEdges,
+  IExplorerWorkflowElement,
+  IExplorerWorkflowElements,
+  IExplorerWorkflowElementState,
+  IExplorerWorkflowLayer,
+  IExplorerWorkflowLayers,
+  IExplorerWorkflowNode,
+  IFormField,
+  ILabel,
   INodeItem,
   INodeItemDisplayProps,
   INodeListItemProps,
-  IActionsWrapper,
-  IActionsWrapperAction,
-  ILabel,
+  IProviderPropTypes,
+  ITextFormField,
+  IWorkspace,
 };
