@@ -95,7 +95,7 @@ async fn fetch(request: InternalFetchRequest) -> FetchResult {
     let client = match Client::builder()
         .user_agent("Pixlie AI bot (https://pixlie.com)")
         .timeout(Duration::from_secs(match request.crawl_or_api_request {
-            CrawlOrAPIRequest::Crawl(_) => 5,
+            CrawlOrAPIRequest::Crawl(_) => 30,
             CrawlOrAPIRequest::API(_) => 60,
         }))
         .build()
