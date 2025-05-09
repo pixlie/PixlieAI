@@ -87,32 +87,22 @@ const PerProjectRoutes: Component = () => {
             ),
           },
           {
-            label: "Results",
-            children: ["WebPage", "URL"].map((label) => ({
-              label: `${label}s`.replace(/([a-z])([A-Z])/g, "$1 $2"),
-              href: `/p/${params.projectId}/results?label=${label}`,
-              isActive:
-                location.pathname.startsWith(`/p/${params.projectId}/results`) &&
-                location.search.includes(`label=${label}`),
-            })),
-          },
-          {
-            label: "Data",
-            children: ["WebPage", "Link"].map((label) => ({
-              label: `${label}s`.replace(/([a-z])([A-Z])/g, "$1 $2"),
-              href: `/p/${params.projectId}/data?label=${label}`,
-              isActive:
-                location.pathname.startsWith(`/p/${params.projectId}/data`) &&
-                location.search.includes(`label=${label}`),
-            })),
-          },
-          {
             label: "Crawl",
             children: ["Domain", "Link"].map((label) => ({
               label: `${label}s`,
               href: `/p/${params.projectId}/crawl?label=${label}`,
               isActive:
                 location.pathname.startsWith(`/p/${params.projectId}/crawl`) &&
+                location.search.includes(`label=${label}`),
+            })),
+          },
+          {
+            label: "Results",
+            children: ["WebPage", "URL"].map((label) => ({
+              label: `${label}s`.replace(/([a-z])([A-Z])/g, "$1 $2"),
+              href: `/p/${params.projectId}/results?label=${label}`,
+              isActive:
+                location.pathname.startsWith(`/p/${params.projectId}/results`) &&
                 location.search.includes(`label=${label}`),
             })),
           },
