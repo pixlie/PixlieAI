@@ -12,7 +12,6 @@ import {
   IProviderPropTypes,
 } from "../utils/types";
 import { APINodeEdges } from "../api_types/APINodeEdges.ts";
-import { APIMatch } from "../api_types/APIMatch.ts";
 
 const makeStore = () => {
   const [store, setStore] = createStore<IEngineStore>({
@@ -160,26 +159,6 @@ const makeStore = () => {
       .filter((node) => !filterFn || filterFn(node));
   };
 
-  const getMatches = async (projectId: string): Promise<Array<APIMatch>> => {
-    const pixlieAIAPIRoot = getPixlieAIAPIRoot();
-    const response = await fetch(`${pixlieAIAPIRoot}/api/engine/${projectId}/matches`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  
-    if (!response.ok) {
-      throw new Error("Failed to fetch matches");
-    }
-  
-    const responsePayload: EngineResponsePayload = await response.json();
-  
-    if (responsePayload.type === "Matches") {
-      return responsePayload.data;
-    }
-    
-    throw new Error(`Unexpected response payload ${responsePayload.type}`);
-  };
 
   const sync = (projectId: string) => {
     if (store.sync.includes(projectId)) {
@@ -226,7 +205,6 @@ const makeStore = () => {
       getNodes,
       getRelatedNodeIds,
       getRelatedNodes,
-      getMatches,
     },
   ] as const; // `as const` forces tuple type inference
 };

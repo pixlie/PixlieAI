@@ -27,7 +27,6 @@ const Routes: Component = () => {
             <Route path="/workflow" component={Workflow} />
             <Route path="/explorer" component={Explorer} />
             <Route path="/insights" component={Insights} />
-            <Route path="/data" component={Data} />
             <Route path="/results" component={Results} />
             <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
