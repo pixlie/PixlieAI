@@ -4,7 +4,6 @@ import Setup from "./settings/Setup";
 import SettingsContainer from "./settings/SettingsContainer";
 import Workflow from "./projects/Workflow";
 import Insights from "./projects/Insights";
-import Data from "./projects/Data.tsx";
 import Crawl from "./projects/Crawl";
 import Search from "./projects/Search";
 import PerProjectWrapper from "./projects/PerProject";
@@ -13,6 +12,7 @@ import Contact from "./help/Contact";
 import CreateProject from "./projects/CreateProject.tsx";
 import Graph from "./projects/Graph.tsx";
 import Explorer from "./projects/Explorer.tsx";
+import Results from "./projects/Results.tsx";
 
 const Routes: Component = () => {
   return (
@@ -26,7 +26,7 @@ const Routes: Component = () => {
             <Route path="/workflow" component={Workflow} />
             <Route path="/explorer" component={Explorer} />
             <Route path="/insights" component={Insights} />
-            <Route path="/data" component={Data} />
+            <Route path="/results" component={Results} />
             <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
             <Route path="/graph" component={Graph} />
