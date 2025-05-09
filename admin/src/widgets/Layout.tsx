@@ -5,6 +5,7 @@ import Sidebar from "./navigation/Sidebar.tsx";
 import { useLocation } from "@solidjs/router";
 import HelpModal from "../routes/help/HelpModal.tsx";
 import SettingsModal from "../routes/settings/SettingsModal.tsx";
+import Breadcrumb from "./navigation/Breadcrumb.tsx";
 
 interface ILayoutProps {
   children: JSX.Element;
@@ -28,8 +29,8 @@ const Layout: Component<ILayoutProps> = (props) => {
             "flex flex-col flex-1 rounded-lg border " + getColors().mainContent
           }
         >
-          {/* <Breadcrumb /> */}
-          <div class="flex flex-col flex-1 overflow-scroll p-8 gap-4">
+          <div class="flex flex-col flex-1 overflow-scroll p-8 gap-8">
+          <Breadcrumb />
             {props.children}
           </div>
         </div>

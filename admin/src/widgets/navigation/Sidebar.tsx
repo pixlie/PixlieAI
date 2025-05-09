@@ -30,7 +30,7 @@ const Sidebar: Component = () => {
           getColors()["sideBar"]
         }
       >
-        <div class="self-end mr-5 pb-2">
+        <div class="ml-5 pb-2">
           {/* TODO: show projects dropdown for per project routes when sidebar expanded */}
           <IconButton
             name={collapsed() ? "Expand" : "Collapse"}
