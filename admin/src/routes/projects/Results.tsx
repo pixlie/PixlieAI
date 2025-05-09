@@ -140,7 +140,7 @@ const Results: Component = () => {
           )}
         </>
       ) : (
-        <div class="text-slate-500 h-full w-full flex justify-center items-center text-center">
+        <div class="text-md absolute text-slate-400 h-full w-full flex justify-center items-center text-center">
           No matches found yet!
         </div>
       )}
