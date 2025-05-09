@@ -4,7 +4,6 @@ import Setup from "./settings/Setup";
 import SettingsContainer from "./settings/SettingsContainer";
 import Workflow from "./projects/Workflow";
 import Insights from "./projects/Insights";
-import Data from "./projects/Data.tsx";
 import Crawl from "./projects/Crawl";
 import Search from "./projects/Search";
 import PerProjectWrapper from "./projects/PerProject";
