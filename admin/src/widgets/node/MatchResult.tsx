@@ -7,10 +7,11 @@ import ShareOptions from "../interactable/ShareOptions.tsx";
 
 interface MatchProps {
   match: APIMatch;
+  nodeType?: string;
 }
 
 interface MatchPreviewProps extends MatchProps {
-  showShareOptions: boolean;
+  showShareOptions?: boolean;
 }
 
 const WebPageMatchPreview: Component<MatchPreviewProps> = ({
@@ -31,12 +32,10 @@ const WebPageMatchPreview: Component<MatchPreviewProps> = ({
       console.error("Invalid URL:", url);
       return url; // fallback
     }
-  }
+  };
 
   return (
-    <div
-      class={`flex flex-col w-full bg-white ${!!insight ? "border-2 border-green-500 bg-green-50" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
-    >
+    <div class="flex flex-col w-full bg-white border-2 border-green-500 rounded-xl group hover:shadow-xl transition-all duration-50 ease-in-out overflow-hidden">
       {metadata.image && imageVisible() && (
         <img
           src={metadata.image}
@@ -151,12 +150,48 @@ const WebPageMatchPreview: Component<MatchPreviewProps> = ({
   );
 };
 
+const URLMatchPreview: Component<MatchPreviewProps> = (props) => {
+  const url = props.match.full_url;
+
+  return (
+    <div class="flex items-center h-10 gap-6 group transition-all duration-50 ease-in-out">
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        class="text-md flex-1 text-blue-500 group-hover:text-blue-600 underline font-semibold  "
+      >
+        {url}
+      </a>
+      <div
+        class="flex justify-end -m-2
+            w-0 group-hover:w-auto
+                opacity-0 group-hover:opacity-100
+                translate-x-8 group-hover:translate-x-0
+                pointer-events-none group-hover:pointer-events-auto
+                transition-all duration-100 delay-50 ease-in-out"
+      >
+        <ShareOptions url={url} title={`Match found from ${url}`} />
+      </div>
+      <span class="flex items-center gap-2 text-md font-semibold cursor-default text-green-600 bg-green-100 rounded-full px-4 py-2">
+        {/* TODO: hover over info to show insights and reasoning */}
+        Match
+      </span>
+    </div>
+  );
+};
+
 const MatchResult: Component<MatchProps> = (props) => (
   <div class="group relative">
-    <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer">
-      <WebPageMatchPreview match={props.match} showShareOptions={true} />
-    </div>
-    <WebPageMatchPreview match={props.match} showShareOptions={false} />
+    {props.nodeType === "WebPage" && (
+      <>
+        <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer">
+          <WebPageMatchPreview match={props.match} showShareOptions={true} />
+        </div>
+        <WebPageMatchPreview match={props.match} showShareOptions={false} />
+      </>
+    )}
+    {props.nodeType === "URL" && <URLMatchPreview match={props.match} />}
   </div>
 );
 

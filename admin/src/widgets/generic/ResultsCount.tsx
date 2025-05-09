@@ -9,9 +9,8 @@ interface IPropTypes {
 const ResultsCount: Component<IPropTypes> = (props) => {
   const [_, { getColors }] = useUIClasses();
   return (
-    <div class={"flex items-center gap-2 text-md " + getColors()["textMedium"]}>
-      <p>{`${props.count} Results`}</p>
-      {props.count === 0 && (
+    <div class={"flex items-center gap-1 text-md leading-none cursor-default " + getColors()["textLight"]}>
+      {props.count === 0 ? (
         <div
           class={
             "w-4 h-4 flex justify-center items-center " +
@@ -20,7 +19,10 @@ const ResultsCount: Component<IPropTypes> = (props) => {
         >
           <LoaderIcon />
         </div>
+      ) : (
+        <p>{props.count}</p>
       )}
+      <p>Results</p>
     </div>
   );
 };

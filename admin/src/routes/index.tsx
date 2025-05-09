@@ -13,6 +13,7 @@ import Contact from "./help/Contact";
 import CreateProject from "./projects/CreateProject.tsx";
 import Graph from "./projects/Graph.tsx";
 import Explorer from "./projects/Explorer.tsx";
+import Results from "./projects/Results.tsx";
 
 const Routes: Component = () => {
   return (
@@ -27,6 +28,7 @@ const Routes: Component = () => {
             <Route path="/explorer" component={Explorer} />
             <Route path="/insights" component={Insights} />
             <Route path="/data" component={Data} />
+            <Route path="/results" component={Results} />
             <Route path="/search" component={Search} />
             <Route path="/crawl" component={Crawl} />
             <Route path="/graph" component={Graph} />
