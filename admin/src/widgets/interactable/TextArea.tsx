@@ -1,8 +1,8 @@
 import { Component, JSX } from "solid-js";
-import { ITextFormField } from "../../utils/types";
 import { useUIClasses } from "../../stores/UIClasses";
+import { ITextAreaFormField } from "../../utils/types";
 
-const TextArea: Component<ITextFormField> = (props) => {
+const TextArea: Component<ITextAreaFormField> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
   const handleChange: JSX.ChangeEventHandler<HTMLTextAreaElement, Event> = (
@@ -23,6 +23,7 @@ const TextArea: Component<ITextFormField> = (props) => {
       value={props.value || ""}
       onChange={handleChange}
       disabled={!props.isEditable}
+      rows={props.rows}
     />
   );
 };

@@ -190,6 +190,10 @@ interface ITextFormField extends IFormField {
   onChange?: (name: string, value: string | number) => void;
 }
 
+interface ITextAreaFormField extends ITextFormField {
+  rows?: number;
+}
+
 interface IBooleanFormField extends IFormField {
   value?: boolean;
   onChange?: (name: string, value: boolean) => void;
@@ -255,6 +259,7 @@ export type {
   INodeItemDisplayProps,
   INodeListItemProps,
   IProviderPropTypes,
+  ITextAreaFormField,
   ITextFormField,
   IWorkspace,
 };
