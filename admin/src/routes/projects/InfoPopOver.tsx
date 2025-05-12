@@ -1,7 +1,7 @@
 import { Component, createSignal, Show } from "solid-js";
-import Paragraph from "../../widgets/typography/Paragraph";
-import IconButton from "../../widgets/interactable/IconButton";
 import InfoIcon from "../../assets/icons/tabler-info-circle.svg";
+import IconButton from "../../widgets/interactable/IconButton";
+import Paragraph from "../../widgets/typography/Paragraph";
 
 const InfoPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -12,12 +12,13 @@ const InfoPopOver: Component = () => {
         <IconButton
           name="Learn More"
           icon={InfoIcon}
+          position="top"
           onClick={() => setVisible(true)}
         />
       </div>
       <Show when={visible()}>
         <button
-          class="fixed inset-0 transition-opacity transition duration-500 ease-in-out z-50"
+          class="fixed inset-0 transition duration-500 ease-in-out z-50"
           onClick={() => setVisible(false)}
         />
         <div class="absolute left-0 ml-2 mb-1.5 bottom-full z-50 w-72 rounded-lg shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 gap-4">

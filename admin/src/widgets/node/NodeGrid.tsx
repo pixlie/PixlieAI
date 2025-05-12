@@ -1,10 +1,11 @@
 import { Component, createMemo, For } from "solid-js";
-import LinkNode from "./LinkNode";
+import { INodeListItemProps } from "../../utils/types.tsx";
+import ContentContainerNode from "./ContentContainerNode.tsx";
 import DomainNode from "./DomainNode";
+import LinkNode from "./LinkNode";
+import ProjectSettingsNode from "./ProjectSettingsNode.tsx";
 import SearchTermNode from "./SearchTermNode";
 import TopicNode from "./TopicNode";
-import ContentContainerNode from "./ContentContainerNode.tsx";
-import { INodeListItemProps } from "../../utils/types.tsx";
 import WebPageNode from "./WebPageNode.tsx";
 
 const NodeGrid: Component<INodeListItemProps> = (props) => {
@@ -68,6 +69,13 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
                     <WebPageNode nodeId={nodeId} />
                   </div>
                 )}
+              </For>
+            </div>
+          )}
+          {props.nodeType === "ProjectSettings" && (
+            <div class="grid grid-cols-1 gap-2">
+              <For each={getN()}>
+                {(nodeId) => <ProjectSettingsNode nodeId={nodeId} />}
               </For>
             </div>
           )}

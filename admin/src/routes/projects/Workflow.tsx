@@ -34,6 +34,12 @@ const Workflow: Component = () => {
       .map((x) => x.id);
   });
 
+  const getProjectSettingsNodeIds = createMemo<number[]>(() => {
+    return getNodes(params.projectId, (node) =>
+      node.labels.includes("ProjectSettings"),
+    ).map((x) => x.id);
+  });
+
   const addLink = (_name: string, value: string) => {
     createNode(params.projectId, {
       Link: {
@@ -65,7 +71,7 @@ const Workflow: Component = () => {
           <Heading size={3}>Project Settings</Heading>
           <NodeGrid
             nodeType="ProjectSettings"
-            source={() => []}
+            source={getProjectSettingsNodeIds}
             mode="regular"
           />
         </div>
