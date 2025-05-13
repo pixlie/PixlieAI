@@ -6,6 +6,7 @@ import TopicNode from "./TopicNode";
 import ContentContainerNode from "./ContentContainerNode.tsx";
 import { INodeListItemProps } from "../../utils/types.tsx";
 import WebPageNode from "./WebPageNode.tsx";
+import URLNode from "./URLNode.tsx";
 
 const NodeGrid: Component<INodeListItemProps> = (props) => {
   const getN = createMemo<Array<number>>(() => {
@@ -69,6 +70,11 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
                   </div>
                 )}
               </For>
+            </div>
+          )}
+          {props.nodeType === "URL" && (  // TODO: add URL as a NodeLabel
+            <div class="flex-1 flex flex-col -mt-4">
+              <For each={getN()}>{(nodeId) => <URLNode nodeId={nodeId} />}</For>
             </div>
           )}
         </>
