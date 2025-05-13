@@ -29,7 +29,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
         rel="noopener noreferrer"
         onClick={() => setViewed(true)}
         class={
-          "text-left text-md flex-1 hover:underline " +
+          "text-left text-md flex-1 hover:underline truncate " +
           (viewed() ? "text-purple-700" : "text-blue-700")
         }
       >
