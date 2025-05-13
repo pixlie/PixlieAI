@@ -72,9 +72,16 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
               </For>
             </div>
           )}
-          {props.nodeType === "URL" && (  // TODO: add URL as a NodeLabel
+          {props.nodeType === "URL" && ( // TODO: add URL as a NodeLabel
             <div class="flex-1 flex flex-col -mt-2">
-              <For each={getN()}>{(nodeId) => <URLNode nodeId={nodeId} />}</For>
+              <For each={getN()}>
+                {(nodeId, i) => (
+                  <URLNode
+                    nodeId={nodeId}
+                    showDivider={i() < getN().length - 1}
+                  />
+                )}
+              </For>
             </div>
           )}
         </>

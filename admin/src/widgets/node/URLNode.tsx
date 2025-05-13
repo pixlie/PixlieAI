@@ -9,6 +9,7 @@ import InfoIcon from "../../assets/icons/tabler-info-circle.svg";
 
 interface URLNodeProps {
   nodeId: number;
+  showDivider?: boolean;
 }
 
 interface URLPreviewProps {
@@ -21,7 +22,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
   const [viewed, setViewed] = createSignal<boolean>(false);
 
   return (
-    <div class="flex items-center gap-4 py-1 border-b border-slate-200">
+    <div class="flex items-center gap-4 py-1">
       <a
         href={url}
         target="_blank"
@@ -121,11 +122,14 @@ const URLNode: Component<URLNodeProps> = (props) => {
   return (
     <>
       {!!getFullUrl() && (
-        <URLPreview
-          url={getFullUrl()!}
-          insight={!!getInsight()! ? getInsight()! : undefined}
-          reason={!!getReason()! ? getReason()! : undefined}
-        />
+        <>
+          <URLPreview
+            url={getFullUrl()!}
+            insight={!!getInsight()! ? getInsight()! : undefined}
+            reason={!!getReason()! ? getReason()! : undefined}
+          />
+          {props.showDivider && <div class="border-b border-slate-200" />}
+        </>
       )}
     </>
   );
