@@ -9,6 +9,7 @@ import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { createNode } from "../../utils/api.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
+import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
 
 const Workflow: Component = () => {
   const [engine] = useEngine();
@@ -58,7 +59,7 @@ const Workflow: Component = () => {
 
   return (
     <div class="flex gap-x-12">
-      <div class="flex-1 flex flex-col gap-y-6">
+      <div class="flex-1 flex flex-col gap-y-4">
         {!!params.projectId ? (
           <div>
             <Heading size={3}>Objective</Heading>
@@ -73,7 +74,7 @@ const Workflow: Component = () => {
           </div>
         )}
 
-        <div>
+        {/* <div>
           <Heading size={3}>Project Settings</Heading>
           <NodeGrid
             nodeType="ProjectSettings"
@@ -89,19 +90,22 @@ const Workflow: Component = () => {
             source={() => []}
             mode="regular"
           />
+        </div> */}
+<div class="flex flex-col gap-2 pb-2">
+        <Heading size={3}>Starting links</Heading>
+        <div class="max-w-screen-sm">
+          <LinkForm name="url" onChange={addLink} />
         </div>
+        </div>
+          <ResultsCount count={getStartingLinkIds()?.length} />
+          {!!getStartingLinkIds() && getStartingLinkIds()?.length > 0 && (
+            <NodeGrid
+              nodeType={"Link"}
+              source={getStartingLinkIds}
+              mode="regular"
+            />
+          )}
 
-        <div>
-          <Heading size={3}>Starting links</Heading>
-          <NodeGrid
-            nodeType="Link"
-            source={getStartingLinkIds}
-            mode="regular"
-          />
-          <div class="pt-6 max-w-screen-sm">
-            <LinkForm name="url" onChange={addLink} />
-          </div>
-        </div>
       </div>
 
       <WorkflowSidebar />

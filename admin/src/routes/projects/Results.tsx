@@ -54,14 +54,14 @@ const Results: Component = () => {
 
   return (
     <div class="relative flex-1">
-      <div class="absolute w-full h-full flex flex-col gap-6 pb-12">
+      <div class="absolute inset-0 flex flex-col gap-4">
         {searchParams.label === "WebPage" && (
           <Heading size={3}>Web Pages</Heading>
         )}
         {searchParams.label === "URL" && <Heading size={3}>URLs</Heading>}
 
         {!!getMatchCriteria() && (
-          <div class="border-l-2 border-green-500 pl-4 flex flex-col gap-1.5">
+          <div class="border-l-2 border-green-500 pl-4 flex flex-col gap-1.5 mb-2">
             <p class="font-medium text-green-600">Match Criteria</p>
             <p class="text-slate-700">{getMatchCriteria()}</p>
           </div>
@@ -77,7 +77,9 @@ const Results: Component = () => {
           />
         ) : (
           <div class="h-full w-full flex justify-center items-center">
-            <p class="text-md text-slate-400 text-center">No matches found yet!</p>
+            <p class="text-md text-slate-400 text-center">
+              No matches found yet!
+            </p>
           </div>
         )}
       </div>
