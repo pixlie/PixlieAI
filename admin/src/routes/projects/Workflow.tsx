@@ -92,7 +92,7 @@ const Workflow: Component = () => {
           />
         </div> */}
 <div class="flex flex-col gap-2 pb-2">
-        <Heading size={3}>Starting links</Heading>
+        <Heading size={3}>Starting URLs</Heading>
         <div class="max-w-screen-sm">
           <LinkForm name="url" onChange={addLink} />
         </div>

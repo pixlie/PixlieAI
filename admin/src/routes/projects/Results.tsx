@@ -63,7 +63,7 @@ const Results: Component = () => {
         {!!getMatchCriteria() && (
           <div class="border-l-2 border-green-500 pl-4 flex flex-col gap-1 mb-2">
             <p class="font-medium text-green-600">Match Criteria</p>
-            <p class="text-slate-700">{getMatchCriteria()}</p>
+            <p class="text-slate-700">{getMatchCriteria().replace('webpage', 'content')}</p>
           </div>
         )}
 
