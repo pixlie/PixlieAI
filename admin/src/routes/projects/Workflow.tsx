@@ -1,6 +1,7 @@
 import { useParams } from "@solidjs/router";
 import { Component, createMemo, For } from "solid-js";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { CrawlerSettings } from "../../api_types/CrawlerSettings.ts";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { useEngine } from "../../stores/engine.tsx";
@@ -17,7 +18,7 @@ const Workflow: Component = () => {
 
   const getObjectives = createMemo<Array<APINodeItem> | undefined>(() => {
     return getNodes(params.projectId, (node) =>
-      node.labels.includes("Objective"),
+      node.labels.includes("Objective")
     );
   });
 
@@ -28,11 +29,18 @@ const Workflow: Component = () => {
         node.labels.includes("Link" as NodeLabel) &&
         (node.labels.includes("AddedByUser" as NodeLabel) ||
           node.labels.includes("AddedByAI" as NodeLabel) ||
-          node.labels.includes("AddedByWebSearch" as NodeLabel)),
+          node.labels.includes("AddedByWebSearch" as NodeLabel))
     )
       .sort((a, b) => a.id - b.id)
       .slice(0, 100)
       .map((x) => x.id);
+  });
+
+  const getCrawlerSettings = createMemo<CrawlerSettings | undefined>(() => {
+    return getNodes(
+      params.projectId,
+      (node) => node.payload.type === "CrawlerSettings"
+    )[0]?.payload.data as CrawlerSettings | undefined;
   });
 
   const addLink = (_name: string, value: string) => {
@@ -69,16 +77,16 @@ const Workflow: Component = () => {
             source={() => []}
             mode="regular"
           />
-        </div>
+        </div> */}
 
         <div>
-          <Heading size={3}>Crawler Settings</Heading>
-          <NodeGrid
-            nodeType="CrawlerSettings"
-            source={() => []}
-            mode="regular"
-          />
-        </div> */}
+          <Heading size={3}>Keywords</Heading>
+          <p>
+            {getCrawlerSettings()?.keywords_to_get_accurate_results_from_web_search?.join(
+              ", "
+            )}
+          </p>
+        </div>
         <div class="flex flex-col gap-2 pb-2">
           <Heading size={3}>Starting URLs</Heading>
           <div class="max-w-screen-sm">

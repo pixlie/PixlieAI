@@ -25,7 +25,7 @@ pub struct ClassifierSettings {
 
 #[derive(Deserialize, TS)]
 pub struct LLMResponse {
-    pub is_relevant: bool,
+    pub meets_criteria: bool,
     pub reason: String,
     pub insight: String,
 }
@@ -116,19 +116,15 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
     // log::info!("❓ Query to classify: {}", query.clone());
 
     Ok(format!(
-        r#"Your task is to analyze the following content and classify it as either relevant or irrelevant based on the given query.
-
-        Content:
+        r#"{}
+   
         {}
 
-        Query:
-        {}
-
-        Using the following schema, respond in JSON format with your classification decision, insight, and reason:
+        Using the following schema, respond in JSON format:
         {}
         ```"#,
-        content,
         query,
+        content,
         format!(
             "{}",
             LLMResponse::get_schema_for_llm(node, engine.clone())?.as_str()

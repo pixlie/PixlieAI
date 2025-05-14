@@ -160,7 +160,7 @@ impl Objective {
                                 )?;
 
                                 match crawler_settings
-                                    .keywords_to_search_the_web_to_get_starting_urls
+                                    .keywords_to_get_accurate_results_from_web_search
                                 {
                                     Some(search_terms) => {
                                         let search_terms = if domains_to_crawl.len() > 0 {
@@ -367,7 +367,7 @@ mod tests {
 
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
-        let expected_schema = r#"type CrawlerSettings = { keywords_to_search_the_web_to_get_starting_urls: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+        let expected_schema = r#"type CrawlerSettings = { keywords_to_get_accurate_results_from_web_search: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
         type ClassifierSettings = { query_to_classify_content_as_relevant_or_irrelevant_to_objective: string, };
         type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;

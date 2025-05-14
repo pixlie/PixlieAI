@@ -208,7 +208,7 @@ impl WebPage {
             Some(external_data) => match external_data {
                 ExternalData::Response(response) => {
                     let parsed_response = &Self::parse_llm_response(&response.contents)?;
-                    if parsed_response.is_relevant {
+                    if parsed_response.meets_criteria {
                         log::info!("🟢 WebPage node {} is relevant.", node.id);
                         let insight_node_id = engine
                         .get_or_add_node(
@@ -234,11 +234,22 @@ impl WebPage {
                             (node.id.clone(), reason_node_id),
                             (EdgeLabel::Matches, EdgeLabel::MatchedFor),
                         )?;
-                        engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                     } else {
                         log::info!("🔴 WebPage node {} is not relevant.", node.id);
-                        engine.toggle_flag(&node.id, NodeFlags::IS_BLOCKED)?;
+                        let reason_node_id = engine
+                            .get_or_add_node(
+                                Payload::Text(parsed_response.reason.clone()),
+                                vec![NodeLabel::Reason, NodeLabel::AddedByAI],
+                                true,
+                                None,
+                            )?
+                            .get_node_id();
+                        engine.add_connection(
+                            (node.id.clone(), reason_node_id),
+                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
+                        )?;
                     }
+                    engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {}
             },
