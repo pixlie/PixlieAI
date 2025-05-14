@@ -121,7 +121,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
           )}
 
           {reason && (
-            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-1 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
               <div class="flex items-center gap-1.5 text-xs font-semibold">
                 <SparkleIcon />
                 <p>REASONING</p>
@@ -131,7 +131,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
           )}
 
           {insight && (
-            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mt-1 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
               <div class="flex items-center gap-1.5 text-xs  font-semibold">
                 <SparkleIcon />
                 <p>INSIGHTS</p>
