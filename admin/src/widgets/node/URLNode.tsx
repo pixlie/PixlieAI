@@ -22,7 +22,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
   const [viewed, setViewed] = createSignal<boolean>(false);
 
   return (
-    <div class="flex items-center gap-4 py-1">
+    <div class="flex items-center py-1">
       <a
         href={url}
         target="_blank"
@@ -35,6 +35,11 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
       >
         {url}
       </a>
+      {!!insight && (
+        <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
+          Match
+        </span>
+      )}
       <div class="rounded-full group p-2 hover:bg-slate-200 hover:text-slate-800 hover:cursor-pointer relative flex items-center gap-1">
         <div
           class="pointer-events-none opacity-0  scale-95 transition-all duration-100 ease-in-out 
@@ -68,9 +73,6 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
         <SparkleIcon />
         <InfoIcon />
       </div>
-      <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
-        Match
-      </span>
     </div>
   );
 };
