@@ -49,7 +49,7 @@ const LinkForm: Component<IPropTypes> = (props) => {
         />
 
         <Button
-          label="Add a link"
+          label="Add URL"
           colorTheme="secondary"
           onClick={handleSubmit}
         />

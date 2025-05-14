@@ -1,150 +1,88 @@
-import { Component, createMemo, Show } from "solid-js";
+import { Component, createMemo } from "solid-js";
 import { useEngine } from "../../stores/engine";
 import { useParams, useSearchParams } from "@solidjs/router";
 import Heading from "../../widgets/typography/Heading.tsx";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
-import { Link } from "../../api_types/Link.ts";
-import { WebMetadata } from "../../api_types/WebMetadata.ts";
-import MatchResult from "../../widgets/node/MatchResult.tsx";
-import { APIMatch } from "../../api_types/APIMatch.ts";
 
-const labelTypes: string[] = ["WebPage", "URL"];
-type LabelType = (typeof labelTypes)[number];
+import NodeGrid from "../../widgets/node/NodeGrid.tsx";
 
 const Results: Component = () => {
-  const [_, { getNodes, getRelatedNodes }] = useEngine();
+  const [engine, { getRelatedNodes }] = useEngine();
   const [searchParams] = useSearchParams();
   const params = useParams();
 
-  const getNodeTypeFromSearchParam = createMemo(() => {
-    if (!!searchParams.label) {
-      return searchParams.label as LabelType;
+  const getProject = createMemo(() => {
+    if (!!params.projectId && params.projectId in engine.projects) {
+      return engine.projects[params.projectId];
     }
     return undefined;
   });
 
-  const getWebPages = createMemo(() => {
-    return getNodes(params.projectId, (node) =>
-      node.labels.includes("WebPage" as NodeLabel)
-    );
+  const getProjectNodes = createMemo(() => {
+    const project = getProject();
+    if (!!project) {
+      return project!.nodes;
+    }
+    return undefined;
   });
 
-  const getMatches = createMemo(() =>
-    getWebPages()
-      .map((node) => {
-        const linkNode = getRelatedNodes(
-          params.projectId,
-          node.id,
-          "ParentOf",
-          (n) => n.labels.includes("Link")
-        )?.[0];
+  const getMatchCriteria = createMemo(() => {
+    const projectNodes = getProjectNodes();
+    if (!!projectNodes) {
+      return Object.values(projectNodes)
+        .filter((x) => x.payload.type === "ClassifierSettings")
+        .map((x) => x)[0]?.payload.data
+        ?.query_to_classify_content_as_relevant_or_irrelevant_to_objective;
+    }
+    return undefined;
+  });
 
-        const domainNode = linkNode
-          ? getRelatedNodes(params.projectId, linkNode.id, "BelongsTo", (n) =>
-              n.labels.includes("Domain")
-            )?.[0]
-          : null;
-
-        const fullUrl =
-          linkNode && domainNode
-            ? `https://${(domainNode.payload.data as string).replace(
-                /^(?:https?:\/\/)?(?:www\.)?/,
-                ""
-              )}${(linkNode.payload.data as Link).path}${
-                (linkNode.payload.data as Link).query
-                  ? "?" + (linkNode.payload.data as Link).query
-                  : ""
-              }`
-            : null;
-
-        const metadata = getRelatedNodes(
-          params.projectId,
-          node.id,
-          "ParentOf",
-          (n) => n.labels.includes("WebMetadata")
-        )?.[0]?.payload.data as WebMetadata | null;
-
-        const insight = getRelatedNodes(
-          params.projectId,
-          node.id,
-          "Matches",
-          (n) => n.labels.includes("Insight")
-        )?.[0]?.payload.data as string | null;
-
-        const reason = getRelatedNodes(
-          params.projectId,
-          node.id,
-          "Matches",
-          (n) => n.labels.includes("Reason")
-        )?.[0]?.payload.data as string | null;
-
-        if (!fullUrl || !metadata || !insight || !reason) {
-          return null;
-        }
-
-        return {
-          node_id: node.id,
-          full_url: fullUrl,
-          metadata,
-          insight,
-          reason,
-        };
-      })
-      .filter(Boolean)
-  );
+  const getRelevantNodeIds = createMemo<Array<number>>(() => {
+    const projectNodes = getProjectNodes();
+    if (!!projectNodes) {
+      return Object.values(projectNodes)
+        ?.filter((x) => x.labels.includes("Insight"))
+        ?.map(
+          (x) =>
+            getRelatedNodes(params.projectId, x.id, "MatchedFor", (n) =>
+              n.labels.includes("WebPage")
+            )[0]?.id
+        );
+    }
+    return [];
+  });
 
   return (
     <div class="relative flex-1">
-      <div class="absolute w-full h-full flex flex-col gap-8">
-      {searchParams.label === "WebPage" && (
-        <Heading size={3}>Web Pages</Heading>
-      )}
-      {searchParams.label === "URL" && (
-        <Heading size={3}>URLs</Heading>
-      )}
+      <div class="absolute inset-0 flex flex-col gap-4">
+        {searchParams.label === "WebPage" && (
+          <Heading size={3}>Web Pages</Heading>
+        )}
+        {searchParams.label === "URL" && <Heading size={3}>URLs</Heading>}
 
-      <ResultsCount count={getMatches()?.length} />
+        {!!getMatchCriteria() && (
+          <div class="border-l-2 border-green-500 pl-4 flex flex-col gap-1 mb-2">
+            <p class="font-medium text-green-600">Match Criteria</p>
+            <p class="text-slate-700">{getMatchCriteria().replace('webpage', 'content')}</p>
+          </div>
+        )}
 
-      {getMatches()?.length ? (
-        <>
-          {searchParams.label === "WebPage" && (
-            <div class="columns-1 lg:columns-3 space-y-8 gap-8">
-              {getMatches().map((match) => (
-                <div class="break-inside-avoid overflow-visible will-change-transform">
-                  <MatchResult
-                    match={match as APIMatch}
-                    nodeType={getNodeTypeFromSearchParam()}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-          {searchParams.label === "URL" && (
-            <div class="flex-1 flex flex-col gap-5">
-              {getMatches().map((match, i) => (
-                <>
-                  <Show when={i > 0}>
-                    <div class="border border-slate-200" />
-                  </Show>
-                  <MatchResult
-                    match={match as APIMatch}
-                    nodeType={getNodeTypeFromSearchParam()}
-                  />
-                  <Show when={i === getMatches()!.length - 1}>
-                    <div />
-                  </Show>
-                </>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div class="text-md absolute text-slate-400 h-full w-full flex justify-center items-center text-center">
-          No matches found yet!
-        </div>
-      )}
-    </div>
+        <ResultsCount count={getRelevantNodeIds()?.length} />
+
+        {!!getRelevantNodeIds() && getRelevantNodeIds()!.length > 0 ? (
+          <NodeGrid
+            nodeType={searchParams.label as string}
+            source={getRelevantNodeIds}
+            mode="preview"
+          />
+        ) : (
+          <div class="h-full w-full flex justify-center items-center">
+            <p class="text-md text-slate-400 text-center">
+              No matches found yet!
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

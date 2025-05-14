@@ -102,7 +102,7 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
           {props.showFlags && (
             <div class="text-center h-full">{getStatusIcon()}</div>
           )}
-          <div class="text-sm w-full">
+          <div class="text-sm w-full truncate">
             <a
               href={getFullLink()}
               class={`${getColors().link}`}
