@@ -3,6 +3,7 @@
 
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
+use crate::entity::project_settings::ProjectSettings;
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::workspace::{APIProvider, WorkspaceCollection};
@@ -37,18 +38,73 @@ impl WebSearch {
                                     )));
                                 }
                             };
+                        // Skip if project settings are not available
+                        let project_settings = match engine
+                            .get_node_ids_with_label(&NodeLabel::ProjectSettings)
+                        {
+                            settings_node_ids => {
+                                if settings_node_ids.is_empty() {
+                                    return Err(PiError::GraphError(
+                                        "No ProjectSettings node found".to_string(),
+                                    ));
+                                }
+                                match engine.get_node_by_id(&settings_node_ids[0]) {
+                                    Some(settings_node) => {
+                                        if settings_node
+                                            .labels
+                                            .contains(&NodeLabel::ProjectSettings)
+                                        {
+                                            match &settings_node.payload {
+                                                Payload::ProjectSettings(settings) => {
+                                                    settings.clone()
+                                                }
+                                                _ => {
+                                                    return Err(PiError::GraphError(
+                                                        "No ProjectSettings node found".to_string(),
+                                                    ));
+                                                }
+                                            }
+                                        } else {
+                                            return Err(PiError::GraphError(
+                                                "No ProjectSettings node found".to_string(),
+                                            ));
+                                        }
+                                    }
+                                    None => {
+                                        return Err(PiError::GraphError(
+                                            "No ProjectSettings node found".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+                        };
                         for result in response.web.results {
-                            let link_node_id = Link::add(
+                            let url = Url::parse(&result.url);
+                            if url.is_err() {
+                                continue;
+                            }
+                            let url = url.unwrap();
+                            let domain = match url.domain() {
+                                Some(domain) => domain.to_string(),
+                                None => continue,
+                            };
+                            if project_settings.is_domain_allowed(
+                                &node.id,
+                                domain,
                                 engine.clone(),
-                                &result.url,
-                                vec![NodeLabel::AddedByWebSearch, NodeLabel::Link],
-                                vec![],
-                                true,
-                            )?;
-                            engine.add_connection(
-                                (node.id.clone(), link_node_id.clone()),
-                                (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
-                            )?;
+                            )? {
+                                let link_node_id = Link::add(
+                                    engine.clone(),
+                                    &result.url,
+                                    vec![NodeLabel::AddedByWebSearch, NodeLabel::Link],
+                                    vec![],
+                                    true,
+                                )?;
+                                engine.add_connection(
+                                    (node.id.clone(), link_node_id.clone()),
+                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                                )?;
+                            }
                         }
                         engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                     }
@@ -63,6 +119,40 @@ impl WebSearch {
                     Some(api_key) => api_key.to_string(),
                     None => return Err(PiError::ApiKeyNotConfigured("Brave Search".to_string())),
                 };
+                // Skip if project settings are not available
+                let project_settings =
+                    match engine.get_node_ids_with_label(&NodeLabel::ProjectSettings) {
+                        settings_node_ids => {
+                            if settings_node_ids.is_empty() {
+                                return Err(PiError::GraphError(
+                                    "No ProjectSettings node found".to_string(),
+                                ));
+                            }
+                            match engine.get_node_by_id(&settings_node_ids[0]) {
+                                Some(settings_node) => {
+                                    if settings_node.labels.contains(&NodeLabel::ProjectSettings) {
+                                        match &settings_node.payload {
+                                            Payload::ProjectSettings(settings) => settings.clone(),
+                                            _ => {
+                                                return Err(PiError::GraphError(
+                                                    "No ProjectSettings node found".to_string(),
+                                                ));
+                                            }
+                                        }
+                                    } else {
+                                        return Err(PiError::GraphError(
+                                            "No ProjectSettings node found".to_string(),
+                                        ));
+                                    }
+                                }
+                                None => {
+                                    return Err(PiError::GraphError(
+                                        "No ProjectSettings node found".to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                    };
                 let mut url = Url::parse("https://api.search.brave.com/res/v1/web/search")?;
                 match &node.payload {
                     Payload::Text(search_term) => {

@@ -2418,6 +2418,7 @@ dependencies = [
  "log",
  "orp",
  "postcard",
+ "regex",
  "reqwest",
  "rocksdb",
  "rustls",

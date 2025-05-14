@@ -14,23 +14,23 @@ const Heading: Component<IPropTypes> = (props): JSX.Element => {
   const getSizeClass = (size: number) => {
     switch (size) {
       case 5:
-        return "text-2xl font-semibold leading-tight";
+        return "text-2xl font-light leading-tight";
       case 4:
-        return "text-3xl font-normal leading-tight";
+        return "text-3xl font-thin leading-tight";
       case 3:
-        return "text-4xl font-normal leading-snug";
+        return "text-4xl font-thin leading-snug";
       case 2:
         return "text-5xl font-thin leading-snug";
       case 1:
         return "text-6xl font-thin leading-snug";
       case 6:
       default:
-        return "text-xl font-semibold leading-tight";
+        return "text-xl font-light leading-tight";
     }
   };
   const headingClasses = `${getSizeClass(
     props.size,
-  )} block font-bold select-none cursor-default`;
+  )} block select-none cursor-default`;
 
   return (
     <span class={headingClasses} style={{ color: getColors().heading }}>

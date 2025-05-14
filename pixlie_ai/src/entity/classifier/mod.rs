@@ -73,19 +73,18 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
     let content = engine
         .get_node_ids_connected_with_label(&node.id, &EdgeLabel::ParentOf)?
         .into_iter()
-        .filter_map(|id| engine.get_node_by_id(&id))
-        .filter(|node| {
-            matches!(
-                node.labels.as_slice(),
-                [
-                    NodeLabel::Title | NodeLabel::Heading | NodeLabel::Paragraph,
-                    ..
-                ]
-            )
-        })
-        .filter_map(|node| match &node.payload {
-            Payload::Text(text) => Some(text.clone()),
-            _ => None,
+        .filter_map(|id| match engine.get_node_by_id(&id) {
+            None => None,
+            Some(node) => match &node.payload {
+                Payload::Text(text) => {
+                    if node.labels.contains(&NodeLabel::Partial) {
+                        Some(text.clone())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
         })
         .collect::<Vec<String>>()
         .join("\n\n");

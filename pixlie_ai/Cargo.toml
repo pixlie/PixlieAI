@@ -56,6 +56,7 @@ utoipa-redoc = { version = "6.0.0", features = ["actix-web"] }
 utoipa-rapidoc = { version = "6.0.0", features = ["actix-web"] }
 gline-rs = { git = "https://github.com/pixlie/gline-rs.git", default-features = false }
 orp = { version = "0.9.2", default-features = false }
+regex = "1.11.1"
 
 # https://github.com/johnthagen/min-sized-rust
 [profile.release]

@@ -63,6 +63,7 @@ pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub enum NodeLabel {
     AddedByUser,
     AddedByAI,
+    AddedByPixlie,
     AddedByWebSearch,
     Content,
     Domain,
