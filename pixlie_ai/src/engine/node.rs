@@ -6,9 +6,9 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::{Engine, NodeFlags};
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
-use crate::entity::classifier::ClassifierSettings;
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -42,11 +42,26 @@ pub(crate) type NodeId = u32;
 
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 
-#[derive(Clone, Debug, Deserialize, Display, EnumString, Eq, Hash, Ord, PartialOrd, PartialEq, Serialize, ToSchema, TS)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    EnumString,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    ToSchema,
+    TS,
+)]
 #[ts(export)]
 pub enum NodeLabel {
     AddedByUser,
     AddedByAI,
+    AddedByPixlie,
     AddedByWebSearch,
     Content,
     Domain,
@@ -139,7 +154,7 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
-        } 
+        }
         Ok(())
     }
 

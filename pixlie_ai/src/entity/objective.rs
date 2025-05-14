@@ -5,10 +5,14 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{NodeItem, NodeLabel};
+use regex::Regex;
+use url::Url;
+
+use crate::engine::node::{NodeId, NodeItem, NodeLabel};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::pixlie::{LLMResponse, ProjectState, Tool};
 use crate::entity::project_settings::ProjectSettings;
+use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
 use crate::services::anthropic::Anthropic;
@@ -21,6 +25,8 @@ use crate::{
     ExternalData,
 };
 use std::{sync::Arc, vec};
+
+use super::web::domain::{Domain, FindDomainOf};
 
 pub struct Objective;
 
@@ -71,6 +77,71 @@ impl Objective {
                         },
                     )?;
 
+                    let related_to_node_ids = engine
+                        .get_node_ids_connected_with_label(&node.id, &EdgeLabel::RelatedTo)?;
+                    let project_settings = if related_to_node_ids.is_empty() {
+                        None
+                    } else {
+                        related_to_node_ids.iter().find_map(|node_id| {
+                            match engine.get_node_by_id(&node_id) {
+                                Some(node) => match &node.payload {
+                                    Payload::ProjectSettings(payload) => {
+                                        Some((node_id.clone(), payload.clone()))
+                                    }
+                                    _ => None,
+                                },
+                                None => None,
+                            }
+                        })
+                    };
+                    let (project_settings_node_id, project_settings) = match project_settings {
+                        Some(settings) => settings,
+                        None => {
+                            return Err(PiError::InternalError(
+                                "Project settings not found. Skip processing objective."
+                                    .to_string(),
+                            ));
+                        }
+                    };
+
+                    let crawl_within_domains =
+                        project_settings.only_crawl_within_domains_of_specified_links;
+
+                    let link_ids_related_to_project_settings = engine
+                        .get_node_ids_connected_with_label(
+                            &project_settings_node_id,
+                            &EdgeLabel::RelatedTo,
+                        )?;
+                    let link_ids_related_to_project_settings = link_ids_related_to_project_settings
+                        .iter()
+                        .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                            Some(node) => {
+                                if node.labels.contains(&NodeLabel::Link) {
+                                    Some(node_id)
+                                } else {
+                                    None
+                                }
+                            }
+                            None => None,
+                        })
+                        .collect::<Vec<&NodeId>>();
+
+                    let mut domains_to_crawl: Vec<String> = vec![];
+                    if crawl_within_domains {
+                        for link_id in link_ids_related_to_project_settings {
+                            let domain_node = Domain::find_existing(
+                                engine.clone(),
+                                FindDomainOf::Node(link_id.clone()),
+                            )?;
+                            if let Some(domain_node) = domain_node {
+                                let domain = Domain::get_domain_name(&domain_node)?;
+                                if !domains_to_crawl.contains(&domain) {
+                                    domains_to_crawl.push(domain);
+                                }
+                            }
+                        }
+                    }
+
                     for feature in parsed_response.tools_needed_to_accomplish_objective {
                         match feature {
                             Tool::Crawler(crawler_settings) => {
@@ -92,6 +163,24 @@ impl Objective {
                                     .keywords_to_search_the_web_to_get_starting_urls
                                 {
                                     Some(search_terms) => {
+                                        let search_terms = if domains_to_crawl.len() > 0 {
+                                            // TODO: Consider moving this logic to the CrawlerSettings node
+                                            // so that the keywords created originally contain the
+                                            // site: option
+                                            // If we have domains to crawl,
+                                            // we need to modify the search terms accordingly
+                                            // to include the site: option
+                                            let mut new_search_terms = vec![];
+                                            for domain in &domains_to_crawl {
+                                                for term in search_terms.iter() {
+                                                    new_search_terms
+                                                        .push(format!("{} site:{}", term, domain));
+                                                }
+                                            }
+                                            new_search_terms
+                                        } else {
+                                            search_terms
+                                        };
                                         // Save the search term as a WebSearch node so they will be processed
                                         for search_term in search_terms {
                                             let search_term_node_id = engine
@@ -136,7 +225,76 @@ impl Objective {
                 }
                 ExternalData::Error(_error) => {}
             },
-            None => Objective::request_llm(node, engine)?,
+            None => {
+                // Check if the objective contains any links
+                let objective: &String = match &node.payload {
+                    Payload::Text(text) => text,
+                    _ => {
+                        return Err(PiError::GraphError(
+                            "Expected an Objective node with Payload::Text, got".to_string(),
+                        ))
+                    }
+                };
+                // Extract links from objective text using regex
+                let re = Regex::new(r"https?://[^\s]+").unwrap();
+                let links_in_objective_text: Vec<Url> = re
+                    .find_iter(&objective)
+                    .filter_map(|mat| {
+                        let link = mat.as_str();
+                        match Url::parse(link) {
+                            Ok(url) if url.scheme() == "https" => Some(url),
+                            _ => None,
+                        }
+                    })
+                    .collect();
+                // TODO: This is a temporary solution.
+                // Parts of this check will move to the CrawlerSettings node
+                // We might choose to remove the data extraction flag altogether.
+                // Two key considerations are crawling within domains of specified links
+                // and turning off crawler so that only specified links are scraped.
+                let project_settings = ProjectSettings {
+                    only_extract_data_from_specified_links: false,
+                    only_crawl_direct_links_from_specified_links: false,
+                    only_crawl_within_domains_of_specified_links: links_in_objective_text.len() > 0,
+                };
+                let project_settings_node_id = engine
+                    .get_or_add_node(
+                        Payload::ProjectSettings(project_settings),
+                        vec![NodeLabel::AddedByPixlie, NodeLabel::ProjectSettings],
+                        true,
+                        None,
+                    )?
+                    .get_node_id();
+                engine.add_connection(
+                    (node.id, project_settings_node_id),
+                    (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
+                )?;
+                // If there are links in the objective text, we need to add them to the engine
+                if links_in_objective_text.len() > 0 {
+                    engine.add_connection(
+                        (node.id, project_settings_node_id),
+                        (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                    )?;
+                    for link in links_in_objective_text {
+                        let link_node_id = Link::add(
+                            engine.clone(),
+                            &link.to_string(),
+                            vec![NodeLabel::AddedByUser, NodeLabel::Link],
+                            vec![],
+                            true,
+                        )?;
+                        engine.add_connection(
+                            (node.id, link_node_id),
+                            (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                        )?;
+                        engine.add_connection(
+                            (project_settings_node_id, link_node_id),
+                            (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
+                        )?;
+                    }
+                }
+                Objective::request_llm(node, engine)?
+            }
         }
         Ok(())
     }
@@ -149,23 +307,12 @@ impl Objective {
         if node.labels.contains(&NodeLabel::Objective) {
             match &node.payload {
                 Payload::Text(text) => {
-                    let project_settings: Option<ProjectSettings> = {
-                        let related_node_ids = engine
-                            .get_node_ids_connected_with_label(&node.id, &EdgeLabel::RelatedTo)?;
-                        related_node_ids.iter().find_map(|related_node_id| {
-                            match engine.get_node_by_id(related_node_id) {
-                                Some(node) => match &node.payload {
-                                    Payload::ProjectSettings(project_settings) => {
-                                        Some(project_settings.clone())
-                                    }
-                                    _ => None,
-                                },
-                                None => None,
-                            }
-                        })
-                    };
                     let project_state = ProjectState {
-                        project_settings,
+                        // TODO: We omit project settings from this stage of LLM interaction for now.
+                        // Ideally, we wanted the LLM to decide the project settings.
+                        // This should be evaluated later in context of our future processing
+                        // logic.
+                        project_settings: None,
                         objective: text.clone(),
                     };
                     let llm_prompt = project_state.get_prompt(
@@ -226,7 +373,10 @@ mod tests {
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
             llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
-            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
+            expected_schema
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
         );
     }
 
@@ -306,7 +456,10 @@ mod tests {
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
             llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
-            expected_schema.split_whitespace().collect::<Vec<_>>().join(" ")
+            expected_schema
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
         );
     }
 }

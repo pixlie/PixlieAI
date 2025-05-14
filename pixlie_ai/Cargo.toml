@@ -54,6 +54,7 @@ utoipa-swagger-ui = { version = "9.0.1", features = ["actix-web"] }
 utoipa-actix-web = "0.1.2"
 utoipa-redoc = { version = "6.0.0", features = ["actix-web"] }
 utoipa-rapidoc = { version = "6.0.0", features = ["actix-web"] }
+regex = "1.11.1"
 
 # https://github.com/johnthagen/min-sized-rust
 [profile.release]

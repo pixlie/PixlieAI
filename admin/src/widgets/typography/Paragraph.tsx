@@ -1,22 +1,23 @@
 import { Component, JSX } from "solid-js";
 import { useUIClasses } from "../../stores/UIClasses";
 
+type ParagraphSize = "sm" | "base" | "lg";
+
 interface IPropTypes {
-  size?: "sm" | "base" | "lg";
+  size?: ParagraphSize;
   children: JSX.Element | string;
 }
 
 const Paragraph: Component<IPropTypes> = (props) => {
   const [_, { getColors }] = useUIClasses();
 
-  const getSizeClass = (size?: string) => {
+  const getSizeClass = (size?: ParagraphSize) => {
     switch (size) {
       case "sm":
         return "text-sm";
-      case "base":
-        return "text-base";
       case "lg":
         return "text-lg";
+      case "base":
       default:
         return "text-base";
     }

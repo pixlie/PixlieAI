@@ -1,52 +1,38 @@
-import { Component, createMemo, For } from "solid-js";
-import { useEngine } from "../../stores/engine.tsx";
 import { useParams } from "@solidjs/router";
+import { Component, createMemo, For } from "solid-js";
+import { APINodeItem } from "../../api_types/APINodeItem.ts";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
+import { NodeWrite } from "../../api_types/NodeWrite.ts";
+import { useEngine } from "../../stores/engine.tsx";
+import { createNode } from "../../utils/api.ts";
+import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
 import NodeGrid from "../../widgets/node/NodeGrid";
-import Paragraph from "../../widgets/typography/Paragraph";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading.tsx";
-import { NodeLabel } from "../../api_types/NodeLabel.ts";
-import { APINodeItem } from "../../api_types/APINodeItem.ts";
-import { createNode } from "../../utils/api.ts";
-import { NodeWrite } from "../../api_types/NodeWrite.ts";
-import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
+import Paragraph from "../../widgets/typography/Paragraph";
 
 const Workflow: Component = () => {
-  const [engine] = useEngine();
+  const [_, { getNodes }] = useEngine();
   const params = useParams();
 
-  const getProject = createMemo(() => {
-    if (!!params.projectId && params.projectId in engine.projects) {
-      return engine.projects[params.projectId];
-    }
-    return undefined;
-  });
-
   const getObjectives = createMemo<Array<APINodeItem> | undefined>(() => {
-    if (!!getProject()) {
-      return Object.values(getProject()!.nodes).filter((x) =>
-        x.labels.includes("Objective"),
-      );
-    }
+    return getNodes(params.projectId, (node) =>
+      node.labels.includes("Objective"),
+    );
   });
 
   const getStartingLinkIds = createMemo<number[]>(() => {
-    if (getProject()) {
-      // Only select nodes that have AddedByUser label
-      return Object.values(getProject()!.nodes)
-        .filter(
-          (x) =>
-            x.labels.includes("Link" as NodeLabel) &&
-            (x.labels.includes("AddedByUser" as NodeLabel) ||
-              x.labels.includes("AddedByAI" as NodeLabel) ||
-              x.labels.includes("AddedByWebSearch" as NodeLabel)),
-        )
-        .sort((a, b) => a.id - b.id)
-        .slice(0, 10)
-        .map((x) => x.id);
-    } else {
-      return [];
-    }
+    return getNodes(
+      params.projectId,
+      (node) =>
+        node.labels.includes("Link" as NodeLabel) &&
+        (node.labels.includes("AddedByUser" as NodeLabel) ||
+          node.labels.includes("AddedByAI" as NodeLabel) ||
+          node.labels.includes("AddedByWebSearch" as NodeLabel)),
+    )
+      .sort((a, b) => a.id - b.id)
+      .slice(0, 100)
+      .map((x) => x.id);
   });
 
   const addLink = (_name: string, value: string) => {
@@ -54,7 +40,9 @@ const Workflow: Component = () => {
       Link: {
         url: value,
       },
-    } as NodeWrite).then((_) => {});
+    } as NodeWrite).then((_) => {
+      // TODO: Handle error in creating node
+    });
   };
 
   return (
@@ -91,21 +79,20 @@ const Workflow: Component = () => {
             mode="regular"
           />
         </div> */}
-<div class="flex flex-col gap-2 pb-2">
-        <Heading size={3}>Starting URLs</Heading>
-        <div class="max-w-screen-sm">
-          <LinkForm name="url" onChange={addLink} />
+        <div class="flex flex-col gap-2 pb-2">
+          <Heading size={3}>Starting URLs</Heading>
+          <div class="max-w-screen-sm">
+            <LinkForm name="url" onChange={addLink} />
+          </div>
         </div>
-        </div>
-          <ResultsCount count={getStartingLinkIds()?.length} />
-          {!!getStartingLinkIds() && getStartingLinkIds()?.length > 0 && (
-            <NodeGrid
-              nodeType={"Link"}
-              source={getStartingLinkIds}
-              mode="regular"
-            />
-          )}
-
+        <ResultsCount count={getStartingLinkIds()?.length} />
+        {!!getStartingLinkIds() && getStartingLinkIds()?.length > 0 && (
+          <NodeGrid
+            nodeType={"Link"}
+            source={getStartingLinkIds}
+            mode="regular"
+          />
+        )}
       </div>
 
       <WorkflowSidebar />
