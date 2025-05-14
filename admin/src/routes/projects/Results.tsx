@@ -109,7 +109,7 @@ const Results: Component = () => {
         ) : (
           <div class="h-full w-full flex justify-center items-center">
             <p class="text-md text-slate-400 text-center">
-              No matches found yet!
+              No results found yet!
             </p>
           </div>
         )}
