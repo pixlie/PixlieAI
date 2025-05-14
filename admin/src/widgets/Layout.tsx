@@ -29,7 +29,7 @@ const Layout: Component<ILayoutProps> = (props) => {
             "flex flex-col flex-1 rounded-lg border " + getColors().mainContent
           }
         >
-          <div class="flex flex-col flex-1 overflow-scroll p-8 gap-4">
+          <div class="flex flex-col flex-1 overflow-scroll p-8 gap-6">
           <Breadcrumb />
             {props.children}
           </div>
