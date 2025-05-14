@@ -20,7 +20,7 @@ use utoipa::ToSchema;
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct ClassifierSettings {
-    pub query_to_classify_content_as_relevant_or_irrelevant_to_objective: Option<String>,
+    pub prompt_to_classify_content_as_relevant_to_objective_or_not: Option<String>,
 }
 
 #[derive(Deserialize, TS)]
@@ -40,8 +40,8 @@ impl LLMSchema for ClassifierSettings {
                     // Make fields required when there's content to classify
                     return Ok(ts_self
                         .replace(
-                            "query_to_classify_content_as_relevant_or_irrelevant_to_objective: string | null,",
-                            "query_to_classify_content_as_relevant_or_irrelevant_to_objective: string,",
+                            "prompt_to_classify_content_as_relevant_to_objective_or_not: string | null,",
+                            "prompt_to_classify_content_as_relevant_to_objective_or_not: string,",
                         ));
                 }
             }
@@ -77,7 +77,10 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
         .filter(|node| {
             matches!(
                 node.labels.as_slice(),
-                [NodeLabel::Title | NodeLabel::Heading | NodeLabel::Paragraph, ..]
+                [
+                    NodeLabel::Title | NodeLabel::Heading | NodeLabel::Paragraph,
+                    ..
+                ]
             )
         })
         .filter_map(|node| match &node.payload {
@@ -89,13 +92,13 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
 
     // log::info!("✏️ Content to classify: {}", content.clone());
 
-    let query = engine
+    let prompt_for_classification = engine
     .get_node_ids_with_label(&NodeLabel::Objective)
     .first()
     .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))
     .and_then(|id| {
         engine
-            .get_node_ids_connected_with_label(id, &EdgeLabel::Classifies)?
+            .get_node_ids_connected_with_label(id, &EdgeLabel::Suggests)?
             .first()
             .ok_or_else(|| PiError::InternalError("No ClassifierSettings found for Objective".to_string()))
             .and_then(|settings_id| {
@@ -105,7 +108,7 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
                     .payload
                 {
                     Payload::ClassifierSettings(settings) => {
-                        let query = settings.query_to_classify_content_as_relevant_or_irrelevant_to_objective.clone()
+                        let query = settings.prompt_to_classify_content_as_relevant_to_objective_or_not.clone()
                             .ok_or_else(|| PiError::GraphError("Missing query_to_classify_content_as_relevant_or_irrelevant_to_objective in ClassifierSettings".to_string()))?;
                         Ok(query
                             .split(": ")
@@ -118,22 +121,19 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
             })
     })?;
 
-    // log::info!("❓ Query to classify: {}", query.clone());
+    // log::info!("❓ Prompt for classification: {}", prompt_for_classify: {}", query.clone());
 
     Ok(format!(
-        r#"Your task is to analyze the following content and classify it as either relevant or irrelevant based on the given query.
+        r#"{}
 
         Content:
-        {}
-
-        Query:
         {}
 
         Using the following schema, respond in JSON format with your classification decision, insight, and reason:
         {}
         ```"#,
+        prompt_for_classification,
         content,
-        query,
         format!(
             "{}",
             LLMResponse::get_schema_for_llm(node, engine.clone())?.as_str()

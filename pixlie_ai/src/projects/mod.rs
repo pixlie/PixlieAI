@@ -86,6 +86,7 @@ impl ProjectForEngine {
         // ProjectCollection::create(project.project.clone())?;
         Ok(project)
     }
+
     pub fn open(uuid: &str, path_to_storage_dir: PathBuf) -> Self {
         let project = Self {
             project: Project::from_id(uuid),
@@ -94,10 +95,12 @@ impl ProjectForEngine {
         };
         project
     }
+
     pub fn get_db_path(&self) -> PathBuf {
         self.path_to_storage_dir
             .join(format!("{}.rocksdb", self.project.uuid))
     }
+
     pub fn get_arced_db(&self) -> PiResult<Arc<DB>> {
         match self.arced_db.as_ref() {
             Some(db) => Ok(db.clone()),
@@ -106,6 +109,7 @@ impl ProjectForEngine {
             )),
         }
     }
+
     fn init_db(&mut self) -> PiResult<()> {
         let db_path = self.get_db_path();
         match DB::open_default(db_path.as_os_str()) {
@@ -116,6 +120,7 @@ impl ProjectForEngine {
             ))),
         }
     }
+
     pub fn load_db(&mut self) -> PiResult<()> {
         let db_path = self.get_db_path();
         if db_path.exists() && db_path.is_dir() {
@@ -131,25 +136,15 @@ impl ProjectForEngine {
             )))
         }
     }
-    pub fn db_exists(&self) -> bool {
-        self.get_db_path().exists()
-    }
 
     pub fn validate_record_and_db(&self) -> PiResult<EngineProjectValidationResult> {
-        let project_in_collection = ProjectCollection::read_item(&self.project.uuid);
         let mut validation_result = EngineProjectValidationResult {
             error_response_message_for_api: None,
             should_unload_engine: false,
         };
-        let db_exists = self.db_exists();
-        match project_in_collection.as_ref() {
+        let db_exists = self.get_db_path().exists();
+        match ProjectCollection::read_item(&self.project.uuid) {
             Ok(project) => {
-                if self.project.uuid != project.uuid {
-                    return Err(PiError::InternalError(format!(
-                        "Project ID mismatch: {} != {}",
-                        self.project.uuid, project.uuid
-                    )));
-                }
                 if !db_exists {
                     error!(
                         "Project DB for {} does not exist, deleting project",

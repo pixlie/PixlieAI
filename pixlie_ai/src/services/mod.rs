@@ -9,7 +9,7 @@ use crate::entity::ExtractedEntity;
 use serde::Serialize;
 
 pub mod anthropic;
-// pub mod gliner;
+pub mod gliner;
 pub mod llm_provider;
 pub mod ollama;
 
@@ -33,26 +33,4 @@ pub struct EntityExtractionExample {
 pub struct ExtractionRequest {
     pub text: String,
     pub labels: Vec<String>,
-}
-
-pub fn extract_entites_from_lines(lines: &str) -> Vec<ExtractedEntity> {
-    // This function is mainly used to extract entities from API responses from large language models
-    // Each line (in the CSV format) is an entity type and the matching text
-
-    let mut extracted: Vec<ExtractedEntity> = vec![];
-    let text = lines;
-    let mut reader = csv::Reader::from_reader(text.as_bytes());
-    for line in reader.records() {
-        match line {
-            Ok(line) => {
-                extracted.push(ExtractedEntity {
-                    label: line.get(0).unwrap().to_string(),
-                    matching_text: line.get(1).unwrap().to_string(),
-                    ..Default::default()
-                });
-            }
-            Err(_) => {}
-        }
-    }
-    extracted
 }

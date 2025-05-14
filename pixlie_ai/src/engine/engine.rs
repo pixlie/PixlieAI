@@ -223,9 +223,9 @@ impl Engine {
         ];
         let all_labels_to_be_processed = vec![
             NodeLabel::Domain,
-            NodeLabel::Link,
+            // NodeLabel::Link,
             NodeLabel::Objective,
-            NodeLabel::WebPage,
+            // NodeLabel::WebPage,
             NodeLabel::WebSearch,
         ];
         let mut node_count: usize = 0;

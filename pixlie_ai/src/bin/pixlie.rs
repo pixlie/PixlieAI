@@ -144,20 +144,20 @@ fn main() {
         pi_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
         pool: Arc<ThreadPool>,
-    ) {
+    ) -> PiResult<()> {
         debug!("Loading project {} into CLI", engine_project.project.uuid);
 
+        let project_uuid = engine_project.project.uuid.clone();
         match channels_per_project.try_lock() {
             Ok(mut channels_per_project) => {
-                channels_per_project.insert(engine_project.project.uuid.clone(), PiChannel::new());
-                let my_pi_channel = match channels_per_project.get(&engine_project.project.uuid) {
+                channels_per_project.insert(project_uuid.clone(), PiChannel::new());
+                let my_pi_channel = match channels_per_project.get(&project_uuid) {
                     Some(my_pi_channel) => my_pi_channel.clone(),
                     None => {
-                        error!(
-                            "Cannot find per engine channel for project {}",
-                            engine_project.project.uuid
-                        );
-                        return;
+                        error!("Error creating channel for project {}", &project_uuid);
+                        return Err(PiError::InternalError(
+                            "Error creating channel for project".to_string(),
+                        ));
                     }
                 };
 
@@ -171,14 +171,19 @@ fn main() {
                     Ok(_) => {}
                     Err(err) => {
                         error!("Error pre-loading graph data from disk: {}", err);
-                        return;
+                        // Remove the channel of this project
+                        channels_per_project.remove(&project_uuid);
+                        return Err(PiError::InternalError(format!(
+                            "Error pre-loading graph data from disk: {}",
+                            err
+                        )));
                     }
                 };
                 match engine.load_project_db() {
                     Ok(_) => {}
                     Err(err) => {
                         error!("Error loading DB: {}", err);
-                        return;
+                        return Err(PiError::InternalError(format!("Error loading DB: {}", err)));
                     }
                 };
                 let arced_engine = Arc::new(engine);
@@ -199,6 +204,7 @@ fn main() {
                 error!("Error locking channels_per_project: {}", err);
             }
         };
+        Ok(())
     }
 
     let main_channel_iter = main_channel.clone();
@@ -275,7 +281,7 @@ fn main() {
                 if let Some(exception_message) = exception_message {
                     // If the project is invalid or an error occurred, we send an error response
                     // back to the API.
-                    // If the project is invalid, we remove it's channel if it exists
+                    // If the project is invalid, we remove its channel if it exists
                     match api_channel.tx.send(PiEvent::APIResponse(
                         project_id.clone(),
                         EngineResponse {
@@ -288,19 +294,39 @@ fn main() {
                             error!("Error sending PiEvent in API broadcast channel: {}", err);
                         }
                     }
-                    // We do not process the request further, else the engine will be loaded
+                    // We do not process the request further, else the engine will be loaded,
                     // and the request will be sent to it despite the absence of the DB or
                     // an error while validating it
                     continue;
                 }
                 if !channel_exists {
-                    load_engine(
+                    match load_engine(
                         engine_project,
                         channels_per_project_inner,
                         main_channel_iter.clone().tx,
                         fetcher_tx.clone(),
                         pool.clone(),
-                    );
+                    ) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            match api_channel.tx.send(PiEvent::APIResponse(
+                                project_id.clone(),
+                                EngineResponse {
+                                    request_id: request.request_id,
+                                    payload: EngineResponsePayload::Error(err.to_string()),
+                                },
+                            )) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                        "Error sending PiEvent in API broadcast channel: {}",
+                                        err
+                                    );
+                                }
+                            }
+                            continue;
+                        }
+                    }
                 }
                 match channels_per_project.try_lock() {
                     Ok(channels_per_project) => {
@@ -318,7 +344,23 @@ fn main() {
                                 }
                             }
                             None => {
-                                error!("Project {} is not loaded", project_id);
+                                match api_channel.tx.send(PiEvent::APIResponse(
+                                    project_id,
+                                    EngineResponse {
+                                        request_id: request.request_id,
+                                        payload: EngineResponsePayload::Error(
+                                            "Could not load project".to_string(),
+                                        ),
+                                    },
+                                )) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!(
+                                            "Error sending PiEvent in API broadcast channel: {}",
+                                            err
+                                        );
+                                    }
+                                }
                             }
                         };
                     }

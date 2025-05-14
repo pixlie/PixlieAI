@@ -6,9 +6,9 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::{Engine, NodeFlags};
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
-use crate::entity::classifier::ClassifierSettings;
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -16,6 +16,7 @@ use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::web_page::WebPage;
+use crate::entity::EntityName;
 use crate::error::PiResult;
 use crate::{ExternalData, FetchError, FetchResponse};
 use chrono::{DateTime, Utc};
@@ -36,13 +37,28 @@ pub enum Payload {
     ProjectSettings(ProjectSettings),
     CrawlerSettings(CrawlerSettings),
     ClassifierSettings(ClassifierSettings),
+    NamedEntitiesToExtract(Vec<EntityName>),
 }
 
 pub(crate) type NodeId = u32;
 
 pub(crate) type ArcedNodeId = Arc<NodeId>;
 
-#[derive(Clone, Debug, Deserialize, Display, EnumString, Eq, Hash, Ord, PartialOrd, PartialEq, Serialize, ToSchema, TS)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    EnumString,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    ToSchema,
+    TS,
+)]
 #[ts(export)]
 pub enum NodeLabel {
     AddedByUser,
@@ -68,8 +84,9 @@ pub enum NodeLabel {
     ProjectSettings,
     CrawlerSettings,
     ClassifierSettings,
-    Insight,
-    Reason,
+    ClassificationInsight,
+    ClassificationReason,
+    NamedEntitiesToExtract,
 }
 
 impl Default for NodeFlags {
@@ -139,7 +156,7 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response)),
             )?;
-        } 
+        }
         Ok(())
     }
 

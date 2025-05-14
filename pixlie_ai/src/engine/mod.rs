@@ -43,9 +43,6 @@ pub enum EdgeLabel {
     Suggests, // When one node is suggested (usually by AI/ML) based on another node's content
     SuggestedFor,
 
-    Classifies,
-    ClassifiedFor,
-
     Matches,
     MatchedFor,
 }

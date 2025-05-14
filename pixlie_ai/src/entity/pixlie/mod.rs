@@ -5,10 +5,11 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use super::EntityName;
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
-use crate::entity::crawler::CrawlerSettings;
 use crate::entity::classifier::ClassifierSettings;
+use crate::entity::crawler::CrawlerSettings;
 use crate::entity::project_settings::ProjectSettings;
 use crate::utils::llm::LLMPrompt;
 use crate::{
@@ -17,7 +18,6 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use strum::Display;
 use ts_rs::TS;
 
 // Features that are available in Pixlie for an AI agent
@@ -25,16 +25,20 @@ use ts_rs::TS;
 pub enum Tool {
     Crawler(CrawlerSettings),
     Classifier(ClassifierSettings),
-    // NamedEntityExtraction(Vec<NamedEntity>),
+    NamedEntityExtraction(Vec<EntityName>),
 }
 
 impl LLMSchema for Tool {
     fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
         let ts_crawl = CrawlerSettings::get_schema_for_llm(node, engine.clone())?;
         let ts_classify = ClassifierSettings::get_schema_for_llm(node, engine.clone())?;
+        let ts_named_entity_extraction = EntityName::get_schema_for_llm(node, engine.clone())?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
-        Ok(format!("{}\n{}\n{}", ts_crawl, ts_classify, ts_self))
+        Ok(format!(
+            "{}\n{}\n{}\n{}",
+            ts_crawl, ts_classify, ts_named_entity_extraction, ts_self
+        ))
     }
 }
 
@@ -51,12 +55,6 @@ impl LLMSchema for LLMResponse {
 
         Ok(format!("{}\n{}", ts_tool, ts_self))
     }
-}
-
-#[derive(Display)]
-pub enum PixlieFeature {
-    Crawler,
-    Classifier,
 }
 
 #[derive(Serialize)]

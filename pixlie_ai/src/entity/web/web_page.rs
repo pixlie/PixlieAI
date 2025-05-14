@@ -7,13 +7,13 @@
 
 use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
-use crate::entity::web::link::Link;
-use crate::entity::web::web_metadata::WebMetadata;
-use crate::entity::web::scraper::scrape;
 use crate::entity::classifier::{classify, LLMResponse};
+use crate::entity::web::link::Link;
+use crate::entity::web::scraper::scrape;
+use crate::entity::web::web_metadata::WebMetadata;
+use crate::error::{PiError, PiResult};
 use crate::services::anthropic::Anthropic;
 use crate::utils::llm::LLMProvider;
-use crate::error::{PiError, PiResult};
 use crate::ExternalData;
 use log::error;
 use std::sync::Arc;
@@ -44,7 +44,10 @@ pub fn get_link_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(
     }
 }
 
-pub fn get_metadata_of_webpage(engine: Arc<&Engine>, node_id: &NodeId) -> PiResult<(WebMetadata, NodeId)> {
+pub fn get_metadata_of_webpage(
+    engine: Arc<&Engine>,
+    node_id: &NodeId,
+) -> PiResult<(WebMetadata, NodeId)> {
     // Each WebPage may have a child WebMetadata node
     let related_node_ids =
         engine.get_node_ids_connected_with_label(node_id, &EdgeLabel::ChildOf)?;
@@ -132,41 +135,6 @@ impl WebPage {
     //     }
     // }
 
-    // fn _classify(&self, _engine: Arc<&Engine>, _node_id: &NodeId) -> PiResult<()> {
-    //     Classify the web page using Anthropic
-    //     let settings = Settings::get_cli_settings()?;
-    //     let content = self.get_content(engine, node_id);
-    //     if content.is_empty() {
-    //         return Ok(());
-    //     }
-    //     let labels: Vec<String> = vec![];
-    //
-    //     let classification = match settings.get_text_classification_provider()? {
-    //         TextClassificationProvider::Ollama => {
-    //             // Use Ollama
-    //             ollama::classify(
-    //                 &content,
-    //                 &labels,
-    //                 settings
-    //                     .ollama_hosts
-    //                     .unwrap()
-    //                     .choose(&mut rand::thread_rng())
-    //                     .unwrap(),
-    //                 8080,
-    //             )?
-    //         }
-    //         TextClassificationProvider::Anthropic => {
-    //             // Use Anthropic
-    //             anthropic::classify(&content, &labels, &settings.anthropic_api_key.unwrap())?
-    //         }
-    //     };
-    //     Insert the classification into the engine
-    //     engine.add_related_node(node_id, Payload::Label(classification.clone()));
-    //     info!("Content: {}\n\nclassified as: {}", content, classification);
-    //
-    //     Ok(())
-    // }
-
     // fn _extract_entities(&self, _engine: &Engine, _node_id: &NodeId) -> PiResult<()> {
     //     A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
     //     We collect all these nodes from the engine and pass them to the entity extraction service
@@ -211,13 +179,13 @@ impl WebPage {
                     if parsed_response.is_relevant {
                         log::info!("🟢 WebPage node {} is relevant.", node.id);
                         let insight_node_id = engine
-                        .get_or_add_node(
-                            Payload::Text(parsed_response.insight.clone()),
-                            vec![NodeLabel::Insight, NodeLabel::AddedByAI],
-                            true,
-                            None,
-                        )?
-                        .get_node_id();
+                            .get_or_add_node(
+                                Payload::Text(parsed_response.insight.clone()),
+                                vec![NodeLabel::ClassificationInsight, NodeLabel::AddedByAI],
+                                true,
+                                None,
+                            )?
+                            .get_node_id();
                         engine.add_connection(
                             (node.id.clone(), insight_node_id),
                             (EdgeLabel::Matches, EdgeLabel::MatchedFor),
@@ -225,7 +193,7 @@ impl WebPage {
                         let reason_node_id = engine
                             .get_or_add_node(
                                 Payload::Text(parsed_response.reason.clone()),
-                                vec![NodeLabel::Reason, NodeLabel::AddedByAI],
+                                vec![NodeLabel::ClassificationReason, NodeLabel::AddedByAI],
                                 true,
                                 None,
                             )?
