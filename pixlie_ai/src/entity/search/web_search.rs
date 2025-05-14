@@ -237,5 +237,4 @@ pub struct MetaUrl2 {
 pub struct Thumbnail2 {
     pub src: String,
     pub original: String,
-    pub logo: bool,
 }
