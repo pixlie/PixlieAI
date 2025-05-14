@@ -48,25 +48,27 @@ const Crawl: Component = () => {
   });
 
   return (
-    <>
-      {searchParams.label === "Link" && (
-        <>
-          <Heading size={3}>Links</Heading>
-          <ResultsCount count={linkCount()} />
-        </>
-      )}
-      {searchParams.label === "Domain" && (
-        <>
-          <Heading size={3}>Domains</Heading>
-          <ResultsCount count={domainCount()} />
-        </>
-      )}
-      <NodeGrid
-        nodeType={getNodeTypeFromSearchParam()}
-        source={getSelectNodeIds}
-        mode="regular"
-      />
-    </>
+    <div class="relative flex-1">
+      <div class="absolute inset-0 flex flex-col gap-4">
+        {searchParams.label === "Link" && (
+          <>
+            <Heading size={3}>Links</Heading>
+            <ResultsCount count={linkCount()} />
+          </>
+        )}
+        {searchParams.label === "Domain" && (
+          <>
+            <Heading size={3}>Domains</Heading>
+            <ResultsCount count={domainCount()} />
+          </>
+        )}
+        <NodeGrid
+          nodeType={getNodeTypeFromSearchParam()}
+          source={getSelectNodeIds}
+          mode="regular"
+        />
+      </div>
+    </div>
   );
 };
 

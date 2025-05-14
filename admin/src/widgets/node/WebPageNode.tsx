@@ -3,10 +3,8 @@ import { useEngine } from "../../stores/engine.tsx";
 import { useParams } from "@solidjs/router";
 
 import ShareOptions from "../interactable/ShareOptions.tsx";
-import LoaderIcon from "../../assets/icons/tabler-loader.svg";
 import { WebMetadata } from "../../api_types/WebMetadata.ts";
-import SparkleIcon from "../../assets/icons/tabler-sparkles.svg";
-import BrainIcon from "../../assets/icons/tabler-brain.svg";
+import SparkleIcon from "../../assets/icons/custom-gradient-sparkle.svg";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { Link } from "../../api_types/Link.ts";
 
@@ -46,7 +44,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
 
   return (
     <div
-      class={`flex flex-col w-full bg-white ${!!insight ? "border-2 border-green-500 bg-green-50" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
+      class={`flex flex-col w-full bg-white border border-slate-200 rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
     >
       {metadata.image && imageVisible() && (
         <img
@@ -68,7 +66,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
             {metadata.favicon && faviconVisible() && (
               <img
                 src={metadata.favicon}
-                class="w-6 h-6 object-contain"
+                class="w-5 h-5 object-contain"
                 alt="logo"
                 onError={() => setFaviconVisible(false)}
               />
@@ -121,20 +119,20 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
           )}
 
           {reason && (
-            <div class="flex flex-col gap-1.5">
-              <div class="flex items-center gap-2 text-lg font-medium text-fuchsia-600">
-                <BrainIcon />
-                <p>Reasoning</p>
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-1 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
+              <div class="flex items-center gap-1.5 text-xs font-semibold">
+                <SparkleIcon />
+                <p>REASONING</p>
               </div>
               <p class="text-md text-slate-700 leading-snug">{reason}</p>
             </div>
           )}
 
           {insight && (
-            <div class="flex flex-col gap-1.5">
-              <div class="flex items-center gap-2 text-lg font-medium text-purple-600">
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
+              <div class="flex items-center gap-1.5 text-xs  font-semibold">
                 <SparkleIcon />
-                <p>Insights</p>
+                <p>INSIGHTS</p>
               </div>
               <p class="text-md text-slate-700 leading-snug">{insight}</p>
             </div>
@@ -240,16 +238,12 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
 
   return (
     <>
-      {!!getWebMetadata() ? (
+      {!!getWebMetadata() && (
         <WebPagePreviewContainer
           metadata={getWebMetadata()!}
           insight={!!getInsight()! ? getInsight()! : undefined}
           reason={!!getReason()! ? getReason()! : undefined}
         />
-      ) : (
-        <div class="h-10 w-full flex items-center justify-center border border-slate-200 rounded-xl shadow-sm bg-white text-slate-500">
-          <LoaderIcon />
-        </div>
       )}
     </>
   );
