@@ -2052,6 +2052,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "postcard",
+ "regex",
  "reqwest",
  "rocksdb",
  "rustls",

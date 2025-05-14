@@ -25,6 +25,42 @@ pub struct ProjectSettings {
 }
 
 impl ProjectSettings {
+    pub fn is_domain_allowed(
+        &self,
+        project_settings_node_id: &NodeId,
+        domain_name: String,
+        engine: Arc<&Engine>,
+    ) -> PiResult<bool> {
+        if self.only_crawl_within_domains_of_specified_links {
+            // List the Links connected to the ProjectSettings node using the RelatedTo edge
+            let related_link_node_ids: Vec<NodeId> = engine.get_node_ids_connected_with_label(
+                project_settings_node_id,
+                &crate::engine::EdgeLabel::RelatedTo,
+            )?;
+
+            let related_domain_nodes: Vec<(NodeId, NodeItem)> = related_link_node_ids
+                .iter()
+                .filter_map(|node_id| match engine.get_node_by_id(node_id) {
+                    Some(node) => match &node.payload {
+                        Payload::Link(_) => {
+                            Link::get_domain_node(node_id, engine.clone()).unwrap_or_else(|_| None)
+                        }
+                        _ => None,
+                    },
+                    None => None,
+                })
+                .collect();
+
+            // Check if the domain is in the list of related domains
+            return Ok(related_domain_nodes.iter().any(|(_, related_domain_node)| {
+                match &related_domain_node.payload {
+                    Payload::Text(related_domain) => domain_name == *related_domain,
+                    _ => false,
+                }
+            }));
+        }
+        Ok(true)
+    }
     pub fn can_scrape_link(
         &self,
         project_settings_node_id: &NodeId,
@@ -60,35 +96,11 @@ impl ProjectSettings {
                                 &url
                             ))
                         })?;
-
-                        // List the Links connected to the ProjectSettings node using the RelatedTo edge
-                        let related_link_node_ids: Vec<NodeId> = engine
-                            .get_node_ids_connected_with_label(
-                                project_settings_node_id,
-                                &crate::engine::EdgeLabel::RelatedTo,
-                            )?;
-
-                        let related_domain_nodes: Vec<(NodeId, NodeItem)> = related_link_node_ids
-                            .iter()
-                            .filter_map(|node_id| match engine.get_node_by_id(node_id) {
-                                Some(node) => match &node.payload {
-                                    Payload::Link(_) => {
-                                        Link::get_domain_node(node_id, engine.clone())
-                                            .unwrap_or_else(|_| None)
-                                    }
-                                    _ => None,
-                                },
-                                None => None,
-                            })
-                            .collect();
-
-                        // Check if the domain is in the list of related domains
-                        Ok(related_domain_nodes.iter().any(|(_, related_domain_node)| {
-                            match &related_domain_node.payload {
-                                Payload::Text(related_domain) => domain_of_link == related_domain,
-                                _ => false,
-                            }
-                        }))
+                        self.is_domain_allowed(
+                            project_settings_node_id,
+                            domain_of_link.to_string(),
+                            engine.clone(),
+                        )
                     }
                     Err(_) => Ok(false),
                 }
