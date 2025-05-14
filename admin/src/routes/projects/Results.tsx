@@ -76,7 +76,7 @@ const Results: Component = () => {
           <ResultsCount count={getRelevantNodeIds()?.length} />
           <div class="flex items-center gap-3 mb-2">
             <span class="text-md font-medium text-slate-400">
-              Hide irrelevant results:{" "}
+              Only Show Matches:{" "}
             </span>
             <div
               class={
