@@ -5,7 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::entity::ExtractedEntity;
+use crate::entity::named_entity::ExtractedEntity;
 use serde::Serialize;
 
 pub mod anthropic;

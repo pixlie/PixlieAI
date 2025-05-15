@@ -9,6 +9,7 @@ use crate::engine::{Engine, NodeFlags};
 use crate::entity::classifier::ClassifierSettings;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::named_entity::{EntityExtraction, EntityName, ExtractedEntity};
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -16,7 +17,6 @@ use crate::entity::web::domain::Domain;
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::entity::web::web_page::WebPage;
-use crate::entity::EntityName;
 use crate::error::PiResult;
 use crate::{ExternalData, FetchError, FetchResponse};
 use chrono::{DateTime, Utc};
@@ -38,6 +38,7 @@ pub enum Payload {
     CrawlerSettings(CrawlerSettings),
     ClassifierSettings(ClassifierSettings),
     NamedEntitiesToExtract(Vec<EntityName>),
+    ExtractedNamedEntities(Vec<ExtractedEntity>),
 }
 
 pub(crate) type NodeId = u32;
@@ -65,6 +66,7 @@ pub enum NodeLabel {
     AddedByAI,
     AddedByPixlie,
     AddedByWebSearch,
+    AddedByGliner,
     Content,
     Domain,
     Heading,
@@ -88,6 +90,7 @@ pub enum NodeLabel {
     ClassificationInsight,
     ClassificationReason,
     NamedEntitiesToExtract,
+    ExtractedNamedEntities,
 }
 
 impl Default for NodeFlags {
@@ -118,6 +121,7 @@ impl NodeItem {
             WebSearch::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::WebPage) {
             WebPage::process(self, arced_engine.clone(), None)?;
+            EntityExtraction::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }

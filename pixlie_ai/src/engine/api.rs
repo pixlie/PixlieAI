@@ -11,12 +11,12 @@ use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::classifier::ClassifierSettings;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::named_entity::{EntityName, ExtractedEntity};
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
-use crate::entity::EntityName;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
@@ -179,7 +179,10 @@ pub enum APIPayload {
     CrawlerSettings(CrawlerSettings),
     /// These are the settings of the Pixlie AI classifier, based on which it classifies content.
     ClassifierSettings(ClassifierSettings),
+    /// These are named entities that we should extract from the content if the content is classified as relevant.
     NamedEntitiesToExtract(Vec<EntityName>),
+    /// These are the extracted named entities from the content if the content is classified as relevant.
+    ExtractedNamedEntities(Vec<ExtractedEntity>),
 }
 
 #[derive(Clone, Default, Serialize, ToSchema, TS)]
@@ -257,6 +260,9 @@ impl APINodeItem {
             }
             Payload::NamedEntitiesToExtract(named_entities_to_extract) => {
                 APIPayload::NamedEntitiesToExtract(named_entities_to_extract.clone())
+            }
+            Payload::ExtractedNamedEntities(extracted_named_entities) => {
+                APIPayload::ExtractedNamedEntities(extracted_named_entities.clone())
             }
         };
         APINodeItem {

@@ -6,7 +6,8 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::config::Settings;
-use crate::entity::{EntityName, ExtractedEntity};
+use crate::entity::named_entity::EntityName;
+use crate::entity::named_entity::ExtractedEntity;
 use crate::error::{PiError, PiResult};
 use gliner::model::pipeline::token::TokenMode;
 use gliner::model::{input::text::TextInput, params::Parameters, GLiNER};
@@ -14,7 +15,7 @@ use orp::params::RuntimeParameters;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
+pub fn extract_entities(text: String, labels: Vec<EntityName>) -> PiResult<Vec<ExtractedEntity>> {
     let settings: Settings = Settings::get_cli_settings()?;
     let path_to_storage_dir = match settings.path_to_storage_dir {
         Some(path) => PathBuf::from(path),
@@ -37,7 +38,7 @@ pub fn extract_entities(text: String, labels: Vec<String>) -> PiResult<Vec<Extra
         }
     };
 
-    let input = match TextInput::new(vec![text], labels) {
+    let input = match TextInput::new(vec![text], labels.iter().map(|x| x.to_string()).collect()) {
         Ok(input) => input,
         Err(err) => {
             return Err(PiError::GlinerError(err.to_string()));

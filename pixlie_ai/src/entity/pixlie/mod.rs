@@ -5,11 +5,11 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use super::EntityName;
 use crate::engine::node::NodeItem;
 use crate::engine::Engine;
 use crate::entity::classifier::ClassifierSettings;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::named_entity::EntityName;
 use crate::entity::project_settings::ProjectSettings;
 use crate::utils::llm::LLMPrompt;
 use crate::{

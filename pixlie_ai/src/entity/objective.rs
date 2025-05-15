@@ -5,13 +5,11 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use regex::Regex;
-use url::Url;
-
 use crate::engine::node::{NodeId, NodeItem, NodeLabel};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::pixlie::{LLMResponse, ProjectState, Tool};
 use crate::entity::project_settings::ProjectSettings;
+use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
@@ -24,9 +22,10 @@ use crate::{
     error::PiResult,
     ExternalData,
 };
-use std::{sync::Arc, vec};
 
-use super::web::domain::{Domain, FindDomainOf};
+use regex::Regex;
+use std::{sync::Arc, vec};
+use url::Url;
 
 pub struct Objective;
 
@@ -220,7 +219,7 @@ impl Objective {
                                 )?;
                             }
                             Tool::NamedEntityExtraction(named_entity_list) => {
-                                let named_entity_extraction_settings_node_id = engine
+                                let named_entitites_to_extract = engine
                                     .get_or_add_node(
                                         Payload::NamedEntitiesToExtract(named_entity_list),
                                         vec![
@@ -233,7 +232,7 @@ impl Objective {
                                     .get_node_id();
 
                                 engine.add_connection(
-                                    (node.id, named_entity_extraction_settings_node_id),
+                                    (node.id, named_entitites_to_extract),
                                     (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                                 )?;
                             }

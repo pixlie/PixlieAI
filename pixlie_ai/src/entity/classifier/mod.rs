@@ -92,33 +92,33 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
     // log::info!("✏️ Content to classify: {}", content.clone());
 
     let prompt_for_classification = engine
-    .get_node_ids_with_label(&NodeLabel::Objective)
-    .first()
-    .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))
-    .and_then(|id| {
-        engine
-            .get_node_ids_connected_with_label(id, &EdgeLabel::Suggests)?
-            .first()
-            .ok_or_else(|| PiError::InternalError("No ClassifierSettings found for Objective".to_string()))
-            .and_then(|settings_id| {
-                match &engine
-                    .get_node_by_id(settings_id)
-                    .ok_or_else(|| PiError::InternalError(format!("ClassifierSettings node with id {} not found", settings_id)))?
-                    .payload
-                {
-                    Payload::ClassifierSettings(settings) => {
-                        let query = settings.prompt_to_classify_content_as_relevant_to_objective_or_not.clone()
-                            .ok_or_else(|| PiError::GraphError("Missing query_to_classify_content_as_relevant_or_irrelevant_to_objective in ClassifierSettings".to_string()))?;
-                        Ok(query
-                            .split(": ")
-                            .nth(1)
-                            .unwrap_or(&query)
-                            .to_string())
-                    },
-                    _ => Err(PiError::GraphError("Invalid payload type for ClassifierSettings".to_string()))
-                }
-            })
-    })?;
+        .get_node_ids_with_label(&NodeLabel::Objective)
+        .first()
+        .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))
+        .and_then(|id| {
+            engine
+                .get_node_ids_connected_with_label(id, &EdgeLabel::Suggests)?
+                .first()
+                .ok_or_else(|| PiError::InternalError("No ClassifierSettings found for Objective".to_string()))
+                .and_then(|settings_id| {
+                    match &engine
+                        .get_node_by_id(settings_id)
+                        .ok_or_else(|| PiError::InternalError(format!("ClassifierSettings node with id {} not found", settings_id)))?
+                        .payload
+                    {
+                        Payload::ClassifierSettings(settings) => {
+                            let query = settings.prompt_to_classify_content_as_relevant_to_objective_or_not.clone()
+                                .ok_or_else(|| PiError::GraphError("Missing query_to_classify_content_as_relevant_or_irrelevant_to_objective in ClassifierSettings".to_string()))?;
+                            Ok(query
+                                .split(": ")
+                                .nth(1)
+                                .unwrap_or(&query)
+                                .to_string())
+                        },
+                        _ => Err(PiError::GraphError("Invalid payload type for ClassifierSettings".to_string()))
+                    }
+                })
+        })?;
 
     // log::info!("❓ Prompt for classification: {}", prompt_for_classify: {}", query.clone());
 
