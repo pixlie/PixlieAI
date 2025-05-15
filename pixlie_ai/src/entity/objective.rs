@@ -159,7 +159,7 @@ impl Objective {
                                 )?;
 
                                 match crawler_settings
-                                    .keywords_to_search_the_web_to_get_starting_urls
+                                    .keywords_to_get_accurate_results_from_web_search
                                 {
                                     Some(search_terms) => {
                                         let search_terms = if domains_to_crawl.len() > 0 {

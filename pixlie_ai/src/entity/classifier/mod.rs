@@ -25,7 +25,7 @@ pub struct ClassifierSettings {
 
 #[derive(Deserialize, TS)]
 pub struct LLMResponse {
-    pub is_relevant: bool,
+    pub meets_criteria: bool,
     pub reason: String,
     pub insight: String,
 }
@@ -125,10 +125,10 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
     Ok(format!(
         r#"{}
 
-        Content:
+        Content to be classified:
         {}
 
-        Using the following schema, respond in JSON format with your classification decision, insight, and reason:
+        Using the following schema, respond in JSON format:
         {}
         ```"#,
         prompt_for_classification,

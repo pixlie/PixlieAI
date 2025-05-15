@@ -17,7 +17,7 @@ use utoipa::ToSchema;
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct CrawlerSettings {
-    pub keywords_to_search_the_web_to_get_starting_urls: Option<Vec<String>>,
+    pub keywords_to_get_accurate_results_from_web_search: Option<Vec<String>>,
     pub crawl_link_if_anchor_text_has_any_of_these_keywords: Option<Vec<String>>,
 }
 
@@ -65,8 +65,8 @@ impl LLMSchema for CrawlerSettings {
                 .lines()
                 .map(|line| {
                     line.replace(
-                        "keywords_to_search_the_web_to_get_starting_urls: Array<string> | null,",
-                        "keywords_to_search_the_web_to_get_starting_urls: Array<string>,",
+                        "keywords_to_get_accurate_results_from_web_search: Array<string> | null,",
+                        "keywords_to_get_accurate_results_from_web_search: Array<string>,",
                     )
                 })
                 .collect::<Vec<String>>()
@@ -78,7 +78,7 @@ impl LLMSchema for CrawlerSettings {
                 .lines()
                 .map(|line| {
                     line.replace(
-                        "keywords_to_search_the_web_to_get_starting_urls: Array<string> | null, ",
+                        "keywords_to_get_accurate_results_from_web_search: Array<string> | null, ",
                         "",
                     )
                 })

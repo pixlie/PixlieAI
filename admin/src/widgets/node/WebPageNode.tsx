@@ -44,7 +44,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
 
   return (
     <div
-      class={`flex flex-col w-full bg-white border border-slate-200 rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
+      class={`flex flex-col w-full bg-white ${!!insight ? "border-2 border-green-600" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
     >
       {metadata.image && imageVisible() && (
         <img
@@ -71,8 +71,8 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
                 onError={() => setFaviconVisible(false)}
               />
             )}
-            <div>
-              <p class="text-xs text-slate-500 font-semibold rounded-full px-2 py-1 bg-slate-100 group-hover:bg-blue-200/50 group-hover:text-blue-600 transition-all duration-50 ease-in-out line-clamp-1">
+            <div class="flex shrink overflow-hidden rounded-full px-2 py-1 bg-slate-100 text-slate-500 group-hover:bg-blue-200/50 group-hover:text-blue-600 transition-all duration-50 ease-in-out">
+              <p class="text-xs font-semibold truncate">
                 {metadata.site_name
                   ? metadata.site_name
                   : cleanUrl(metadata.url)}
@@ -108,18 +108,20 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
                 ?.map((tag) => tag.trim())
                 ?.filter((tag) => tag.length > 0)
                 ?.map((tag, i) => (
-                  <p
-                    class="text-xs text-slate-500 font-semibold rounded-full px-2 py-1 bg-slate-100 group-hover:bg-yellow-200/50 group-hover:text-yellow-600 transition-all duration-50 ease-in-out"
-                    id={`tag-${i}-${tag}`}
-                  >
-                    {`#${tag}`}
-                  </p>
+                  <div class="flex shrink overflow-hidden rounded-full px-2 py-1 bg-slate-100 text-slate-500 group-hover:bg-yellow-200/50 group-hover:text-yellow-600 transition-all duration-50 ease-in-out">
+                    <p
+                      class="text-xs font-semibold truncate"
+                      id={`tag-${i}-${tag}`}
+                    >
+                      {`#${tag}`}
+                    </p>
+                  </div>
                 ))}
             </div>
           )}
 
           {reason && (
-            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-1 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
               <div class="flex items-center gap-1.5 text-xs font-semibold">
                 <SparkleIcon />
                 <p>REASONING</p>
@@ -129,7 +131,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
           )}
 
           {insight && (
-            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
+            <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mt-1 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
               <div class="flex items-center gap-1.5 text-xs  font-semibold">
                 <SparkleIcon />
                 <p>INSIGHTS</p>
