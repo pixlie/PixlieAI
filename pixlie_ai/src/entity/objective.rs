@@ -260,7 +260,7 @@ impl Objective {
                 let project_settings_node_id = engine
                     .get_or_add_node(
                         Payload::ProjectSettings(project_settings),
-                        vec![NodeLabel::AddedByPixlie, NodeLabel::ProjectSettings],
+                        vec![NodeLabel::ProjectSettings],
                         true,
                         None,
                     )?
