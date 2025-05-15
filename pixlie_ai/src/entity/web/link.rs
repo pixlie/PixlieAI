@@ -241,7 +241,11 @@ impl Link {
                     )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
-                ExternalData::Error(_error) => {
+                ExternalData::Error(error) => {
+                    error!(
+                        "Error processing link {}({}): {}. The link will be attempted again later.",
+                        &url, node.id, error.error
+                    );
                     engine.toggle_flag(&node.id, NodeFlags::HAD_ERROR)?;
                 }
             },
