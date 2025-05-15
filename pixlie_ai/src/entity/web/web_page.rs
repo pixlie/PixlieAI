@@ -207,7 +207,7 @@ impl WebPage {
                         let reason_node_id = engine
                             .get_or_add_node(
                                 Payload::Text(parsed_response.reason.clone()),
-                                vec![NodeLabel::Reason, NodeLabel::AddedByAI],
+                                vec![NodeLabel::ClassificationReason, NodeLabel::AddedByAI],
                                 true,
                                 None,
                             )?
