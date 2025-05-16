@@ -4,6 +4,7 @@ export type NodeLabel =
   | "AddedByUser"
   | "AddedByAI"
   | "AddedByWebSearch"
+  | "AddedByGliner"
   | "Content"
   | "Domain"
   | "Heading"
@@ -24,5 +25,6 @@ export type NodeLabel =
   | "ProjectSettings"
   | "CrawlerSettings"
   | "ClassifierSettings"
-  | "Insight"
-  | "Reason";
+  | "Classification"
+  | "NamedEntitiesToExtract"
+  | "ExtractedNamedEntities";

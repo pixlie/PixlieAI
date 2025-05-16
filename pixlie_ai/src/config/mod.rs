@@ -32,7 +32,7 @@ pub mod python;
 #[ts(export, rename_all = "camelCase")]
 pub struct Settings {
     pub path_to_storage_dir: Option<String>,
-    // When hostname is set, we look for `Certs/<hostname>/` directory in the storage directory
+    // When the hostname is set, we look for the `Certs/<hostname>/` directory in the storage directory
     pub hostname: Option<String>,
 }
 

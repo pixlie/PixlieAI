@@ -5,6 +5,7 @@ import type { NodeWrite } from "./NodeWrite";
 export type EngineRequestPayload =
   | { Explore: number | null }
   | "GetLabels"
+  | "GetMatches"
   | { GetNodesWithLabel: string }
   | { GetNodesWithIds: Array<number> }
   | { GetAllNodes: bigint }

@@ -8,12 +8,13 @@
 use super::node::{ArcedNodeItem, NodeLabel};
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
+use crate::entity::classifier::{Classification, ClassifierSettings};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
-use crate::entity::classifier::ClassifierSettings;
-use crate::entity::web::domain::{Domain, FindDomainOf};   
+use crate::entity::named_entity::{EntityName, ExtractedEntity};
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
+use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::PiError;
@@ -119,8 +120,8 @@ pub struct Explore {
 pub struct APIMatch {
     pub node_id: NodeId,
     pub full_url: String,
-    pub metadata: WebMetadata,  // TODO: support other types of matches
-    pub insight: String,
+    pub metadata: WebMetadata, // TODO: support other types of matches
+    pub insight: Option<String>,
     pub reason: String,
 }
 
@@ -178,6 +179,12 @@ pub enum APIPayload {
     CrawlerSettings(CrawlerSettings),
     /// These are the settings of the Pixlie AI classifier, based on which it classifies content.
     ClassifierSettings(ClassifierSettings),
+    /// This stores how a content was classified by LLM.
+    Classification(Classification),
+    /// These are named entities that we should extract from the content if the content is classified as relevant.
+    NamedEntitiesToExtract(Vec<EntityName>),
+    /// These are the extracted named entities from the content if the content is classified as relevant.
+    ExtractedNamedEntities(Vec<ExtractedEntity>),
 }
 
 #[derive(Clone, Default, Serialize, ToSchema, TS)]
@@ -252,6 +259,15 @@ impl APINodeItem {
             }
             Payload::ClassifierSettings(classifier_settings) => {
                 APIPayload::ClassifierSettings(classifier_settings.clone())
+            }
+            Payload::Classification(classification) => {
+                APIPayload::Classification(classification.clone())
+            }
+            Payload::NamedEntitiesToExtract(named_entities_to_extract) => {
+                APIPayload::NamedEntitiesToExtract(named_entities_to_extract.clone())
+            }
+            Payload::ExtractedNamedEntities(extracted_named_entities) => {
+                APIPayload::ExtractedNamedEntities(extracted_named_entities.clone())
             }
         };
         APINodeItem {
@@ -871,7 +887,10 @@ pub async fn get_matches(
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
 
-    debug!("API request {} for project {} to get matches", request_id, project_id);
+    debug!(
+        "API request {} for project {} to get matches",
+        request_id, project_id
+    );
 
     // Subscribe to receive engine response
     let mut rx = api_state.api_channel_tx.subscribe();
@@ -1213,12 +1232,12 @@ pub fn handle_engine_api_request(
         },
         EngineRequestPayload::GetMatches => {
             let mut results = vec![];
-        
+
             for node in engine.get_all_nodes() {
                 if !node.labels.contains(&NodeLabel::WebPage) {
                     continue;
                 }
-        
+
                 let connected = match engine.get_connected_nodes(&node.id)? {
                     Some(edges) => edges,
                     None => continue,
@@ -1233,10 +1252,17 @@ pub fn handle_engine_api_request(
                                         let domain_node = Domain::find_existing(
                                             engine.clone(),
                                             FindDomainOf::Node(*id),
-                                        ).ok().flatten()?;
-                                        let domain_name = Domain::get_domain_name(&domain_node).ok()?;
-                                        Some(format!("https://{}{}", domain_name, link.get_full_link()))
-                                    },
+                                        )
+                                        .ok()
+                                        .flatten()?;
+                                        let domain_name =
+                                            Domain::get_domain_name(&domain_node).ok()?;
+                                        Some(format!(
+                                            "https://{}{}",
+                                            domain_name,
+                                            link.get_full_link()
+                                        ))
+                                    }
                                     _ => None,
                                 }
                             } else {
@@ -1251,7 +1277,7 @@ pub fn handle_engine_api_request(
                     continue;
                 }
                 let full_url = full_url.unwrap();
-        
+
                 let metadata = connected.edges.iter().find_map(|(id, label)| {
                     if *label == EdgeLabel::ParentOf {
                         engine.get_node_by_id(id).and_then(|n| {
@@ -1272,58 +1298,40 @@ pub fn handle_engine_api_request(
                     continue;
                 }
                 let metadata = metadata.unwrap();
-        
-                let insight = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Insight) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
+
+                let classification: Option<Classification> =
+                    connected.edges.iter().find_map(|(id, label)| {
+                        if *label == EdgeLabel::Classification {
+                            engine.get_node_by_id(id).and_then(|n| {
+                                if n.labels.contains(&NodeLabel::Classification) {
+                                    match &n.payload {
+                                        Payload::Classification(classification) => {
+                                            Some(classification.clone())
+                                        }
+                                        _ => None,
+                                    }
+                                } else {
+                                    None
                                 }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if insight.is_none() {
+                            })
+                        } else {
+                            None
+                        }
+                    });
+                if classification.is_none() {
                     continue;
                 }
-                let insight = insight.unwrap();
-        
-                let reason = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Reason) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if reason.is_none() {
-                    continue;
-                }
-                let reason = reason.unwrap();
+                let classification = classification.unwrap();
 
                 results.push(APIMatch {
                     node_id: node.id,
                     full_url,
                     metadata,
-                    insight,
-                    reason,
+                    reason: classification.reason,
+                    insight: classification.insight_if_classified_as_relevant,
                 });
             }
-        
+
             EngineResponsePayload::Matches(results)
         }
     };

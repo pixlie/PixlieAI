@@ -2,8 +2,20 @@
 import type { ProjectOwner } from "./ProjectOwner";
 
 export type Project = {
+  /**
+   * Project ID (UUID)
+   */
   uuid: string;
+  /**
+   * Project name - this is assigned by AI
+   */
   name: string | null;
+  /**
+   * Project description - currently unused
+   */
   description: string | null;
+  /**
+   * Project owner - for future use, currently defaults to Myself
+   */
   owner: ProjectOwner;
 };

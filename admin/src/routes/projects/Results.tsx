@@ -11,7 +11,7 @@ const Results: Component = () => {
   const params = useParams();
 
   const [filterLabel, setFilterLabel] = createSignal<"Reason" | "Insight">(
-    "Reason"
+    "Reason",
   );
 
   const getProject = createMemo(() => {
@@ -47,9 +47,9 @@ const Results: Component = () => {
         ?.filter((x) => x.labels.includes(filterLabel()))
         ?.map(
           (x) =>
-            getRelatedNodes(params.projectId, x.id, "MatchedFor", (n) =>
-              n.labels.includes("WebPage")
-            )[0]?.id
+            getRelatedNodes(params.projectId, x.id, "ClassifiedFor", (n) =>
+              n.labels.includes("WebPage"),
+            )[0]?.id,
         );
     }
     return [];
@@ -85,7 +85,7 @@ const Results: Component = () => {
               }
               onClick={() =>
                 setFilterLabel((prev) =>
-                  prev === "Reason" ? "Insight" : "Reason"
+                  prev === "Reason" ? "Insight" : "Reason",
                 )
               }
             >

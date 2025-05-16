@@ -5,134 +5,71 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use super::ExtractionRequest;
-use crate::entity::ExtractedEntity;
-use crate::error::PiResult;
-use log::{error, info};
-use serde::Deserialize;
-use std::thread;
-use std::time::Duration;
+use crate::config::Settings;
+use crate::entity::named_entity::EntityName;
+use crate::entity::named_entity::ExtractedEntity;
+use crate::error::{PiError, PiResult};
+use gliner::model::pipeline::token::TokenMode;
+use gliner::model::{input::text::TextInput, params::Parameters, GLiNER};
+use orp::params::RuntimeParameters;
+use std::path::PathBuf;
+use std::str::FromStr;
 
-#[derive(Deserialize)]
-pub struct GlinerEntity {
-    pub start: u32,
-    pub end: u32,
-    pub text: String,
-    pub label: String,
-    pub score: f32,
-}
-
-pub fn extract_entities(text: String, labels: &Vec<String>) -> PiResult<Vec<ExtractedEntity>> {
-    let random_id = rand::random::<u32>();
-
-    //  This is where we initiate a request with GLiNER using MQTT
-    {
-        let random_id = random_id.clone();
-        let labels = labels.clone();
-        thread::spawn(move || extract_entities_sender(text, &labels, random_id));
+pub fn extract_entities(text: String, labels: Vec<EntityName>) -> PiResult<Vec<ExtractedEntity>> {
+    let settings: Settings = Settings::get_cli_settings()?;
+    let path_to_storage_dir = match settings.path_to_storage_dir {
+        Some(path) => PathBuf::from(path),
+        None => {
+            return Err(PiError::InternalError(
+                "Cannot find path to storage directory".to_string(),
+            ));
+        }
     };
 
-    // let mut extracted: Vec<ExtractedEntity> = vec![];
-    // This is where we listen for responses from GLiNER using MQTT
-    // let mut mqtt_options = MqttOptions::new(
-    //     format!("{}_receiver_{}", mqtt_topic, random_id),
-    //     "localhost",
-    //     1883,
-    // );
-    // mqtt_options.set_keep_alive(Duration::from_secs(5));
+    let model = match GLiNER::<TokenMode>::new(
+        Parameters::default(),
+        RuntimeParameters::default(),
+        path_to_storage_dir.join("gliner_onnx_models/multitask_large_v0_5/tokenizer.json"),
+        path_to_storage_dir.join("gliner_onnx_models/multitask_large_v0_5/model.onnx"),
+    ) {
+        Ok(model) => model,
+        Err(err) => {
+            return Err(PiError::GlinerError(err.to_string()));
+        }
+    };
 
-    // let (receiver, mut connection) = Client::new(mqtt_options, 10);
-    // receiver
-    //     .subscribe(
-    //         format!("pixlieai/{}/responses/{}", mqtt_topic, random_id),
-    //         QoS::ExactlyOnce,
-    //     )
-    //     .unwrap();
+    let input = match TextInput::new(vec![text], labels.iter().map(|x| x.to_string()).collect()) {
+        Ok(input) => input,
+        Err(err) => {
+            return Err(PiError::GlinerError(err.to_string()));
+        }
+    };
 
-    // for notification in connection.iter() {
-    //     match notification {
-    //         Ok(message) => match message {
-    //             Event::Incoming(Incoming::Publish(publish)) => {
-    //                 match serde_json::from_slice::<Vec<GlinerEntity>>(&publish.payload) {
-    //                     Ok(entities) => {
-    //                         for entity in entities {
-    //                             if entity.text.is_empty() {
-    //                                 continue;
-    //                             }
-    //                             extracted.push(ExtractedEntity {
-    //                                 label: entity.label,
-    //                                 matching_text: entity.text,
-    //                                 start: Some(entity.start),
-    //                                 end: Some(entity.end),
-    //                                 score: Some(entity.score),
-    //                             });
-    //                         }
-    //                         receiver
-    //                             .unsubscribe(format!(
-    //                                 "pixlieai/{}/responses/{}",
-    //                                 mqtt_topic, random_id
-    //                             ))
-    //                             .unwrap();
-    //                         break;
-    //                     }
-    //                     Err(err) => {
-    //                         error!(
-    //                             "Receiver {}: Error deserializing gliner entities: {}",
-    //                             random_id, err
-    //                         );
-    //                     }
-    //                 };
-    //             }
-    //             _ => {}
-    //         },
-    //         Err(_) => {
-    //             break;
-    //         }
-    //     };
-    // }
+    let output = match model.inference(input) {
+        Ok(output) => output,
+        Err(err) => {
+            return Err(PiError::GlinerError(err.to_string()));
+        }
+    };
 
-    Ok(vec![])
-}
+    let mut extracted_entities: Vec<ExtractedEntity> = vec![];
+    for spans in output.spans {
+        for span in spans {
+            let entity_name = match EntityName::from_str(span.class()) {
+                Ok(entity_name) => entity_name,
+                Err(_) => {
+                    continue;
+                }
+            };
+            extracted_entities.push(ExtractedEntity {
+                entity_name,
+                matching_text: span.text().to_string(),
+                start: Some(span.offsets().0),
+                end: Some(span.offsets().1),
+                probability: Some(span.probability()),
+            })
+        }
+    }
 
-fn extract_entities_sender(text: String, labels: &Vec<String>, random_id: u32) {
-    // let mqtt_topic = "extract_named_entities_gliner";
-    // let mut mqtt_options = MqttOptions::new(
-    //     format!("{}_sender_{}", mqtt_topic, random_id),
-    //     "localhost",
-    //     1883,
-    // );
-    // mqtt_options.set_keep_alive(Duration::from_secs(5));
-
-    // let (sender, mut connection) = Client::new(mqtt_options.clone(), 10);
-    // let labels = labels.clone();
-    // thread::spawn(move || {
-    //     match sender.publish(
-    //         format!("pixlieai/{}/requests/{}", mqtt_topic, random_id),
-    //         QoS::ExactlyOnce,
-    //         false,
-    //         serde_json::to_string(&ExtractionRequest { text, labels }).unwrap(),
-    //     ) {
-    //         Ok(_) => {}
-    //         Err(err) => {
-    //             error!("Error publishing {}/requests: {}", mqtt_topic, err);
-    //         }
-    //     }
-    // });
-    // for notification in connection.iter() {
-    //     match notification {
-    //         Ok(message) => match message {
-    //             Event::Incoming(Incoming::Publish(_)) => {
-    //                 info!(
-    //                     "Sender {}: Requested entity extraction with GLiNER",
-    //                     random_id
-    //                 );
-    //             }
-    //             _ => {}
-    //         },
-    //         Err(err) => {
-    //             error!("Sender {}: {}", random_id, err);
-    //             break;
-    //         }
-    //     };
-    // }
+    Ok(extracted_entities)
 }

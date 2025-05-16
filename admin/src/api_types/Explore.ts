@@ -2,6 +2,9 @@
 import type { APIEdges } from "./APIEdges";
 import type { APINodeItem } from "./APINodeItem";
 
+/**
+ * Schema for response to the `explore` API request.
+ */
 export type Explore = {
   nodes: Array<APINodeItem>;
   edges: APIEdges;

@@ -63,6 +63,9 @@ pub enum PiError {
     #[error("CRUD Error, {0:?} not found: {1}")]
     CrudNotFoundError(Vec<String>, String),
 
+    #[error("Error in Gliner: {0}")]
+    GlinerError(String),
+
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
 
@@ -97,17 +100,6 @@ pub enum PiError {
 impl actix_web::ResponseError for PiError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
-            // PiError::CannotReadConfigFile => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::SettingsError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::FailedToWriteConfigFile(_) => {
-            //     actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
-            // }
-            // PiError::ApiKeyNotConfigured => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::ReqwestError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::FetchFailedAfterRetries => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::NotConfiguredProperly => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::CouldNotClassifyText => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            // PiError::IOError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
