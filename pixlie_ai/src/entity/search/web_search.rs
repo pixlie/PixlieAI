@@ -38,7 +38,7 @@ impl WebSearch {
                                 }
                             };
                         // Skip if project settings are not available
-                        let project_settings = match engine
+                        let (project_settings_node_id, project_settings) = match engine
                             .get_node_ids_with_label(&NodeLabel::ProjectSettings)
                         {
                             settings_node_ids => {
@@ -47,7 +47,8 @@ impl WebSearch {
                                         "No ProjectSettings node found".to_string(),
                                     ));
                                 }
-                                match engine.get_node_by_id(&settings_node_ids[0]) {
+                                let settings_node_id = *settings_node_ids[0];
+                                match engine.get_node_by_id(&settings_node_id) {
                                     Some(settings_node) => {
                                         if settings_node
                                             .labels
@@ -55,7 +56,7 @@ impl WebSearch {
                                         {
                                             match &settings_node.payload {
                                                 Payload::ProjectSettings(settings) => {
-                                                    settings.clone()
+                                                    (settings_node_id, settings.clone())
                                                 }
                                                 _ => {
                                                     return Err(PiError::GraphError(
@@ -88,8 +89,8 @@ impl WebSearch {
                                 None => continue,
                             };
                             if project_settings.is_domain_allowed(
-                                &node.id,
-                                domain,
+                                &project_settings_node_id,
+                                domain.to_string(),
                                 engine.clone(),
                             )? {
                                 let link_node_id = Link::add(

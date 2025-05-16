@@ -213,6 +213,24 @@ impl Engine {
             NodeFlags::IS_BLOCKED,
         ];
 
+        // TODO: Make dependency processing more generic,
+        // so edge based dependencies can be added
+        // For now, we cautiously check only nodes that are known to currently have solo nodes.
+        // For e.g. Objective
+        let mut processing_dependencies: HashMap<NodeLabel, Vec<NodeLabel>> = HashMap::new();
+        processing_dependencies.insert(NodeLabel::WebPage, vec![NodeLabel::Objective]);
+        processing_dependencies.insert(NodeLabel::WebSearch, vec![NodeLabel::Objective]);
+        let mut dependency_labels_to_check = vec![];
+        processing_dependencies
+            .iter()
+            .for_each(|(_, dependencies)| {
+                dependencies.iter().for_each(|dependency| {
+                    if !dependency_labels_to_check.contains(dependency) {
+                        dependency_labels_to_check.push(dependency.clone());
+                    }
+                });
+            });
+
         // When the number of the nodes to be processed is large,
         // we do not process nodes that generate more nodes. WebPage nodes are like that.
         let limited_labels_to_be_processed = vec![
@@ -231,40 +249,61 @@ impl Engine {
         let mut node_count: usize = 0;
         let current_time = Utc::now();
         let mut node_ids: Vec<NodeId> = match self.nodes.read() {
-            Ok(nodes) => nodes
-                .data
-                .iter()
-                .filter_map(|item| {
-                    if flags_to_be_skipped
+            Ok(nodes) => {
+                let mut processing_status: HashMap<NodeLabel, bool> = HashMap::new();
+                nodes.data.iter().for_each(|item| {
+                    if dependency_labels_to_check
                         .iter()
-                        .any(|flag| item.1.flags.contains(flag.clone()))
+                        .any(|label| item.1.labels.contains(label))
+                        && item.1.flags.contains(NodeFlags::IS_PROCESSED)
                     {
-                        None
-                    } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
-                        if current_time - item.1.written_at > TimeDelta::seconds(60) {
-                            Some(*item.0.deref())
-                        } else {
+                        processing_status.insert(item.1.labels[0].clone(), true);
+                    }
+                });
+                nodes
+                    .data
+                    .iter()
+                    .filter_map(|item| {
+                        // Skip nodes that are not ready to be processed:
+                        // - If the node has one of the flags to be skipped
+                        // - If the node depends on other nodes having been processed
+                        if flags_to_be_skipped
+                            .iter()
+                            .any(|flag| item.1.flags.contains(flag.clone()))
+                            || (processing_dependencies.iter().any(|(label, dependencies)| {
+                                item.1.labels.contains(label)
+                                    && dependencies.iter().all(|dependency| {
+                                        *processing_status.get(dependency).unwrap_or_else(|| &false)
+                                    })
+                            }))
+                        {
                             None
-                        }
-                    } else {
-                        if node_count < 100
-                            && all_labels_to_be_processed
+                        } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
+                            if current_time - item.1.written_at > TimeDelta::seconds(60) {
+                                Some(*item.0.deref())
+                            } else {
+                                None
+                            }
+                        } else {
+                            if node_count < 100
+                                && all_labels_to_be_processed
+                                    .iter()
+                                    .any(|label| item.1.labels.contains(label))
+                            {
+                                node_count += 1;
+                                Some(*item.0.deref())
+                            } else if limited_labels_to_be_processed
                                 .iter()
                                 .any(|label| item.1.labels.contains(label))
-                        {
-                            node_count += 1;
-                            Some(*item.0.deref())
-                        } else if limited_labels_to_be_processed
-                            .iter()
-                            .any(|label| item.1.labels.contains(label))
-                        {
-                            Some(*item.0.deref())
-                        } else {
-                            None
+                            {
+                                Some(*item.0.deref())
+                            } else {
+                                None
+                            }
                         }
-                    }
-                })
-                .collect(),
+                    })
+                    .collect()
+            }
             Err(err) => {
                 error!("Error locking nodes in process_nodes: {}", err);
                 return;
@@ -280,7 +319,9 @@ impl Engine {
             if let Some(node) = self.get_node_by_id(&node_id) {
                 match node.process(arced_self.clone()) {
                     Ok(_) => {}
-                    Err(_error) => {}
+                    Err(error) => {
+                        error!("Error processing node {}: {}", node_id, error);
+                    }
                 }
             }
         }
