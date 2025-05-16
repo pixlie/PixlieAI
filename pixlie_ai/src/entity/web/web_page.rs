@@ -5,15 +5,12 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
-use crate::engine::{EdgeLabel, Engine, NodeFlags};
-use crate::entity::classifier::{classify, LLMResponse};
+use crate::engine::node::{NodeId, NodeItem, Payload};
+use crate::engine::{EdgeLabel, Engine};
 use crate::entity::web::link::Link;
 use crate::entity::web::scraper::scrape;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::{PiError, PiResult};
-use crate::services::anthropic::Anthropic;
-use crate::utils::llm::LLMProvider;
 use crate::ExternalData;
 use log::error;
 use std::sync::Arc;
@@ -101,175 +98,11 @@ impl WebPage {
         content
     }
 
-    fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-        Ok(Anthropic::parse_response::<LLMResponse>(response)?)
-    }
-
-    // pub fn get_partial_content_nodes(
-    //     &self,
-    //     engine: Arc<&Engine>,
-    //     node_id: &NodeId,
-    // ) -> PiResult<Vec<ArcedNodeItem>> {
-    //     match engine
-    //         .get_node_ids_connected_with_label(node_id, &EdgeLabel::ParentOf)
-    //     {
-    //         Ok(partial_content_node_ids) => Ok(partial_content_node_ids
-    //             .iter()
-    //             .filter_map(|partial_content_node_id| {
-    //                 match engine.get_node_by_id(partial_content_node_id) {
-    //                     Some(node) => {
-    //                         if node.labels.contains(&NodeLabel::Partial) {
-    //                             Some(node)
-    //                         } else {
-    //                             None
-    //                         }
-    //                     }
-    //                     None => None,
-    //                 }
-    //             })
-    //             .collect::<Vec<ArcedNodeItem>>()),
-    //         Err(err) => {
-    //             error!("Error getting partial content nodes: {}", err);
-    //             Err(err)
-    //         }
-    //     }
-    // }
-
-    // fn _extract_entities(&self, _engine: &Engine, _node_id: &NodeId) -> PiResult<()> {
-    //     A WebPage is scraped into many **part** nodes, mainly content nodes, like Title, Heading, Paragraph, etc.
-    //     We collect all these nodes from the engine and pass them to the entity extraction service
-    //     let settings = Settings::get_cli_settings()?;
-    //     let content = self.get_content(engine, node_id);
-    //     let labels: Vec<String> = serde_yaml::from_str(WEBPAGE_EXTRACTION_LABELS).unwrap();
-    //     let _entities = match settings.get_entity_extraction_provider()? {
-    //         EntityExtractionProvider::Gliner => {
-    //             // Use GLiNER
-    //             gliner::extract_entities(content, &labels)
-    //         }
-    //         EntityExtractionProvider::Ollama => {
-    //             // Use Ollama
-    //             ollama::extract_entities(
-    //                 content,
-    //                 &labels,
-    //                 settings
-    //                     .ollama_hosts
-    //                     .unwrap()
-    //                     .choose(&mut rand::thread_rng())
-    //                     .unwrap(),
-    //                 8080,
-    //             )
-    //         }
-    //         EntityExtractionProvider::Anthropic => {
-    //             // Use Anthropic
-    //             anthropic::extract_entities(content, &labels, &settings.anthropic_api_key.unwrap())
-    //         }
-    //     }?;
-    //     Ok(())
-    // }
-
     pub fn process(
         node: &NodeItem,
         engine: Arc<&Engine>,
-        data_from_previous_request: Option<ExternalData>,
+        _data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
-        match data_from_previous_request {
-            Some(external_data) => match external_data {
-                ExternalData::Response(response) => {
-                    let parsed_response = &Self::parse_llm_response(&response.contents)?;
-                    if parsed_response.meets_criteria {
-                        log::info!("🟢 WebPage node {} is relevant.", node.id);
-                        let insight_node_id = engine
-                            .get_or_add_node(
-                                Payload::Text(parsed_response.insight.clone()),
-                                vec![NodeLabel::ClassificationInsight, NodeLabel::AddedByAI],
-                                true,
-                                None,
-                            )?
-                            .get_node_id();
-                        engine.add_connection(
-                            (node.id.clone(), insight_node_id),
-                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
-                        )?;
-                        let reason_node_id = engine
-                            .get_or_add_node(
-                                Payload::Text(parsed_response.reason.clone()),
-                                vec![NodeLabel::ClassificationReason, NodeLabel::AddedByAI],
-                                true,
-                                None,
-                            )?
-                            .get_node_id();
-                        engine.add_connection(
-                            (node.id.clone(), reason_node_id),
-                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
-                        )?;
-                    } else {
-                        log::info!("🔴 WebPage node {} is not relevant.", node.id);
-                        let reason_node_id = engine
-                            .get_or_add_node(
-                                Payload::Text(parsed_response.reason.clone()),
-                                vec![NodeLabel::ClassificationReason, NodeLabel::AddedByAI],
-                                true,
-                                None,
-                            )?
-                            .get_node_id();
-                        engine.add_connection(
-                            (node.id.clone(), reason_node_id),
-                            (EdgeLabel::Matches, EdgeLabel::MatchedFor),
-                        )?;
-                    }
-                    engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
-                }
-                ExternalData::Error(_error) => {}
-            },
-            None => {
-                scrape(node, engine.clone())?;
-                classify(node, engine.clone())?;
-            }
-        }
-        Ok(())
+        scrape(node, engine.clone())
     }
 }
-
-// else if !self.is_classified {
-//     // self.classify(engine.clone(), node_id).unwrap();
-//     engine.update_node(
-//         &node_id,
-//         Payload::FileHTML(WebPage {
-//             is_classified: true,
-//             ..self.clone()
-//         }),
-//     )?;
-// }
-// else if !self.is_extracted {
-//     Get the related Label node and check that classification is not "Other"
-//     let classification =
-//         match engine.nodes.read() {
-//             Ok(nodes) => match nodes.get(node_id) {
-//                 Some(node) => node.read().unwrap().edges.iter().find_map(|node_id| {
-//                     match engine.nodes.read() {
-//                         Ok(nodes) => match nodes.get(node_id) {
-//                             Some(node) => match node.read() {
-//                                 Ok(node) => match node.payload {
-//                                     Payload::Label(ref label) => Some(label.clone()),
-//                                     _ => None,
-//                                 },
-//                                 Err(_err) => None,
-//                             },
-//                             None => None,
-//                         },
-//                         Err(_err) => None,
-//                     }
-//                 }),
-//                 None => None,
-//             },
-//             Err(_err) => None,
-//         };
-//
-//     if classification.is_some_and(|x| x != "Other") {
-//         self.extract_entities(engine, node_id).unwrap();
-//         return Some(WebPage {
-//             is_extracted: true,
-//             ..self.clone()
-//         });
-//     }
-// }

@@ -6,12 +6,13 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
-use crate::engine::{EdgeLabel, Engine};
+use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::error::PiError;
 use crate::error::PiResult;
 use crate::services::anthropic::Anthropic;
 use crate::utils::llm::LLMProvider;
 use crate::utils::llm::{clean_ts_type, LLMSchema};
+use crate::ExternalData;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -23,11 +24,11 @@ pub struct ClassifierSettings {
     pub prompt_to_classify_content_as_relevant_to_objective_or_not: Option<String>,
 }
 
-#[derive(Deserialize, TS)]
-pub struct LLMResponse {
-    pub meets_criteria: bool,
+#[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
+pub struct Classification {
+    pub is_relevant: bool,
     pub reason: String,
-    pub insight: String,
+    pub insight_if_classified_as_relevant: Option<String>,
 }
 
 impl LLMSchema for ClassifierSettings {
@@ -52,78 +53,78 @@ impl LLMSchema for ClassifierSettings {
     }
 }
 
-impl LLMSchema for LLMResponse {
+impl LLMSchema for Classification {
     fn get_schema_for_llm(_node: &NodeItem, _engine: Arc<&Engine>) -> PiResult<String> {
-        let ts_self = clean_ts_type(&Self::export_to_string()?);
-        Ok(ts_self)
+        Ok(clean_ts_type(&Self::export_to_string()?))
     }
 }
 
-pub fn classify(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
-    let llm_prompt = get_llm_prompt(node, engine.clone())?;
-    let engine_request = Anthropic::get_request(&llm_prompt, node.id)?;
-    engine.fetch_api(engine_request)
-}
+pub struct Classifier;
 
-pub fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-    Ok(Anthropic::parse_response::<LLMResponse>(response)?)
-}
+impl Classifier {
+    pub fn classify(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<()> {
+        let llm_prompt = Self::get_llm_prompt(node, engine.clone())?;
+        let engine_request = Anthropic::get_request(&llm_prompt, node.id)?;
+        engine.fetch_api(engine_request)
+    }
 
-pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
-    let content = engine
-        .get_node_ids_connected_with_label(&node.id, &EdgeLabel::ParentOf)?
-        .into_iter()
-        .filter_map(|id| match engine.get_node_by_id(&id) {
-            None => None,
-            Some(node) => match &node.payload {
-                Payload::Text(text) => {
-                    if node.labels.contains(&NodeLabel::Partial) {
-                        Some(text.clone())
-                    } else {
-                        None
+    pub fn parse_llm_response(response: &str) -> PiResult<Classification> {
+        Ok(Anthropic::parse_response::<Classification>(response)?)
+    }
+
+    pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+        let content = engine
+            .get_node_ids_connected_with_label(&node.id, &EdgeLabel::ParentOf)?
+            .into_iter()
+            .filter_map(|id| match engine.get_node_by_id(&id) {
+                None => None,
+                Some(node) => match &node.payload {
+                    Payload::Text(text) => {
+                        if node.labels.contains(&NodeLabel::Partial) {
+                            Some(text.clone())
+                        } else {
+                            None
+                        }
                     }
-                }
-                _ => None,
-            },
-        })
-        .collect::<Vec<String>>()
-        .join("\n\n");
+                    _ => None,
+                },
+            })
+            .collect::<Vec<String>>()
+            .join("\n\n");
 
-    // log::info!("✏️ Content to classify: {}", content.clone());
+        let prompt_for_classification = engine
+            .get_node_ids_with_label(&NodeLabel::Objective)
+            .first()
+            .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))
+            .and_then(|id| {
+                engine
+                    .get_node_ids_connected_with_label(id, &EdgeLabel::Suggests)?
+                    .first()
+                    .ok_or_else(|| PiError::InternalError("No ClassifierSettings found for Objective".to_string()))
+                    .and_then(|settings_id| {
+                        match &engine
+                            .get_node_by_id(settings_id)
+                            .ok_or_else(|| PiError::InternalError(format!("ClassifierSettings node with id {} not found", settings_id)))?
+                            .payload
+                        {
+                            Payload::ClassifierSettings(settings) => {
+                                let query = settings.prompt_to_classify_content_as_relevant_to_objective_or_not.clone()
+                                    .ok_or_else(|| PiError::GraphError("Missing prompt_to_classify_content_as_relevant_to_objective_or_not in ClassifierSettings".to_string()))?;
+                                Ok(query
+                                    .split(": ")
+                                    .nth(1)
+                                    .unwrap_or(&query)
+                                    .to_string())
+                            },
+                            _ => Err(PiError::GraphError("Invalid payload type for ClassifierSettings".to_string()))
+                        }
+                    })
+            })?;
 
-    let prompt_for_classification = engine
-        .get_node_ids_with_label(&NodeLabel::Objective)
-        .first()
-        .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))
-        .and_then(|id| {
-            engine
-                .get_node_ids_connected_with_label(id, &EdgeLabel::Suggests)?
-                .first()
-                .ok_or_else(|| PiError::InternalError("No ClassifierSettings found for Objective".to_string()))
-                .and_then(|settings_id| {
-                    match &engine
-                        .get_node_by_id(settings_id)
-                        .ok_or_else(|| PiError::InternalError(format!("ClassifierSettings node with id {} not found", settings_id)))?
-                        .payload
-                    {
-                        Payload::ClassifierSettings(settings) => {
-                            let query = settings.prompt_to_classify_content_as_relevant_to_objective_or_not.clone()
-                                .ok_or_else(|| PiError::GraphError("Missing query_to_classify_content_as_relevant_or_irrelevant_to_objective in ClassifierSettings".to_string()))?;
-                            Ok(query
-                                .split(": ")
-                                .nth(1)
-                                .unwrap_or(&query)
-                                .to_string())
-                        },
-                        _ => Err(PiError::GraphError("Invalid payload type for ClassifierSettings".to_string()))
-                    }
-                })
-        })?;
+        // log::info!("❓ Prompt for classification: {}", prompt_for_classify: {}", query.clone());
 
-    // log::info!("❓ Prompt for classification: {}", prompt_for_classify: {}", query.clone());
-
-    Ok(format!(
-        r#"{}
+        Ok(format!(
+            r#"{}
 
         Content to be classified:
         {}
@@ -131,11 +132,54 @@ pub fn get_llm_prompt(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String>
         Using the following schema, respond in JSON format:
         {}
         ```"#,
-        prompt_for_classification,
-        content,
-        format!(
-            "{}",
-            LLMResponse::get_schema_for_llm(node, engine.clone())?.as_str()
-        )
-    ))
+            prompt_for_classification,
+            content,
+            format!(
+                "{}",
+                Classification::get_schema_for_llm(node, engine.clone())?.as_str()
+            )
+        ))
+    }
+
+    pub fn process(
+        node: &NodeItem,
+        engine: Arc<&Engine>,
+        data_from_previous_request: Option<ExternalData>,
+    ) -> PiResult<()> {
+        match data_from_previous_request {
+            Some(external_data) => match external_data {
+                ExternalData::Response(response) => {
+                    let parsed_response = &Self::parse_llm_response(&response.contents)?;
+                    if parsed_response.is_relevant {
+                        log::info!("🟢 WebPage node {} is relevant.", node.id);
+                    }
+                    let classification_node_id = engine
+                        .get_or_add_node(
+                            Payload::Classification(Classification {
+                                is_relevant: parsed_response.is_relevant,
+                                reason: parsed_response.reason.clone(),
+                                insight_if_classified_as_relevant: parsed_response
+                                    .insight_if_classified_as_relevant
+                                    .clone(),
+                            }),
+                            vec![NodeLabel::Classification, NodeLabel::AddedByAI],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
+                    engine.add_connection(
+                        (node.id.clone(), classification_node_id),
+                        (EdgeLabel::Classification, EdgeLabel::ClassifiedFor),
+                    )?;
+                    engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
+                }
+                ExternalData::Error(_error) => {}
+            },
+            None => {
+                Self::classify(node, engine.clone())?;
+            }
+        }
+
+        Ok(())
+    }
 }

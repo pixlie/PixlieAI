@@ -7,6 +7,7 @@ import { WebMetadata } from "../../api_types/WebMetadata.ts";
 import SparkleIcon from "../../assets/icons/custom-gradient-sparkle.svg";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { Link } from "../../api_types/Link.ts";
+import { Classification } from "../../api_types/Classification.ts";
 
 interface WebPageNodeProps {
   nodeId: number;
@@ -14,8 +15,7 @@ interface WebPageNodeProps {
 
 interface WebPagePreviewContainerProps {
   metadata: WebMetadata;
-  insight?: string;
-  reason?: string;
+  classification: Classification | null;
 }
 
 interface WebPagePreviewProps extends WebPagePreviewContainerProps {
@@ -35,8 +35,7 @@ function cleanUrl(url: string | null): string {
 
 const WebPagePreview: Component<WebPagePreviewProps> = ({
   metadata,
-  insight,
-  reason,
+  classification,
   showShareOptions,
 }) => {
   const [imageVisible, setImageVisible] = createSignal(true);
@@ -44,7 +43,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
 
   return (
     <div
-      class={`flex flex-col w-full bg-white ${!!insight ? "border-2 border-green-600" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
+      class={`flex flex-col w-full bg-white ${!!classification?.insight_if_classified_as_relevant ? "border-2 border-green-600" : "border border-slate-200"} rounded-xl shadow-sm group hover:shadow-lg transition-all duration-50 ease-in-out overflow-hidden`}
     >
       {metadata.image && imageVisible() && (
         <img
@@ -78,7 +77,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
                   : cleanUrl(metadata.url)}
               </p>
             </div>
-            {insight && (
+            {!!classification?.insight_if_classified_as_relevant && (
               <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
                 Match
               </span>
@@ -120,23 +119,27 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
             </div>
           )}
 
-          {reason && (
+          {!!classification && (
             <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 text-slate-500 group-hover:text-violet-600 group-hover:bg-violet-200/50">
               <div class="flex items-center gap-1.5 text-xs font-semibold">
                 <SparkleIcon />
                 <p>REASONING</p>
               </div>
-              <p class="text-md text-slate-700 leading-snug">{reason}</p>
+              <p class="text-md text-slate-700 leading-snug">
+                {classification.reason}
+              </p>
             </div>
           )}
 
-          {insight && (
+          {!!classification?.insight_if_classified_as_relevant && (
             <div class="flex flex-col gap-0.5 bg-slate-100 rounded-lg p-2 mt-1 mb-0.5 text-slate-500 group-hover:text-fuchsia-600 group-hover:bg-fuchsia-200/50">
               <div class="flex items-center gap-1.5 text-xs  font-semibold">
                 <SparkleIcon />
                 <p>INSIGHTS</p>
               </div>
-              <p class="text-md text-slate-700 leading-snug">{insight}</p>
+              <p class="text-md text-slate-700 leading-snug">
+                {classification.insight_if_classified_as_relevant}
+              </p>
             </div>
           )}
         </a>
@@ -161,7 +164,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
 };
 
 const WebPagePreviewContainer: Component<WebPagePreviewContainerProps> = (
-  props
+  props,
 ) => (
   <div class="group relative">
     <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer">
@@ -180,7 +183,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ContentOf",
-      (n) => n.payload.type === "Link"
+      (n) => n.payload.type === "Link",
     )[0];
   });
 
@@ -191,21 +194,18 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       linkNode.id,
       "BelongsTo",
-      (n) => n.labels.includes("Domain")
+      (n) => n.labels.includes("Domain"),
     )[0];
     return domainNode;
   });
 
-  const getInsight = createMemo<string | null>(() => {
-    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
-      n.labels.includes("Insight")
-    )[0]?.payload.data as string | null;
-  });
-
-  const getReason = createMemo<string | null>(() => {
-    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
-      n.labels.includes("Reason")
-    )[0]?.payload.data as string | null;
+  const getClassification = createMemo<Classification | null>(() => {
+    return getRelatedNodes(
+      params.projectId,
+      props.nodeId,
+      "Classification",
+      (n) => n.labels.includes("Classification"),
+    )[0]?.payload.data as Classification | null;
   });
 
   const getFullUrl = createMemo<string | null>(() => {
@@ -226,7 +226,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ParentOf",
-      (n) => n.labels.includes("WebMetadata")
+      (n) => n.labels.includes("WebMetadata"),
     )?.[0]?.payload.data as WebMetadata | null;
     if (!metadata) return null;
     if (!metadata.url) {
@@ -243,8 +243,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       {!!getWebMetadata() && (
         <WebPagePreviewContainer
           metadata={getWebMetadata()!}
-          insight={!!getInsight()! ? getInsight()! : undefined}
-          reason={!!getReason()! ? getReason()! : undefined}
+          classification={getClassification()}
         />
       )}
     </>

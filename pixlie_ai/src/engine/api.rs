@@ -8,7 +8,7 @@
 use super::node::{ArcedNodeItem, NodeLabel};
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
-use crate::entity::classifier::ClassifierSettings;
+use crate::entity::classifier::{Classification, ClassifierSettings};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::named_entity::{EntityName, ExtractedEntity};
@@ -121,7 +121,7 @@ pub struct APIMatch {
     pub node_id: NodeId,
     pub full_url: String,
     pub metadata: WebMetadata, // TODO: support other types of matches
-    pub insight: String,
+    pub insight: Option<String>,
     pub reason: String,
 }
 
@@ -179,6 +179,8 @@ pub enum APIPayload {
     CrawlerSettings(CrawlerSettings),
     /// These are the settings of the Pixlie AI classifier, based on which it classifies content.
     ClassifierSettings(ClassifierSettings),
+    /// This stores how a content was classified by LLM.
+    Classification(Classification),
     /// These are named entities that we should extract from the content if the content is classified as relevant.
     NamedEntitiesToExtract(Vec<EntityName>),
     /// These are the extracted named entities from the content if the content is classified as relevant.
@@ -257,6 +259,9 @@ impl APINodeItem {
             }
             Payload::ClassifierSettings(classifier_settings) => {
                 APIPayload::ClassifierSettings(classifier_settings.clone())
+            }
+            Payload::Classification(classification) => {
+                APIPayload::Classification(classification.clone())
             }
             Payload::NamedEntitiesToExtract(named_entities_to_extract) => {
                 APIPayload::NamedEntitiesToExtract(named_entities_to_extract.clone())
@@ -1294,54 +1299,36 @@ pub fn handle_engine_api_request(
                 }
                 let metadata = metadata.unwrap();
 
-                let insight = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::ClassificationInsight) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
+                let classification: Option<Classification> =
+                    connected.edges.iter().find_map(|(id, label)| {
+                        if *label == EdgeLabel::Classification {
+                            engine.get_node_by_id(id).and_then(|n| {
+                                if n.labels.contains(&NodeLabel::Classification) {
+                                    match &n.payload {
+                                        Payload::Classification(classification) => {
+                                            Some(classification.clone())
+                                        }
+                                        _ => None,
+                                    }
+                                } else {
+                                    None
                                 }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if insight.is_none() {
+                            })
+                        } else {
+                            None
+                        }
+                    });
+                if classification.is_none() {
                     continue;
                 }
-                let insight = insight.unwrap();
-
-                let reason = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::ClassificationReason) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if reason.is_none() {
-                    continue;
-                }
-                let reason = reason.unwrap();
+                let classification = classification.unwrap();
 
                 results.push(APIMatch {
                     node_id: node.id,
                     full_url,
                     metadata,
-                    insight,
-                    reason,
+                    reason: classification.reason,
+                    insight: classification.insight_if_classified_as_relevant,
                 });
             }
 

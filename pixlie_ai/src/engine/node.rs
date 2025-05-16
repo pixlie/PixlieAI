@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::{Engine, NodeFlags};
-use crate::entity::classifier::ClassifierSettings;
+use crate::entity::classifier::{Classification, ClassifierSettings};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::named_entity::{EntityExtraction, EntityName, ExtractedEntity};
@@ -37,6 +37,7 @@ pub enum Payload {
     ProjectSettings(ProjectSettings),
     CrawlerSettings(CrawlerSettings),
     ClassifierSettings(ClassifierSettings),
+    Classification(Classification),
     NamedEntitiesToExtract(Vec<EntityName>),
     ExtractedNamedEntities(Vec<ExtractedEntity>),
 }
@@ -86,8 +87,7 @@ pub enum NodeLabel {
     ProjectSettings,
     CrawlerSettings,
     ClassifierSettings,
-    ClassificationInsight,
-    ClassificationReason,
+    Classification,
     NamedEntitiesToExtract,
     ExtractedNamedEntities,
 }

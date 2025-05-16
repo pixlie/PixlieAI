@@ -381,7 +381,7 @@ mod tests {
 
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
-        let expected_schema = r#"type CrawlerSettings = { keywords_to_search_the_web_to_get_starting_urls: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+        let expected_schema = r#"type CrawlerSettings = { keywords_to_get_accurate_results_from_web_search: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
         type ClassifierSettings = { prompt_to_classify_content_as_relevant_to_objective_or_not: string, };
         type EntityName = "Person" | "Organization" | "Date" | "Place";
         type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings } | { "NamedEntityExtraction": Array<EntityName> };
