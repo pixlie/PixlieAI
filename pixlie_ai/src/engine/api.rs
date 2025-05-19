@@ -8,12 +8,12 @@
 use super::node::{ArcedNodeItem, NodeLabel};
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
+use crate::entity::classifier::ClassifierSettings;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
-use crate::entity::classifier::ClassifierSettings;
-use crate::entity::web::domain::{Domain, FindDomainOf};   
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::saved_search::SavedSearch;
+use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::PiError;
@@ -116,12 +116,17 @@ pub struct Explore {
 
 #[derive(Clone, Serialize, TS, ToSchema)]
 #[ts(export)]
-pub struct APIMatch {
-    pub node_id: NodeId,
-    pub full_url: String,
-    pub metadata: WebMetadata,  // TODO: support other types of matches
+pub struct WebPageMatch {
+    pub metadata: WebMetadata,
     pub insight: String,
     pub reason: String,
+}
+
+#[derive(Clone, Serialize, TS, ToSchema)]
+#[ts(export)]
+pub struct Matches {
+    pub urls: Vec<String>,
+    pub web_pages: Vec<WebPageMatch>,
 }
 
 /// Engine's response for an API request.
@@ -145,8 +150,8 @@ pub enum EngineResponsePayload {
     // Change this and handle chain-effects, if any
     /// Response for label retrieval. Returns a list of labels.
     Labels(Vec<String>),
-    /// Response for matches retrieval. Returns a list of matches.
-    Matches(Vec<APIMatch>),
+    /// Response for matches retrieval. Returns a list of urls and web pages.
+    Matches(Matches),
     Explore(Explore),
     /// Error response.
     Error(String),
@@ -871,7 +876,10 @@ pub async fn get_matches(
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
 
-    debug!("API request {} for project {} to get matches", request_id, project_id);
+    debug!(
+        "API request {} for project {} to get matches",
+        request_id, project_id
+    );
 
     // Subscribe to receive engine response
     let mut rx = api_state.api_channel_tx.subscribe();
@@ -879,7 +887,7 @@ pub async fn get_matches(
     api_state.main_tx.send(PiEvent::APIRequest(
         project_id.clone(),
         EngineRequest {
-            request_id,
+            request_id: request_id.clone(),
             project_id: project_id.clone(),
             payload: EngineRequestPayload::GetMatches,
         },
@@ -1212,119 +1220,117 @@ pub fn handle_engine_api_request(
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
         EngineRequestPayload::GetMatches => {
-            let mut results = vec![];
-        
-            for node in engine.get_all_nodes() {
-                if !node.labels.contains(&NodeLabel::WebPage) {
+            let mut urls = vec![];
+            let mut web_pages = vec![];
+            let mut web_page_node_ids = engine.get_node_ids_with_label(&NodeLabel::WebPage);
+            web_page_node_ids.sort();
+            for web_page_node_id in web_page_node_ids {
+                let Some(web_page_node) = engine.get_node_by_id(&web_page_node_id) else {
                     continue;
-                }
-        
-                let connected = match engine.get_connected_nodes(&node.id)? {
-                    Some(edges) => edges,
-                    None => continue,
                 };
-
-                let full_url = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::ParentOf {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Link) {
-                                match &n.payload {
+                let Some(full_url) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::ParentOf {
+                                    return None;
+                                }
+                                let link_node = engine.get_node_by_id(id)?;
+                                if !link_node.labels.contains(&NodeLabel::Link) {
+                                    return None;
+                                }
+                                match &link_node.payload {
                                     Payload::Link(link) => {
                                         let domain_node = Domain::find_existing(
                                             engine.clone(),
                                             FindDomainOf::Node(*id),
-                                        ).ok().flatten()?;
-                                        let domain_name = Domain::get_domain_name(&domain_node).ok()?;
-                                        Some(format!("https://{}{}", domain_name, link.get_full_link()))
-                                    },
+                                        )
+                                        .ok()
+                                        .flatten()?;
+                                        let domain_name =
+                                            Domain::get_domain_name(&domain_node).ok()?;
+                                        Some(format!(
+                                            "https://{}{}",
+                                            domain_name,
+                                            link.get_full_link()
+                                        ))
+                                    }
                                     _ => None,
                                 }
-                            } else {
-                                None
-                            }
+                            })
                         })
-                    } else {
-                        None
-                    }
-                });
-                if full_url.is_none() {
+                else {
                     continue;
-                }
-                let full_url = full_url.unwrap();
-        
-                let metadata = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::ParentOf {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::WebMetadata) {
-                                match &n.payload {
-                                    Payload::WebMetadata(meta) => Some(meta.clone()),
-                                    _ => None,
+                };
+                let Some(insight) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::Matches {
+                                    return None;
                                 }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if metadata.is_none() {
-                    continue;
-                }
-                let metadata = metadata.unwrap();
-        
-                let insight = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Insight) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
+                                let node = engine.get_node_by_id(id)?;
+                                if node.labels.contains(&NodeLabel::Insight) {
+                                    if let Payload::Text(text) = &node.payload {
+                                        return Some(text.clone());
+                                    }
                                 }
-                            } else {
                                 None
-                            }
+                            })
                         })
-                    } else {
-                        None
-                    }
-                });
-                if insight.is_none() {
+                else {
                     continue;
-                }
-                let insight = insight.unwrap();
-        
-                let reason = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::Matches {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Reason) {
-                                match &n.payload {
-                                    Payload::Text(text) => Some(text.clone()),
-                                    _ => None,
+                };
+                let Some(reason) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::Matches {
+                                    return None;
                                 }
-                            } else {
+                                let node = engine.get_node_by_id(id)?;
+                                if node.labels.contains(&NodeLabel::Reason) {
+                                    if let Payload::Text(text) = &node.payload {
+                                        return Some(text.clone());
+                                    }
+                                }
                                 None
-                            }
+                            })
                         })
-                    } else {
-                        None
-                    }
-                });
-                if reason.is_none() {
+                else {
                     continue;
-                }
-                let reason = reason.unwrap();
-
-                results.push(APIMatch {
-                    node_id: node.id,
-                    full_url,
+                };
+                let Some(metadata) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::ParentOf {
+                                    return None;
+                                }
+                                let node = engine.get_node_by_id(id)?;
+                                if node.labels.contains(&NodeLabel::WebMetadata) {
+                                    if let Payload::WebMetadata(meta) = &node.payload {
+                                        return Some(meta.clone());
+                                    }
+                                }
+                                None
+                            })
+                        })
+                else {
+                    continue;
+                };
+                urls.push(full_url.clone());
+                web_pages.push(WebPageMatch {
                     metadata,
                     insight,
                     reason,
                 });
             }
-        
-            EngineResponsePayload::Matches(results)
+            EngineResponsePayload::Matches(Matches { urls, web_pages })
         }
     };
 
