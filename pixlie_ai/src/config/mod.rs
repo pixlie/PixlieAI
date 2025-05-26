@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, exists, remove_dir_all, File},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use tar::Archive;
 use ts_rs::TS;
@@ -46,6 +46,8 @@ pub struct WithHostname {
 #[ts(export)]
 pub enum SettingsIncompleteReason {
     StorageDirNotConfigured,
+    GlinerDirNotFound,
+    GlinerFileNotFound,
 }
 
 #[derive(Serialize, ToSchema, TS)]
@@ -226,8 +228,24 @@ impl Settings {
 
     pub fn get_settings_status(&self) -> PiResult<SettingsStatus> {
         let mut incomplete_reasons = Vec::new();
-        if self.path_to_storage_dir.is_none() {
-            incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
+        match &self.path_to_storage_dir {
+            Some(path_str) => {
+                let storage_dir_path = Path::new(path_str);
+                let gliner_dir_path =
+                    storage_dir_path.join("gliner_onnx_models/multitask_large_v0_5");
+                if !gliner_dir_path.exists() || !gliner_dir_path.is_dir() {
+                    incomplete_reasons.push(SettingsIncompleteReason::GlinerDirNotFound);
+                } else {
+                    let model_file_path = gliner_dir_path.join("model.onnx");
+                    let tokenizer_file_path = gliner_dir_path.join("tokenizer.json");
+                    if !model_file_path.exists() || !tokenizer_file_path.exists() {
+                        incomplete_reasons.push(SettingsIncompleteReason::GlinerFileNotFound);
+                    }
+                }
+            }
+            None => {
+                incomplete_reasons.push(SettingsIncompleteReason::StorageDirNotConfigured);
+            }
         }
         if incomplete_reasons.is_empty() {
             Ok(SettingsStatus::Complete)
