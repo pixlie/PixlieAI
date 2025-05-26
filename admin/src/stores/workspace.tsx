@@ -64,6 +64,20 @@ const makeStore = () => {
     });
   };
 
+  const glinerSettings = async () => {
+    const pixlieAIAPIRoot = getPixlieAIAPIRoot();
+    const response = await fetch(`${pixlieAIAPIRoot}/api/settings/gliner`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to download Gliner models");
+    }
+
+    const result = await response.json();
+    console.log("Gliner setup result:", result);
+  };
+
   const fetchWorkspace = () => {
     let pixlieAIAPIRoot = getPixlieAIAPIRoot();
     fetch(`${pixlieAIAPIRoot}/api/workspace`).then((response) => {
@@ -118,6 +132,7 @@ const makeStore = () => {
       fetchSettings,
       fetchSettingsStatus,
       saveSettings,
+      glinerSettings,
       fetchWorkspace,
       saveWorkspace,
       fetchProjects,

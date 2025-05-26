@@ -1,6 +1,6 @@
 import { Component, createEffect, JSX, onMount } from "solid-js";
 import { useWorkspace } from "../stores/workspace";
-import { useLocation, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 
 interface ILoaderProps {
   children: JSX.Element;
@@ -12,7 +12,6 @@ const InitialCheckAndLoad: Component<ILoaderProps> = (props) => {
     { fetchSettings, fetchSettingsStatus, fetchProjects, fetchWorkspace },
   ] = useWorkspace();
   const navigate = useNavigate();
-  const location = useLocation();
 
   onMount(() => {
     fetchSettings();
@@ -25,15 +24,11 @@ const InitialCheckAndLoad: Component<ILoaderProps> = (props) => {
     if (workspace.isFetching) {
       return;
     } else if (workspace.isReady) {
-      if (location.pathname.startsWith("/settings/setup")) {
-        if (workspace.settingsStatus?.type === "Complete") {
-          navigate("/");
-        }
-      } else if (
+      if (
         workspace.settingsStatus &&
         workspace.settingsStatus.type !== "Complete"
       ) {
-        navigate("/settings/setup");
+        navigate("/");
       }
     }
   });
