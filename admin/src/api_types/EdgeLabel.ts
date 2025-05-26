@@ -10,5 +10,6 @@ export type EdgeLabel =
   | "BelongsTo"
   | "Suggests"
   | "SuggestedFor"
+  | "Classifies"
   | "Classification"
   | "ClassifiedFor";

@@ -1,6 +1,8 @@
 import { Component, createMemo, createSignal } from "solid-js";
-import { useEngine } from "../../stores/engine";
 import { useParams, useSearchParams } from "@solidjs/router";
+
+import { Classification } from "../../api_types/Classification.ts";
+import { useEngine } from "../../stores/engine";
 import Heading from "../../widgets/typography/Heading.tsx";
 import ResultsCount from "../../widgets/generic/ResultsCount.tsx";
 import NodeGrid from "../../widgets/node/NodeGrid.tsx";
@@ -10,9 +12,7 @@ const Results: Component = () => {
   const [searchParams] = useSearchParams();
   const params = useParams();
 
-  const [filterLabel, setFilterLabel] = createSignal<"Reason" | "Insight">(
-    "Reason",
-  );
+  const [onlyShowMatches, setOnlyShowMatches] = createSignal<boolean>(false);
 
   const getProject = createMemo(() => {
     if (!!params.projectId && params.projectId in engine.projects) {
@@ -35,7 +35,7 @@ const Results: Component = () => {
       return Object.values(projectNodes)
         .filter((x) => x.payload.type === "ClassifierSettings")
         .map((x) => x)[0]?.payload.data
-        ?.query_to_classify_content_as_relevant_or_irrelevant_to_objective;
+        ?.prompt_to_classify_content_as_relevant_to_objective_or_not;
     }
     return undefined;
   });
@@ -44,13 +44,19 @@ const Results: Component = () => {
     const projectNodes = getProjectNodes();
     if (!!projectNodes) {
       return Object.values(projectNodes)
-        ?.filter((x) => x.labels.includes(filterLabel()))
-        ?.map(
-          (x) =>
-            getRelatedNodes(params.projectId, x.id, "ClassifiedFor", (n) =>
-              n.labels.includes("WebPage"),
-            )[0]?.id,
-        );
+        ?.filter((x) => x.labels.includes("WebPage"))
+        ?.filter((x) => {
+          const classification = getRelatedNodes(
+            params.projectId,
+            x.id,
+            "Classifies",
+            (n) => n.labels.includes("Classification")
+          )[0]?.payload.data as Classification | null;
+          return (
+            classification && (!onlyShowMatches() || classification.is_relevant)
+          );
+        })
+        ?.map((x) => x.id);
     }
     return [];
   });
@@ -81,19 +87,15 @@ const Results: Component = () => {
             <div
               class={
                 "relative inline-flex h-6 w-10 items-center rounded-full cursor-pointer " +
-                (filterLabel() === "Reason" ? "bg-slate-200" : "bg-green-600")
+                (!onlyShowMatches() ? "bg-slate-200" : "bg-green-600")
               }
-              onClick={() =>
-                setFilterLabel((prev) =>
-                  prev === "Reason" ? "Insight" : "Reason",
-                )
-              }
+              onClick={() => setOnlyShowMatches(!onlyShowMatches())}
             >
               <span
                 class="absolute left-1 inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform"
                 classList={{
-                  "translate-x-0": filterLabel() === "Reason",
-                  "translate-x-4": filterLabel() === "Insight",
+                  "translate-x-0": !onlyShowMatches(),
+                  "translate-x-4": onlyShowMatches(),
                 }}
               />
             </div>

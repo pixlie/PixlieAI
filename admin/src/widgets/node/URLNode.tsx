@@ -35,7 +35,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, classification }) => {
       >
         {url}
       </a>
-      {!!classification?.insight_if_classified_as_relevant && (
+      {!!classification?.is_relevant && (
         <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
           Match
         </span>
@@ -52,7 +52,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, classification }) => {
             before:bg-white before:border-r before:border-b before:border-slate-200
             before:-rotate-45 before:shadow-lg before:shadow-slate-200"
           >
-            {classification?.reason && (
+            {!!classification?.reason && (
               <>
                 <div class="flex flex-col gap-1">
                   <p class="text-xs text-slate-800 font-semibold">REASONING</p>
