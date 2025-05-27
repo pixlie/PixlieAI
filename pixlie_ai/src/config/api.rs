@@ -1,7 +1,13 @@
 use super::{Settings, SettingsStatus};
 use crate::{api::ApiState, PiEvent};
-use actix_web::{error::ErrorInternalServerError, get, put, web, Responder, Result};
+use actix_web::{error::ErrorInternalServerError, get, post, put, web, Responder, Result};
 use log::{debug, error};
+use reqwest::Client;
+use std::{
+    fs::{create_dir_all, write},
+    path::PathBuf,
+};
+use url::Url;
 
 /// Read Pixlie AI settings
 #[utoipa::path(
@@ -71,6 +77,70 @@ pub async fn update_settings(
     }
 }
 
+#[utoipa::path(
+    path = "/settings/gliner",
+    responses(
+        (status = 200, description = "Download started"),
+        (status = 500, description = "Download failed"),
+    ),
+    tag = "settings",
+)]
+#[post("/gliner")]
+pub async fn gliner_settings() -> Result<impl Responder> {
+    let settings: Settings = Settings::get_cli_settings()?;
+    let storage_dir = match settings.path_to_storage_dir {
+        Some(path) => PathBuf::from(path),
+        None => {
+            return Err(ErrorInternalServerError(
+                "Cannot find path to storage directory",
+            ));
+        }
+    };
+    let gliner_dir = storage_dir.join("gliner_onnx_models/multitask_large_v0_5");
+    if !gliner_dir.exists() {
+        create_dir_all(&gliner_dir).map_err(|e| {
+            error!("Failed to create Gliner directory: {:?}", e);
+            ErrorInternalServerError("Could not create directory")
+        })?;
+    }
+    let client = Client::new();
+    let download_links = vec![
+        "https://huggingface.co/onnx-community/gliner-multitask-large-v0.5/resolve/main/onnx/model.onnx",
+        "https://huggingface.co/onnx-community/gliner-multitask-large-v0.5/resolve/main/tokenizer.json",
+    ];
+    for download_link in download_links {
+        let url = Url::parse(download_link).map_err(|e| {
+            error!("Failed to parse URL {}: {:?}", download_link, e);
+            ErrorInternalServerError("Invalid URL")
+        })?;
+        let filename = url
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .ok_or_else(|| {
+                error!("Failed to extract filename from URL {}", download_link);
+                ErrorInternalServerError("Failed to extract filename from URL")
+            })?;
+        let path = gliner_dir.join(filename);
+        let res = client.get(download_link).send().await.map_err(|e| {
+            error!("Failed to send request for {}: {:?}", filename, e);
+            ErrorInternalServerError("Failed to send request")
+        })?;
+        if !res.status().is_success() {
+            error!("Failed to download {}: HTTP {}", filename, res.status());
+            return Err(ErrorInternalServerError("Failed to download file"));
+        }
+        let bytes = res.bytes().await.map_err(|e| {
+            error!("Failed to read response for {}: {:?}", filename, e);
+            ErrorInternalServerError("Failed to read response")
+        })?;
+        write(&path, &bytes).map_err(|e| {
+            error!("Failed to write file {}: {:?}", filename, e);
+            ErrorInternalServerError("Failed to save file")
+        })?;
+    }
+    Ok(web::Json(gliner_dir))
+}
+
 pub fn configure_api_pixlie_settings(
     app_config: &mut utoipa_actix_web::service_config::ServiceConfig,
 ) {
@@ -78,7 +148,8 @@ pub fn configure_api_pixlie_settings(
         utoipa_actix_web::scope::scope("/settings")
             .service(read_settings)
             .service(update_settings)
-            .service(check_settings_status),
+            .service(check_settings_status)
+            .service(gliner_settings),
     );
 }
 

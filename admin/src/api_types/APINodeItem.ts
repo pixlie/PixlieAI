@@ -3,10 +3,28 @@ import type { APINodeFlags } from "./APINodeFlags";
 import type { APIPayload } from "./APIPayload";
 import type { NodeLabel } from "./NodeLabel";
 
+/**
+ * Schema for a node in any API response.
+ */
 export type APINodeItem = {
+  /**
+   * The ID of the node
+   */
   id: number;
+  /**
+   * The labels of the node. A node can have multiple labels, like tags, indexed by relevance.
+   */
   labels: Array<NodeLabel>;
+  /**
+   * The payload of the node. This can be a link, text, or a tree.
+   */
   payload: APIPayload;
+  /**
+   * The flags of the node. This can be used to indicate if the node is processed, requesting, etc.
+   */
   flags: Array<APINodeFlags>;
+  /**
+   * Unix timestamp of when the node was last written to.
+   */
   written_at: bigint;
 };

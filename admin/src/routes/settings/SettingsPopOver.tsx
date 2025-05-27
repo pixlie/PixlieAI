@@ -11,6 +11,7 @@ import Anthropic from "../../widgets/settings/Anthropic";
 import BraveSearch from "../../widgets/settings/BraveSearch";
 import SettingsIcon from "../../assets/icons/tabler-settings.svg";
 import IconButton from "../../widgets/interactable/IconButton";
+import GlinerModels from "../../widgets/settings/GlinerModels";
 
 const SettingsPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -75,6 +76,8 @@ const SettingsPopOver: Component = () => {
               <Anthropic />
               <hr class="mt-1.5 -mx-4" />
               <BraveSearch />
+              <hr class="mt-1.5 -mx-4" />
+              <GlinerModels />
             </>
           )}
           {/* todo: save all settings in one click? */}
