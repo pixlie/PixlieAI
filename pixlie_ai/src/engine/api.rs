@@ -24,7 +24,7 @@ use actix_web::{get, post, web, Responder};
 use itertools::Itertools;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use strum::Display;
@@ -76,7 +76,8 @@ pub enum EngineRequestPayload {
     Explore(Option<u32>), // Optional node id to start from
 
     GetLabels,
-    GetMatches,
+    GetEntities,
+    GetClassifications,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
     GetAllNodes(i64),
@@ -116,13 +117,18 @@ pub struct Explore {
 }
 
 #[derive(Clone, Serialize, TS, ToSchema)]
+pub struct EntityGroup {
+    pub entity_name: String,
+    pub extracted_text: Vec<String>,
+}
+
+#[derive(Clone, Serialize, TS, ToSchema)]
 #[ts(export)]
-pub struct APIMatch {
-    pub node_id: NodeId,
-    pub full_url: String,
-    pub metadata: WebMetadata, // TODO: support other types of matches
-    pub insight: Option<String>,
+pub struct ClassifiedItem {
+    pub url: String,
+    pub is_relevant: bool,
     pub reason: String,
+    pub insight: Option<String>,
 }
 
 /// Engine's response for an API request.
@@ -146,8 +152,10 @@ pub enum EngineResponsePayload {
     // Change this and handle chain-effects, if any
     /// Response for label retrieval. Returns a list of labels.
     Labels(Vec<String>),
-    /// Response for matches retrieval. Returns a list of matches.
-    Matches(Vec<APIMatch>),
+    /// Response for entities retrieval. Returns a list of entities.
+    Entities(Vec<EntityGroup>),
+    /// Response for classifications retrieval. Returns a list of classifications.
+    Classifications(Vec<ClassifiedItem>),
     Explore(Explore),
     /// Error response.
     Error(String),
@@ -306,6 +314,23 @@ pub struct QueryEdges {
     /// The timestamp (in milliseconds) to filter edges by.
     /// Edges written after this timestamp will be returned.
     since: Option<i64>,
+}
+
+#[derive(Deserialize, IntoParams)]
+pub struct QueryClassifications {
+    /// The optional `is_relevant` flag to filter classifications.
+    /// If `Some(true)`, only relevant classifications are returned.
+    /// If `Some(false)`, only irrelevant classifications are returned.
+    /// If `None`, classifications of both relevant and irrelevant are returned.
+    is_relevant: Option<bool>,
+}
+
+#[derive(Deserialize, IntoParams)]
+pub struct QueryEntities {
+    /// The optional `entity_name` to filter entities by.
+    /// If provided, only entities with this name will be returned.
+    /// If `None`, all entities will be returned.
+    entity_name: Option<String>,
 }
 
 #[utoipa::path(
@@ -858,14 +883,13 @@ pub async fn search_results(
     }
 }
 
-/// Get all matches for a project
-// TODO: add params for different types of matches
+/// Get all entities for a project
 #[utoipa::path(
-    path = "/engine/{project_id}/matches",
+    path = "/engine/{project_id}/entities",
     responses(
         (
             status = 200,
-            description = "Matches retrieved successfully. Returns `EngineResponsePayload` of `type` `Matches` or `Error`.",
+            description = "Entities retrieved successfully. Returns `EngineResponsePayload` of `type` `Entities` or `Error`.",
             body = EngineResponsePayload
         ),
         (status = 500, description = "Internal server error"),
@@ -876,19 +900,21 @@ pub async fn search_results(
             description = "The ID of the project",
             example = "123e4567-e89b-12d3-a456-426614174000"
         ),
+        QueryEntities,
     ),
     tag = "engine",
 )]
-#[get("/matches")]
-pub async fn get_matches(
+#[get("/entities")]
+pub async fn get_entities(
     project_id: web::Path<String>,
+    params: web::Query<QueryEntities>,
     api_state: web::Data<ApiState>,
 ) -> PiResult<impl Responder> {
     let request_id = api_state.req_id.fetch_add(1);
     let project_id = project_id.into_inner();
 
     debug!(
-        "API request {} for project {} to get matches",
+        "API request {} for project {} to get entities",
         request_id, project_id
     );
 
@@ -898,29 +924,131 @@ pub async fn get_matches(
     api_state.main_tx.send(PiEvent::APIRequest(
         project_id.clone(),
         EngineRequest {
-            request_id,
+            request_id: request_id.clone(),
             project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetMatches,
+            payload: EngineRequestPayload::GetEntities,
         },
     ))?;
 
-    let mut response_opt = None;
-    while response_opt.is_none() {
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
         match rx.recv().await {
-            Ok(PiEvent::APIResponse(p_id, response)) => {
-                if p_id == project_id && response.request_id == request_id {
-                    response_opt = Some(response.payload);
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
                 }
-            }
-            _ => {}
+                _ => {}
+            },
+            Err(_err) => {}
         }
     }
 
     debug!("Got response for request {}", request_id);
-
     match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
+        Some(EngineResponsePayload::Entities(entities)) => {
+            let filtered_entities = if let Some(entity_name) = &params.entity_name {
+                entities
+                    .into_iter()
+                    .filter(|entity| entity.entity_name == *entity_name)
+                    .collect::<Vec<_>>()
+            } else {
+                entities
+            };
+
+            Ok(web::Json(EngineResponsePayload::Entities(
+                filtered_entities,
+            )))
+        }
+        _ => Ok(web::Json(EngineResponsePayload::Error(
+            "Could not get a response".into(),
+        ))),
+    }
+}
+
+/// Get all classifications for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/classifications",
+    responses(
+        (
+            status = 200,
+            description = "Classifications retrieved successfully. Returns `EngineResponsePayload` of `type` `Classifications` or `Error`.",
+            body = EngineResponsePayload
+        ),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+        QueryClassifications,
+    ),
+    tag = "engine",
+)]
+#[get("/classifications")]
+pub async fn get_classifications(
+    project_id: web::Path<String>,
+    params: web::Query<QueryClassifications>,
+    api_state: web::Data<ApiState>,
+) -> PiResult<impl Responder> {
+    let request_id = api_state.req_id.fetch_add(1);
+    let project_id = project_id.into_inner();
+
+    debug!(
+        "API request {} for project {} to get classifications",
+        request_id, project_id
+    );
+
+    // Subscribe to receive engine response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    api_state.main_tx.send(PiEvent::APIRequest(
+        project_id.clone(),
+        EngineRequest {
+            request_id: request_id.clone(),
+            project_id: project_id.clone(),
+            payload: EngineRequestPayload::GetClassifications,
+        },
+    ))?;
+
+    debug!("Waiting for response for request {}", request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse(p_id, response) => {
+                    if p_id == project_id && response.request_id == request_id {
+                        response_opt = Some(response.payload.clone());
+                    } else {
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", request_id);
+    match response_opt {
+        Some(EngineResponsePayload::Classifications(classifications)) => {
+            let filtered_classifications = if let Some(is_relevant) = params.is_relevant {
+                classifications
+                    .into_iter()
+                    .filter(|classification| classification.is_relevant == is_relevant)
+                    .collect::<Vec<_>>()
+            } else {
+                classifications
+            };
+            Ok(web::Json(EngineResponsePayload::Classifications(
+                filtered_classifications,
+            )))
+        }
+        _ => Ok(web::Json(EngineResponsePayload::Error(
             "Could not get a response".into(),
         ))),
     }
@@ -935,8 +1063,9 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
             .service(create_node)
             .service(create_edge)
             .service(search_results)
-            .service(get_matches)
-            .service(explore),
+            .service(explore)
+            .service(get_entities)
+            .service(get_classifications),
     );
 }
 
@@ -1230,24 +1359,73 @@ pub fn handle_engine_api_request(
             }
             None => EngineResponsePayload::Error(format!("Node {} not found", node_id)),
         },
-        EngineRequestPayload::GetMatches => {
-            let mut results = vec![];
-
-            for node in engine.get_all_nodes() {
-                if !node.labels.contains(&NodeLabel::WebPage) {
+        EngineRequestPayload::GetEntities => {
+            let mut grouped_entities = vec![];
+            let mut web_page_node_ids = engine.get_node_ids_with_label(&NodeLabel::WebPage);
+            web_page_node_ids.sort();
+            for web_page_node_id in web_page_node_ids {
+                let Some(web_page_node) = engine.get_node_by_id(&web_page_node_id) else {
                     continue;
-                }
-
-                let connected = match engine.get_connected_nodes(&node.id)? {
-                    Some(edges) => edges,
-                    None => continue,
                 };
-
-                let full_url = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::ParentOf {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::Link) {
-                                match &n.payload {
+                let extracted_entities: Option<Vec<ExtractedEntity>> = engine
+                    .get_connected_nodes(&web_page_node.id)?
+                    .and_then(|edges| {
+                        edges.edges.iter().find_map(|(id, label)| {
+                            if *label != EdgeLabel::Suggests {
+                                return None;
+                            }
+                            let node = engine.get_node_by_id(id)?;
+                            if node.labels.contains(&NodeLabel::ExtractedNamedEntities) {
+                                if let Payload::ExtractedNamedEntities(entities) = &node.payload {
+                                    return Some(entities.clone());
+                                }
+                            }
+                            None
+                        })
+                    });
+                if let Some(mut extracted_entities) = extracted_entities {
+                    grouped_entities.append(&mut extracted_entities);
+                }
+            }
+            EngineResponsePayload::Entities(
+                grouped_entities
+                    .into_iter()
+                    .fold(HashMap::new(), |mut acc, entity| {
+                        let entry = acc
+                            .entry(entity.entity_name.to_string())
+                            .or_insert(HashSet::new());
+                        entry.insert(entity.matching_text);
+                        acc
+                    })
+                    .into_iter()
+                    .map(|(entity_name, extracted_text)| EntityGroup {
+                        entity_name,
+                        extracted_text: extracted_text.into_iter().collect::<Vec<String>>(),
+                    })
+                    .collect(),
+            )
+        }
+        EngineRequestPayload::GetClassifications => {
+            let mut classified_items = vec![];
+            let mut web_page_node_ids = engine.get_node_ids_with_label(&NodeLabel::WebPage);
+            web_page_node_ids.sort();
+            for web_page_node_id in web_page_node_ids {
+                let Some(web_page_node) = engine.get_node_by_id(&web_page_node_id) else {
+                    continue;
+                };
+                let Some(full_url) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::ParentOf {
+                                    return None;
+                                }
+                                let link_node = engine.get_node_by_id(id)?;
+                                if !link_node.labels.contains(&NodeLabel::Link) {
+                                    return None;
+                                }
+                                match &link_node.payload {
                                     Payload::Link(link) => {
                                         let domain_node = Domain::find_existing(
                                             engine.clone(),
@@ -1265,74 +1443,39 @@ pub fn handle_engine_api_request(
                                     }
                                     _ => None,
                                 }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if full_url.is_none() {
-                    continue;
-                }
-                let full_url = full_url.unwrap();
-
-                let metadata = connected.edges.iter().find_map(|(id, label)| {
-                    if *label == EdgeLabel::ParentOf {
-                        engine.get_node_by_id(id).and_then(|n| {
-                            if n.labels.contains(&NodeLabel::WebMetadata) {
-                                match &n.payload {
-                                    Payload::WebMetadata(meta) => Some(meta.clone()),
-                                    _ => None,
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                });
-                if metadata.is_none() {
-                    continue;
-                }
-                let metadata = metadata.unwrap();
-
-                let classification: Option<Classification> =
-                    connected.edges.iter().find_map(|(id, label)| {
-                        if *label == EdgeLabel::Classification {
-                            engine.get_node_by_id(id).and_then(|n| {
-                                if n.labels.contains(&NodeLabel::Classification) {
-                                    match &n.payload {
-                                        Payload::Classification(classification) => {
-                                            Some(classification.clone())
-                                        }
-                                        _ => None,
-                                    }
-                                } else {
-                                    None
-                                }
                             })
-                        } else {
-                            None
-                        }
-                    });
-                if classification.is_none() {
+                        })
+                else {
                     continue;
-                }
-                let classification = classification.unwrap();
-
-                results.push(APIMatch {
-                    node_id: node.id,
-                    full_url,
-                    metadata,
+                };
+                let Some(classification) =
+                    engine
+                        .get_connected_nodes(&web_page_node.id)?
+                        .and_then(|edges| {
+                            edges.edges.iter().find_map(|(id, label)| {
+                                if *label != EdgeLabel::Classifies {
+                                    return None;
+                                }
+                                let node = engine.get_node_by_id(id)?;
+                                if node.labels.contains(&NodeLabel::Classification) {
+                                    if let Payload::Classification(classification) = &node.payload {
+                                        return Some(classification.clone());
+                                    }
+                                }
+                                None
+                            })
+                        })
+                else {
+                    continue;
+                };
+                classified_items.push(ClassifiedItem {
+                    url: full_url,
+                    is_relevant: classification.is_relevant,
                     reason: classification.reason,
                     insight: classification.insight_if_classified_as_relevant,
                 });
             }
-
-            EngineResponsePayload::Matches(results)
+            EngineResponsePayload::Classifications(classified_items)
         }
     };
 

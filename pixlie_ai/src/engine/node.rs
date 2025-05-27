@@ -89,7 +89,7 @@ pub enum NodeLabel {
     CrawlerSettings,
     ClassifierSettings,
     Insight, // TODO: remove this label
-    Reason, // TODO: remove this label
+    Reason,  // TODO: remove this label
     Classification,
     NamedEntitiesToExtract,
     ExtractedNamedEntities,
