@@ -18,10 +18,10 @@ const Button: Component<IPropTypes> = (props) => {
       case "sm":
         return "px-2.5 py-1.5 text-sm font-semibold";
       case "lg":
-        return "px-6 py-3 text-xl font-normal";
+        return "px-6 py-3 text-xl font-semibold";
       case "base":
       default:
-        return "px-4 py-2 text-base font-normal";
+        return "px-4 py-2 text-base font-semibold";
     }
   };
 

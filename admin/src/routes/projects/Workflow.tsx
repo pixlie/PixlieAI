@@ -2,6 +2,7 @@ import { useParams } from "@solidjs/router";
 import { Component, createMemo, For } from "solid-js";
 import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { CrawlerSettings } from "../../api_types/CrawlerSettings.ts";
+import { EntityName } from "../../api_types/EntityName.ts";
 import { NodeLabel } from "../../api_types/NodeLabel.ts";
 import { NodeWrite } from "../../api_types/NodeWrite.ts";
 import { useEngine } from "../../stores/engine.tsx";
@@ -42,6 +43,15 @@ const Workflow: Component = () => {
       (node) => node.payload.type === "CrawlerSettings"
     )[0]?.payload.data as CrawlerSettings | undefined;
   });
+
+  const getNamedEntitiesToExtract = createMemo<Array<EntityName> | undefined>(
+    () => {
+      return getNodes(
+        params.projectId,
+        (node) => node.payload.type === "NamedEntitiesToExtract"
+      )[0]?.payload.data as Array<EntityName> | undefined;
+    }
+  );
 
   const addLink = (_name: string, value: string) => {
     createNode(params.projectId, {
@@ -86,6 +96,10 @@ const Workflow: Component = () => {
               ", "
             )}
           </p>
+        </div>
+        <div>
+          <Heading size={3}>Entities</Heading>
+          <p>{getNamedEntitiesToExtract()?.join(", ")}</p>
         </div>
         <div class="flex flex-col gap-2 pb-2">
           <Heading size={3}>Starting URLs</Heading>

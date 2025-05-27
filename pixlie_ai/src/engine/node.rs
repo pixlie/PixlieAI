@@ -6,9 +6,10 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use crate::engine::{Engine, NodeFlags};
-use crate::entity::classifier::ClassifierSettings;
+use crate::entity::classifier::{Classification, Classifier, ClassifierSettings};
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
+use crate::entity::named_entity::{EntityExtraction, EntityName, ExtractedEntity};
 use crate::entity::objective::Objective;
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::search::web_search::WebSearch;
@@ -36,6 +37,9 @@ pub enum Payload {
     ProjectSettings(ProjectSettings),
     CrawlerSettings(CrawlerSettings),
     ClassifierSettings(ClassifierSettings),
+    Classification(Classification),
+    NamedEntitiesToExtract(Vec<EntityName>),
+    ExtractedNamedEntities(Vec<ExtractedEntity>),
 }
 
 pub(crate) type NodeId = u32;
@@ -61,7 +65,9 @@ pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub enum NodeLabel {
     AddedByUser,
     AddedByAI,
+    AddedByPixlie, // TODO: remove this label
     AddedByWebSearch,
+    AddedByGliner,
     Content,
     Domain,
     Heading,
@@ -82,8 +88,11 @@ pub enum NodeLabel {
     ProjectSettings,
     CrawlerSettings,
     ClassifierSettings,
-    Insight,
-    Reason,
+    Insight, // TODO: remove this label
+    Reason,  // TODO: remove this label
+    Classification,
+    NamedEntitiesToExtract,
+    ExtractedNamedEntities,
 }
 
 impl Default for NodeFlags {
@@ -114,6 +123,8 @@ impl NodeItem {
             WebSearch::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::WebPage) {
             WebPage::process(self, arced_engine.clone(), None)?;
+            Classifier::process(self, arced_engine.clone(), None)?;
+            EntityExtraction::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }
@@ -151,7 +162,17 @@ impl NodeItem {
             WebPage::process(
                 self,
                 arced_engine.clone(),
-                Some(ExternalData::Response(response)),
+                Some(ExternalData::Response(response.clone())),
+            )?;
+            Classifier::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response.clone())),
+            )?;
+            EntityExtraction::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response.clone())),
             )?;
         }
         Ok(())
@@ -171,7 +192,21 @@ impl NodeItem {
         } else if self.labels.contains(&NodeLabel::WebSearch) {
             WebSearch::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::WebPage) {
-            WebPage::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
+            WebPage::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Error(error.clone())),
+            )?;
+            Classifier::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Error(error.clone())),
+            )?;
+            EntityExtraction::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Error(error.clone())),
+            )?;
         }
         Ok(())
     }

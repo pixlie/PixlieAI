@@ -3,7 +3,9 @@
 export type NodeLabel =
   | "AddedByUser"
   | "AddedByAI"
+  | "AddedByPixlie"
   | "AddedByWebSearch"
+  | "AddedByGliner"
   | "Content"
   | "Domain"
   | "Heading"
@@ -25,4 +27,7 @@ export type NodeLabel =
   | "CrawlerSettings"
   | "ClassifierSettings"
   | "Insight"
-  | "Reason";
+  | "Reason"
+  | "Classification"
+  | "NamedEntitiesToExtract"
+  | "ExtractedNamedEntities";

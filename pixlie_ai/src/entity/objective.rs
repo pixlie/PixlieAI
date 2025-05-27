@@ -5,13 +5,11 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use regex::Regex;
-use url::Url;
-
 use crate::engine::node::{NodeId, NodeItem, NodeLabel};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::entity::pixlie::{LLMResponse, ProjectState, Tool};
 use crate::entity::project_settings::ProjectSettings;
+use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::PiError;
 use crate::projects::{Project, ProjectCollection};
@@ -24,9 +22,10 @@ use crate::{
     error::PiResult,
     ExternalData,
 };
-use std::{sync::Arc, vec};
 
-use super::web::domain::{Domain, FindDomainOf};
+use regex::Regex;
+use std::{sync::Arc, vec};
+use url::Url;
 
 pub struct Objective;
 
@@ -216,7 +215,25 @@ impl Objective {
 
                                 engine.add_connection(
                                     (node.id, classifier_settings_node_id),
-                                    (EdgeLabel::Classifies, EdgeLabel::ClassifiedFor),
+                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
+                                )?;
+                            }
+                            Tool::NamedEntityExtraction(named_entity_list) => {
+                                let named_entitites_to_extract = engine
+                                    .get_or_add_node(
+                                        Payload::NamedEntitiesToExtract(named_entity_list),
+                                        vec![
+                                            NodeLabel::AddedByAI,
+                                            NodeLabel::NamedEntitiesToExtract,
+                                        ],
+                                        true,
+                                        None,
+                                    )?
+                                    .get_node_id();
+
+                                engine.add_connection(
+                                    (node.id, named_entitites_to_extract),
+                                    (EdgeLabel::Suggests, EdgeLabel::SuggestedFor),
                                 )?;
                             }
                         }
@@ -340,13 +357,10 @@ impl Objective {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        engine::engine::get_test_engine,
-        entity::{project_settings::ProjectSettings, web::link::Link},
-    };
+    use crate::engine::engine::get_test_engine;
 
     #[test]
-    fn test_llm_schema_for_crawl_without_starting_links() {
+    fn test_llm_prompt_for_objective() {
         let test_engine = get_test_engine();
         let arced_test_engine = Arc::new(&test_engine);
         let objective =
@@ -368,91 +382,9 @@ mod tests {
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
         let expected_schema = r#"type CrawlerSettings = { keywords_to_get_accurate_results_from_web_search: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
-        type ClassifierSettings = { query_to_classify_content_as_relevant_or_irrelevant_to_objective: string, };
-        type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
-        type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
-        assert_eq!(
-            llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),
-            expected_schema
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-    }
-
-    #[test]
-    fn test_llm_schema_for_crawl_with_starting_links() {
-        // We create a project with settings to specify starting links manually
-        let test_engine = get_test_engine();
-        let arced_test_engine = Arc::new(&test_engine);
-        let project_settings_node_id = arced_test_engine
-            .get_or_add_node(
-                Payload::ProjectSettings(ProjectSettings {
-                    only_crawl_direct_links_from_specified_links: true,
-                    only_crawl_within_domains_of_specified_links: true,
-                    ..Default::default()
-                }),
-                vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
-                true,
-                None,
-            )
-            .unwrap()
-            .get_node_id();
-        let objective =
-            "Track software engineering jobs that need full-stack Python and TypeScript skills"
-                .to_string();
-        let objective_node_id = arced_test_engine
-            .get_or_add_node(
-                Payload::Text(objective.clone()),
-                vec![NodeLabel::AddedByUser, NodeLabel::Objective],
-                true,
-                None,
-            )
-            .unwrap()
-            .get_node_id();
-
-        // We need to add edge between ProjectSettings and Objective
-        arced_test_engine
-            .add_connection(
-                (project_settings_node_id, objective_node_id),
-                (EdgeLabel::RelatedTo, EdgeLabel::RelatedTo),
-            )
-            .unwrap();
-
-        // We specify a few starting links, and connect them to the ProjectSettings
-        let starting_links = [
-            "https://www.monster.com",
-            "https://www.indeed.com/",
-            "https://www.remoteok.com/",
-        ];
-        for link in starting_links {
-            let link_node_id = Link::add(
-                arced_test_engine.clone(),
-                &link.to_string(),
-                vec![NodeLabel::AddedByUser, NodeLabel::Link],
-                vec![],
-                true,
-            )
-            .unwrap();
-            arced_test_engine
-                .add_connection(
-                    (project_settings_node_id, link_node_id),
-                    (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
-                )
-                .unwrap();
-        }
-
-        // Since we specified starting links, our LLM schema for Objective should not
-        // contain the web_search_keywords_for_objective field
-        let objective_node = arced_test_engine
-            .get_node_by_id(&objective_node_id)
-            .unwrap();
-
-        let llm_schema =
-            Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
-        let expected_schema = r#"type CrawlerSettings = { crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
-        type ClassifierSettings = { query_to_classify_content_as_relevant_or_irrelevant_to_objective: string, };
-        type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings };
+        type ClassifierSettings = { prompt_to_classify_content_as_relevant_to_objective_or_not: string, };
+        type EntityName = "Person" | "Organization" | "Date" | "Place";
+        type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings } | { "NamedEntityExtraction": Array<EntityName> };
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;
         assert_eq!(
             llm_schema.split_whitespace().collect::<Vec<_>>().join(" "),

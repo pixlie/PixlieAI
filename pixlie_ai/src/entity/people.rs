@@ -6,8 +6,6 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 pub struct Person {
-    pub id: u32,
-
     pub first_name: Option<String>,
     pub last_name: Option<String>,
 }

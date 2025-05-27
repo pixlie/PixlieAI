@@ -6,6 +6,8 @@ import { APINodeItem } from "../../api_types/APINodeItem.ts";
 import { Link } from "../../api_types/Link.ts";
 import SparkleIcon from "../../assets/icons/custom-gradient-sparkle.svg";
 import InfoIcon from "../../assets/icons/tabler-info-circle.svg";
+import { Classification } from "../../api_types/Classification.ts";
+import { ExtractedEntity } from "../../api_types/ExtractedEntity.ts";
 
 interface URLNodeProps {
   nodeId: number;
@@ -14,11 +16,15 @@ interface URLNodeProps {
 
 interface URLPreviewProps {
   url: string;
-  insight?: string;
-  reason?: string;
+  classification: Classification;
+  entities: Array<{ label: string; values: string[] }>;
 }
 
-const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
+const URLPreview: Component<URLPreviewProps> = ({
+  url,
+  classification,
+  entities,
+}) => {
   const [viewed, setViewed] = createSignal<boolean>(false);
 
   return (
@@ -35,7 +41,7 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
       >
         {url}
       </a>
-      {!!insight && (
+      {!!classification?.is_relevant && (
         <span class="text-xs font-semibold text-green-600 bg-green-100 rounded-full px-2 py-1">
           Match
         </span>
@@ -52,21 +58,38 @@ const URLPreview: Component<URLPreviewProps> = ({ url, insight, reason }) => {
             before:bg-white before:border-r before:border-b before:border-slate-200
             before:-rotate-45 before:shadow-lg before:shadow-slate-200"
           >
-            {!!reason && (
-              <>
-                <div class="flex flex-col gap-1">
-                  <p class="text-xs text-slate-800 font-semibold">REASONING</p>
-                  <p class="text-xs text-slate-700 leading-snug">{reason}</p>
-                </div>
-              </>
+            {!!classification?.reason && (
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">REASONING</p>
+                <p class="text-xs text-slate-700 leading-snug">
+                  {classification.reason}
+                </p>
+              </div>
             )}
-            {!!insight && (
-              <>
-                <div class="flex flex-col gap-1">
-                  <p class="text-xs text-slate-800 font-semibold">INSIGHTS</p>
-                  <p class="text-xs text-slate-700 leading-snug">{insight}</p>
-                </div>
-              </>
+            {!!classification?.insight_if_classified_as_relevant && (
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">INSIGHTS</p>
+                <p class="text-xs text-slate-700 leading-snug">
+                  {classification.insight_if_classified_as_relevant}
+                </p>
+              </div>
+            )}
+            {entities?.length && (
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">ENTITIES</p>
+                {entities?.map((entity) => (
+                  <>
+                    <p class="text-xs text-slate-700 leading-snug">
+                      {`${entity.label}:`}
+                    </p>
+                    {entity.values.map((value) => (
+                      <p class="text-xs text-slate-700 leading-snug w-full">
+                        {`- ${value}`}
+                      </p>
+                    ))}
+                  </>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -109,30 +132,58 @@ const URLNode: Component<URLNodeProps> = (props) => {
     return `https://${domain.replace(/^(?:https?:\/\/)?(?:www\.)?/, "")}${link.path}${link.query ? "?" + link.query : ""}`;
   });
 
-  const getInsight = createMemo<string | null>(() => {
-    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
-      n.labels.includes("Insight")
-    )[0]?.payload.data as string | null;
+  const getClassification = createMemo<Classification | null>(() => {
+    return getRelatedNodes(params.projectId, props.nodeId, "Classifies", (n) =>
+      n.labels.includes("Classification")
+    )[0]?.payload.data as Classification | null;
   });
 
-  const getReason = createMemo<string | null>(() => {
-    return getRelatedNodes(params.projectId, props.nodeId, "Matches", (n) =>
-      n.labels.includes("Reason")
-    )[0]?.payload.data as string | null;
+  const getExtractedNamedEntities = createMemo<
+    Array<{ label: string; values: string[] }>
+  >(() => {
+    const entities =
+      getRelatedNodes(params.projectId, props.nodeId, "Suggests", (n) =>
+        n.labels.includes("ExtractedNamedEntities")
+      )
+        ?.filter((n) => n.payload.type === "ExtractedNamedEntities")
+        ?.flatMap((n) => n.payload.data as Array<ExtractedEntity>) || [];
+    const groupedEntities = entities.reduce(
+      (acc, entity) => {
+        const existingGroup = acc.find(
+          (group) => group.label === entity.entity_name
+        );
+
+        if (existingGroup) {
+          existingGroup.values = Array.from(
+            new Set([...existingGroup.values, entity.matching_text])
+          );
+        } else {
+          acc.push({
+            label: entity.entity_name,
+            values: [entity.matching_text],
+          });
+        }
+        return acc;
+      },
+      [] as Array<{ label: string; values: string[] }>
+    );
+    return groupedEntities;
   });
 
   return (
     <>
-      {!!getFullUrl() && (
-        <>
-          <URLPreview
-            url={getFullUrl()!}
-            insight={!!getInsight()! ? getInsight()! : undefined}
-            reason={!!getReason()! ? getReason()! : undefined}
-          />
-          {props.showDivider && <div class="border-b border-slate-200" />}
-        </>
-      )}
+      {!!getFullUrl() &&
+        !!getClassification() &&
+        !!getExtractedNamedEntities() && (
+          <>
+            <URLPreview
+              url={getFullUrl()!}
+              classification={getClassification()!}
+              entities={getExtractedNamedEntities()!}
+            />
+            {props.showDivider && <div class="border-b border-slate-200" />}
+          </>
+        )}
     </>
   );
 };

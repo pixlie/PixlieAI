@@ -45,9 +45,6 @@ pub enum EdgeLabel {
 
     Classifies,
     ClassifiedFor,
-
-    Matches,
-    MatchedFor,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
