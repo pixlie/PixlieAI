@@ -15,7 +15,7 @@ interface URLNodeProps {
 
 interface URLPreviewProps {
   url: string;
-  classification: Classification | null;
+  classification: Classification;
 }
 
 const URLPreview: Component<URLPreviewProps> = ({ url, classification }) => {
@@ -90,7 +90,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ContentOf",
-      (n) => n.payload.type === "Link",
+      (n) => n.payload.type === "Link"
     )[0];
   });
 
@@ -101,7 +101,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
       params.projectId,
       linkNode.id,
       "BelongsTo",
-      (n) => n.labels.includes("Domain"),
+      (n) => n.labels.includes("Domain")
     )[0];
     return domainNode;
   });
@@ -114,21 +114,18 @@ const URLNode: Component<URLNodeProps> = (props) => {
   });
 
   const getClassification = createMemo<Classification | null>(() => {
-    return getRelatedNodes(
-      params.projectId,
-      props.nodeId,
-      "Classification",
-      (n) => n.labels.includes("Classification"),
+    return getRelatedNodes(params.projectId, props.nodeId, "Classifies", (n) =>
+      n.labels.includes("Classification")
     )[0]?.payload.data as Classification | null;
   });
 
   return (
     <>
-      {!!getFullUrl() && (
+      {!!getFullUrl() && !!getClassification() && (
         <>
           <URLPreview
             url={getFullUrl()!}
-            classification={getClassification()}
+            classification={getClassification()!}
           />
           {props.showDivider && <div class="border-b border-slate-200" />}
         </>
