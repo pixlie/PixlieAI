@@ -131,13 +131,6 @@ pub struct ClassifiedItem {
     pub insight: Option<String>,
 }
 
-#[derive(Clone, Serialize, TS, ToSchema)]
-#[ts(export)]
-pub struct Matches {
-    pub urls: Vec<String>,
-    pub web_pages: Vec<WebPageMatch>,
-}
-
 /// Engine's response for an API request.
 ///
 /// API requests for a project are sent to its engine.
