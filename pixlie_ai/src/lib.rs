@@ -95,9 +95,9 @@ impl InternalFetchRequest {
         }
     }
 
-    pub fn from_api_request(request: FetchRequest, project_id: String) -> Self {
+    pub fn from_api_request(request: FetchRequest, project_id: &str) -> Self {
         Self {
-            project_id,
+            project_id: project_id.to_string(),
             node_id: request.requesting_node_id,
             method: request.method,
             crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest { url: request.url }),

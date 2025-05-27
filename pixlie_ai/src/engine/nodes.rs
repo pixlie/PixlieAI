@@ -50,12 +50,12 @@ impl Nodes {
         Ok(())
     }
 
-    pub(super) fn load_all_from_disk(&mut self, db_path: &PathBuf) -> PiResult<u32> {
+    pub(super) fn load_all_from_disk(&mut self, path_to_db: &PathBuf) -> PiResult<u32> {
         let prefix_extractor = SliceTransform::create_fixed_prefix(NODES_CHUNK_PREFIX.len());
         let mut opts = Options::default();
         opts.create_if_missing(false);
         opts.set_prefix_extractor(prefix_extractor);
-        let db = match DB::open(&opts, db_path) {
+        let db = match DB::open(&opts, path_to_db) {
             Ok(db) => db,
             Err(err) => {
                 return if err.kind() == ErrorKind::InvalidArgument
