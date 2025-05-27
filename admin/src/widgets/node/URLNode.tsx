@@ -7,6 +7,7 @@ import { Link } from "../../api_types/Link.ts";
 import SparkleIcon from "../../assets/icons/custom-gradient-sparkle.svg";
 import InfoIcon from "../../assets/icons/tabler-info-circle.svg";
 import { Classification } from "../../api_types/Classification.ts";
+import { ExtractedEntity } from "../../api_types/ExtractedEntity.ts";
 
 interface URLNodeProps {
   nodeId: number;
@@ -16,9 +17,14 @@ interface URLNodeProps {
 interface URLPreviewProps {
   url: string;
   classification: Classification;
+  entities: Array<{ label: string; values: string[] }>;
 }
 
-const URLPreview: Component<URLPreviewProps> = ({ url, classification }) => {
+const URLPreview: Component<URLPreviewProps> = ({
+  url,
+  classification,
+  entities,
+}) => {
   const [viewed, setViewed] = createSignal<boolean>(false);
 
   return (
@@ -53,24 +59,37 @@ const URLPreview: Component<URLPreviewProps> = ({ url, classification }) => {
             before:-rotate-45 before:shadow-lg before:shadow-slate-200"
           >
             {!!classification?.reason && (
-              <>
-                <div class="flex flex-col gap-1">
-                  <p class="text-xs text-slate-800 font-semibold">REASONING</p>
-                  <p class="text-xs text-slate-700 leading-snug">
-                    {classification.reason}
-                  </p>
-                </div>
-              </>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">REASONING</p>
+                <p class="text-xs text-slate-700 leading-snug">
+                  {classification.reason}
+                </p>
+              </div>
             )}
             {!!classification?.insight_if_classified_as_relevant && (
-              <>
-                <div class="flex flex-col gap-1">
-                  <p class="text-xs text-slate-800 font-semibold">INSIGHTS</p>
-                  <p class="text-xs text-slate-700 leading-snug">
-                    {classification.insight_if_classified_as_relevant}
-                  </p>
-                </div>
-              </>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">INSIGHTS</p>
+                <p class="text-xs text-slate-700 leading-snug">
+                  {classification.insight_if_classified_as_relevant}
+                </p>
+              </div>
+            )}
+            {entities?.length && (
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-slate-800 font-semibold">ENTITIES</p>
+                {entities?.map((entity) => (
+                  <>
+                    <p class="text-xs text-slate-700 leading-snug">
+                      {`${entity.label}:`}
+                    </p>
+                    {entity.values.map((value) => (
+                      <p class="text-xs text-slate-700 leading-snug w-full">
+                        {`- ${value}`}
+                      </p>
+                    ))}
+                  </>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -119,17 +138,52 @@ const URLNode: Component<URLNodeProps> = (props) => {
     )[0]?.payload.data as Classification | null;
   });
 
+  const getExtractedNamedEntities = createMemo<
+    Array<{ label: string; values: string[] }>
+  >(() => {
+    const entities =
+      getRelatedNodes(params.projectId, props.nodeId, "Suggests", (n) =>
+        n.labels.includes("ExtractedNamedEntities")
+      )
+        ?.filter((n) => n.payload.type === "ExtractedNamedEntities")
+        ?.flatMap((n) => n.payload.data as Array<ExtractedEntity>) || [];
+    const groupedEntities = entities.reduce(
+      (acc, entity) => {
+        const existingGroup = acc.find(
+          (group) => group.label === entity.entity_name
+        );
+
+        if (existingGroup) {
+          existingGroup.values = Array.from(
+            new Set([...existingGroup.values, entity.matching_text])
+          );
+        } else {
+          acc.push({
+            label: entity.entity_name,
+            values: [entity.matching_text],
+          });
+        }
+        return acc;
+      },
+      [] as Array<{ label: string; values: string[] }>
+    );
+    return groupedEntities;
+  });
+
   return (
     <>
-      {!!getFullUrl() && !!getClassification() && (
-        <>
-          <URLPreview
-            url={getFullUrl()!}
-            classification={getClassification()!}
-          />
-          {props.showDivider && <div class="border-b border-slate-200" />}
-        </>
-      )}
+      {!!getFullUrl() &&
+        !!getClassification() &&
+        !!getExtractedNamedEntities() && (
+          <>
+            <URLPreview
+              url={getFullUrl()!}
+              classification={getClassification()!}
+              entities={getExtractedNamedEntities()!}
+            />
+            {props.showDivider && <div class="border-b border-slate-200" />}
+          </>
+        )}
     </>
   );
 };
