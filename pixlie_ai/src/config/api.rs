@@ -1,5 +1,4 @@
 use super::{Settings, SettingsStatus};
-use crate::{api::ApiState, PiEvent};
 use actix_web::{error::ErrorInternalServerError, get, post, put, web, Responder, Result};
 use log::{debug, error};
 use reqwest::Client;
@@ -50,20 +49,14 @@ pub async fn check_settings_status() -> Result<impl Responder> {
     tag = "settings",
 )]
 #[put("")]
-pub async fn update_settings(
-    updates: web::Json<Settings>,
-    api_state: web::Data<ApiState>,
-) -> Result<impl Responder> {
+pub async fn update_settings(updates: web::Json<Settings>) -> Result<impl Responder> {
     // updates contains partial settings, we merge it with the existing settings
     match Settings::get_cli_settings() {
         Ok(mut settings) => {
             settings.merge_updates(&updates);
             debug!("Settings updated: {:?}", settings);
             match settings.write_to_config_file() {
-                Ok(_) => {
-                    api_state.main_tx.send(PiEvent::SettingsUpdated).unwrap();
-                    Ok(web::Json(settings))
-                }
+                Ok(_) => Ok(web::Json(settings)),
                 Err(err) => {
                     error!("Error writing settings: {}", err);
                     Err(ErrorInternalServerError::<_>(err))

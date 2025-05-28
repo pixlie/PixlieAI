@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use super::{EdgeLabel, NodeEdges, NodeFlags};
-use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
+use crate::engine::api::{handle_engine_api_request, EngineResponsePayload};
 use crate::engine::edges::Edges;
 use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
@@ -16,7 +16,7 @@ use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::projects::{Project, ProjectOwner};
+use crate::projects::{check_project_db, Project, ProjectOwner};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
@@ -54,7 +54,7 @@ impl Engine {
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
-    ) -> PiResult<Engine> {
+    ) -> PiResult<Self> {
         let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
         let db = match DB::open_default(path_to_db.as_os_str()) {
             Ok(db) => db,
@@ -91,21 +91,28 @@ impl Engine {
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
-    ) -> PiResult<Engine> {
+    ) -> PiResult<Self> {
         let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
+        // Load all nodes and edges from the database
+        // We need to run this before loading the project database
+        // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
+        // to open the database with their prefix extractors and once the database
+        // is opened(and locked), we cannot open it again with a different prefix
+        // extractor or set a prefix extractor
+        let (nodes, last_node_id) = Nodes::open(&path_to_db)?;
+        let edges = Edges::open(&path_to_db)?;
         let mut opts = rocksdb::Options::default();
         opts.create_if_missing(false);
-        let db = DB::open(&opts, path_to_db.as_os_str())?;
 
-        let mut engine = Engine {
-            nodes: RwLock::new(Nodes::new()),
-            edges: RwLock::new(Edges::new()),
+        let engine = Engine {
+            nodes: RwLock::new(nodes),
+            edges: RwLock::new(edges),
 
             last_node_id: AtomicU32::new(0),
 
             project_uuid: project_uuid.to_string(),
-            path_to_db,
-            arced_db: Arc::new(db),
+            path_to_db: path_to_db.clone(),
+            arced_db: Arc::new(DB::open(&opts, path_to_db.as_os_str())?),
 
             my_pi_channel,
             main_channel_tx,
@@ -113,7 +120,12 @@ impl Engine {
 
             count_open_fetch_requests: AtomicU32::new(0),
         };
-        engine.preload_data_from_db()?;
+
+        if last_node_id != 0 {
+            engine
+                .last_node_id
+                .store(last_node_id + 1, std::sync::atomic::Ordering::Relaxed);
+        }
         Ok(engine)
     }
 
@@ -124,6 +136,13 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
+            match check_project_db(&self.project_uuid) {
+                Ok(_) => {}
+                Err(_) => {
+                    self.exit();
+                    break;
+                }
+            }
             self.process_nodes();
         }
     }
@@ -146,22 +165,26 @@ impl Engine {
         let arced_self = Arc::new(self);
         for event in self.my_pi_channel.rx.iter() {
             match event {
-                PiEvent::APIRequest(project_id, request) => {
-                    let request_id = request.request_id;
+                PiEvent::APIRequest {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    let request_id = request_id;
                     match handle_engine_api_request(
-                        request,
+                        project_id.clone(),
+                        request_id,
+                        payload,
                         arced_self.clone(),
                         self.main_channel_tx.clone(),
                     ) {
                         Ok(_) => {}
                         Err(error) => {
-                            match self.main_channel_tx.send(PiEvent::APIResponse(
+                            match self.main_channel_tx.send(PiEvent::APIResponse {
                                 project_id,
-                                EngineResponse {
-                                    request_id,
-                                    payload: EngineResponsePayload::Error(error.to_string()),
-                                },
-                            )) {
+                                request_id,
+                                payload: EngineResponsePayload::Error(error.to_string()),
+                            }) {
                                 Ok(_) => {}
                                 Err(err) => {
                                     error!("Error sending PiEvent in Engine: {}", err);
@@ -274,13 +297,13 @@ impl Engine {
         // When the number of the nodes to be processed is large,
         // we do not process nodes that generate more nodes. WebPage nodes are like that.
         let limited_labels_to_be_processed = vec![
-            NodeLabel::Domain,
+            NodeLabel::DomainName,
             NodeLabel::Objective,
             NodeLabel::WebPage,
             NodeLabel::WebSearch,
         ];
         let all_labels_to_be_processed = vec![
-            NodeLabel::Domain,
+            NodeLabel::DomainName,
             NodeLabel::Link,
             NodeLabel::Objective,
             NodeLabel::WebPage,
@@ -509,7 +532,7 @@ impl Engine {
     ) -> PiResult<Option<ArcedNodeItem>> {
         // For certain node payloads, check if there is a node with the same payload
         let engine = Arc::new(self);
-        if labels.contains(&NodeLabel::Domain) {
+        if labels.contains(&NodeLabel::DomainName) {
             match payload {
                 Payload::Text(domain) => {
                     Domain::find_existing(engine, FindDomainOf::DomainName(domain))
@@ -531,37 +554,6 @@ impl Engine {
         } else {
             Ok(None)
         }
-    }
-
-    fn preload_data_from_db(&mut self) -> PiResult<()> {
-        // Load all nodes and edges from the database
-        // We need to run this before loading the project database
-        // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
-        // to open the database with their prefix extractors and once the database
-        // is opened(and locked), we cannot open it again with a different prefix
-        // extractor or set a prefix extractor
-        let last_node_id = match self.nodes.write() {
-            Ok(mut nodes) => nodes.load_all_from_disk(&self.path_to_db)?,
-            Err(err) => {
-                return Err(PiError::InternalError(format!(
-                    "Error locking nodes: {}",
-                    err
-                )));
-            }
-        };
-        if last_node_id != 0 {
-            self.last_node_id
-                .store(last_node_id + 1, std::sync::atomic::Ordering::Relaxed);
-        }
-        match self.edges.write() {
-            Ok(mut edges) => {
-                edges.load_all_from_disk(&self.path_to_db)?;
-            }
-            Err(err) => {
-                error!("Error locking edges: {}", err);
-            }
-        }
-        Ok(())
     }
 
     pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
@@ -660,7 +652,7 @@ impl Engine {
                 }
                 _ => return Err(PiError::InternalError("Expected a Link node".to_string())),
             }
-        } else if calling_node.labels.contains(&NodeLabel::Domain) {
+        } else if calling_node.labels.contains(&NodeLabel::DomainName) {
             match calling_node.payload {
                 Payload::Text(_) => calling_node.clone(),
                 _ => {

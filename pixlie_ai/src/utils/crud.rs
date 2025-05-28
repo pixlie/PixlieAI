@@ -169,8 +169,8 @@ pub trait Crud {
                     .into()),
                 },
                 None => Err(PiError::CrudNotFoundError(
-                    vec![collection_name.to_string(), id.to_string()],
-                    format!("Item not found"),
+                    collection_name.to_string(),
+                    id.to_string(),
                 )
                 .into()),
             },
@@ -183,11 +183,9 @@ pub trait Crud {
         let item_ids = Self::_read_index(&db)?;
         let collection_name = Self::get_collection_name();
         if !item_ids.contains(&uuid.to_string()) {
-            return Err(PiError::CrudNotFoundError(
-                vec![collection_name.to_string(), uuid.to_string()],
-                format!("Item not found"),
-            )
-            .into());
+            return Err(
+                PiError::CrudNotFoundError(collection_name.to_string(), uuid.to_string()).into(),
+            );
         }
         match to_allocvec(&item) {
             Ok(payload) => match db.put(format!("{}/{}", collection_name, uuid), payload) {
@@ -222,11 +220,9 @@ pub trait Crud {
         let mut item_ids = Self::_read_index(&db)?;
         let collection_name = Self::get_collection_name();
         if !item_ids.contains(&uuid.to_string()) {
-            return Err(PiError::CrudNotFoundError(
-                vec![collection_name.to_string(), uuid.to_string()],
-                format!("Item not found"),
-            )
-            .into());
+            return Err(
+                PiError::CrudNotFoundError(collection_name.to_string(), uuid.to_string()).into(),
+            );
         }
         item_ids.retain(|id| id != uuid);
         Self::_update_index(&db, &item_ids)?;

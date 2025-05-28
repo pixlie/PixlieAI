@@ -1,10 +1,8 @@
 use log::{debug, error, info};
 use pixlie_ai::api::{send_api_error, APIChannel};
-use pixlie_ai::config::Settings;
 use pixlie_ai::engine::Engine;
 use pixlie_ai::error::{PiError, PiResult};
-use pixlie_ai::projects::ProjectCollection;
-use pixlie_ai::utils::crud::Crud;
+use pixlie_ai::projects::check_project_db;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
@@ -17,56 +15,12 @@ use threadpool::ThreadPool;
 
 fn load_project_to_engine(
     project_uuid: &str,
-    request_id: u32,
-    api_channel_tx: tokio::sync::broadcast::Sender<PiEvent>,
+    path_to_storage_dir: &PathBuf,
     channels_per_project: Arc<Mutex<HashMap<String, PiChannel>>>,
     pi_channel_tx: crossbeam_channel::Sender<PiEvent>,
     fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     pool: Arc<ThreadPool>,
 ) -> PiResult<()> {
-    debug!("Loading project {} into Engine", project_uuid);
-
-    let path_to_storage_dir: PathBuf = match Settings::get_cli_settings() {
-        Ok(settings) => match settings.path_to_storage_dir {
-            Some(path) => PathBuf::from(path),
-            None => {
-                error!("Cannot find path to storage directory");
-                send_api_error(
-                    api_channel_tx,
-                    request_id,
-                    &project_uuid,
-                    "Path to storage directory not configured yet",
-                );
-                return Err(PiError::InternalError(
-                    "Path to storage directory not configured yet".to_string(),
-                ));
-            }
-        },
-        Err(err) => {
-            error!("Error reading settings: {}", err);
-            send_api_error(
-                api_channel_tx,
-                request_id,
-                &project_uuid,
-                "Error reading settings",
-            );
-            return Err(PiError::InternalError("Error reading settings".to_string()));
-        }
-    };
-    let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
-    let _ = ProjectCollection::read_item(&project_uuid)?;
-    if !path_to_db.exists() || !path_to_db.is_dir() {
-        // If project DB has been deleted, we remove the project from the collection
-        match ProjectCollection::delete(project_uuid) {
-            Ok(_) => {}
-            Err(_) => {}
-        }
-        return Err(PiError::InternalError(format!(
-            "Project DB does not exist for {}",
-            project_uuid
-        )));
-    }
-
     match channels_per_project.try_lock() {
         Ok(mut channels_per_project) => {
             channels_per_project.insert(project_uuid.to_string(), PiChannel::new());
@@ -84,13 +38,19 @@ fn load_project_to_engine(
                 }
             };
 
-            let engine = Engine::open(
+            let engine = match Engine::open(
                 project_uuid,
                 &path_to_storage_dir,
                 my_pi_channel.clone(),
                 pi_channel_tx,
                 fetcher_tx,
-            )?;
+            ) {
+                Ok(engine) => engine,
+                Err(err) => {
+                    channels_per_project.remove(project_uuid);
+                    return Err(err);
+                }
+            };
             let arced_engine = Arc::new(engine);
             {
                 let arced_engine = arced_engine.clone();
@@ -240,7 +200,24 @@ fn main() {
     let channels_per_project = channels_per_project.clone();
     for event in main_channel_iter.rx.iter() {
         match event {
-            PiEvent::APIRequest(project_id, request) => {
+            PiEvent::APIRequest {
+                project_id,
+                request_id,
+                payload,
+            } => {
+                let path_to_storage_dir = match check_project_db(&project_id) {
+                    Ok(path_to_storage_dir) => path_to_storage_dir,
+                    Err(err) => {
+                        send_api_error(
+                            api_channel.tx.clone(),
+                            &project_id,
+                            request_id,
+                            &err.to_string(),
+                        );
+                        continue;
+                    }
+                };
+
                 let channels_per_project_inner = channels_per_project.clone();
                 let channel_exists = match channels_per_project.try_lock() {
                     Ok(channels_per_project) => channels_per_project.contains_key(&project_id),
@@ -248,8 +225,8 @@ fn main() {
                         error!("Error locking channels_per_project: {}", err);
                         send_api_error(
                             api_channel.tx.clone(),
-                            request.request_id,
                             &project_id,
+                            request_id,
                             "Error locking channels_per_project",
                         );
                         continue;
@@ -259,8 +236,7 @@ fn main() {
                 if !channel_exists {
                     match load_project_to_engine(
                         &project_id,
-                        request.request_id,
-                        api_channel.tx.clone(),
+                        &path_to_storage_dir,
                         channels_per_project_inner,
                         main_channel_iter.clone().tx,
                         fetcher_tx.clone(),
@@ -271,9 +247,9 @@ fn main() {
                             error!("Error loading project to engine: {}", err);
                             send_api_error(
                                 api_channel.tx.clone(),
-                                request.request_id,
                                 &project_id,
-                                &err.to_string(),
+                                request_id,
+                                &format!("{}", err),
                             );
                             continue;
                         }
@@ -285,17 +261,18 @@ fn main() {
                         // Engine is loaded, we will pass the API request to the engine's own channel
                         match channels_per_project.get(&project_id) {
                             Some(my_pi_channel) => {
-                                match my_pi_channel
-                                    .tx
-                                    .send(PiEvent::APIRequest(project_id.clone(), request.clone()))
-                                {
+                                match my_pi_channel.tx.send(PiEvent::APIRequest {
+                                    project_id: project_id.clone(),
+                                    request_id,
+                                    payload,
+                                }) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         error!("Error sending PiEvent to Engine: {}", err);
                                         send_api_error(
                                             api_channel.tx.clone(),
-                                            request.request_id,
                                             &project_id,
+                                            request_id,
                                             "Error sending PiEvent to Engine",
                                         );
                                     }
@@ -305,8 +282,8 @@ fn main() {
                                 error!("Could not load project {}", project_id);
                                 send_api_error(
                                     api_channel.tx.clone(),
-                                    request.request_id,
                                     &project_id,
+                                    request_id,
                                     "Could not load project",
                                 );
                             }
@@ -316,19 +293,24 @@ fn main() {
                         error!("Error locking channels_per_project: {}", err);
                         send_api_error(
                             api_channel.tx.clone(),
-                            request.request_id,
                             &project_id,
+                            request_id,
                             "Error locking channels_per_project",
                         );
                     }
                 }
             }
-            PiEvent::APIResponse(project_id, response) => {
+            PiEvent::APIResponse {
+                project_id,
+                request_id,
+                payload,
+            } => {
                 // Pass on the response to the API broadcast channel
-                match api_channel
-                    .tx
-                    .send(PiEvent::APIResponse(project_id, response))
-                {
+                match api_channel.tx.send(PiEvent::APIResponse {
+                    project_id,
+                    request_id,
+                    payload,
+                }) {
                     Ok(_) => {}
                     Err(err) => {
                         error!("Error sending PiEvent in API broadcast channel: {}", err);

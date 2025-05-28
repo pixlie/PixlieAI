@@ -4,7 +4,7 @@ use crate::error::{PiError, PiResult};
 use chrono::Utc;
 use log::error;
 use postcard::{from_bytes, to_allocvec};
-use rocksdb::{ErrorKind, Options, SliceTransform, DB};
+use rocksdb::{Options, SliceTransform, DB};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,10 +16,45 @@ pub(super) struct Nodes {
 }
 
 impl Nodes {
-    pub(super) fn new() -> Nodes {
+    pub(super) fn new() -> Self {
         Nodes {
             data: HashMap::new(),
         }
+    }
+
+    pub(super) fn open(path_to_db: &PathBuf) -> PiResult<(Self, u32)> {
+        let prefix_extractor = SliceTransform::create_fixed_prefix(NODES_CHUNK_PREFIX.len());
+        let mut nodes = Nodes::new();
+        let mut opts = Options::default();
+        opts.create_if_missing(false);
+        opts.set_prefix_extractor(prefix_extractor);
+        let db = match DB::open(&opts, path_to_db) {
+            Ok(db) => db,
+            Err(err) => {
+                error!("RocksDB error: {}", err);
+                return Err(PiError::RocksdbError(err));
+            }
+        };
+        let mut last_node_id: NodeId = 0;
+        for chunk in db.prefix_iterator(NODES_CHUNK_PREFIX) {
+            match chunk {
+                Ok(chunk) => {
+                    let data: Vec<(NodeId, NodeItem)> = from_bytes(&chunk.1)?;
+                    last_node_id = data.last().unwrap().0;
+                    for (node_id, mut node) in data {
+                        if node.flags.contains(NodeFlags::IS_REQUESTING) {
+                            node.flags.toggle(NodeFlags::IS_REQUESTING);
+                        }
+                        nodes.data.insert(Arc::new(node_id), Arc::new(node));
+                    }
+                }
+                Err(err) => {
+                    error!("RocksDB error: {}", err);
+                    return Err(PiError::RocksdbError(err));
+                }
+            }
+        }
+        Ok((nodes, last_node_id))
     }
 
     pub(super) fn save_item_chunk_to_disk(&self, db: Arc<DB>, node_id: &NodeId) -> PiResult<()> {
@@ -48,50 +83,6 @@ impl Nodes {
             to_allocvec(&chunk)?,
         )?;
         Ok(())
-    }
-
-    pub(super) fn load_all_from_disk(&mut self, path_to_db: &PathBuf) -> PiResult<u32> {
-        let prefix_extractor = SliceTransform::create_fixed_prefix(NODES_CHUNK_PREFIX.len());
-        let mut opts = Options::default();
-        opts.create_if_missing(false);
-        opts.set_prefix_extractor(prefix_extractor);
-        let db = match DB::open(&opts, path_to_db) {
-            Ok(db) => db,
-            Err(err) => {
-                return if err.kind() == ErrorKind::InvalidArgument
-                    && err.to_string().contains("does not exist")
-                {
-                    Ok(0)
-                } else {
-                    Err(PiError::InternalError(
-                        "Database does not exist".to_string(),
-                    ))
-                }
-            }
-        };
-        let mut last_node_id: NodeId = 0;
-        for chunk in db.prefix_iterator(NODES_CHUNK_PREFIX) {
-            match chunk {
-                Ok(chunk) => {
-                    let data: Vec<(NodeId, NodeItem)> = from_bytes(&chunk.1)?;
-                    last_node_id = data.last().unwrap().0;
-                    for (node_id, mut node) in data {
-                        if node.flags.contains(NodeFlags::IS_REQUESTING) {
-                            node.flags.toggle(NodeFlags::IS_REQUESTING);
-                        }
-                        self.data.insert(Arc::new(node_id), Arc::new(node));
-                    }
-                }
-                Err(err) => {
-                    error!("Error reading chunk from DB: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error reading chunk from DB: {}",
-                        err
-                    )));
-                }
-            }
-        }
-        Ok(last_node_id)
     }
 
     pub(super) fn update_node(&mut self, node_id: &NodeId, payload: Payload) -> PiResult<()> {
@@ -167,7 +158,7 @@ mod tests {
             ),
             (
                 Payload::Text("google.com".to_string()),
-                &[NodeLabel::Domain],
+                &[NodeLabel::DomainName],
             ),
             (Payload::Text("test".to_string()), &[NodeLabel::SearchTerm]),
         ];
@@ -209,9 +200,8 @@ mod tests {
         }
 
         {
-            let mut db_nodes = Nodes::new();
             // Load data from disk and check that it is the same as the original
-            db_nodes.load_all_from_disk(&db_path).unwrap();
+            let (db_nodes, _last_node_id) = Nodes::open(&db_path).unwrap();
 
             for node in nodes.iter() {
                 // Check the ID and payload of each node against the one in the DB
@@ -253,9 +243,8 @@ mod tests {
 
         // Check this again
         {
-            let mut db_nodes = Nodes::new();
             // Load data from disk and check that it is the same as the original
-            db_nodes.load_all_from_disk(&db_path).unwrap();
+            let (db_nodes, _last_node_id) = Nodes::open(&db_path).unwrap();
 
             for node in nodes.iter() {
                 // Check the ID and payload of each node against the one in the DB

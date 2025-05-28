@@ -25,7 +25,6 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 pub mod api;
-pub mod gliner;
 pub mod python;
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, TS)]

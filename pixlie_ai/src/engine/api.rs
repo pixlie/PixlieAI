@@ -20,7 +20,8 @@ use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::PiError;
 use crate::PiEvent;
 use crate::{api::ApiState, error::PiResult};
-use actix_web::{get, post, web, Responder};
+use actix_web::http::StatusCode;
+use actix_web::{get, post, web, HttpResponse, HttpResponseBuilder};
 use itertools::Itertools;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -30,13 +31,6 @@ use std::sync::Arc;
 use strum::Display;
 use ts_rs::TS;
 use utoipa::{IntoParams, ToSchema};
-
-#[derive(Clone)]
-pub struct EngineRequest {
-    pub request_id: u32,
-    pub project_id: String,
-    pub payload: EngineRequestPayload,
-}
 
 #[derive(Clone, Deserialize, ToSchema, TS)]
 #[ts(export)]
@@ -70,7 +64,7 @@ pub struct EdgeWrite {
     edge_labels: (EdgeLabel, EdgeLabel),
 }
 
-#[derive(Clone, Deserialize, TS)]
+#[derive(Clone, Deserialize, Display, TS)]
 #[ts(export)]
 pub enum EngineRequestPayload {
     Explore(Option<u32>), // Optional node id to start from
@@ -288,12 +282,6 @@ impl APINodeItem {
     }
 }
 
-#[derive(Clone)]
-pub struct EngineResponse {
-    pub request_id: u32,
-    pub payload: EngineResponsePayload,
-}
-
 #[derive(Deserialize, IntoParams)]
 pub struct QueryNodes {
     // TODO: The below should be Option<NodeLabel>
@@ -333,6 +321,67 @@ pub struct QueryEntities {
     entity_name: Option<String>,
 }
 
+async fn api_helper(
+    project_id: String,
+    payload: EngineRequestPayload,
+    api_state: web::Data<ApiState>,
+) -> HttpResponse {
+    let this_request_id = api_state.req_id.fetch_add(1);
+    let this_project_id = project_id;
+
+    debug!(
+        "API request {} for project {} to {}",
+        this_request_id,
+        this_project_id,
+        payload.to_string()
+    );
+    // Subscribe to the API channel, so we can receive the response
+    let mut rx = api_state.api_channel_tx.subscribe();
+
+    match api_state.main_tx.send(PiEvent::APIRequest {
+        project_id: this_project_id.clone(),
+        request_id: this_request_id,
+        payload,
+    }) {
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .json("Could not send API request to engine");
+        }
+    };
+
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    if this_project_id == project_id && this_request_id == request_id {
+                        response_opt = Some(payload);
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+
+    debug!("Got response for request {}", this_request_id);
+    match response_opt {
+        Some(response) => {
+            if matches!(response, EngineResponsePayload::Error(_)) {
+                return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).json(response);
+            }
+            return HttpResponseBuilder::new(StatusCode::OK).json(response);
+        }
+        None => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+            .json("Could not get a response"),
+    }
+}
+
 #[utoipa::path(
     path = "/engine/{project_id}/explore",
     responses(
@@ -356,48 +405,13 @@ pub struct QueryEntities {
 pub async fn explore(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    debug!(
-        "API request {} for project {} to explore",
-        request_id, project_id
-    );
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::Explore(None),
-        },
-    ))?;
-
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload);
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+) -> HttpResponse {
+    api_helper(
+        project_id.into_inner(),
+        EngineRequestPayload::Explore(None),
+        api_state,
+    )
+    .await
 }
 
 /// Get all labels for a project
@@ -424,49 +438,13 @@ pub async fn explore(
 pub async fn get_labels(
     project_id: web::Path<String>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    debug!(
-        "API request {} for project {} to get all labels",
-        request_id, project_id
-    );
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetLabels,
-        },
-    ))?;
-
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    let x = match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    };
-    x
+) -> HttpResponse {
+    api_helper(
+        project_id.into_inner(),
+        EngineRequestPayload::GetLabels,
+        api_state,
+    )
+    .await
 }
 
 /// Get all nodes for a project
@@ -495,95 +473,31 @@ pub async fn get_nodes(
     project_id: web::Path<String>,
     params: web::Query<QueryNodes>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-    if let Some(label) = &params.label {
-        debug!(
-            "API request {} for project {} to get nodes with label {}",
-            request_id, project_id, label
-        );
-
-        api_state.main_tx.send(PiEvent::APIRequest(
-            project_id.clone(),
-            EngineRequest {
-                request_id: request_id.clone(),
-                project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetNodesWithLabel(label.clone()),
-            },
-        ))?;
+) -> HttpResponse {
+    let payload = if let Some(label) = &params.label {
+        EngineRequestPayload::GetNodesWithLabel(label.clone())
     } else if let Some(ids) = &params.ids {
         let u32_ids: Vec<u32> = ids
             .split(",")
             .map(|id| id.parse::<u32>().unwrap())
             .collect();
         if u32_ids.len() == 0 {
-            return Err(PiError::InternalError(format!(
-                "No IDs provided for API request {} for project {}",
-                request_id, project_id
-            )));
+            return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .json("No IDs provided for API request");
         }
-        debug!(
-            "API request {} for project {} to get nodes with ids {:?}",
-            request_id,
-            project_id,
-            ids.split(",").collect::<Vec<&str>>()
-        );
 
-        api_state.main_tx.send(PiEvent::APIRequest(
-            project_id.clone(),
-            EngineRequest {
-                request_id: request_id.clone(),
-                project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetNodesWithIds(u32_ids),
-            },
-        ))?;
+        EngineRequestPayload::GetNodesWithIds(u32_ids)
     } else {
         let since = if let Some(since) = params.since {
             since
         } else {
             0
         };
-        // Read the nodes written since the given timestamp
-        debug!(
-            "API request {} for project {} to get nodes since {}",
-            request_id, project_id, since
-        );
-        api_state.main_tx.send(PiEvent::APIRequest(
-            project_id.clone(),
-            EngineRequest {
-                request_id: request_id.clone(),
-                project_id: project_id.clone(),
-                payload: EngineRequestPayload::GetAllNodes(since),
-            },
-        ))?;
-    }
 
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
+        EngineRequestPayload::GetAllNodes(since)
+    };
 
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+    api_helper(project_id.into_inner(), payload, api_state).await
 }
 
 /// Get all edges for a project
@@ -612,54 +526,19 @@ pub async fn get_edges(
     project_id: web::Path<String>,
     params: web::Query<QueryEdges>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    debug!(
-        "API request {} for project {} to get all edges",
-        request_id, project_id
-    );
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
+) -> HttpResponse {
     let since = if let Some(since) = params.since {
         since
     } else {
         0
     };
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetAllEdges(since),
-        },
-    ))?;
 
-    debug!("Waiting for response for request {}", request_id);
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+    api_helper(
+        project_id.into_inner(),
+        EngineRequestPayload::GetAllEdges(since),
+        api_state,
+    )
+    .await
 }
 
 /// Create a new node for a project
@@ -688,51 +567,13 @@ pub async fn create_node(
     project_id: web::Path<String>,
     node: web::Json<NodeWrite>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    debug!(
-        "API request {} for project {} to create node with label {}",
-        request_id,
-        project_id,
-        node.to_string()
-    );
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::CreateNode(node.into_inner()),
-        },
-    ))?;
-
-    debug!("Waiting for response for request {}", request_id);
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+) -> HttpResponse {
+    api_helper(
+        project_id.into_inner(),
+        EngineRequestPayload::CreateNode(node.into_inner()),
+        api_state,
+    )
+    .await
 }
 
 /// Create a new edge for a project
@@ -761,54 +602,13 @@ pub async fn create_edge(
     project_id: web::Path<String>,
     edge: web::Json<EdgeWrite>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
-    debug!(
-        "API request {} for project {} to create edge between {} and {} with labels {} and {}",
-        request_id,
-        project_id,
-        &edge.node_ids.0,
-        &edge.node_ids.1,
-        &edge.edge_labels.0,
-        &edge.edge_labels.1,
-    );
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
-
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::CreateEdge(edge.into_inner()),
-        },
-    ))?;
-
-    debug!("Waiting for response for request {}", request_id);
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+) -> HttpResponse {
+    api_helper(
+        project_id.into_inner(),
+        EngineRequestPayload::CreateEdge(edge.into_inner()),
+        api_state,
+    )
+    .await
 }
 
 /// [Incomplete] Get the results of a search for a node in a project
@@ -842,45 +642,10 @@ pub async fn create_edge(
 pub async fn search_results(
     path: web::Path<(String, u32)>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
+) -> HttpResponse {
     let (project_id, node_id) = path.into_inner();
-    // Subscribe to the API channel, so we can receive the response
-    let mut rx = api_state.api_channel_tx.subscribe();
 
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::Query(node_id),
-        },
-    ))?;
-
-    debug!("Waiting for response for request {}", request_id);
-    let mut response_opt: Option<EngineResponsePayload> = None;
-    while let None = response_opt {
-        match rx.recv().await {
-            Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
-                    }
-                }
-                _ => {}
-            },
-            Err(_err) => {}
-        }
-    }
-
-    debug!("Got response for request {}", request_id);
-    match response_opt {
-        Some(response) => Ok(web::Json(response)),
-        None => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".to_string(),
-        ))),
-    }
+    api_helper(project_id, EngineRequestPayload::Query(node_id), api_state).await
 }
 
 /// Get all entities for a project
@@ -909,36 +674,41 @@ pub async fn get_entities(
     project_id: web::Path<String>,
     params: web::Query<QueryEntities>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
+) -> HttpResponse {
+    let this_request_id = api_state.req_id.fetch_add(1);
+    let this_project_id = project_id.into_inner();
 
     debug!(
         "API request {} for project {} to get entities",
-        request_id, project_id
+        this_request_id, this_project_id
     );
 
     // Subscribe to receive engine response
     let mut rx = api_state.api_channel_tx.subscribe();
 
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetEntities,
-        },
-    ))?;
+    match api_state.main_tx.send(PiEvent::APIRequest {
+        project_id: this_project_id.clone(),
+        request_id: this_request_id,
+        payload: EngineRequestPayload::GetEntities,
+    }) {
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .json("Could not send API request to engine");
+        }
+    };
 
-    debug!("Waiting for response for request {}", request_id);
     let mut response_opt: Option<EngineResponsePayload> = None;
     while let None = response_opt {
         match rx.recv().await {
             Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
+                PiEvent::APIResponse {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    if this_project_id == project_id && this_request_id == request_id {
+                        response_opt = Some(payload);
                     }
                 }
                 _ => {}
@@ -947,7 +717,6 @@ pub async fn get_entities(
         }
     }
 
-    debug!("Got response for request {}", request_id);
     match response_opt {
         Some(EngineResponsePayload::Entities(entities)) => {
             let filtered_entities = if let Some(entity_name) = &params.entity_name {
@@ -959,13 +728,12 @@ pub async fn get_entities(
                 entities
             };
 
-            Ok(web::Json(EngineResponsePayload::Entities(
-                filtered_entities,
-            )))
+            HttpResponseBuilder::new(StatusCode::OK)
+                .json(EngineResponsePayload::Entities(filtered_entities))
         }
-        _ => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".into(),
-        ))),
+        _ => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).json(
+            EngineResponsePayload::Error("Could not get a response".into()),
+        ),
     }
 }
 
@@ -995,36 +763,41 @@ pub async fn get_classifications(
     project_id: web::Path<String>,
     params: web::Query<QueryClassifications>,
     api_state: web::Data<ApiState>,
-) -> PiResult<impl Responder> {
-    let request_id = api_state.req_id.fetch_add(1);
-    let project_id = project_id.into_inner();
+) -> HttpResponse {
+    let this_request_id = api_state.req_id.fetch_add(1);
+    let this_project_id = project_id.into_inner();
 
     debug!(
         "API request {} for project {} to get classifications",
-        request_id, project_id
+        this_request_id, this_project_id
     );
 
     // Subscribe to receive engine response
     let mut rx = api_state.api_channel_tx.subscribe();
+    match api_state.main_tx.send(PiEvent::APIRequest {
+        project_id: this_project_id.clone(),
+        request_id: this_request_id,
+        payload: EngineRequestPayload::GetClassifications,
+    }) {
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .json("Could not send API request to engine");
+        }
+    };
 
-    api_state.main_tx.send(PiEvent::APIRequest(
-        project_id.clone(),
-        EngineRequest {
-            request_id: request_id.clone(),
-            project_id: project_id.clone(),
-            payload: EngineRequestPayload::GetClassifications,
-        },
-    ))?;
-
-    debug!("Waiting for response for request {}", request_id);
+    debug!("Waiting for response for request {}", this_request_id);
     let mut response_opt: Option<EngineResponsePayload> = None;
     while let None = response_opt {
         match rx.recv().await {
             Ok(event) => match event {
-                PiEvent::APIResponse(p_id, response) => {
-                    if p_id == project_id && response.request_id == request_id {
-                        response_opt = Some(response.payload.clone());
-                    } else {
+                PiEvent::APIResponse {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    if this_project_id == project_id && this_request_id == request_id {
+                        response_opt = Some(payload.clone());
                     }
                 }
                 _ => {}
@@ -1033,7 +806,7 @@ pub async fn get_classifications(
         }
     }
 
-    debug!("Got response for request {}", request_id);
+    debug!("Got response for request {}", this_request_id);
     match response_opt {
         Some(EngineResponsePayload::Classifications(classifications)) => {
             let filtered_classifications = if let Some(is_relevant) = params.is_relevant {
@@ -1044,13 +817,13 @@ pub async fn get_classifications(
             } else {
                 classifications
             };
-            Ok(web::Json(EngineResponsePayload::Classifications(
+            HttpResponseBuilder::new(StatusCode::OK).json(EngineResponsePayload::Classifications(
                 filtered_classifications,
-            )))
+            ))
         }
-        _ => Ok(web::Json(EngineResponsePayload::Error(
-            "Could not get a response".into(),
-        ))),
+        _ => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).json(
+            EngineResponsePayload::Error("Could not get a response".into()),
+        ),
     }
 }
 
@@ -1070,11 +843,13 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
 }
 
 pub fn handle_engine_api_request(
-    request: EngineRequest,
+    project_id: String,
+    request_id: u32,
+    payload: EngineRequestPayload,
     engine: Arc<&Engine>,
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
 ) -> PiResult<()> {
-    let response = match request.payload {
+    let response = match payload {
         EngineRequestPayload::Explore(optional_current_node_id) => {
             // The `Explore` request helps the UI show the graph in a way that makes it easy to visualize.
             // We start with nodes in a manner similar to how we process, and the UI can ask for further nodes.
@@ -1113,7 +888,7 @@ pub fn handle_engine_api_request(
                 NodeLabel::CrawlerSettings,
                 NodeLabel::ClassifierSettings,
                 NodeLabel::Link,
-                NodeLabel::Domain,
+                NodeLabel::DomainName,
                 NodeLabel::WebSearch,
             ];
 
@@ -1479,13 +1254,11 @@ pub fn handle_engine_api_request(
         }
     };
 
-    main_channel_tx.send(PiEvent::APIResponse(
-        request.project_id,
-        EngineResponse {
-            request_id: request.request_id,
-            payload: response,
-        },
-    ))?;
+    main_channel_tx.send(PiEvent::APIResponse {
+        project_id,
+        request_id,
+        payload: response,
+    })?;
 
     Ok(())
 }

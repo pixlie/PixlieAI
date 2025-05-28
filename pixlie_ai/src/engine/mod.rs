@@ -5,6 +5,7 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
+use crate::engine::node::NodeId;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,12 +20,7 @@ pub mod node;
 mod nodes;
 pub mod setup;
 
-use crate::engine::api::{EngineRequest, EngineResponse};
-use crate::engine::node::NodeId;
 pub use engine::Engine;
-// pub(crate) type EdgeLabel = String; // TODO: Use enum
-
-// pub(crate) type ArcedEdgeLabel = Arc<EdgeLabel>;
 
 #[derive(Clone, Deserialize, Display, Eq, Hash, PartialEq, Serialize, ToSchema, TS)]
 #[ts(export)]
@@ -71,13 +67,6 @@ bitflags! {
         // or condition changes
         const HAD_ERROR = 1 << 3;
     }
-}
-
-pub enum EngineWorkData {
-    APIRequest(EngineRequest),
-    APIResponse(EngineResponse),
-    FetchRequest,
-    FetchResponse,
 }
 
 pub(super) fn get_chunk_id_and_node_ids(node_id: &u32) -> (u32, Vec<u32>) {

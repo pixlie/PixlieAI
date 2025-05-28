@@ -34,7 +34,7 @@ pub enum PiError {
     #[error("Error in fetching external data: {0}")]
     FetchError(String),
 
-    #[error("Internal error: {0}")]
+    #[error("Internal:{0}")]
     InternalError(String),
 
     #[error("Version check error: {0}")]
@@ -52,36 +52,31 @@ pub enum PiError {
     #[error("Feature is not available: {0}")]
     FeatureNotAvailable(String),
 
-    // #[error("Error from Actix Web Blocking Error: {0}")]
-    // ActixWebError(#[from] actix_web::error::BlockingError),
-    #[error("Error from Anthropic Service: {0}")]
-    AnthropicServiceError(String),
-
     #[error("CRUD Error{0:?}: {1}")]
     CrudError(Vec<String>, String),
 
-    #[error("CRUD Error, {0:?} not found: {1}")]
-    CrudNotFoundError(Vec<String>, String),
+    #[error("{0} {1} not found")]
+    CrudNotFoundError(String, String),
 
-    #[error("Error in Gliner: {0}")]
+    #[error("Gliner: {0}")]
     GlinerError(String),
 
-    #[error("IO error: {0}")]
+    #[error("IO: {0}")]
     IOError(#[from] std::io::Error),
 
-    #[error("Error from reqwest: {0}")]
+    #[error("Reqwest: {0}")]
     ReqwestError(#[from] reqwest::Error),
 
-    #[error("Config error: {0}")]
+    #[error("Config: {0}")]
     SettingsError(#[from] config::ConfigError),
 
-    #[error("Error sending to crossbeam channel: {0}")]
+    #[error("Crossbeam: {0}")]
     CrossbeamChannelError(#[from] crossbeam_channel::SendError<PiEvent>),
 
-    #[error("Error from postcard: {0}")]
+    #[error("Postcard: {0}")]
     PostcardError(#[from] postcard::Error),
 
-    #[error("Error from rocksdb: {0}")]
+    #[error("Rocksdb: {0}")]
     RocksdbError(#[from] rocksdb::Error),
 
     #[error("Could not parse NodeLabel from string: {0}")]
