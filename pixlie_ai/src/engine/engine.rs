@@ -311,66 +311,67 @@ impl Engine {
         ];
         let mut node_count: usize = 0;
         let current_time = Utc::now();
-        let mut node_ids: Vec<NodeId> = match self.nodes.read() {
-            Ok(nodes) => {
-                let mut processing_status: HashMap<NodeLabel, bool> = HashMap::new();
-                nodes.data.iter().for_each(|item| {
-                    if dependency_labels_to_check
-                        .iter()
-                        .any(|label| item.1.labels.contains(label))
-                        && item.1.flags.contains(NodeFlags::IS_PROCESSED)
-                    {
-                        processing_status.insert(item.1.labels[0].clone(), true);
-                    }
-                });
-                nodes
-                    .data
+        let mut node_ids: Vec<NodeId> = {
+            let nodes = match self.nodes.read() {
+                Ok(nodes) => nodes,
+                Err(err) => {
+                    error!("Error locking nodes: {}", err);
+                    return;
+                }
+            };
+            let mut processing_status: HashMap<NodeLabel, bool> = HashMap::new();
+            nodes.data.iter().for_each(|item| {
+                if dependency_labels_to_check
                     .iter()
-                    .filter_map(|item| {
-                        // Skip nodes that are not ready to be processed:
-                        // - If the node has one of the flags to be skipped
-                        // - If the node depends on other nodes having been processed
-                        if flags_to_be_skipped
-                            .iter()
-                            .any(|flag| item.1.flags.contains(flag.clone()))
-                            || (processing_dependencies.iter().any(|(label, dependencies)| {
-                                item.1.labels.contains(label)
-                                    && dependencies.iter().all(|dependency| {
-                                        *processing_status.get(dependency).unwrap_or_else(|| &false)
-                                    })
-                            }))
-                        {
-                            None
-                        } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
-                            if current_time - item.1.written_at > TimeDelta::seconds(60) {
-                                Some(*item.0.deref())
-                            } else {
-                                None
-                            }
+                    .any(|label| item.1.labels.contains(label))
+                    && item.1.flags.contains(NodeFlags::IS_PROCESSED)
+                {
+                    processing_status.insert(item.1.labels[0].clone(), true);
+                }
+            });
+            nodes
+                .data
+                .iter()
+                .filter_map(|item| {
+                    // Skip nodes that are not ready to be processed:
+                    // - If the node has one of the flags to be skipped
+                    // - If the node depends on other nodes having been processed
+                    if flags_to_be_skipped
+                        .iter()
+                        .any(|flag| item.1.flags.contains(flag.clone()))
+                        || (processing_dependencies.iter().any(|(label, dependencies)| {
+                            item.1.labels.contains(label)
+                                && dependencies.iter().all(|dependency| {
+                                    *processing_status.get(dependency).unwrap_or_else(|| &false)
+                                })
+                        }))
+                    {
+                        None
+                    } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
+                        if current_time - item.1.written_at > TimeDelta::seconds(60) {
+                            Some(*item.0.deref())
                         } else {
-                            if node_count < 100
-                                && all_labels_to_be_processed
-                                    .iter()
-                                    .any(|label| item.1.labels.contains(label))
-                            {
-                                node_count += 1;
-                                Some(*item.0.deref())
-                            } else if limited_labels_to_be_processed
+                            None
+                        }
+                    } else {
+                        if node_count < 100
+                            && all_labels_to_be_processed
                                 .iter()
                                 .any(|label| item.1.labels.contains(label))
-                            {
-                                Some(*item.0.deref())
-                            } else {
-                                None
-                            }
+                        {
+                            node_count += 1;
+                            Some(*item.0.deref())
+                        } else if limited_labels_to_be_processed
+                            .iter()
+                            .any(|label| item.1.labels.contains(label))
+                        {
+                            Some(*item.0.deref())
+                        } else {
+                            None
                         }
-                    })
-                    .collect()
-            }
-            Err(err) => {
-                error!("Error locking nodes in process_nodes: {}", err);
-                return;
-            }
+                    }
+                })
+                .collect()
         };
         node_ids.sort();
 
@@ -558,13 +559,17 @@ impl Engine {
 
     pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
         // Return all nodes that are connected to me
-        match self.edges.try_read() {
-            Ok(edges) => match edges.data.get(my_node_id) {
-                Some(my_node_edges) => Ok(Some(my_node_edges.clone())),
-                None => Ok(None),
-            },
-            Err(_) => Err(PiError::GraphError("Error locking edges".to_string())),
-        }
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
+            Err(err) => {
+                error!("Error locking edges in get_connected_nodes: {}", err);
+                return Err(PiError::GraphError(format!(
+                    "Error locking edges in get_connected_nodes: {}",
+                    err
+                )));
+            }
+        };
+        Ok(edges.data.get(my_node_id).cloned())
     }
 
     pub fn get_node_ids_connected_with_label(
@@ -572,26 +577,28 @@ impl Engine {
         my_node_id: &NodeId,
         my_edge_to_other: &EdgeLabel,
     ) -> PiResult<Vec<NodeId>> {
-        match self.edges.try_read() {
-            Ok(edges) => {
-                let mut connected_node_ids: Vec<NodeId> = vec![];
-
-                match edges.data.get(my_node_id) {
-                    Some(edges_from_node) => {
-                        for (node_id, node_label) in edges_from_node.edges.iter() {
-                            if node_label == my_edge_to_other
-                                && !connected_node_ids.contains(node_id)
-                            {
-                                connected_node_ids.push(node_id.clone());
-                            }
-                        }
-                    }
-                    None => {}
-                };
-                Ok(connected_node_ids)
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
+            Err(err) => {
+                error!(
+                    "Error locking edges in get_node_ids_connected_with_label: {}",
+                    err
+                );
+                return Err(PiError::GraphError(format!(
+                    "Error locking edges in get_node_ids_connected_with_label: {}",
+                    err
+                )));
             }
-            Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
+        };
+        let mut connected_node_ids: Vec<NodeId> = vec![];
+        if let Some(edges_from_node) = edges.data.get(my_node_id) {
+            for (node_id, node_label) in edges_from_node.edges.iter() {
+                if node_label == my_edge_to_other && !connected_node_ids.contains(node_id) {
+                    connected_node_ids.push(node_id.clone());
+                }
+            }
         }
+        Ok(connected_node_ids)
     }
 
     pub fn fetch(&self, fetch_request: FetchRequest) -> PiResult<()> {
@@ -806,40 +813,40 @@ impl Engine {
     }
 
     pub fn get_all_node_labels(&self) -> Vec<NodeLabel> {
-        match self.nodes.try_read() {
-            Ok(nodes) => {
-                let mut labels: HashSet<NodeLabel> = HashSet::new();
-                for node in nodes.data.values() {
-                    labels.extend(node.labels.iter().cloned());
-                }
-                labels.iter().map(|x| x.clone()).collect()
-            }
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Could not lock nodes: {}", err);
-                vec![]
+                error!("Could not lock nodes in get_all_node_labels: {}", err);
+                return vec![];
             }
+        };
+        let mut labels: HashSet<NodeLabel> = HashSet::new();
+        for node in nodes.data.values() {
+            labels.extend(node.labels.iter().cloned());
         }
+        labels.iter().map(|x| x.clone()).collect()
     }
 
     pub fn get_node_ids_with_label(&self, label: &NodeLabel) -> Vec<ArcedNodeId> {
         // TODO: Use a cached HashMap of node_ids_by_label
-        match self.nodes.try_read() {
-            Ok(nodes) => nodes
-                .data
-                .iter()
-                .filter_map(|(id, node)| {
-                    if node.labels.contains(label) {
-                        Some(id.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Could not lock nodes: {}", err);
-                vec![]
+                error!("Could not lock nodes in get_node_ids_with_label: {}", err);
+                return vec![];
             }
-        }
+        };
+        nodes
+            .data
+            .iter()
+            .filter_map(|(id, node)| {
+                if node.labels.contains(label) {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn map_nodes(
@@ -848,15 +855,18 @@ impl Engine {
     ) -> PiResult<Vec<Option<NodeItem>>> {
         // TODO: Create a version which can take a closure which captures and updates the
         // environment of the function in parameter instead of returning Option<NodeItem>
-        let node_ids: Vec<ArcedNodeId> = match self.nodes.try_read() {
-            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
-            Err(err) => {
-                error!("Error locking nodes: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error locking nodes: {}",
-                    err
-                )));
-            }
+        let node_ids: Vec<ArcedNodeId> = {
+            let nodes = match self.nodes.read() {
+                Ok(nodes) => nodes,
+                Err(err) => {
+                    error!("Error locking nodes in map_nodes: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking nodes in map_nodes: {}",
+                        err
+                    )));
+                }
+            };
+            nodes.data.keys().cloned().collect()
         };
         let mut results: Vec<Option<NodeItem>> = vec![];
         for node_id in node_ids {
@@ -869,27 +879,29 @@ impl Engine {
     }
 
     pub fn get_all_nodes(&self) -> Vec<ArcedNodeItem> {
-        match self.nodes.try_read() {
-            Ok(nodes) => nodes.data.values().map(|x| x.clone()).collect(),
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Error locking nodes: {}", err);
-                vec![]
+                error!("Error locking nodes in get_all_nodes: {}", err);
+                return vec![];
             }
-        }
+        };
+        nodes.data.values().map(|x| x.clone()).collect()
     }
 
     pub fn get_all_edges(&self) -> HashMap<ArcedNodeId, NodeEdges> {
-        match self.edges.try_read() {
-            Ok(edges) => edges
-                .data
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
             Err(err) => {
-                error!("Error locking edges: {}", err);
-                HashMap::new()
+                error!("Error locking edges in get_all_edges: {}", err);
+                return HashMap::new();
             }
-        }
+        };
+        edges
+            .data
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
     pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
