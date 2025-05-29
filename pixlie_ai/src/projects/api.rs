@@ -1,6 +1,7 @@
 use super::{Project, ProjectCollection, ProjectCreate, ProjectOwner};
 use crate::{error::PiResult, utils::crud::Crud};
-use actix_web::{get, post, web, Responder};
+use actix_web::{get, http::StatusCode, post, web, HttpResponse, HttpResponseBuilder, Responder};
+use log::error;
 
 /// Get a list of all projects
 #[utoipa::path(
@@ -28,14 +29,19 @@ pub async fn read_projects() -> PiResult<impl Responder> {
     tag = "projects",
 )]
 #[post("")]
-pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl Responder> {
+pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<HttpResponse> {
     let project = Project::new(
         project.name.clone(),
         project.description.clone(),
         ProjectOwner::Myself,
     );
+
+    // When a project is created, we create a DB for it
+    // If a DB is missing, we assume that the project was deleted
+    let (_, path_to_db) = Project::get_default_path_to_db(&project.uuid)?;
+    Project::create_project_db(&path_to_db)?;
     ProjectCollection::create(project.clone())?;
-    Ok(web::Json(project))
+    Ok(HttpResponseBuilder::new(StatusCode::OK).json(project))
 }
 
 pub fn configure_api_projects(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {

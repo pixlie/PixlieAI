@@ -66,29 +66,30 @@ pub trait Crud {
         let item_id = item.get_id();
         let collection_name = Self::get_collection_name();
         match to_allocvec(&item) {
-            Ok(payload) => match db.put(format!("{}/{}", collection_name, item_id), payload) {
-                Ok(_) => {
-                    db.flush()?;
-                    items.push(item.clone());
-                    Self::_update_index(&db, &items.iter().map(|x| x.get_id()).collect())?;
+            Ok(payload) => {
+                match Self::_update_index(&db, &items.iter().map(|x| x.get_id()).collect()) {
+                    Ok(_) => match db.put(format!("{}/{}", collection_name, item_id), payload) {
+                        Ok(_) => {
+                            db.flush()?;
+                            items.push(item.clone());
+                            Ok(item)
+                        }
+                        Err(err) => Err(PiError::CrudError(
+                            vec![collection_name.to_string(), "create".to_string()],
+                            format!("DB Write Error: {}", err),
+                        )),
+                    },
+                    Err(err) => Err(PiError::CrudError(
+                        vec![collection_name.to_string(), "update_index".to_string()],
+                        format!("Could not save index: {}", err),
+                    )),
                 }
-                Err(err) => {
-                    return Err(PiError::CrudError(
-                        vec![collection_name.to_string(), "create".to_string()],
-                        format!("DB Write Error: {}", err),
-                    )
-                    .into());
-                }
-            },
-            Err(err) => {
-                return Err(PiError::CrudError(
-                    vec![collection_name.to_string(), "create".to_string()],
-                    format!("Serialization Error: {}", err),
-                )
-                .into());
             }
+            Err(err) => Err(PiError::CrudError(
+                vec![collection_name.to_string(), "create".to_string()],
+                format!("Serialization Error: {}", err),
+            )),
         }
-        Ok(item)
     }
 
     fn _read_index(db: &DB) -> PiResult<Vec<String>> {

@@ -209,7 +209,7 @@ impl Settings {
                         return Err(PiError::CannotReadOrWriteConfigFile);
                     }
                 };
-                let settings = match settings.deserialize::<Settings>() {
+                let settings = match settings.try_deserialize::<Settings>() {
                     Ok(settings) => settings,
                     Err(err) => {
                         error!("Error deserializing settings: {}", err);

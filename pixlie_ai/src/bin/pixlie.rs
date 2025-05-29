@@ -2,7 +2,7 @@ use log::{debug, error, info};
 use pixlie_ai::api::{send_api_error, APIChannel};
 use pixlie_ai::engine::Engine;
 use pixlie_ai::error::{PiError, PiResult};
-use pixlie_ai::projects::check_project_db;
+use pixlie_ai::projects::Project;
 use pixlie_ai::utils::fetcher::fetcher_runtime;
 use pixlie_ai::{api::api_manager, config::check_cli_settings, FetchResponse, PiChannel, PiEvent};
 use std::collections::HashMap;
@@ -206,7 +206,7 @@ fn main() {
                 request_id,
                 payload,
             } => {
-                let path_to_storage_dir = match check_project_db(&project_id) {
+                let (path_to_storage_dir, _) = match Project::check_project_db(&project_id) {
                     Ok(path_to_storage_dir) => path_to_storage_dir,
                     Err(err) => {
                         send_api_error(

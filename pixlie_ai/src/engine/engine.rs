@@ -16,7 +16,7 @@ use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::projects::{check_project_db, Project, ProjectOwner};
+use crate::projects::{Project, ProjectOwner};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
@@ -37,7 +37,6 @@ pub struct Engine {
     last_node_id: AtomicU32,
 
     project_uuid: String,
-    path_to_db: PathBuf,
     arced_db: Arc<DB>,
 
     my_pi_channel: PiChannel, // Used to communicate with the main thread
@@ -48,43 +47,6 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(
-        project_uuid: &str,
-        path_to_storage_dir: &PathBuf,
-        my_pi_channel: PiChannel,
-        main_channel_tx: crossbeam_channel::Sender<PiEvent>,
-        fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
-    ) -> PiResult<Self> {
-        let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
-        let db = match DB::open_default(path_to_db.as_os_str()) {
-            Ok(db) => db,
-            Err(error) => {
-                return Err(PiError::InternalError(format!(
-                    "Cannot open DB for project: {}",
-                    error
-                )))
-            }
-        };
-
-        let engine = Engine {
-            nodes: RwLock::new(Nodes::new()),
-            edges: RwLock::new(Edges::new()),
-
-            last_node_id: AtomicU32::new(0),
-
-            project_uuid: project_uuid.to_string(),
-            path_to_db,
-            arced_db: Arc::new(db),
-
-            my_pi_channel,
-            main_channel_tx,
-            fetcher_tx,
-
-            count_open_fetch_requests: AtomicU32::new(0),
-        };
-        Ok(engine)
-    }
-
     pub fn open(
         project_uuid: &str,
         path_to_storage_dir: &PathBuf,
@@ -93,6 +55,7 @@ impl Engine {
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
     ) -> PiResult<Self> {
         let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
+
         // Load all nodes and edges from the database
         // We need to run this before loading the project database
         // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
@@ -111,7 +74,6 @@ impl Engine {
             last_node_id: AtomicU32::new(0),
 
             project_uuid: project_uuid.to_string(),
-            path_to_db: path_to_db.clone(),
             arced_db: Arc::new(DB::open(&opts, path_to_db.as_os_str())?),
 
             my_pi_channel,
@@ -136,7 +98,7 @@ impl Engine {
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
-            match check_project_db(&self.project_uuid) {
+            match Project::check_project_db(&self.project_uuid) {
                 Ok(_) => {}
                 Err(_) => {
                     self.exit();
@@ -933,11 +895,13 @@ pub fn get_test_engine() -> Engine {
         Some("Test project description".to_string()),
         ProjectOwner::Myself,
     );
+    let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", &project.uuid));
+    Project::create_project_db(&path_to_db).unwrap();
     let channel_for_engine = PiChannel::new();
     let main_channel = PiChannel::new();
     let pi_channel_tx = main_channel.tx.clone();
     let (fetcher_tx, _fetcher_rx) = tokio::sync::mpsc::channel::<PiEvent>(100);
-    Engine::new(
+    Engine::open(
         &project.uuid,
         &path_to_storage_dir,
         channel_for_engine,
