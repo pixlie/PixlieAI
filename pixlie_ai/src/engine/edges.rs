@@ -143,9 +143,8 @@ mod tests {
         }
 
         {
-            let mut db_edges = Edges::new();
             // Load data from disk and check that it is the same as the original
-            db_edges.open(&db_path).unwrap();
+            let db_edges = Edges::open(&db_path).unwrap();
 
             for (node_id, node_edges) in edges.iter() {
                 // Check the ID and payload of each node against the one in the DB
