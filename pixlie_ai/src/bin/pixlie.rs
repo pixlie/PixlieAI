@@ -323,6 +323,7 @@ fn main() {
             }
             PiEvent::EngineExit(project_id) => match channels_per_project.lock() {
                 Ok(mut channels_per_project) => {
+                    error!("Engine exited for project {}", project_id);
                     channels_per_project.remove(&project_id);
                 }
                 Err(err) => {
@@ -350,6 +351,7 @@ fn main() {
                     }
                     None => {
                         error!("Project {} is not loaded", &response.project_id);
+                        break;
                     }
                 }
             }

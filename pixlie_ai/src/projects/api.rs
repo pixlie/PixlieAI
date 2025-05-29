@@ -1,7 +1,7 @@
 use super::{Project, ProjectCollection, ProjectCreate, ProjectOwner};
 use crate::{error::PiResult, utils::crud::Crud};
 use actix_web::{get, post, web};
-use log::{error, info};
+use log::error;
 
 /// Get a list of all projects
 #[utoipa::path(
@@ -15,14 +15,6 @@ use log::{error, info};
 #[get("")]
 pub async fn read_projects() -> PiResult<web::Json<Vec<Project>>> {
     let projects = ProjectCollection::read_list()?;
-    info!(
-        "Projects {}",
-        projects
-            .iter()
-            .map(|project| project.uuid.to_string())
-            .collect::<Vec<String>>()
-            .join(",")
-    );
     // Check that DB exists for each project
     projects
         .iter()

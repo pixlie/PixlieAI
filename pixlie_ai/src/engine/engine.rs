@@ -21,6 +21,7 @@ use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
 use rocksdb::DB;
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
@@ -118,6 +119,11 @@ impl Engine {
 
     fn exit(&self) {
         // We tell the main thread that we are done ticking
+        error!(
+            "Engine exiting for project {}\nBacktrace:\n{}",
+            self.project_uuid,
+            Backtrace::capture()
+        );
         match self
             .main_channel_tx
             .send(PiEvent::EngineExit(self.project_uuid.clone()))

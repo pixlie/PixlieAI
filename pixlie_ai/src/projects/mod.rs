@@ -106,7 +106,6 @@ impl Project {
 
     pub fn check_project_db(project_uuid: &str) -> PiResult<(PathBuf, PathBuf)> {
         let (path_to_storage_dir, path_to_db) = Self::get_default_path_to_db(project_uuid)?;
-        let _ = ProjectCollection::read_item(&project_uuid)?;
         if !path_to_db.exists() || !path_to_db.is_dir() {
             // If project DB has been deleted, we remove the project from the collection
             match ProjectCollection::delete(project_uuid) {
