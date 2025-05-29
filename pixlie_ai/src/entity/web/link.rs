@@ -42,10 +42,10 @@ impl Link {
         })?;
 
         // TODO: Remove this and add the Domain label from all the calling functions
-        let domain_extra_labels = if domain_extra_labels.contains(&NodeLabel::Domain) {
+        let domain_extra_labels = if domain_extra_labels.contains(&NodeLabel::DomainName) {
             domain_extra_labels
         } else {
-            [domain_extra_labels, vec![NodeLabel::Domain]].concat()
+            [domain_extra_labels, vec![NodeLabel::DomainName]].concat()
         };
         let domain_node_id: NodeId = engine
             .get_or_add_node(
@@ -138,7 +138,7 @@ impl Link {
             },
         };
 
-        let url: String = if domain_node.labels.contains(&NodeLabel::Domain) {
+        let url: String = if domain_node.labels.contains(&NodeLabel::DomainName) {
             match domain_node.payload {
                 Payload::Text(ref domain) => format!("https://{}{}", domain, url),
                 _ => {
@@ -264,7 +264,7 @@ impl Link {
                 Ok(connected_node_ids.iter().find_map(|node_id| {
                     match engine.get_node_by_id(node_id) {
                         Some(node) => {
-                            if node.labels.contains(&NodeLabel::Domain) {
+                            if node.labels.contains(&NodeLabel::DomainName) {
                                 match &node.payload {
                                     Payload::Text(_) => {
                                         Some((node_id.clone(), node.deref().clone()))

@@ -158,14 +158,14 @@ fn test_webpage_scraper_rlhf_book() {
     let link_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Link);
     assert_eq!(link_node_ids.len(), 15);
 
-    let domain_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Domain);
+    let domain_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::DomainName);
     assert_eq!(domain_node_ids.len(), 8);
 
     let all_domain_nodes: Vec<ArcedNodeItem> = domain_node_ids
         .iter()
         .filter_map(|node_id| match test_engine.get_node_by_id(node_id) {
             Some(node) => {
-                if node.labels.contains(&NodeLabel::Domain) {
+                if node.labels.contains(&NodeLabel::DomainName) {
                     match node.payload {
                         Payload::Text(_) => Some(node.clone()),
                         _ => None,
@@ -664,7 +664,7 @@ fn test_crawl_within_domains_of_specified_links() {
     assert_eq!(link_node_ids.len(), 189);
 
     // Check that there is only one Domain node
-    let domain_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::Domain);
+    let domain_node_ids = test_engine.get_node_ids_with_label(&NodeLabel::DomainName);
     assert_eq!(domain_node_ids.len(), 1);
 
     let edges_from_domain_node = test_engine

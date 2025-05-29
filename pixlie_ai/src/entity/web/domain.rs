@@ -20,11 +20,11 @@ impl Domain {
         match find_type {
             FindDomainOf::DomainName(domain_name) => {
                 // TODO: Implement and use better graph query API: https://github.com/pixlie/PixlieAI/issues/90, point 2
-                let domain_node_ids = engine.get_node_ids_with_label(&NodeLabel::Domain);
+                let domain_node_ids = engine.get_node_ids_with_label(&NodeLabel::DomainName);
                 for node_id in domain_node_ids {
                     match engine.get_node_by_id(&node_id) {
                         Some(node) => {
-                            if node.labels.contains(&NodeLabel::Domain) {
+                            if node.labels.contains(&NodeLabel::DomainName) {
                                 match node.payload {
                                     Payload::Text(ref domain) => {
                                         if domain == domain_name {
@@ -52,7 +52,7 @@ impl Domain {
                 })?;
                 match engine.get_node_by_id(first_belongs_to) {
                     Some(node) => {
-                        if node.labels.contains(&NodeLabel::Domain) {
+                        if node.labels.contains(&NodeLabel::DomainName) {
                             match node.payload {
                                 Payload::Text(_) => Ok(Some(node)),
                                 _ => Err(PiError::GraphError(
@@ -75,7 +75,7 @@ impl Domain {
     }
 
     pub fn get_domain_name(node: &NodeItem) -> PiResult<String> {
-        if !node.labels.contains(&NodeLabel::Domain) {
+        if !node.labels.contains(&NodeLabel::DomainName) {
             error!("Expected Domain type payload");
             return Err(PiError::GraphError(
                 "Expected Domain type payload".to_string(),

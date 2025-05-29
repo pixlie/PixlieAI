@@ -48,8 +48,8 @@ const URLPreview: Component<URLPreviewProps> = ({
       )}
       <div class="rounded-full group p-2 hover:bg-slate-200 hover:text-slate-800 hover:cursor-pointer relative flex items-center gap-1">
         <div
-          class="pointer-events-none opacity-0  scale-95 transition-all duration-100 ease-in-out 
-            group-hover:opacity-100  group-hover:scale-100 group-hover:pointer-events-auto 
+          class="pointer-events-none opacity-0  scale-95 transition-all duration-100 ease-in-out
+            group-hover:opacity-100  group-hover:scale-100 group-hover:pointer-events-auto
             flex flex-col absolute right-full top-full -translate-y-1/2 -mt-6 w-[30vw]"
         >
           <div
@@ -109,7 +109,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ContentOf",
-      (n) => n.payload.type === "Link"
+      (n) => n.payload.type === "Link",
     )[0];
   });
 
@@ -120,7 +120,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
       params.projectId,
       linkNode.id,
       "BelongsTo",
-      (n) => n.labels.includes("Domain")
+      (n) => n.labels.includes("DomainName"),
     )[0];
     return domainNode;
   });
@@ -134,7 +134,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
 
   const getClassification = createMemo<Classification | null>(() => {
     return getRelatedNodes(params.projectId, props.nodeId, "Classifies", (n) =>
-      n.labels.includes("Classification")
+      n.labels.includes("Classification"),
     )[0]?.payload.data as Classification | null;
   });
 
@@ -143,19 +143,19 @@ const URLNode: Component<URLNodeProps> = (props) => {
   >(() => {
     const entities =
       getRelatedNodes(params.projectId, props.nodeId, "Suggests", (n) =>
-        n.labels.includes("ExtractedNamedEntities")
+        n.labels.includes("ExtractedNamedEntities"),
       )
         ?.filter((n) => n.payload.type === "ExtractedNamedEntities")
         ?.flatMap((n) => n.payload.data as Array<ExtractedEntity>) || [];
     const groupedEntities = entities.reduce(
       (acc, entity) => {
         const existingGroup = acc.find(
-          (group) => group.label === entity.entity_name
+          (group) => group.label === entity.entity_name,
         );
 
         if (existingGroup) {
           existingGroup.values = Array.from(
-            new Set([...existingGroup.values, entity.matching_text])
+            new Set([...existingGroup.values, entity.matching_text]),
           );
         } else {
           acc.push({
@@ -165,7 +165,7 @@ const URLNode: Component<URLNodeProps> = (props) => {
         }
         return acc;
       },
-      [] as Array<{ label: string; values: string[] }>
+      [] as Array<{ label: string; values: string[] }>,
     );
     return groupedEntities;
   });

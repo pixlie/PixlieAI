@@ -1,12 +1,12 @@
-use std::{path::PathBuf, sync::Arc};
-
 use crate::{
+    config::Settings,
     error::{PiError, PiResult},
     utils::crud::{Crud, CrudItem},
 };
-use log::{debug, error, info};
+use log::error;
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use ts_rs::TS;
 use utoipa::ToSchema;
 
@@ -42,154 +42,13 @@ pub struct ProjectCreate {
 
 impl Project {
     pub fn new(name: Option<String>, description: Option<String>, owner: ProjectOwner) -> Project {
-        Project {
+        let project = Project {
             uuid: uuid::Uuid::new_v4().to_string(),
             name,
             description,
             owner,
-        }
-    }
-    pub fn from_id(uuid: &str) -> Project {
-        Project {
-            uuid: uuid.to_string(),
-            name: None,
-            description: None,
-            owner: ProjectOwner::Myself,
-        }
-    }
-}
-
-pub struct ProjectForEngine {
-    pub project: Project,
-    pub path_to_storage_dir: PathBuf,
-    pub arced_db: Option<Arc<DB>>,
-}
-
-pub struct EngineProjectValidationResult {
-    pub error_response_message_for_api: Option<String>,
-    pub should_unload_engine: bool,
-}
-
-impl ProjectForEngine {
-    pub fn new(project: Project, path_to_storage_dir: PathBuf) -> PiResult<Self> {
-        let mut project = Self {
-            project,
-            path_to_storage_dir,
-            arced_db: None,
-        };
-        project.init_db()?;
-        // TODO: Ideally this should be called here, but tests are failing
-        // if it is called here.
-        // We can move this call here once Settings is refactored to be
-        // cleanly testable and functions dependent on Settings are
-        // moved to impl Settings
-        // ProjectCollection::create(project.project.clone())?;
-        Ok(project)
-    }
-
-    pub fn open(uuid: &str, path_to_storage_dir: PathBuf) -> Self {
-        let project = Self {
-            project: Project::from_id(uuid),
-            path_to_storage_dir,
-            arced_db: None,
         };
         project
-    }
-
-    pub fn get_db_path(&self) -> PathBuf {
-        self.path_to_storage_dir
-            .join(format!("{}.rocksdb", self.project.uuid))
-    }
-
-    pub fn get_arced_db(&self) -> PiResult<Arc<DB>> {
-        match self.arced_db.as_ref() {
-            Some(db) => Ok(db.clone()),
-            None => Err(PiError::InternalError(
-                "Cannot get DB: DB is not open".to_string(),
-            )),
-        }
-    }
-
-    fn init_db(&mut self) -> PiResult<()> {
-        let db_path = self.get_db_path();
-        match DB::open_default(db_path.as_os_str()) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(PiError::InternalError(format!(
-                "Cannot open DB for project: {}",
-                error
-            ))),
-        }
-    }
-
-    pub fn load_db(&mut self) -> PiResult<()> {
-        let db_path = self.get_db_path();
-        if db_path.exists() && db_path.is_dir() {
-            let mut opts = rocksdb::Options::default();
-            opts.create_if_missing(false);
-            let db = DB::open(&opts, db_path.as_os_str())?;
-            self.arced_db = Some(Arc::new(db));
-            Ok(())
-        } else {
-            Err(PiError::InternalError(format!(
-                "DB does not exist at path: {}",
-                db_path.display()
-            )))
-        }
-    }
-
-    pub fn validate_record_and_db(&self) -> PiResult<EngineProjectValidationResult> {
-        let mut validation_result = EngineProjectValidationResult {
-            error_response_message_for_api: None,
-            should_unload_engine: false,
-        };
-        let db_exists = self.get_db_path().exists();
-        match ProjectCollection::read_item(&self.project.uuid) {
-            Ok(project) => {
-                if !db_exists {
-                    error!(
-                        "Project DB for {} does not exist, deleting project",
-                        project.uuid
-                    );
-                    if ProjectCollection::delete(&project.uuid).is_err() {
-                        error!("Error deleting project {} from collection", project.uuid);
-                    } else {
-                        info!(
-                            "Project {} deleted from collection as DB was not found",
-                            project.uuid
-                        );
-                    }
-                }
-            }
-            Err(PiError::CrudNotFoundError(item, msg)) => {
-                debug!("{msg}: {item:?}");
-                validation_result.error_response_message_for_api = Some(format!(
-                    "Project {} does not exist: {msg}",
-                    self.project.uuid
-                ));
-                validation_result.should_unload_engine = true;
-                if db_exists {
-                    info!(
-                        "{msg}: {item:?}, DB found at {} can be deleted",
-                        self.get_db_path().display()
-                    );
-                    // TODO: delete the dangling DB folder, if it is safe to do so
-                    // std::fs::remove_dir_all(self.get_db_path()).unwrap_or_else(|_| {
-                    //     error!(
-                    //         "Failed to delete DB folder at {}",
-                    //         self.get_db_path().display()
-                    //     );
-                    // });
-                }
-            }
-            Err(err) => {
-                debug!("Error reading project {}: {err}", self.project.uuid);
-                validation_result.error_response_message_for_api = Some(format!(
-                    "Error while validating project {}: {err}",
-                    self.project.uuid
-                ));
-            }
-        };
-        Ok(validation_result)
     }
 }
 
@@ -206,5 +65,58 @@ impl Crud for ProjectCollection {
 
     fn get_collection_name() -> &'static str {
         "project"
+    }
+}
+
+impl Project {
+    pub fn create_project_db(path_to_db: &PathBuf) -> PiResult<()> {
+        if path_to_db.exists() || path_to_db.is_dir() {
+            return Err(PiError::InternalError(
+                "DB for project already exists".to_string(),
+            ));
+        }
+        match DB::open_default(path_to_db.as_os_str()) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(PiError::InternalError(format!(
+                "Cannot create DB for project: {}",
+                error
+            ))),
+        }
+    }
+
+    pub fn get_default_path_to_db(project_uuid: &str) -> PiResult<(PathBuf, PathBuf)> {
+        let path_to_storage_dir: PathBuf = match Settings::get_cli_settings() {
+            Ok(settings) => match settings.path_to_storage_dir {
+                Some(path) => PathBuf::from(path),
+                None => {
+                    error!("Cannot find path to storage directory");
+                    return Err(PiError::InternalError(
+                        "Path to storage directory not configured yet".to_string(),
+                    ));
+                }
+            },
+            Err(err) => {
+                error!("Error reading settings: {}", err);
+                return Err(PiError::InternalError("Error reading settings".to_string()));
+            }
+        };
+        let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
+        Ok((path_to_storage_dir, path_to_db))
+    }
+
+    pub fn check_project_db(project_uuid: &str) -> PiResult<(PathBuf, PathBuf)> {
+        let (path_to_storage_dir, path_to_db) = Self::get_default_path_to_db(project_uuid)?;
+        if !path_to_db.exists() || !path_to_db.is_dir() {
+            // If project DB has been deleted, we remove the project from the collection
+            match ProjectCollection::delete(project_uuid) {
+                Ok(_) => {}
+                Err(_) => {}
+            }
+            return Err(PiError::InternalError(format!(
+                "DB for project {} does not exist",
+                project_uuid
+            )));
+        }
+        Ok((path_to_storage_dir, path_to_db))
     }
 }

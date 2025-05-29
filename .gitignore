@@ -1,8 +1,7 @@
 pixlieai.rocksdb/
 docs/
 .idea/
-pixlieai_rs/.idea/
-admin/.idea/
+**/.idea/
 rest_api/environments
 .vscode
 .zed

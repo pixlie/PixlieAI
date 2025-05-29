@@ -36,9 +36,7 @@ pub trait Crud {
     fn _update_index(db: &DB, item_ids: &Vec<String>) -> PiResult<()> {
         match to_allocvec(item_ids) {
             Ok(payload) => match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
-                Ok(_) => {
-                    db.flush()?;
-                }
+                Ok(_) => {}
                 Err(err) => {
                     error!(
                         "Error writing {} index: {}",
@@ -65,30 +63,37 @@ pub trait Crud {
         let db = get_pixlie_ai_db()?;
         let item_id = item.get_id();
         let collection_name = Self::get_collection_name();
+
         match to_allocvec(&item) {
             Ok(payload) => match db.put(format!("{}/{}", collection_name, item_id), payload) {
-                Ok(_) => {
-                    db.flush()?;
-                    items.push(item.clone());
-                    Self::_update_index(&db, &items.iter().map(|x| x.get_id()).collect())?;
-                }
+                Ok(_) => items.push(item.clone()),
                 Err(err) => {
                     return Err(PiError::CrudError(
                         vec![collection_name.to_string(), "create".to_string()],
                         format!("DB Write Error: {}", err),
-                    )
-                    .into());
+                    ))
                 }
             },
             Err(err) => {
                 return Err(PiError::CrudError(
                     vec![collection_name.to_string(), "create".to_string()],
                     format!("Serialization Error: {}", err),
-                )
-                .into());
+                ))
             }
+        };
+        match Self::_update_index(
+            &db,
+            &items.iter().map(|x| x.get_id()).collect::<Vec<String>>(),
+        ) {
+            Ok(_) => {
+                db.flush()?;
+                Ok(item)
+            }
+            Err(err) => Err(PiError::CrudError(
+                vec![collection_name.to_string(), "update_index".to_string()],
+                format!("Could not save index: {}", err),
+            )),
         }
-        Ok(item)
     }
 
     fn _read_index(db: &DB) -> PiResult<Vec<String>> {
@@ -169,8 +174,8 @@ pub trait Crud {
                     .into()),
                 },
                 None => Err(PiError::CrudNotFoundError(
-                    vec![collection_name.to_string(), id.to_string()],
-                    format!("Item not found"),
+                    collection_name.to_string(),
+                    id.to_string(),
                 )
                 .into()),
             },
@@ -183,11 +188,9 @@ pub trait Crud {
         let item_ids = Self::_read_index(&db)?;
         let collection_name = Self::get_collection_name();
         if !item_ids.contains(&uuid.to_string()) {
-            return Err(PiError::CrudNotFoundError(
-                vec![collection_name.to_string(), uuid.to_string()],
-                format!("Item not found"),
-            )
-            .into());
+            return Err(
+                PiError::CrudNotFoundError(collection_name.to_string(), uuid.to_string()).into(),
+            );
         }
         match to_allocvec(&item) {
             Ok(payload) => match db.put(format!("{}/{}", collection_name, uuid), payload) {
@@ -222,17 +225,15 @@ pub trait Crud {
         let mut item_ids = Self::_read_index(&db)?;
         let collection_name = Self::get_collection_name();
         if !item_ids.contains(&uuid.to_string()) {
-            return Err(PiError::CrudNotFoundError(
-                vec![collection_name.to_string(), uuid.to_string()],
-                format!("Item not found"),
-            )
-            .into());
+            return Err(
+                PiError::CrudNotFoundError(collection_name.to_string(), uuid.to_string()).into(),
+            );
         }
         item_ids.retain(|id| id != uuid);
         Self::_update_index(&db, &item_ids)?;
         match db.delete(format!("{}/{}", collection_name, uuid)) {
             Ok(_) => {
-                let _ = db.flush();
+                db.flush()?;
             }
             Err(err) => {
                 return Err(PiError::CrudError(

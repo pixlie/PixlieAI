@@ -65,22 +65,25 @@ pub(crate) type ArcedNodeId = Arc<NodeId>;
 pub enum NodeLabel {
     AddedByUser,
     AddedByAI,
-    AddedByPixlie, // TODO: remove this label
     AddedByWebSearch,
     AddedByGliner,
-    Content,
-    Domain,
-    Heading,
-    Link,
-    ListItem,
+
     Objective,
-    OrderedPoints,
-    Paragraph,
-    Partial,
+
+    DomainName,
+    Link,
     RobotsTxt,
-    SearchTerm,
+
+    Content,
+    Heading,
     Title,
+    Paragraph,
+    ListItem,
     UnorderedPoints,
+    OrderedPoints,
+    Partial,
+    SearchTerm,
+
     WebPage,
     WebSearch,
     WebMetadata,
@@ -88,8 +91,6 @@ pub enum NodeLabel {
     ProjectSettings,
     CrawlerSettings,
     ClassifierSettings,
-    Insight, // TODO: remove this label
-    Reason,  // TODO: remove this label
     Classification,
     NamedEntitiesToExtract,
     ExtractedNamedEntities,
@@ -113,7 +114,7 @@ pub struct NodeItem {
 
 impl NodeItem {
     pub(super) fn process(&self, arced_engine: Arc<&Engine>) -> PiResult<()> {
-        if self.labels.contains(&NodeLabel::Domain) {
+        if self.labels.contains(&NodeLabel::DomainName) {
             Domain::process(self, arced_engine.clone(), None)?;
         } else if self.labels.contains(&NodeLabel::Link) {
             Link::process(self, arced_engine.clone(), None)?;
@@ -134,7 +135,7 @@ impl NodeItem {
         arced_engine: Arc<&Engine>,
         response: FetchResponse,
     ) -> PiResult<()> {
-        if self.labels.contains(&NodeLabel::Domain) {
+        if self.labels.contains(&NodeLabel::DomainName) {
             Domain::process(
                 self,
                 arced_engine.clone(),
@@ -183,7 +184,7 @@ impl NodeItem {
         arced_engine: Arc<&Engine>,
         error: FetchError,
     ) -> PiResult<()> {
-        if self.labels.contains(&NodeLabel::Domain) {
+        if self.labels.contains(&NodeLabel::DomainName) {
             Domain::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         } else if self.labels.contains(&NodeLabel::Link) {
             Link::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;

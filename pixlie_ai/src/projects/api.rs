@@ -1,12 +1,7 @@
-use std::path::PathBuf;
-
-use super::{Project, ProjectCollection, ProjectCreate, ProjectForEngine, ProjectOwner};
-use crate::{
-    config::Settings,
-    error::{PiError, PiResult},
-    utils::crud::Crud,
-};
-use actix_web::{get, post, web, Responder};
+use super::{Project, ProjectCollection, ProjectCreate, ProjectOwner};
+use crate::{error::PiResult, utils::crud::Crud};
+use actix_web::{get, post, web};
+use log::error;
 
 /// Get a list of all projects
 #[utoipa::path(
@@ -18,9 +13,18 @@ use actix_web::{get, post, web, Responder};
     tag = "projects",
 )]
 #[get("")]
-pub async fn read_projects() -> PiResult<impl Responder> {
+pub async fn read_projects() -> PiResult<web::Json<Vec<Project>>> {
     let projects = ProjectCollection::read_list()?;
-    Ok(web::Json(projects))
+    // Check that DB exists for each project
+    projects
+        .iter()
+        .for_each(|project| match Project::check_project_db(&project.uuid) {
+            Ok(_) => {}
+            Err(_) => {
+                error!("DB for project {} does not exist", &project.uuid);
+            }
+        });
+    Ok(web::Json(ProjectCollection::read_list()?))
 }
 
 /// Create a new project
@@ -34,42 +38,19 @@ pub async fn read_projects() -> PiResult<impl Responder> {
     tag = "projects",
 )]
 #[post("")]
-pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<impl Responder> {
-    let settings: Settings = Settings::get_cli_settings()?;
-    let path_to_storage_dir = match settings.path_to_storage_dir {
-        Some(path) => PathBuf::from(path),
-        None => {
-            return Err(PiError::InternalError(
-                "Cannot find path to storage directory".to_string(),
-            ));
-        }
-    };
-    let engine_project = match ProjectForEngine::new(
-        Project::new(
-            project.name.clone(),
-            project.description.clone(),
-            ProjectOwner::Myself,
-        ),
-        path_to_storage_dir,
-    ) {
-        Ok(engine_project) => {
-            // TODO: Ideally this should be called in ProjectForEngine::new,
-            // but tests are failing if it is called there.
-            // We can move this call there once Settings is refactored to be
-            // cleanly testable and functions dependent on Settings are
-            // moved to impl Settings
-            ProjectCollection::create(engine_project.project.clone())?;
-            engine_project
-        }
-        Err(err) => {
-            return Err(PiError::InternalError(format!(
-                "Cannot create project: {}",
-                err
-            )));
-        }
-    };
+pub async fn create_project(project: web::Json<ProjectCreate>) -> PiResult<web::Json<Project>> {
+    let project = Project::new(
+        project.name.clone(),
+        project.description.clone(),
+        ProjectOwner::Myself,
+    );
 
-    Ok(web::Json(engine_project.project))
+    // When a project is created, we create a DB for it
+    // If a DB is missing, we assume that the project was deleted
+    let (_, path_to_db) = Project::get_default_path_to_db(&project.uuid)?;
+    ProjectCollection::create(project.clone())?;
+    Project::create_project_db(&path_to_db)?;
+    Ok(web::Json(project))
 }
 
 pub fn configure_api_projects(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {

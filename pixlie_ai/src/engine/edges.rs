@@ -3,7 +3,7 @@ use crate::engine::{get_chunk_id_and_node_ids, NodeEdges};
 use crate::error::{PiError, PiResult};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
-use rocksdb::{ErrorKind, Options, SliceTransform, DB};
+use rocksdb::{Options, SliceTransform, DB};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -40,43 +40,33 @@ impl Edges {
         Ok(())
     }
 
-    pub(super) fn load_all_from_disk(&mut self, db_path: &PathBuf) -> PiResult<()> {
+    pub(super) fn open(db_path: &PathBuf) -> PiResult<Self> {
         let prefix_extractor = SliceTransform::create_fixed_prefix(EDGES_CHUNK_PREFIX.len());
+        let mut edges = Edges::new();
         let mut opts = Options::default();
         opts.create_if_missing(false);
         opts.set_prefix_extractor(prefix_extractor);
         let db = match DB::open(&opts, db_path) {
             Ok(db) => db,
             Err(err) => {
-                return if err.kind() == ErrorKind::InvalidArgument
-                    && err.to_string().contains("does not exist")
-                {
-                    Ok(())
-                } else {
-                    Err(PiError::InternalError(
-                        "Database does not exist".to_string(),
-                    ))
-                }
+                return Err(PiError::RocksdbError(err));
             }
         };
         for chunk in db.prefix_iterator(EDGES_CHUNK_PREFIX) {
             match chunk {
                 Ok(chunk) => {
                     let data: Vec<(NodeId, NodeEdges)> = from_bytes(&chunk.1)?;
-                    for (node_id, edges) in data {
-                        self.data.insert(Arc::new(node_id), edges);
+                    for (node_id, edge) in data {
+                        edges.data.insert(Arc::new(node_id), edge);
                     }
                 }
                 Err(err) => {
                     error!("Error reading chunk from DB: {}", err);
-                    return Err(PiError::InternalError(format!(
-                        "Error reading chunk from DB: {}",
-                        err
-                    )));
+                    return Err(PiError::RocksdbError(err));
                 }
             }
         }
-        Ok(())
+        Ok(edges)
     }
 }
 
@@ -153,9 +143,8 @@ mod tests {
         }
 
         {
-            let mut db_edges = Edges::new();
             // Load data from disk and check that it is the same as the original
-            db_edges.load_all_from_disk(&db_path).unwrap();
+            let db_edges = Edges::open(&db_path).unwrap();
 
             for (node_id, node_edges) in edges.iter() {
                 // Check the ID and payload of each node against the one in the DB

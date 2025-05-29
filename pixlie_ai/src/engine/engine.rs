@@ -6,7 +6,7 @@
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
 use super::{EdgeLabel, NodeEdges, NodeFlags};
-use crate::engine::api::{handle_engine_api_request, EngineResponse, EngineResponsePayload};
+use crate::engine::api::{handle_engine_api_request, EngineResponsePayload};
 use crate::engine::edges::Edges;
 use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
@@ -16,10 +16,12 @@ use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
-use crate::projects::{Project, ProjectForEngine, ProjectOwner};
+use crate::projects::{Project, ProjectOwner};
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
+use rocksdb::DB;
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
@@ -34,7 +36,9 @@ pub struct Engine {
     edges: RwLock<Edges>,
 
     last_node_id: AtomicU32,
-    engine_project: ProjectForEngine,
+
+    project_uuid: String,
+    arced_db: Arc<DB>,
 
     my_pi_channel: PiChannel, // Used to communicate with the main thread
     main_channel_tx: crossbeam_channel::Sender<PiEvent>,
@@ -44,18 +48,41 @@ pub struct Engine {
 }
 
 impl Engine {
-    fn new(
-        project: ProjectForEngine,
+    pub fn open(
+        project_uuid: &str,
+        path_to_storage_dir: &PathBuf,
         my_pi_channel: PiChannel,
         main_channel_tx: crossbeam_channel::Sender<PiEvent>,
         fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
-    ) -> Engine {
+    ) -> PiResult<Self> {
+        let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", project_uuid));
+
+        // Load all nodes and edges from the database
+        // We need to run this before loading the project database
+        // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
+        // to open the database with their prefix extractors and once the database
+        // is opened(and locked), we cannot open it again with a different prefix
+        // extractor or set a prefix extractor
+        let (nodes, last_node_id) = Nodes::open(&path_to_db)?;
+        let edges = Edges::open(&path_to_db)?;
+        let mut opts = rocksdb::Options::default();
+        opts.create_if_missing(false);
+        let db = match DB::open(&opts, path_to_db.as_os_str()) {
+            Ok(db) => db,
+            Err(err) => {
+                error!("Could not open DB for project {}: {}", project_uuid, err);
+                return Err(err.into());
+            }
+        };
+
         let engine = Engine {
-            nodes: RwLock::new(Nodes::new()),
-            edges: RwLock::new(Edges::new()),
-            // node_ids_by_label: Mutex::new(NodeIdsByLabel::new()),
+            nodes: RwLock::new(nodes),
+            edges: RwLock::new(edges),
+
             last_node_id: AtomicU32::new(0),
-            engine_project: project,
+
+            project_uuid: project_uuid.to_string(),
+            arced_db: Arc::new(db),
 
             my_pi_channel,
             main_channel_tx,
@@ -63,34 +90,43 @@ impl Engine {
 
             count_open_fetch_requests: AtomicU32::new(0),
         };
-        engine
+
+        if last_node_id != 0 {
+            engine
+                .last_node_id
+                .store(last_node_id + 1, std::sync::atomic::Ordering::Relaxed);
+        }
+        Ok(engine)
     }
 
-    pub fn open_project(
-        engine_project: ProjectForEngine,
-        my_pi_channel: PiChannel,
-        main_channel_tx: crossbeam_channel::Sender<PiEvent>,
-        fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
-    ) -> Engine {
-        Engine::new(engine_project, my_pi_channel, main_channel_tx, fetcher_tx)
-    }
-
-    pub fn load_project_db(&mut self) -> PiResult<()> {
-        self.engine_project.load_db()
+    pub fn get_project_id(&self) -> &str {
+        &self.project_uuid
     }
 
     pub fn ticker(&self) {
         loop {
             thread::sleep(Duration::from_millis(2000));
+            match Project::check_project_db(&self.project_uuid) {
+                Ok(_) => {}
+                Err(_) => {
+                    self.exit();
+                    break;
+                }
+            }
             self.process_nodes();
         }
     }
 
     fn exit(&self) {
         // We tell the main thread that we are done ticking
+        error!(
+            "Engine exiting for project {}\nBacktrace:\n{}",
+            self.project_uuid,
+            Backtrace::capture()
+        );
         match self
             .main_channel_tx
-            .send(PiEvent::EngineExit(self.get_project_id().clone()))
+            .send(PiEvent::EngineExit(self.project_uuid.clone()))
         {
             Ok(_) => {}
             Err(err) => {
@@ -104,27 +140,29 @@ impl Engine {
         let arced_self = Arc::new(self);
         for event in self.my_pi_channel.rx.iter() {
             match event {
-                PiEvent::APIRequest(project_id, request) => {
-                    if self.get_project_id() == project_id {
-                        let request_id = request.request_id;
-                        match handle_engine_api_request(
-                            request,
-                            arced_self.clone(),
-                            self.main_channel_tx.clone(),
-                        ) {
-                            Ok(_) => {}
-                            Err(error) => {
-                                match self.main_channel_tx.send(PiEvent::APIResponse(
-                                    project_id,
-                                    EngineResponse {
-                                        request_id,
-                                        payload: EngineResponsePayload::Error(error.to_string()),
-                                    },
-                                )) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        error!("Error sending PiEvent in Engine: {}", err);
-                                    }
+                PiEvent::APIRequest {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    let request_id = request_id;
+                    match handle_engine_api_request(
+                        project_id.clone(),
+                        request_id,
+                        payload,
+                        arced_self.clone(),
+                        self.main_channel_tx.clone(),
+                    ) {
+                        Ok(_) => {}
+                        Err(error) => {
+                            match self.main_channel_tx.send(PiEvent::APIResponse {
+                                project_id,
+                                request_id,
+                                payload: EngineResponsePayload::Error(error.to_string()),
+                            }) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("Error sending PiEvent in Engine: {}", err);
                                 }
                             }
                         }
@@ -234,13 +272,13 @@ impl Engine {
         // When the number of the nodes to be processed is large,
         // we do not process nodes that generate more nodes. WebPage nodes are like that.
         let limited_labels_to_be_processed = vec![
-            NodeLabel::Domain,
+            NodeLabel::DomainName,
             NodeLabel::Objective,
             NodeLabel::WebPage,
             NodeLabel::WebSearch,
         ];
         let all_labels_to_be_processed = vec![
-            NodeLabel::Domain,
+            NodeLabel::DomainName,
             NodeLabel::Link,
             NodeLabel::Objective,
             NodeLabel::WebPage,
@@ -248,66 +286,67 @@ impl Engine {
         ];
         let mut node_count: usize = 0;
         let current_time = Utc::now();
-        let mut node_ids: Vec<NodeId> = match self.nodes.read() {
-            Ok(nodes) => {
-                let mut processing_status: HashMap<NodeLabel, bool> = HashMap::new();
-                nodes.data.iter().for_each(|item| {
-                    if dependency_labels_to_check
-                        .iter()
-                        .any(|label| item.1.labels.contains(label))
-                        && item.1.flags.contains(NodeFlags::IS_PROCESSED)
-                    {
-                        processing_status.insert(item.1.labels[0].clone(), true);
-                    }
-                });
-                nodes
-                    .data
+        let mut node_ids: Vec<NodeId> = {
+            let nodes = match self.nodes.read() {
+                Ok(nodes) => nodes,
+                Err(err) => {
+                    error!("Error locking nodes: {}", err);
+                    return;
+                }
+            };
+            let mut processing_status: HashMap<NodeLabel, bool> = HashMap::new();
+            nodes.data.iter().for_each(|item| {
+                if dependency_labels_to_check
                     .iter()
-                    .filter_map(|item| {
-                        // Skip nodes that are not ready to be processed:
-                        // - If the node has one of the flags to be skipped
-                        // - If the node depends on other nodes having been processed
-                        if flags_to_be_skipped
-                            .iter()
-                            .any(|flag| item.1.flags.contains(flag.clone()))
-                            || (processing_dependencies.iter().any(|(label, dependencies)| {
-                                item.1.labels.contains(label)
-                                    && dependencies.iter().all(|dependency| {
-                                        *processing_status.get(dependency).unwrap_or_else(|| &false)
-                                    })
-                            }))
-                        {
-                            None
-                        } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
-                            if current_time - item.1.written_at > TimeDelta::seconds(60) {
-                                Some(*item.0.deref())
-                            } else {
-                                None
-                            }
+                    .any(|label| item.1.labels.contains(label))
+                    && item.1.flags.contains(NodeFlags::IS_PROCESSED)
+                {
+                    processing_status.insert(item.1.labels[0].clone(), true);
+                }
+            });
+            nodes
+                .data
+                .iter()
+                .filter_map(|item| {
+                    // Skip nodes that are not ready to be processed:
+                    // - If the node has one of the flags to be skipped
+                    // - If the node depends on other nodes having been processed
+                    if flags_to_be_skipped
+                        .iter()
+                        .any(|flag| item.1.flags.contains(flag.clone()))
+                        || (processing_dependencies.iter().any(|(label, dependencies)| {
+                            item.1.labels.contains(label)
+                                && dependencies.iter().all(|dependency| {
+                                    *processing_status.get(dependency).unwrap_or_else(|| &false)
+                                })
+                        }))
+                    {
+                        None
+                    } else if item.1.flags.contains(NodeFlags::HAD_ERROR) {
+                        if current_time - item.1.written_at > TimeDelta::seconds(60) {
+                            Some(*item.0.deref())
                         } else {
-                            if node_count < 100
-                                && all_labels_to_be_processed
-                                    .iter()
-                                    .any(|label| item.1.labels.contains(label))
-                            {
-                                node_count += 1;
-                                Some(*item.0.deref())
-                            } else if limited_labels_to_be_processed
+                            None
+                        }
+                    } else {
+                        if node_count < 100
+                            && all_labels_to_be_processed
                                 .iter()
                                 .any(|label| item.1.labels.contains(label))
-                            {
-                                Some(*item.0.deref())
-                            } else {
-                                None
-                            }
+                        {
+                            node_count += 1;
+                            Some(*item.0.deref())
+                        } else if limited_labels_to_be_processed
+                            .iter()
+                            .any(|label| item.1.labels.contains(label))
+                        {
+                            Some(*item.0.deref())
+                        } else {
+                            None
                         }
-                    })
-                    .collect()
-            }
-            Err(err) => {
-                error!("Error locking nodes in process_nodes: {}", err);
-                return;
-            }
+                    }
+                })
+                .collect()
         };
         node_ids.sort();
 
@@ -344,7 +383,7 @@ impl Engine {
                         written_at: Utc::now(),
                     }),
                 );
-                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &id)?;
+                nodes.save_item_chunk_to_disk(self.arced_db.clone(), &id)?;
             }
             Err(error) => {
                 return Err(PiError::InternalError(format!(
@@ -431,8 +470,8 @@ impl Engine {
                     .push((*arced_node_ids.0, edge_labels.1));
                 // Update the last written time for the child node
                 edges.data.get_mut(&arced_node_ids.1).unwrap().written_at = Utc::now();
-                edges.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &node_ids.0)?;
-                edges.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, &node_ids.1)?;
+                edges.save_item_chunk_to_disk(self.arced_db.clone(), &node_ids.0)?;
+                edges.save_item_chunk_to_disk(self.arced_db.clone(), &node_ids.1)?;
             }
             Err(err) => {
                 return Err(PiError::InternalError(format!(
@@ -448,7 +487,7 @@ impl Engine {
         match self.nodes.write() {
             Ok(mut nodes) => {
                 nodes.update_node(node_id, payload)?;
-                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, node_id)?;
+                nodes.save_item_chunk_to_disk(self.arced_db.clone(), node_id)?;
                 Ok(())
             }
             Err(err) => {
@@ -469,7 +508,7 @@ impl Engine {
     ) -> PiResult<Option<ArcedNodeItem>> {
         // For certain node payloads, check if there is a node with the same payload
         let engine = Arc::new(self);
-        if labels.contains(&NodeLabel::Domain) {
+        if labels.contains(&NodeLabel::DomainName) {
             match payload {
                 Payload::Text(domain) => {
                     Domain::find_existing(engine, FindDomainOf::DomainName(domain))
@@ -493,46 +532,19 @@ impl Engine {
         }
     }
 
-    pub fn preload_data_from_db(&mut self) -> PiResult<()> {
-        // Load all nodes and edges from the database
-        // We need to run this before loading the project database
-        // since nodes.load_all_from_disk() & edges.load_all_from_disk() need
-        // to open the database with their prefix extractors and once the database
-        // is opened(and locked), we cannot open it again with a different prefix
-        // extractor or set a prefix extractor
-        let last_node_id = match self.nodes.write() {
-            Ok(mut nodes) => nodes.load_all_from_disk(&self.engine_project.get_db_path())?,
+    pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
+        // Return all nodes that are connected to me
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
             Err(err) => {
-                return Err(PiError::InternalError(format!(
-                    "Error locking nodes: {}",
+                error!("Error locking edges in get_connected_nodes: {}", err);
+                return Err(PiError::GraphError(format!(
+                    "Error locking edges in get_connected_nodes: {}",
                     err
                 )));
             }
         };
-        if last_node_id != 0 {
-            self.last_node_id
-                .store(last_node_id + 1, std::sync::atomic::Ordering::Relaxed);
-        }
-        match self.edges.write() {
-            Ok(mut edges) => {
-                edges.load_all_from_disk(&self.engine_project.get_db_path())?;
-            }
-            Err(err) => {
-                error!("Error locking edges: {}", err);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn get_connected_nodes(&self, my_node_id: &NodeId) -> PiResult<Option<NodeEdges>> {
-        // Return all nodes that are connected to me
-        match self.edges.try_read() {
-            Ok(edges) => match edges.data.get(my_node_id) {
-                Some(my_node_edges) => Ok(Some(my_node_edges.clone())),
-                None => Ok(None),
-            },
-            Err(_) => Err(PiError::GraphError("Error locking edges".to_string())),
-        }
+        Ok(edges.data.get(my_node_id).cloned())
     }
 
     pub fn get_node_ids_connected_with_label(
@@ -540,26 +552,28 @@ impl Engine {
         my_node_id: &NodeId,
         my_edge_to_other: &EdgeLabel,
     ) -> PiResult<Vec<NodeId>> {
-        match self.edges.try_read() {
-            Ok(edges) => {
-                let mut connected_node_ids: Vec<NodeId> = vec![];
-
-                match edges.data.get(my_node_id) {
-                    Some(edges_from_node) => {
-                        for (node_id, node_label) in edges_from_node.edges.iter() {
-                            if node_label == my_edge_to_other
-                                && !connected_node_ids.contains(node_id)
-                            {
-                                connected_node_ids.push(node_id.clone());
-                            }
-                        }
-                    }
-                    None => {}
-                };
-                Ok(connected_node_ids)
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
+            Err(err) => {
+                error!(
+                    "Error locking edges in get_node_ids_connected_with_label: {}",
+                    err
+                );
+                return Err(PiError::GraphError(format!(
+                    "Error locking edges in get_node_ids_connected_with_label: {}",
+                    err
+                )));
             }
-            Err(err) => Err(PiError::GraphError(format!("Error locking edges: {}", err))),
+        };
+        let mut connected_node_ids: Vec<NodeId> = vec![];
+        if let Some(edges_from_node) = edges.data.get(my_node_id) {
+            for (node_id, node_label) in edges_from_node.edges.iter() {
+                if node_label == my_edge_to_other && !connected_node_ids.contains(node_id) {
+                    connected_node_ids.push(node_id.clone());
+                }
+            }
         }
+        Ok(connected_node_ids)
     }
 
     pub fn fetch(&self, fetch_request: FetchRequest) -> PiResult<()> {
@@ -620,7 +634,7 @@ impl Engine {
                 }
                 _ => return Err(PiError::InternalError("Expected a Link node".to_string())),
             }
-        } else if calling_node.labels.contains(&NodeLabel::Domain) {
+        } else if calling_node.labels.contains(&NodeLabel::DomainName) {
             match calling_node.payload {
                 Payload::Text(_) => calling_node.clone(),
                 _ => {
@@ -706,7 +720,7 @@ impl Engine {
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
             InternalFetchRequest::from_crawl_request(
                 fetch_request,
-                self.get_project_id(),
+                self.project_uuid.clone(),
                 domain_name,
             ),
         )) {
@@ -760,7 +774,7 @@ impl Engine {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         match self.fetcher_tx.blocking_send(PiEvent::FetchRequest(
-            InternalFetchRequest::from_api_request(fetch_request, self.get_project_id()),
+            InternalFetchRequest::from_api_request(fetch_request, &self.project_uuid),
         )) {
             Ok(_) => {}
             Err(err) => {
@@ -774,40 +788,40 @@ impl Engine {
     }
 
     pub fn get_all_node_labels(&self) -> Vec<NodeLabel> {
-        match self.nodes.try_read() {
-            Ok(nodes) => {
-                let mut labels: HashSet<NodeLabel> = HashSet::new();
-                for node in nodes.data.values() {
-                    labels.extend(node.labels.iter().cloned());
-                }
-                labels.iter().map(|x| x.clone()).collect()
-            }
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Could not lock nodes: {}", err);
-                vec![]
+                error!("Could not lock nodes in get_all_node_labels: {}", err);
+                return vec![];
             }
+        };
+        let mut labels: HashSet<NodeLabel> = HashSet::new();
+        for node in nodes.data.values() {
+            labels.extend(node.labels.iter().cloned());
         }
+        labels.iter().map(|x| x.clone()).collect()
     }
 
     pub fn get_node_ids_with_label(&self, label: &NodeLabel) -> Vec<ArcedNodeId> {
         // TODO: Use a cached HashMap of node_ids_by_label
-        match self.nodes.try_read() {
-            Ok(nodes) => nodes
-                .data
-                .iter()
-                .filter_map(|(id, node)| {
-                    if node.labels.contains(label) {
-                        Some(id.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Could not lock nodes: {}", err);
-                vec![]
+                error!("Could not lock nodes in get_node_ids_with_label: {}", err);
+                return vec![];
             }
-        }
+        };
+        nodes
+            .data
+            .iter()
+            .filter_map(|(id, node)| {
+                if node.labels.contains(label) {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn map_nodes(
@@ -816,15 +830,18 @@ impl Engine {
     ) -> PiResult<Vec<Option<NodeItem>>> {
         // TODO: Create a version which can take a closure which captures and updates the
         // environment of the function in parameter instead of returning Option<NodeItem>
-        let node_ids: Vec<ArcedNodeId> = match self.nodes.try_read() {
-            Ok(nodes) => nodes.data.keys().map(|x| x.clone()).collect(),
-            Err(err) => {
-                error!("Error locking nodes: {}", err);
-                return Err(PiError::InternalError(format!(
-                    "Error locking nodes: {}",
-                    err
-                )));
-            }
+        let node_ids: Vec<ArcedNodeId> = {
+            let nodes = match self.nodes.read() {
+                Ok(nodes) => nodes,
+                Err(err) => {
+                    error!("Error locking nodes in map_nodes: {}", err);
+                    return Err(PiError::InternalError(format!(
+                        "Error locking nodes in map_nodes: {}",
+                        err
+                    )));
+                }
+            };
+            nodes.data.keys().cloned().collect()
         };
         let mut results: Vec<Option<NodeItem>> = vec![];
         for node_id in node_ids {
@@ -837,38 +854,36 @@ impl Engine {
     }
 
     pub fn get_all_nodes(&self) -> Vec<ArcedNodeItem> {
-        match self.nodes.try_read() {
-            Ok(nodes) => nodes.data.values().map(|x| x.clone()).collect(),
+        let nodes = match self.nodes.read() {
+            Ok(nodes) => nodes,
             Err(err) => {
-                error!("Error locking nodes: {}", err);
-                vec![]
+                error!("Error locking nodes in get_all_nodes: {}", err);
+                return vec![];
             }
-        }
+        };
+        nodes.data.values().map(|x| x.clone()).collect()
     }
 
     pub fn get_all_edges(&self) -> HashMap<ArcedNodeId, NodeEdges> {
-        match self.edges.try_read() {
-            Ok(edges) => edges
-                .data
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
+        let edges = match self.edges.read() {
+            Ok(edges) => edges,
             Err(err) => {
-                error!("Error locking edges: {}", err);
-                HashMap::new()
+                error!("Error locking edges in get_all_edges: {}", err);
+                return HashMap::new();
             }
-        }
-    }
-
-    pub fn get_project_id(&self) -> String {
-        self.engine_project.project.uuid.clone()
+        };
+        edges
+            .data
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
     pub fn toggle_flag(&self, node_id: &NodeId, flag: NodeFlags) -> PiResult<()> {
         match self.nodes.write() {
             Ok(mut nodes) => {
                 nodes.toggle_flag(node_id, flag);
-                nodes.save_item_chunk_to_disk(self.engine_project.get_arced_db()?, node_id)?;
+                nodes.save_item_chunk_to_disk(self.arced_db.clone(), node_id)?;
                 Ok(())
             }
             Err(err) => {
@@ -888,25 +903,23 @@ pub fn get_test_engine() -> Engine {
         .tempdir()
         .expect("Failed to create temporary path for the _path_for_test_engine.");
     let path_to_storage_dir = PathBuf::from(temp_dir.path());
-    let engine_project = ProjectForEngine::new(
-        Project::new(
-            Some("Test project".to_string()),
-            Some("Test project description".to_string()),
-            ProjectOwner::Myself,
-        ),
-        path_to_storage_dir.clone(),
-    )
-    .unwrap();
+    let project = Project::new(
+        Some("Test project".to_string()),
+        Some("Test project description".to_string()),
+        ProjectOwner::Myself,
+    );
+    let path_to_db = path_to_storage_dir.join(format!("{}.rocksdb", &project.uuid));
+    Project::create_project_db(&path_to_db).unwrap();
     let channel_for_engine = PiChannel::new();
     let main_channel = PiChannel::new();
     let pi_channel_tx = main_channel.tx.clone();
     let (fetcher_tx, _fetcher_rx) = tokio::sync::mpsc::channel::<PiEvent>(100);
-    let mut engine = Engine::open_project(
-        engine_project,
+    Engine::open(
+        &project.uuid,
+        &path_to_storage_dir,
         channel_for_engine,
         pi_channel_tx,
         fetcher_tx,
-    );
-    engine.engine_project.load_db().unwrap();
-    engine
+    )
+    .unwrap()
 }

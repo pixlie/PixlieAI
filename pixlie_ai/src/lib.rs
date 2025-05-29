@@ -7,8 +7,8 @@
 
 pub static PIXLIE_VERSION_NUMBER: &str = "0.2.0-beta";
 
-use crate::engine::api::{EngineRequest, EngineResponse};
 use crossbeam_channel::unbounded;
+use engine::api::{EngineRequestPayload, EngineResponsePayload};
 use reqwest::header::HeaderMap;
 use reqwest::Method;
 use strum::Display;
@@ -95,9 +95,9 @@ impl InternalFetchRequest {
         }
     }
 
-    pub fn from_api_request(request: FetchRequest, project_id: String) -> Self {
+    pub fn from_api_request(request: FetchRequest, project_id: &str) -> Self {
         Self {
-            project_id,
+            project_id: project_id.to_string(),
             node_id: request.requesting_node_id,
             method: request.method,
             crawl_or_api_request: CrawlOrAPIRequest::API(APIRequest { url: request.url }),
@@ -144,19 +144,21 @@ pub struct FetchError {
 
 #[derive(Clone, Display)]
 pub enum PiEvent {
-    SettingsUpdated,
-    SetupGliner,
-    FinishedSetupGliner,
-
-    APIRequest(String, EngineRequest), // Actual payload is share using PiStore
-    APIResponse(String, EngineResponse),
+    APIRequest {
+        project_id: String,
+        request_id: u32,
+        payload: EngineRequestPayload,
+    },
+    APIResponse {
+        project_id: String,
+        request_id: u32,
+        payload: EngineResponsePayload,
+    },
 
     FetchRequest(InternalFetchRequest),
     FetchResponse(FetchResponse),
     FetchError(FetchError),
 
-    NeedsToTick,
-    // TickMeLater(String), // This is sent from engine to main thread
     EngineExit(String), // The engine has nothing else to do, so it gives up
 
     Shutdown,

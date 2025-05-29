@@ -1,5 +1,5 @@
 use crate::config::{Settings, WithHostname};
-use crate::engine::api::configure_api_engine;
+use crate::engine::api::{configure_api_engine, EngineResponsePayload};
 use crate::error::PiError;
 use crate::projects::api::configure_api_projects;
 use crate::workspace::api::configure_api_workspace;
@@ -318,5 +318,23 @@ impl APIChannel {
     pub fn new() -> APIChannel {
         let (tx, rx) = tokio::sync::broadcast::channel::<PiEvent>(100);
         APIChannel { tx, rx }
+    }
+}
+
+pub fn send_api_error(
+    api_channel_tx: tokio::sync::broadcast::Sender<PiEvent>,
+    project_id: &str,
+    request_id: u32,
+    message: &str,
+) {
+    match api_channel_tx.send(PiEvent::APIResponse {
+        project_id: project_id.to_string(),
+        request_id,
+        payload: EngineResponsePayload::Error(message.to_string()),
+    }) {
+        Ok(_) => {}
+        Err(err) => {
+            error!("Error sending PiEvent in API broadcast channel: {}", err);
+        }
     }
 }

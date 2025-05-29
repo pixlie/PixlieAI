@@ -188,7 +188,7 @@ const WebPagePreview: Component<WebPagePreviewProps> = ({
 };
 
 const WebPagePreviewContainer: Component<WebPagePreviewContainerProps> = (
-  props
+  props,
 ) => (
   <div class="group relative">
     <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer">
@@ -207,7 +207,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ContentOf",
-      (n) => n.payload.type === "Link"
+      (n) => n.payload.type === "Link",
     )[0];
   });
 
@@ -218,7 +218,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       linkNode.id,
       "BelongsTo",
-      (n) => n.labels.includes("Domain")
+      (n) => n.labels.includes("DomainName"),
     )[0];
     return domainNode;
   });
@@ -241,7 +241,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
       params.projectId,
       props.nodeId,
       "ParentOf",
-      (n) => n.labels.includes("WebMetadata")
+      (n) => n.labels.includes("WebMetadata"),
     )?.[0]?.payload.data as WebMetadata | null;
     if (!metadata) return null;
     return {
@@ -253,7 +253,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
 
   const getClassification = createMemo<Classification | null>(() => {
     return getRelatedNodes(params.projectId, props.nodeId, "Classifies", (n) =>
-      n.labels.includes("Classification")
+      n.labels.includes("Classification"),
     )[0]?.payload.data as Classification | null;
   });
 
@@ -262,19 +262,19 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
   >(() => {
     const entities =
       getRelatedNodes(params.projectId, props.nodeId, "Suggests", (n) =>
-        n.labels.includes("ExtractedNamedEntities")
+        n.labels.includes("ExtractedNamedEntities"),
       )
         ?.filter((n) => n.payload.type === "ExtractedNamedEntities")
         ?.flatMap((n) => n.payload.data as Array<ExtractedEntity>) || [];
     const groupedEntities = entities.reduce(
       (acc, entity) => {
         const existingGroup = acc.find(
-          (group) => group.label === entity.entity_name
+          (group) => group.label === entity.entity_name,
         );
 
         if (existingGroup) {
           existingGroup.values = Array.from(
-            new Set([...existingGroup.values, entity.matching_text])
+            new Set([...existingGroup.values, entity.matching_text]),
           );
         } else {
           acc.push({
@@ -284,7 +284,7 @@ const WebPageNode: Component<WebPageNodeProps> = (props) => {
         }
         return acc;
       },
-      [] as Array<{ label: string; values: string[] }>
+      [] as Array<{ label: string; values: string[] }>,
     );
     return groupedEntities;
   });
