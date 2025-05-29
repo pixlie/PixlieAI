@@ -36,9 +36,7 @@ pub trait Crud {
     fn _update_index(db: &DB, item_ids: &Vec<String>) -> PiResult<()> {
         match to_allocvec(item_ids) {
             Ok(payload) => match db.put(format!("{}/ids", Self::get_collection_name()), payload) {
-                Ok(_) => {
-                    db.flush()?;
-                }
+                Ok(_) => {}
                 Err(err) => {
                     error!(
                         "Error writing {} index: {}",
@@ -65,29 +63,35 @@ pub trait Crud {
         let db = get_pixlie_ai_db()?;
         let item_id = item.get_id();
         let collection_name = Self::get_collection_name();
+
         match to_allocvec(&item) {
-            Ok(payload) => {
-                match Self::_update_index(&db, &items.iter().map(|x| x.get_id()).collect()) {
-                    Ok(_) => match db.put(format!("{}/{}", collection_name, item_id), payload) {
-                        Ok(_) => {
-                            db.flush()?;
-                            items.push(item.clone());
-                            Ok(item)
-                        }
-                        Err(err) => Err(PiError::CrudError(
-                            vec![collection_name.to_string(), "create".to_string()],
-                            format!("DB Write Error: {}", err),
-                        )),
-                    },
-                    Err(err) => Err(PiError::CrudError(
-                        vec![collection_name.to_string(), "update_index".to_string()],
-                        format!("Could not save index: {}", err),
-                    )),
+            Ok(payload) => match db.put(format!("{}/{}", collection_name, item_id), payload) {
+                Ok(_) => items.push(item.clone()),
+                Err(err) => {
+                    return Err(PiError::CrudError(
+                        vec![collection_name.to_string(), "create".to_string()],
+                        format!("DB Write Error: {}", err),
+                    ))
                 }
+            },
+            Err(err) => {
+                return Err(PiError::CrudError(
+                    vec![collection_name.to_string(), "create".to_string()],
+                    format!("Serialization Error: {}", err),
+                ))
+            }
+        };
+        match Self::_update_index(
+            &db,
+            &items.iter().map(|x| x.get_id()).collect::<Vec<String>>(),
+        ) {
+            Ok(_) => {
+                db.flush()?;
+                Ok(item)
             }
             Err(err) => Err(PiError::CrudError(
-                vec![collection_name.to_string(), "create".to_string()],
-                format!("Serialization Error: {}", err),
+                vec![collection_name.to_string(), "update_index".to_string()],
+                format!("Could not save index: {}", err),
             )),
         }
     }
@@ -229,7 +233,7 @@ pub trait Crud {
         Self::_update_index(&db, &item_ids)?;
         match db.delete(format!("{}/{}", collection_name, uuid)) {
             Ok(_) => {
-                let _ = db.flush();
+                db.flush()?;
             }
             Err(err) => {
                 return Err(PiError::CrudError(

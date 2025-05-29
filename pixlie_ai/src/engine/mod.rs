@@ -18,7 +18,6 @@ mod edges;
 pub mod engine;
 pub mod node;
 mod nodes;
-pub mod setup;
 
 pub use engine::Engine;
 

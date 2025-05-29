@@ -76,11 +76,7 @@ impl Project {
             ));
         }
         match DB::open_default(path_to_db.as_os_str()) {
-            Ok(db) => {
-                // db.put("__init__", "1".as_bytes())?;
-                // db.flush()?;
-                Ok(())
-            }
+            Ok(_) => Ok(()),
             Err(error) => Err(PiError::InternalError(format!(
                 "Cannot create DB for project: {}",
                 error

@@ -66,6 +66,13 @@ impl Engine {
         let edges = Edges::open(&path_to_db)?;
         let mut opts = rocksdb::Options::default();
         opts.create_if_missing(false);
+        let db = match DB::open(&opts, path_to_db.as_os_str()) {
+            Ok(db) => db,
+            Err(err) => {
+                error!("Could not open DB for project {}: {}", project_uuid, err);
+                return Err(err.into());
+            }
+        };
 
         let engine = Engine {
             nodes: RwLock::new(nodes),
@@ -74,7 +81,7 @@ impl Engine {
             last_node_id: AtomicU32::new(0),
 
             project_uuid: project_uuid.to_string(),
-            arced_db: Arc::new(DB::open(&opts, path_to_db.as_os_str())?),
+            arced_db: Arc::new(db),
 
             my_pi_channel,
             main_channel_tx,
