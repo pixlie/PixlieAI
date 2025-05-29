@@ -30,7 +30,7 @@ const Payload: Component<ILinkPayloadProps> = (props) => {
 
   const getDomain = createMemo<string | undefined>(() => {
     return getRelatedNodes(params.projectId, props.id, "BelongsTo", (node) =>
-      node.labels.includes("Domain"),
+      node.labels.includes("DomainName"),
     )[0]?.payload.data as string | undefined;
   });
 

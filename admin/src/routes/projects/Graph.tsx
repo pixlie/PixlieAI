@@ -32,7 +32,7 @@ const truncateText = (text: string, maxLength: number = 20): string => {
 
 const getNodeLabel = (node: APINodeItem): string => {
   let label = node.labels.join(", ");
-  if (node.labels.some((label) => label === "Domain")) {
+  if (node.labels.some((label) => label === "DomainName")) {
     label = `${node.payload.data}`;
   }
   if (node.payload.type === "Link") {
@@ -96,7 +96,7 @@ const Graph = () => {
         .filter((node) =>
           node.labels?.some(
             (label: NodeLabel) =>
-              label === "Domain" ||
+              label === "DomainName" ||
               (label === "Link" && getNodeLabel(node) !== "/"),
           ),
         )
