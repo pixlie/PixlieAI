@@ -7,6 +7,7 @@ import ContentContainerNode from "./ContentContainerNode.tsx";
 import { INodeListItemProps } from "../../utils/types.tsx";
 import WebPageNode from "./WebPageNode.tsx";
 import URLNode from "./URLNode.tsx";
+import { NodeLabel } from "../../api_types/NodeLabel.ts";
 
 const NodeGrid: Component<INodeListItemProps> = (props) => {
   const getN = createMemo<Array<number>>(() => {
@@ -17,21 +18,21 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
     <>
       {props.nodeType ? (
         <>
-          {props.nodeType === "Link" && (
+          {props.nodeType === ("Link" as NodeLabel) && (
             <div class="grid grid-cols-1 gap-2 pt-1 pb-8">
               <For each={getN()}>
                 {(nodeId) => <LinkNode nodeId={nodeId} showFlags={true} />}
               </For>
             </div>
           )}
-          {props.nodeType === "Domain" && (
+          {props.nodeType === ("DomainName" as NodeLabel) && (
             <div class="grid grid-cols-[1fr_auto] gap-2 pt-1 pb-8">
               <For each={getN()}>
                 {(nodeId) => <DomainNode nodeId={nodeId} />}
               </For>
             </div>
           )}
-          {props.nodeType === "SearchTerm" && (
+          {props.nodeType === ("SearchTerm" as NodeLabel) && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
                 {(nodeId) => (
@@ -40,14 +41,14 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
               </For>
             </div>
           )}
-          {props.nodeType === "Topic" && (
+          {props.nodeType === ("Topic" as NodeLabel) && (
             <div class="grid grid-cols-[1fr_auto] gap-2">
               <For each={props.source()}>
                 {(nodeId) => <TopicNode nodeId={nodeId} mode={props.mode} />}
               </For>
             </div>
           )}
-          {props.nodeType === "Search" && (
+          {props.nodeType === ("Search" as NodeLabel) && (
             <div class="grid grid-cols-1 gap-2">
               <For each={getN()}>
                 {(nodeId) => (
@@ -61,7 +62,7 @@ const NodeGrid: Component<INodeListItemProps> = (props) => {
               </For>
             </div>
           )}
-          {props.nodeType === "WebPage" && (
+          {props.nodeType === ("WebPage" as NodeLabel) && (
             <div class="columns-1 lg:columns-3 space-y-8 gap-8 mt-2 pb-4">
               <For each={getN()}>
                 {(nodeId) => (

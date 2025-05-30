@@ -6,7 +6,7 @@ import Heading from "../../widgets/typography/Heading";
 import { NodeLabel } from "../../api_types/NodeLabel";
 import ResultsCount from "../../widgets/generic/ResultsCount";
 
-const labelTypes: string[] = ["Domain", "Link"];
+const labelTypes: string[] = ["DomainName", "Link"];
 type LabelType = (typeof labelTypes)[number];
 
 const Crawl: Component = () => {
@@ -31,10 +31,10 @@ const Crawl: Component = () => {
         .filter((x) => x.labels.includes(searchParams.label as NodeLabel))
         .map((x) => x.id);
     }
-    if (searchParams.label === "Link") {
+    if (searchParams.label === ("Link" as NodeLabel)) {
       setLinkCount(items.length);
     }
-    if (searchParams.label === "Domain") {
+    if (searchParams.label === ("DomainName" as NodeLabel)) {
       setDomainCount(items.length);
     }
     return items;
@@ -56,7 +56,7 @@ const Crawl: Component = () => {
             <ResultsCount count={linkCount()} />
           </>
         )}
-        {searchParams.label === "Domain" && (
+        {searchParams.label === ("DomainName" as NodeLabel) && (
           <>
             <Heading size={3}>Domains</Heading>
             <ResultsCount count={domainCount()} />

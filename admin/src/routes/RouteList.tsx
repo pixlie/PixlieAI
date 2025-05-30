@@ -88,7 +88,7 @@ const PerProjectRoutes: Component = () => {
           },
           {
             label: "Crawl",
-            children: ["Domain", "Link"].map((label) => ({
+            children: ["DomainName", "Link"].map((label) => ({
               label: `${label}s`,
               href: `/p/${params.projectId}/crawl?label=${label}`,
               isActive:
@@ -102,8 +102,9 @@ const PerProjectRoutes: Component = () => {
               label: `${label}s`.replace(/([a-z])([A-Z])/g, "$1 $2"),
               href: `/p/${params.projectId}/results?label=${label}`,
               isActive:
-                location.pathname.startsWith(`/p/${params.projectId}/results`) &&
-                location.search.includes(`label=${label}`),
+                location.pathname.startsWith(
+                  `/p/${params.projectId}/results`,
+                ) && location.search.includes(`label=${label}`),
             })),
           },
         ]
