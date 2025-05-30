@@ -25,7 +25,7 @@ const DomainNode: Component<INodeProps> = (props) => {
     if (getProject() && props.nodeId in getProject()!.nodes) {
       let node = getProject()!.nodes[props.nodeId];
       if (
-        node.labels.includes("Domain" as NodeLabel) &&
+        node.labels.includes("DomainName" as NodeLabel) &&
         node.payload.type === "Text"
       ) {
         return node.payload.data as string;
