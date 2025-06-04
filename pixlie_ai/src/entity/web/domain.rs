@@ -1,11 +1,85 @@
-use crate::engine::node::{ArcedNodeItem, NodeId, NodeItem, NodeLabel, Payload};
+use crate::engine::node::{ArcedNodeItem, Fetchable, Node, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
 use crate::error::{PiError, PiResult};
-use crate::{ExternalData, FetchRequest};
+use crate::{ExternalData, FetchError, FetchRequest, FetchResponse};
 use log::error;
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::sync::Arc;
 
-pub struct Domain;
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Domain {
+    pub name: String,
+}
+
+impl Node for Domain {
+    fn process(&self, node_id: NodeId, engine: Arc<&Engine>) -> PiResult<()> {
+        // Initial processing logic - could trigger fetch requests
+        let fetch_requests = self.make_fetch_requests(node_id, engine.clone())?;
+        for request in fetch_requests {
+            engine.fetch(request)?;
+        }
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn get_labels(&self) -> Vec<NodeLabel> {
+        vec![NodeLabel::DomainName]
+    }
+}
+
+impl Fetchable for Domain {
+    fn make_fetch_requests(&self, node_id: NodeId, engine: Arc<&Engine>) -> PiResult<Vec<FetchRequest>> {
+        // Check if we already have robots.txt
+        // For now, always request it
+        Ok(vec![FetchRequest::new(node_id, "/robots.txt")])
+    }
+
+    fn handle_fetch_response(&self, node_id: NodeId, engine: Arc<&Engine>, response: FetchResponse) -> PiResult<()> {
+        // Handle robots.txt response
+        let content_node_id = engine
+            .get_or_add_node(
+                Payload::Text(response.contents.clone()),
+                vec![NodeLabel::RobotsTxt],
+                true,
+                None,
+            )?
+            .get_node_id();
+        engine.add_connection(
+            (node_id, content_node_id),
+            (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
+        )?;
+        engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
+        Ok(())
+    }
+
+    fn handle_fetch_error(&self, node_id: NodeId, engine: Arc<&Engine>, error: FetchError) -> PiResult<()> {
+        // Handle robots.txt fetch error - save empty robots.txt
+        let content_node_id = engine
+            .get_or_add_node(
+                Payload::Text("".to_string()),
+                vec![NodeLabel::RobotsTxt],
+                true,
+                None,
+            )?
+            .get_node_id();
+        engine.add_connection(
+            (node_id, content_node_id),
+            (EdgeLabel::OwnerOf, EdgeLabel::BelongsTo),
+        )?;
+        engine.toggle_flag(&node_id, NodeFlags::IS_PROCESSED)?;
+        Ok(())
+    }
+}
+
+impl Domain {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+}
 
 pub enum FindDomainOf<'a> {
     DomainName(&'a str),
