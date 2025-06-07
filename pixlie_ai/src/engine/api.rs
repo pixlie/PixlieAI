@@ -9,6 +9,7 @@ use super::node::{ArcedNodeItem, NodeLabel};
 use super::{EdgeLabel, Engine, NodeFlags};
 use crate::engine::node::{NodeId, NodeItem, Payload};
 use crate::entity::classifier::{Classification, ClassifierSettings};
+use crate::entity::conclusion::Conclusion;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::named_entity::{EntityName, ExtractedEntity};
@@ -72,6 +73,7 @@ pub enum EngineRequestPayload {
     GetLabels,
     GetEntities,
     GetClassifications,
+    GetConclusions,
     GetNodesWithLabel(String),
     GetNodesWithIds(Vec<u32>),
     GetAllNodes(i64),
@@ -150,6 +152,8 @@ pub enum EngineResponsePayload {
     Entities(Vec<EntityGroup>),
     /// Response for classifications retrieval. Returns a list of classifications.
     Classifications(Vec<ClassifiedItem>),
+    /// Response for conclusion retrieval. Returns a conclusion.
+    Conclusions(Vec<Conclusion>),
     Explore(Explore),
     /// Error response.
     Error(String),
@@ -187,6 +191,7 @@ pub enum APIPayload {
     NamedEntitiesToExtract(Vec<EntityName>),
     /// These are the extracted named entities from the content if the content is classified as relevant.
     ExtractedNamedEntities(Vec<ExtractedEntity>),
+    Conclusion(Conclusion),
 }
 
 #[derive(Clone, Default, Serialize, ToSchema, TS)]
@@ -271,6 +276,7 @@ impl APINodeItem {
             Payload::ExtractedNamedEntities(extracted_named_entities) => {
                 APIPayload::ExtractedNamedEntities(extracted_named_entities.clone())
             }
+            Payload::Conclusion(conclusion) => APIPayload::Conclusion(conclusion.clone()),
         };
         APINodeItem {
             id: arced_node.id,
@@ -827,6 +833,81 @@ pub async fn get_classifications(
     }
 }
 
+/// Get all conclusions for a project
+#[utoipa::path(
+    path = "/engine/{project_id}/conclusions",
+    responses(
+        (
+            status = 200,
+            description = "Conclusions retrieved successfully. Returns `EngineResponsePayload` of `type` `Conclusions` or `Error`.",
+            body = EngineResponsePayload
+        ),
+        (status = 500, description = "Internal server error"),
+    ),
+    params(
+        (
+            "project_id" = uuid::Uuid,
+            description = "The ID of the project",
+            example = "123e4567-e89b-12d3-a456-426614174000"
+        ),
+    ),
+    tag = "engine",
+)]
+#[get("/conclusions")]
+pub async fn get_conclusions(
+    project_id: web::Path<String>,
+    api_state: web::Data<ApiState>,
+) -> HttpResponse {
+    let this_request_id = api_state.req_id.fetch_add(1);
+    let this_project_id = project_id.into_inner();
+    debug!(
+        "API request {} for project {} to get conclusions",
+        this_request_id, this_project_id
+    );
+    // Subscribe to receive engine response
+    let mut rx = api_state.api_channel_tx.subscribe();
+    match api_state.main_tx.send(PiEvent::APIRequest {
+        project_id: this_project_id.clone(),
+        request_id: this_request_id,
+        payload: EngineRequestPayload::GetConclusions,
+    }) {
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .json("Could not send API request to engine");
+        }
+    };
+    debug!("Waiting for response for request {}", this_request_id);
+    let mut response_opt: Option<EngineResponsePayload> = None;
+    while let None = response_opt {
+        match rx.recv().await {
+            Ok(event) => match event {
+                PiEvent::APIResponse {
+                    project_id,
+                    request_id,
+                    payload,
+                } => {
+                    if this_project_id == project_id && this_request_id == request_id {
+                        response_opt = Some(payload);
+                    }
+                }
+                _ => {}
+            },
+            Err(_err) => {}
+        }
+    }
+    debug!("Got response for request {}", this_request_id);
+    match response_opt {
+        Some(EngineResponsePayload::Conclusions(conclusions)) => {
+            HttpResponseBuilder::new(StatusCode::OK)
+                .json(EngineResponsePayload::Conclusions(conclusions))
+        }
+        _ => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).json(
+            EngineResponsePayload::Error("Could not get a response".into()),
+        ),
+    }
+}
+
 pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::ServiceConfig) {
     app_config.service(
         utoipa_actix_web::scope::scope("/engine/{project_id}")
@@ -838,7 +919,8 @@ pub fn configure_api_engine(app_config: &mut utoipa_actix_web::service_config::S
             .service(search_results)
             .service(explore)
             .service(get_entities)
-            .service(get_classifications),
+            .service(get_classifications)
+            .service(get_conclusions),
     );
 }
 
@@ -1251,6 +1333,25 @@ pub fn handle_engine_api_request(
                 });
             }
             EngineResponsePayload::Classifications(classified_items)
+        }
+        EngineRequestPayload::GetConclusions => {
+            let conclusions = engine
+                .get_node_ids_with_label(&NodeLabel::Conclusion)
+                .into_iter()
+                .filter_map(|node_id| {
+                    engine.get_node_by_id(&node_id).and_then(|node| {
+                        if node.labels.contains(&NodeLabel::Conclusion) {
+                            match &node.payload {
+                                Payload::Conclusion(conclusion) => Some(conclusion.clone()),
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect::<Vec<Conclusion>>();
+            EngineResponsePayload::Conclusions(conclusions)
         }
     };
 

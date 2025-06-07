@@ -128,6 +128,7 @@ fn load_rustls_config(with_hostname: &WithHostname) -> PiResult<ServerConfig> {
         engine::api::search_results,
         engine::api::get_classifications,
         engine::api::get_entities,
+        engine::api::get_conclusions,
     ),
     tags(
         (name = "pixlie_ai", description = "Pixlie AI"),
