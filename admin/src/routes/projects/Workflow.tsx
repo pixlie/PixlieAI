@@ -12,6 +12,7 @@ import NodeGrid from "../../widgets/node/NodeGrid";
 import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading.tsx";
 import Paragraph from "../../widgets/typography/Paragraph";
+import { Conclusion } from "../../api_types/Conclusion.ts";
 
 const Workflow: Component = () => {
   const [_, { getNodes }] = useEngine();
@@ -53,6 +54,13 @@ const Workflow: Component = () => {
     }
   );
 
+  const getConclusion = createMemo<Conclusion | undefined>(() => {
+    return getNodes(
+      params.projectId,
+      (node) => node.payload.type === "Conclusion"
+    )[0]?.payload.data as Conclusion | undefined;
+  });
+
   const addLink = (_name: string, value: string) => {
     createNode(params.projectId, {
       Link: {
@@ -88,6 +96,14 @@ const Workflow: Component = () => {
             mode="regular"
           />
         </div> */}
+
+        <div>
+          <Heading size={3}>Conclusion</Heading>
+          <p>
+            {getConclusion()?.conclusion_to_objective_based_on_insights ||
+              "No conclusion yet."}
+          </p>
+        </div>
 
         <div>
           <Heading size={3}>Keywords</Heading>
