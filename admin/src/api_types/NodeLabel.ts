@@ -6,6 +6,7 @@ export type NodeLabel =
   | "AddedByWebSearch"
   | "AddedByGliner"
   | "Objective"
+  | "Conclusion"
   | "DomainName"
   | "Link"
   | "RobotsTxt"

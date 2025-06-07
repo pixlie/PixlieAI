@@ -276,6 +276,7 @@ impl Engine {
             NodeLabel::Objective,
             NodeLabel::WebPage,
             NodeLabel::WebSearch,
+            NodeLabel::Conclusion,
         ];
         let all_labels_to_be_processed = vec![
             NodeLabel::DomainName,
@@ -283,6 +284,7 @@ impl Engine {
             NodeLabel::Objective,
             NodeLabel::WebPage,
             NodeLabel::WebSearch,
+            NodeLabel::Conclusion,
         ];
         let mut node_count: usize = 0;
         let current_time = Utc::now();

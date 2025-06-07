@@ -40,6 +40,9 @@ pub enum EdgeLabel {
 
     Classifies,
     ClassifiedFor,
+
+    Concludes,
+    ConcludedBy,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

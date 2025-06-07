@@ -7,6 +7,7 @@
 
 use crate::engine::node::{NodeId, NodeItem, NodeLabel};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
+use crate::entity::conclusion::Conclusion;
 use crate::entity::pixlie::{LLMResponse, ProjectState, Tool};
 use crate::entity::project_settings::ProjectSettings;
 use crate::entity::web::domain::{Domain, FindDomainOf};
@@ -238,6 +239,19 @@ impl Objective {
                             }
                         }
                     }
+                    let conclusion = engine
+                        .get_or_add_node(
+                            Payload::Conclusion(Conclusion::new()),
+                            vec![NodeLabel::AddedByAI, NodeLabel::Conclusion],
+                            true,
+                            None,
+                        )?
+                        .get_node_id();
+
+                    engine.add_connection(
+                        (node.id, conclusion),
+                        (EdgeLabel::ConcludedBy, EdgeLabel::Concludes),
+                    )?;
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {}

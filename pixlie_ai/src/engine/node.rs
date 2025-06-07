@@ -7,6 +7,7 @@
 
 use crate::engine::{Engine, NodeFlags};
 use crate::entity::classifier::{Classification, Classifier, ClassifierSettings};
+use crate::entity::conclusion::Conclusion;
 use crate::entity::content::TableRow;
 use crate::entity::crawler::CrawlerSettings;
 use crate::entity::named_entity::{EntityExtraction, EntityName, ExtractedEntity};
@@ -40,6 +41,7 @@ pub enum Payload {
     Classification(Classification),
     NamedEntitiesToExtract(Vec<EntityName>),
     ExtractedNamedEntities(Vec<ExtractedEntity>),
+    Conclusion(Conclusion),
 }
 
 pub(crate) type NodeId = u32;
@@ -69,6 +71,7 @@ pub enum NodeLabel {
     AddedByGliner,
 
     Objective,
+    Conclusion,
 
     DomainName,
     Link,
@@ -126,6 +129,8 @@ impl NodeItem {
             WebPage::process(self, arced_engine.clone(), None)?;
             Classifier::process(self, arced_engine.clone(), None)?;
             EntityExtraction::process(self, arced_engine.clone(), None)?;
+        } else if self.labels.contains(&NodeLabel::Conclusion) {
+            Conclusion::process(self, arced_engine.clone(), None)?;
         }
         Ok(())
     }
@@ -175,6 +180,12 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Response(response.clone())),
             )?;
+        } else if self.labels.contains(&NodeLabel::Conclusion) {
+            Conclusion::process(
+                self,
+                arced_engine.clone(),
+                Some(ExternalData::Response(response)),
+            )?;
         }
         Ok(())
     }
@@ -208,6 +219,8 @@ impl NodeItem {
                 arced_engine.clone(),
                 Some(ExternalData::Error(error.clone())),
             )?;
+        } else if self.labels.contains(&NodeLabel::Conclusion) {
+            Conclusion::process(self, arced_engine.clone(), Some(ExternalData::Error(error)))?;
         }
         Ok(())
     }

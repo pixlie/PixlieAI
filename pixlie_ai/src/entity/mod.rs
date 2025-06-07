@@ -15,6 +15,7 @@ and therefore many entities may point to the same node.
 */
 
 pub mod classifier;
+pub mod conclusion;
 pub mod content;
 pub mod crawler;
 pub mod email;
