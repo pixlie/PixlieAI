@@ -1,9 +1,11 @@
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine};
+use crate::entity::pixlie::is_tool_enabled;
 use crate::error::{PiError, PiResult};
 use crate::services::gliner::extract_entities;
 use crate::utils::llm::{clean_ts_type, LLMSchema};
 use crate::ExternalData;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use strum::{Display, EnumString};
@@ -47,6 +49,13 @@ impl EntityExtraction {
         engine: Arc<&Engine>,
         _data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
+        if !is_tool_enabled(engine.clone(), NodeLabel::ClassifierSettings)? {
+            debug!(
+                "ClassifierSettings is disabled, skipping EntityExtraction processing for node {}",
+                node.id
+            );
+            return Ok(());
+        }
         // Get the content
         let content = engine
             .get_node_ids_connected_with_label(&node.id, &EdgeLabel::ParentOf)?

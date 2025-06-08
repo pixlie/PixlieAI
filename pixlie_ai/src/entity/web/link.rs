@@ -2,6 +2,7 @@ use crate::engine::node::{
     ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
+use crate::entity::pixlie::is_tool_enabled;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
@@ -205,6 +206,13 @@ impl Link {
         engine: Arc<&Engine>,
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
+        if !is_tool_enabled(engine.clone(), NodeLabel::CrawlerSettings)? {
+            debug!(
+                "CrawlerSettings is disabled, skipping Link processing for node {}",
+                node.id
+            );
+            return Ok(());
+        }
         // Download the linked URL and add a new WebPage node
         let url = match &node.payload {
             Payload::Link(link) => link.get_full_link(),

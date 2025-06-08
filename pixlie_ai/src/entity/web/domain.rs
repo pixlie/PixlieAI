@@ -1,8 +1,9 @@
 use crate::engine::node::{ArcedNodeItem, NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
+use crate::entity::pixlie::is_tool_enabled;
 use crate::error::{PiError, PiResult};
 use crate::{ExternalData, FetchRequest};
-use log::error;
+use log::{debug, error};
 use std::sync::Arc;
 
 pub struct Domain;
@@ -97,6 +98,13 @@ impl Domain {
         engine: Arc<&Engine>,
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
+        if !is_tool_enabled(engine.clone(), NodeLabel::CrawlerSettings)? {
+            debug!(
+                "CrawlerSettings is disabled, skipping Domain processing for node {}",
+                node.id
+            );
+            return Ok(());
+        }
         match data_from_previous_request {
             Some(external_data) => match external_data {
                 ExternalData::Response(response) => {

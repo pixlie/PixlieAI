@@ -5,14 +5,15 @@
 //
 // https://github.com/pixlie/PixlieAI/blob/main/LICENSE
 
-use crate::engine::node::{NodeId, NodeItem, Payload};
+use crate::engine::node::{NodeId, NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine};
+use crate::entity::pixlie::is_tool_enabled;
 use crate::entity::web::link::Link;
 use crate::entity::web::scraper::scrape;
 use crate::entity::web::web_metadata::WebMetadata;
 use crate::error::{PiError, PiResult};
 use crate::ExternalData;
-use log::error;
+use log::{debug, error};
 use std::sync::Arc;
 
 pub struct WebPage;
@@ -103,6 +104,13 @@ impl WebPage {
         engine: Arc<&Engine>,
         _data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
+        if !is_tool_enabled(engine.clone(), NodeLabel::ClassifierSettings)? {
+            debug!(
+                "ClassifierSettings is disabled, skipping WebPage processing for node {}",
+                node.id
+            );
+            return Ok(());
+        }
         scrape(node, engine.clone())
     }
 }
