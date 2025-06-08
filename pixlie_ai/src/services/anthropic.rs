@@ -106,15 +106,53 @@ impl LLMProvider for Anthropic {
             ));
         }
         let text = &claude_response.content[0].text;
-        // Check if the text starts a Markdown code block
-        let payload = if text.starts_with("```json") {
-            text.trim_start_matches("```json").trim_end_matches("```")
-        } else if text.starts_with("```") {
-            text.trim_start_matches("```").trim_end_matches("```")
+        log::debug!("Raw LLM response text: {}", text);
+        
+        // Extract JSON from various possible formats
+        let payload = if text.contains("```json") {
+            // Extract content between ```json and ```
+            if let Some(start) = text.find("```json") {
+                let after_start = &text[start + 7..]; // Skip "```json"
+                if let Some(end) = after_start.find("```") {
+                    after_start[..end].trim()
+                } else {
+                    after_start.trim()
+                }
+            } else {
+                text.trim()
+            }
+        } else if text.contains("```") {
+            // Extract content between ``` and ```
+            if let Some(start) = text.find("```") {
+                let after_start = &text[start + 3..]; // Skip "```"
+                if let Some(end) = after_start.find("```") {
+                    after_start[..end].trim()
+                } else {
+                    after_start.trim()
+                }
+            } else {
+                text.trim()
+            }
+        } else if text.contains('{') && text.contains('}') {
+            // Extract JSON object from text
+            if let Some(start) = text.find('{') {
+                if let Some(end) = text.rfind('}') {
+                    &text[start..=end]
+                } else {
+                    text.trim()
+                }
+            } else {
+                text.trim()
+            }
         } else {
-            text
+            text.trim()
         };
-        serde_json::from_str(payload)
-            .map_err(|e| PiError::CouldNotParseResponseFromLLM(format!("JSON parse error: {}", e)))
+        
+        log::debug!("Cleaned payload for JSON parsing: {}", payload);
+        
+        serde_json::from_str(payload).map_err(|e| {
+            log::error!("JSON parse error. Payload was: {}", payload);
+            PiError::CouldNotParseResponseFromLLM(format!("JSON parse error: {}", e))
+        })
     }
 }

@@ -6,6 +6,7 @@ import { useLocation } from "@solidjs/router";
 import HelpModal from "../routes/help/HelpModal.tsx";
 import SettingsModal from "../routes/settings/SettingsModal.tsx";
 import Breadcrumb from "./navigation/Breadcrumb.tsx";
+import Tools from "./navigation/Tools.tsx";
 
 interface ILayoutProps {
   children: JSX.Element;
@@ -34,6 +35,7 @@ const Layout: Component<ILayoutProps> = (props) => {
             {props.children}
           </div>
         </div>
+        <Tools />
       </div>
     </div>
   );

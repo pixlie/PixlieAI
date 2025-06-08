@@ -7,12 +7,13 @@
 
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine, NodeFlags};
-use crate::error::PiError;
-use crate::error::PiResult;
+use crate::entity::pixlie::{is_tool_enabled, ToolEnabled};
+use crate::error::{PiError, PiResult};
 use crate::services::anthropic::Anthropic;
 use crate::utils::llm::LLMProvider;
 use crate::utils::llm::{clean_ts_type, LLMSchema};
 use crate::ExternalData;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
@@ -21,6 +22,8 @@ use utoipa::ToSchema;
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct ClassifierSettings {
+    #[serde(default)]
+    pub is_enabled: ToolEnabled,
     pub prompt_to_classify_content_as_relevant_to_objective_or_not: Option<String>,
 }
 
@@ -40,6 +43,10 @@ impl LLMSchema for ClassifierSettings {
                 if node.labels.contains(&NodeLabel::Objective) {
                     // Make fields required when there's content to classify
                     return Ok(ts_self
+                        .replace(
+                            "is_enabled: ToolEnabled | null,",
+                            "is_enabled: ToolEnabled,",
+                        )
                         .replace(
                             "prompt_to_classify_content_as_relevant_to_objective_or_not: string | null,",
                             "prompt_to_classify_content_as_relevant_to_objective_or_not: string,",
@@ -132,6 +139,12 @@ impl Classifier {
     }
 
     pub fn parse_llm_response(response: &str) -> PiResult<Classification> {
+        if response.trim().is_empty() {
+            log::error!("LLM response for Classification is empty");
+            return Err(PiError::InternalError(
+                "LLM response is empty or contains only whitespace".to_string(),
+            ));
+        }
         Ok(Anthropic::parse_response::<Classification>(response)?)
     }
 
@@ -140,6 +153,13 @@ impl Classifier {
         engine: Arc<&Engine>,
         data_from_previous_request: Option<ExternalData>,
     ) -> PiResult<()> {
+        if !is_tool_enabled(engine.clone(), NodeLabel::ClassifierSettings)? {
+            debug!(
+                "ClassifierSettings is disabled, skipping Classifier processing for node {}",
+                node.id
+            );
+            return Ok(());
+        }
         match data_from_previous_request {
             Some(external_data) => match external_data {
                 ExternalData::Response(response) => {
@@ -178,4 +198,9 @@ impl Classifier {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }

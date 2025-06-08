@@ -7,6 +7,7 @@
 
 use crate::engine::node::{NodeItem, NodeLabel, Payload};
 use crate::engine::{EdgeLabel, Engine};
+use crate::entity::pixlie::ToolEnabled;
 use crate::error::PiResult;
 use crate::utils::llm::{clean_ts_type, LLMSchema};
 use serde::{Deserialize, Serialize};
@@ -17,8 +18,59 @@ use utoipa::ToSchema;
 #[derive(Clone, Deserialize, Serialize, ToSchema, TS)]
 #[ts(export)]
 pub struct CrawlerSettings {
+    #[serde(default)]
+    pub is_enabled: ToolEnabled,
     pub keywords_to_get_accurate_results_from_web_search: Option<Vec<String>>,
     pub crawl_link_if_anchor_text_has_any_of_these_keywords: Option<Vec<String>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn test_crawler_settings_backward_compatibility() {
+        // Test that old CrawlerSettings without status field can be deserialized
+        let old_json = r#"{
+            "keywords_to_get_accurate_results_from_web_search": ["test"],
+            "crawl_link_if_anchor_text_has_any_of_these_keywords": null
+        }"#;
+
+        let settings: CrawlerSettings = serde_json::from_str(old_json).unwrap();
+
+        // Should default to ToolEnabled::Yes
+        match settings.is_enabled {
+            ToolEnabled::Yes => {}
+            _ => panic!("Expected default status to be Yes"),
+        }
+
+        assert_eq!(
+            settings.keywords_to_get_accurate_results_from_web_search,
+            Some(vec!["test".to_string()])
+        );
+        assert_eq!(
+            settings.crawl_link_if_anchor_text_has_any_of_these_keywords,
+            None
+        );
+    }
+
+    #[test]
+    fn test_crawler_settings_with_status() {
+        // Test that new CrawlerSettings with status field works
+        let new_json = r#"{
+            "is_enabled": "No",
+            "keywords_to_get_accurate_results_from_web_search": ["test"],
+            "crawl_link_if_anchor_text_has_any_of_these_keywords": null
+        }"#;
+
+        let settings: CrawlerSettings = serde_json::from_str(new_json).unwrap();
+
+        match settings.is_enabled {
+            ToolEnabled::No => {}
+            _ => panic!("Expected status to be No"),
+        }
+    }
 }
 
 impl LLMSchema for CrawlerSettings {

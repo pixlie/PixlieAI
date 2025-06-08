@@ -18,6 +18,22 @@ fn test_webpage_scraper_rlhf_book() {
 
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
+
+    // Enable ClassifierSettings to allow processing
+    test_engine
+        .get_or_add_node(
+            Payload::ClassifierSettings(crate::entity::classifier::ClassifierSettings {
+                is_enabled: crate::entity::pixlie::ToolEnabled::Yes,
+                prompt_to_classify_content_as_relevant_to_objective_or_not: Some(
+                    "Classify if this content is relevant to the objective".to_string(),
+                ),
+            }),
+            vec![NodeLabel::ClassifierSettings, NodeLabel::AddedByUser],
+            true,
+            None,
+        )
+        .unwrap();
+
     let link_node_id = Link::add(
         arced_test_engine,
         &"https://rlhfbook.com/c/01-introduction.html".to_string(),
@@ -359,6 +375,22 @@ fn test_extraction_from_hn_homepage() {
 
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
+
+    // Enable ClassifierSettings to allow processing
+    test_engine
+        .get_or_add_node(
+            Payload::ClassifierSettings(crate::entity::classifier::ClassifierSettings {
+                is_enabled: crate::entity::pixlie::ToolEnabled::Yes,
+                prompt_to_classify_content_as_relevant_to_objective_or_not: Some(
+                    "Classify if this content is relevant to the objective".to_string(),
+                ),
+            }),
+            vec![NodeLabel::ClassifierSettings, NodeLabel::AddedByUser],
+            true,
+            None,
+        )
+        .unwrap();
+
     let link_node_id = Link::add(
         arced_test_engine,
         &"https://news.ycombinator.com".to_string(),
@@ -450,6 +482,21 @@ fn test_extract_data_only_from_specified_links() {
 
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
+
+    // Enable ClassifierSettings to allow processing
+    test_engine
+        .get_or_add_node(
+            Payload::ClassifierSettings(crate::entity::classifier::ClassifierSettings {
+                is_enabled: crate::entity::pixlie::ToolEnabled::Yes,
+                prompt_to_classify_content_as_relevant_to_objective_or_not: Some(
+                    "Classify if this content is relevant to the objective".to_string(),
+                ),
+            }),
+            vec![NodeLabel::ClassifierSettings, NodeLabel::AddedByUser],
+            true,
+            None,
+        )
+        .unwrap();
 
     let project_settings_node_id = arced_test_engine
         .get_or_add_node(
@@ -563,6 +610,21 @@ fn test_crawl_within_domains_of_specified_links() {
 
     let test_engine = get_test_engine();
     let arced_test_engine = Arc::new(&test_engine);
+
+    // Enable ClassifierSettings to allow processing
+    test_engine
+        .get_or_add_node(
+            Payload::ClassifierSettings(crate::entity::classifier::ClassifierSettings {
+                is_enabled: crate::entity::pixlie::ToolEnabled::Yes,
+                prompt_to_classify_content_as_relevant_to_objective_or_not: Some(
+                    "Classify if this content is relevant to the objective".to_string(),
+                ),
+            }),
+            vec![NodeLabel::ClassifierSettings, NodeLabel::AddedByUser],
+            true,
+            None,
+        )
+        .unwrap();
 
     let project_settings_node_id = arced_test_engine
         .get_or_add_node(

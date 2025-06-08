@@ -241,7 +241,7 @@ impl Objective {
                     }
                     let conclusion = engine
                         .get_or_add_node(
-                            Payload::Conclusion(Conclusion::new()),
+                            Payload::Conclusion(Conclusion::default()),
                             vec![NodeLabel::AddedByAI, NodeLabel::Conclusion],
                             true,
                             None,
@@ -364,7 +364,11 @@ impl Objective {
     }
 
     fn parse_llm_response(response: &str) -> PiResult<LLMResponse> {
-        Ok(Anthropic::parse_response::<LLMResponse>(response)?)
+        Anthropic::parse_response::<LLMResponse>(response).map_err(|e| {
+            log::error!("Failed to parse LLMResponse in objective::parse_llm_response: {}", e);
+            log::error!("Raw response was: {}", response);
+            e
+        })
     }
 }
 
@@ -395,8 +399,10 @@ mod tests {
 
         let llm_schema =
             Objective::get_llm_response_schema(&*objective_node, arced_test_engine).unwrap();
-        let expected_schema = r#"type CrawlerSettings = { keywords_to_get_accurate_results_from_web_search: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
-        type ClassifierSettings = { prompt_to_classify_content_as_relevant_to_objective_or_not: string, };
+        let expected_schema = r#"type CrawlerSettings = { is_enabled: ToolEnabled, keywords_to_get_accurate_results_from_web_search: Array<string>, crawl_link_if_anchor_text_has_any_of_these_keywords: Array<string> | null, };
+        /** * Generic enum that can be used by any tool setting to indicate if it's enabled or disabled */
+        type ToolEnabled = "Yes" | "No";
+        type ClassifierSettings = { is_enabled: ToolEnabled, prompt_to_classify_content_as_relevant_to_objective_or_not: string, };
         type EntityName = "Person" | "Organization" | "Date" | "Place";
         type Tool = { "Crawler": CrawlerSettings } | { "Classifier": ClassifierSettings } | { "NamedEntityExtraction": Array<EntityName> };
         type LLMResponse = { short_project_name_with_spaces: string, tools_needed_to_accomplish_objective: Array<Tool>, };"#;

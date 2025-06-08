@@ -13,6 +13,8 @@ import LinkForm from "../../widgets/nodeForm/LinkForm";
 import Heading from "../../widgets/typography/Heading.tsx";
 import Paragraph from "../../widgets/typography/Paragraph";
 import { Conclusion } from "../../api_types/Conclusion.ts";
+import ThumbUp from "../../assets/icons/tabler-thumb-up.svg";
+import ThumbDown from "../../assets/icons/tabler-thumb-down.svg";
 
 const Workflow: Component = () => {
   const [_, { getNodes }] = useEngine();
@@ -82,40 +84,57 @@ const Workflow: Component = () => {
             </For>
           </div>
         ) : (
-          <div class="max-w-screen-sm">
+          <div>
             <Heading size={3}>Objective</Heading>
-            {/* <ProjectForm /> */}
           </div>
         )}
 
-        {/* <div>
-          <Heading size={3}>Project Settings</Heading>
-          <NodeGrid
-            nodeType="ProjectSettings"
-            source={() => []}
-            mode="regular"
-          />
-        </div> */}
-
         <div>
           <Heading size={3}>Conclusion</Heading>
-          <p>
-            {getConclusion()?.conclusion_to_objective_based_on_insights ||
-              "No conclusion yet."}
-          </p>
+          <div class="flex flex-col gap-2">
+            <p>
+              {getConclusion()?.conclusion_to_objective_based_on_insights ||
+                "No conclusion yet."}
+            </p>
+            {getConclusion()?.conclusion_to_objective_based_on_insights!! && (
+              <div class="flex items-center gap-2">
+                <ThumbDown />
+                <ThumbUp />
+                <p>{"(Feedback - Coming Soon)"}</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
           <Heading size={3}>Keywords</Heading>
-          <p>
-            {getCrawlerSettings()?.keywords_to_get_accurate_results_from_web_search?.join(
-              ", "
-            )}
-          </p>
+          <div class="flex flex-col gap-2">
+            <p>
+              {getCrawlerSettings()?.keywords_to_get_accurate_results_from_web_search?.join(
+                ", "
+              )?.split(", ")?.map((keyword) => (
+              <p>{`\n- ${keyword}`}</p>
+            ))}
+            </p>
+            <div class="flex items-center gap-2">
+              <ThumbDown />
+              <ThumbUp />
+              <p>{"(Feedback - Coming Soon)"}</p>
+            </div>
+          </div>
         </div>
         <div>
           <Heading size={3}>Entities</Heading>
-          <p>{getNamedEntitiesToExtract()?.join(", ")}</p>
+          <div class="flex flex-col gap-2">
+            {getNamedEntitiesToExtract()?.join(", ")?.split(", ")?.map((entity) => (
+              <p>{`\n- ${entity}`}</p>
+            ))}
+            <div class="flex items-center gap-2">
+              <ThumbDown />
+              <ThumbUp />
+              <p>{"(Feedback - Coming Soon)"}</p>
+            </div>
+          </div>
         </div>
         <div class="flex flex-col gap-2 pb-2">
           <Heading size={3}>Starting URLs</Heading>

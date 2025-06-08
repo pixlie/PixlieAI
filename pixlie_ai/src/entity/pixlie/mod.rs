@@ -165,14 +165,15 @@ pub enum Tool {
 
 impl LLMSchema for Tool {
     fn get_schema_for_llm(node: &NodeItem, engine: Arc<&Engine>) -> PiResult<String> {
+        let ts_tool_enabled = clean_ts_type(&ToolEnabled::export_to_string()?);
         let ts_crawl = CrawlerSettings::get_schema_for_llm(node, engine.clone())?;
         let ts_classify = ClassifierSettings::get_schema_for_llm(node, engine.clone())?;
         let ts_named_entity_extraction = EntityName::get_schema_for_llm(node, engine.clone())?;
         let ts_self = clean_ts_type(&Self::export_to_string()?);
 
         Ok(format!(
-            "{}\n{}\n{}\n{}",
-            ts_crawl, ts_classify, ts_named_entity_extraction, ts_self
+            "{}\n{}\n{}\n{}\n{}",
+            ts_crawl, ts_tool_enabled, ts_classify, ts_named_entity_extraction, ts_self
         ))
     }
 }
