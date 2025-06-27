@@ -7,11 +7,11 @@ import {
 } from "solid-js";
 import { useWorkspace } from "../../stores/workspace";
 import StorageDir from "../../widgets/settings/StorageDir";
-import Anthropic from "../../widgets/settings/Anthropic";
-import BraveSearch from "../../widgets/settings/BraveSearch";
-import SettingsIcon from "../../assets/icons/tabler-settings.svg";
+import SettingsIcon from "../../assets/icons/tabler-settings-filled.svg";
 import IconButton from "../../widgets/interactable/IconButton";
 import GlinerModels from "../../widgets/settings/GlinerModels";
+import ApiKeys from "../../widgets/settings/ApiKeys";
+import Notifications from "../../widgets/settings/Notifications";
 
 const SettingsPopOver: Component = () => {
   const [visible, setVisible] = createSignal<boolean>(false);
@@ -38,7 +38,8 @@ const SettingsPopOver: Component = () => {
     return (
       getSettingsStatus() === "Incomplete" ||
       !getAPIKeys()?.Anthropic ||
-      !getAPIKeys()?.BraveSearch
+      !getAPIKeys()?.BraveSearch ||
+      !getAPIKeys()?.SendGrid
     );
   });
 
@@ -68,23 +69,25 @@ const SettingsPopOver: Component = () => {
           onClick={() => setVisible(false)}
           disabled={isActionRequired()}
         />
-        <div class="absolute right-0 z-20 w-96 rounded-lg shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3">
-          <StorageDir />
-          {!!workspace.settings?.pathToStorageDir && (
-            <>
-              <hr class="mt-1.5 -mx-4" />
-              <Anthropic />
-              <hr class="mt-1.5 -mx-4" />
-              <BraveSearch />
-              <hr class="mt-1.5 -mx-4" />
-              <GlinerModels />
-            </>
-          )}
-          {/* todo: save all settings in one click? */}
-          {/* <hr class="mt-1.5 -mx-4" />
+        <div class="absolute right-0 z-20">
+          <div class="flex-1 w-96 rounded-lg shadow-md border-slate-200 border bg-white focus:outline-none flex flex-col p-4 pt-3 gap-3 flex-1 overflow-y-auto">
+            <StorageDir />
+            {!!workspace.settings?.pathToStorageDir && (
+              <>
+                <hr class="mt-1.5 -mx-4" />
+                <ApiKeys />
+                <hr class="mt-1.5 -mx-4" />
+                <Notifications />
+                <hr class="mt-1.5 -mx-4" />
+                <GlinerModels />
+              </>
+            )}
+            {/* todo: save all settings in one click? */}
+            {/* <hr class="mt-1.5 -mx-4" />
               <button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold p-3 mt-1.5 w-full rounded-full text-center">
                 Save
               </button> */}
+          </div>
         </div>
       </Show>
     </div>

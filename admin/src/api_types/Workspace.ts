@@ -6,4 +6,6 @@ export type Workspace = {
   name: string;
   description: string | null;
   apiKeys: { [key in APIProvider]?: string };
+  sendgrid_sender_email: string | null;
+  sendgrid_receiver_email: string | null;
 };

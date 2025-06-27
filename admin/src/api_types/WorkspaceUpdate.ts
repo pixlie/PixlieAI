@@ -5,4 +5,7 @@ export type WorkspaceUpdate = {
   description: string | null;
   anthropic_api_key: string | null;
   brave_search_api_key: string | null;
+  sendgrid_api_key: string | null;
+  sendgrid_sender_email: string | null;
+  sendgrid_receiver_email: string | null;
 };

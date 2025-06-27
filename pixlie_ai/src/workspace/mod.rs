@@ -12,6 +12,7 @@ pub mod api;
 pub enum APIProvider {
     Anthropic,
     BraveSearch,
+    SendGrid,
 }
 
 // A workspace is the set of settings that affect external services,
@@ -27,6 +28,9 @@ pub struct Workspace {
     pub description: Option<String>,
 
     pub api_keys: HashMap<APIProvider, String>,
+
+    pub sendgrid_sender_email: Option<String>,
+    pub sendgrid_receiver_email: Option<String>,
 }
 
 impl Workspace {
@@ -51,6 +55,9 @@ pub struct WorkspaceUpdate {
 
     pub anthropic_api_key: Option<String>,
     pub brave_search_api_key: Option<String>,
+    pub sendgrid_api_key: Option<String>,
+    pub sendgrid_sender_email: Option<String>,
+    pub sendgrid_receiver_email: Option<String>,
 }
 
 impl CrudItem for Workspace {
@@ -70,6 +77,8 @@ impl WorkspaceCollection {
                 name: "Default".to_string(),
                 description: None,
                 api_keys: HashMap::new(),
+                sendgrid_sender_email: None,
+                sendgrid_receiver_email: None,
             };
             Ok(WorkspaceCollection::create(item)?)
         } else {

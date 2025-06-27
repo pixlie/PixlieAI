@@ -48,7 +48,28 @@ pub async fn update_workspace(
     if let Some(brave_search_api_key) = &update.brave_search_api_key {
         api_keys.insert(APIProvider::BraveSearch, brave_search_api_key.clone());
     }
-    WorkspaceCollection::update(&item.get_id(), Workspace { api_keys, ..item })?;
+    if let Some(sendgrid_api_key) = &update.sendgrid_api_key {
+        api_keys.insert(APIProvider::SendGrid, sendgrid_api_key.clone());
+    }
+
+    let sendgrid_sender_email = update
+        .sendgrid_sender_email
+        .clone()
+        .or(item.sendgrid_sender_email.clone());
+    let sendgrid_receiver_email = update
+        .sendgrid_receiver_email
+        .clone()
+        .or(item.sendgrid_receiver_email.clone());
+
+    WorkspaceCollection::update(
+        &item.get_id(),
+        Workspace {
+            api_keys,
+            sendgrid_sender_email,
+            sendgrid_receiver_email,
+            ..item
+        },
+    )?;
     Ok(web::Json(item_id))
 }
 
