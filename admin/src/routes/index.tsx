@@ -1,7 +1,5 @@
 import { Component } from "solid-js";
 import { Route } from "@solidjs/router";
-import Setup from "./settings/Setup";
-import SettingsContainer from "./settings/SettingsContainer";
 import Workflow from "./projects/Workflow";
 import Insights from "./projects/Insights";
 import Crawl from "./projects/Crawl";
@@ -31,13 +29,6 @@ const Routes: Component = () => {
             <Route path="/crawl" component={Crawl} />
             <Route path="/graph" component={Graph} />
           </Route>
-        </Route>
-
-        <Route path="/settings" component={SettingsContainer}>
-          <>
-            <Route path="/setup" component={Setup} />
-            <Route path="" component={Setup} />
-          </>
         </Route>
 
         <Route path="/help" component={HelpContainer}>
