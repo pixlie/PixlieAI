@@ -98,6 +98,19 @@ impl Nodes {
         Ok(())
     }
 
+    pub(super) fn update_node_flags(&mut self, node_id: &NodeId, flags: NodeFlags) -> PiResult<()> {
+        self.data.get_mut(node_id).map(|node| {
+            *node = Arc::new(NodeItem {
+                id: node.id.clone(),
+                payload: node.payload.clone(),
+                labels: node.labels.clone(),
+                flags,
+                written_at: Utc::now(),
+            });
+        });
+        Ok(())
+    }
+
     pub(super) fn toggle_flag(&mut self, node_id: &NodeId, flag: NodeFlags) {
         self.data.get_mut(node_id).map(|node| {
             let mut flags: NodeFlags = node.flags.clone();

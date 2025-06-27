@@ -12,11 +12,14 @@ use crate::engine::node::{
     ArcedNodeId, ArcedNodeItem, ExistingOrNewNodeId, NodeId, NodeItem, NodeLabel, Payload,
 };
 use crate::engine::nodes::Nodes;
+use crate::entity::conclusion::Conclusion;
+use crate::entity::pixlie::{enable_tools_by_labels, is_tool_enabled};
 use crate::entity::search::saved_search::SavedSearch;
 use crate::entity::web::domain::{Domain, FindDomainOf};
 use crate::entity::web::link::Link;
 use crate::error::{PiError, PiResult};
 use crate::projects::{Project, ProjectOwner};
+use crate::utils::notifier::EmailNotifier;
 use crate::{FetchRequest, InternalFetchRequest, PiChannel, PiEvent};
 use chrono::{TimeDelta, Utc};
 use log::{debug, error, info};
@@ -24,9 +27,9 @@ use rocksdb::DB;
 use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::RwLock;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{path::PathBuf, sync::Arc, thread};
 use texting_robots::Robot;
 
@@ -45,6 +48,8 @@ pub struct Engine {
     fetcher_tx: tokio::sync::mpsc::Sender<PiEvent>,
 
     count_open_fetch_requests: AtomicU32,
+    last_monitoring_check: AtomicU64, // Timestamp of last monitoring check for change detection
+    email_notifier: EmailNotifier,    // For sending email notifications about content changes
 }
 
 impl Engine {
@@ -89,6 +94,8 @@ impl Engine {
             fetcher_tx,
 
             count_open_fetch_requests: AtomicU32::new(0),
+            last_monitoring_check: AtomicU64::new(0),
+            email_notifier: EmailNotifier::from_workspace(),
         };
 
         if last_node_id != 0 {
@@ -114,6 +121,7 @@ impl Engine {
                 }
             }
             self.process_nodes();
+            self.check_for_url_changes();
         }
     }
 
@@ -489,6 +497,23 @@ impl Engine {
         match self.nodes.write() {
             Ok(mut nodes) => {
                 nodes.update_node(node_id, payload)?;
+                nodes.save_item_chunk_to_disk(self.arced_db.clone(), node_id)?;
+                Ok(())
+            }
+            Err(err) => {
+                error!("Error locking nodes: {}", err);
+                Err(PiError::InternalError(format!(
+                    "Error locking nodes: {}",
+                    err
+                )))
+            }
+        }
+    }
+
+    pub fn update_node_flags(&self, node_id: &NodeId, flags: NodeFlags) -> PiResult<()> {
+        match self.nodes.write() {
+            Ok(mut nodes) => {
+                nodes.update_node_flags(node_id, flags)?;
                 nodes.save_item_chunk_to_disk(self.arced_db.clone(), node_id)?;
                 Ok(())
             }
@@ -896,6 +921,438 @@ impl Engine {
                 )))
             }
         }
+    }
+
+    /// Check for URL changes if monitoring is enabled (called every 30 seconds)
+    fn check_for_url_changes(&self) {
+        // Check if 30 seconds have passed since last monitoring check
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let last_check = self.last_monitoring_check.load(Ordering::Relaxed);
+        log::info!("Last monitoring check: {}", last_check);
+
+        // Only check every 5 minutes (300 seconds)
+        if now - last_check < 300 {
+            return;
+        }
+
+        // Check if monitoring is enabled in project settings
+        if !self.is_monitoring_enabled() {
+            debug!("Monitoring is disabled in project settings, skipping URL checks.");
+            return;
+        }
+
+        let engine_arc = Arc::new(self);
+        if let Ok(is_enabled) = is_tool_enabled(engine_arc.clone(), NodeLabel::ClassifierSettings) {
+            if is_enabled {
+                debug!("Classifier is enabled, skipping URL checks.");
+                return;
+            }
+        }
+
+        if let Ok(is_enabled) = is_tool_enabled(engine_arc.clone(), NodeLabel::CrawlerSettings) {
+            if is_enabled {
+                debug!("Crawler is enabled, skipping URL checks.");
+                return;
+            }
+        }
+
+        // Update last check timestamp
+        self.last_monitoring_check.store(now, Ordering::Relaxed);
+
+        log::info!("Checking for URL changes in project {}", self.project_uuid);
+
+        // Get only starting URLs (user-added or web search links)
+        let all_link_node_ids = self.get_node_ids_with_label(&NodeLabel::Link);
+        let starting_links: Vec<_> = all_link_node_ids
+            .into_iter()
+            .filter(|link_id| {
+                if let Some(node) = self.get_node_by_id(link_id) {
+                    node.labels.contains(&NodeLabel::AddedByUser)
+                        || node.labels.contains(&NodeLabel::AddedByWebSearch)
+                } else {
+                    false
+                }
+            })
+            .collect();
+
+        debug!(
+            "Found {} starting links to monitor for changes",
+            starting_links.len()
+        );
+
+        // Check each starting link for content changes
+        for link_id in starting_links {
+            if let Err(e) = self.check_single_url_for_changes(&link_id) {
+                error!("Error checking URL for changes (node {}): {}", link_id, e);
+            }
+        }
+    }
+
+    /// Check if monitoring is enabled in project settings
+    fn is_monitoring_enabled(&self) -> bool {
+        let project_settings_ids = self.get_node_ids_with_label(&NodeLabel::ProjectSettings);
+
+        for settings_id in project_settings_ids {
+            if let Some(node) = self.get_node_by_id(&settings_id) {
+                if let Payload::ProjectSettings(settings) = &node.payload {
+                    return settings.monitor_links_for_changes;
+                }
+            }
+        }
+
+        false // Default to monitoring disabled
+    }
+
+    /// Check a single URL for content changes and trigger re-processing if changed
+    fn check_single_url_for_changes(&self, link_id: &NodeId) -> PiResult<()> {
+        let link_node = match self.get_node_by_id(link_id) {
+            Some(node) => node,
+            None => return Ok(()), // Node not found, skip
+        };
+
+        // Get the Link payload and construct full URL
+        let (mut link_data, full_url) = match &link_node.payload {
+            Payload::Link(link) => {
+                // Find the domain for this link
+                let existing_domain =
+                    Domain::find_existing(Arc::new(&*self), FindDomainOf::Node(link_id.clone()))?;
+
+                if existing_domain.is_none() {
+                    debug!(
+                        "Cannot find domain node for link {}, skipping monitoring",
+                        link_id
+                    );
+                    return Ok(());
+                }
+
+                let domain_name = Domain::get_domain_name(&existing_domain.unwrap())?;
+                let full_url = format!("https://{}{}", domain_name, link.get_full_link());
+
+                (link.clone(), full_url)
+            }
+            _ => return Ok(()), // Not a Link node, skip
+        };
+
+        // Add delay between requests to be respectful to servers
+        thread::sleep(Duration::from_millis(2000)); // 2 second delay
+
+        // Fetch current content
+        let current_content = match self.fetch_url_content_sync(&full_url) {
+            Ok(content) => content,
+            Err(e) => {
+                debug!("Failed to fetch content for {}: {}", full_url, e);
+                return Ok(()); // Skip this URL on fetch failure
+            }
+        };
+
+        // Calculate current content hash
+        let current_hash = self.calculate_content_hash(&current_content);
+
+        // Log the content being hashed (truncated for readability)
+        let content_preview = if current_content.len() > 500 {
+            format!(
+                "{}... ({} total chars)",
+                &current_content[..500],
+                current_content.len()
+            )
+        } else {
+            current_content.clone()
+        };
+        debug!("📄 Content for {}: {}", full_url, content_preview);
+
+        // Check if content has changed
+        let has_changed = match &link_data.content_hash {
+            Some(stored_hash) => {
+                let changed = stored_hash != &current_hash;
+                if changed {
+                    info!(
+                        "📊 Hash comparison for {}: stored={}, current={}",
+                        full_url, stored_hash, current_hash
+                    );
+                    info!("📝 Content preview: {}", content_preview);
+                } else {
+                    debug!(
+                        "✅ No change detected for {}: hash={}",
+                        full_url, current_hash
+                    );
+                }
+                changed
+            }
+            None => {
+                info!(
+                    "🆕 First time checking {}: new hash={}",
+                    full_url, current_hash
+                );
+                info!("📝 Initial content preview: {}", content_preview);
+                true // No stored hash means first check, always "changed"
+            }
+        };
+
+        if has_changed {
+            info!("🔄 Content change detected for URL: {}", full_url);
+
+            // Update stored hash
+            link_data.content_hash = Some(current_hash);
+            self.update_node(link_id, Payload::Link(link_data))?;
+
+            // For now, send a simple notification about the change
+            // TODO: Later we'll make this smarter to only notify about relevant changes
+            self.send_change_notification(&full_url, &content_preview)?;
+
+            // Trigger re-processing for this URL
+            self.trigger_reprocessing_for_url(link_id)?;
+        }
+
+        Ok(())
+    }
+
+    /// Get a random User-Agent string for monitoring requests
+    fn get_random_user_agent(&self) -> &'static str {
+        let user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/121.0.0.0 Safari/537.36",
+        ];
+
+        // Use current timestamp to get pseudo-random selection
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let index = (timestamp % user_agents.len() as u64) as usize;
+        user_agents[index]
+    }
+
+    /// Fetch URL content synchronously using reqwest blocking client
+    fn fetch_url_content_sync(&self, url: &str) -> PiResult<String> {
+        debug!("Fetching content from URL: {}", url);
+
+        // Use reqwest blocking client for HTTP requests with timeout and rotating User-Agent
+        let user_agent = self.get_random_user_agent();
+        let client = reqwest::blocking::ClientBuilder::new()
+            .timeout(std::time::Duration::from_secs(10))
+            .user_agent(user_agent)
+            .build()
+            .map_err(|e| {
+                error!("Failed to create HTTP client: {}", e);
+                PiError::FetchError(format!("Failed to create HTTP client: {}", e))
+            })?;
+
+        debug!("Using User-Agent: {}", user_agent);
+
+        let response = client.get(url).send().map_err(|e| {
+            error!("HTTP request failed for {}: {}", url, e);
+            PiError::FetchError(format!("HTTP request failed: {}", e))
+        })?;
+
+        // Check if response is successful
+        if !response.status().is_success() {
+            return Err(PiError::FetchError(format!(
+                "HTTP {} for URL: {}",
+                response.status(),
+                url
+            )));
+        }
+
+        // Read response body
+        let content = response.text().map_err(|e| {
+            error!("Failed to read response body for {}: {}", url, e);
+            PiError::FetchError(format!("Failed to read response body: {}", e))
+        })?;
+
+        debug!("Successfully fetched {} bytes from {}", content.len(), url);
+        Ok(content)
+    }
+
+    /// Calculate SHA-256 hash of content
+    fn calculate_content_hash(&self, content: &str) -> String {
+        use sha2::{Digest, Sha256};
+
+        // Normalize content (remove excess whitespace)
+        let normalized = content
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Log normalized content for debugging
+        let normalized_preview = if normalized.len() > 300 {
+            format!(
+                "{}... ({} total chars)",
+                &normalized[..300],
+                normalized.len()
+            )
+        } else {
+            normalized.clone()
+        };
+        debug!("🔗 Normalized content: {}", normalized_preview);
+
+        let mut hasher = Sha256::new();
+        hasher.update(normalized.as_bytes());
+        let hash = format!("{:x}", hasher.finalize());
+        debug!("🔢 Generated hash: {}", hash);
+        hash
+    }
+
+    /// Trigger re-processing for a changed URL
+    fn trigger_reprocessing_for_url(&self, link_id: &NodeId) -> PiResult<()> {
+        // 1. Re-enable CrawlerSettings and ClassifierSettings
+        let engine_arc = Arc::new(self);
+        enable_tools_by_labels(
+            engine_arc,
+            vec![NodeLabel::CrawlerSettings, NodeLabel::ClassifierSettings],
+        )?;
+
+        // 2. Reset flags for this link and related nodes
+        self.reset_node_flags_for_reprocessing(link_id)?;
+
+        info!("✅ Triggered re-processing for link node {}", link_id);
+        Ok(())
+    }
+
+    /// Send email notification when a webpage is classified as relevant
+    pub fn send_insight_notification(
+        &self,
+        url: &str,
+        insight: &str,
+        reason: &str,
+    ) -> PiResult<()> {
+        info!("🎯 send_insight_notification called for URL: {}", url);
+
+        // Get the objective for this project
+        let objective = self
+            .get_project_objective()
+            .unwrap_or_else(|_| "Monitor content changes".to_string());
+
+        // Get user email from notifier configuration
+        let user_email = &self.email_notifier.config.to_email;
+
+        info!("📧 Sending insight notification to: {}", user_email);
+
+        let notification = self
+            .email_notifier
+            .create_insight_notification(user_email, url, &objective, insight, reason);
+
+        self.email_notifier.send_notification(notification)?;
+        Ok(())
+    }
+
+    /// Send email notification about content changes
+    fn send_change_notification(&self, url: &str, content_preview: &str) -> PiResult<()> {
+        info!("🚨 send_change_notification called for URL: {}", url);
+
+        // Get the objective for this project
+        let objective = self
+            .get_project_objective()
+            .unwrap_or_else(|_| "Monitor content changes".to_string());
+
+        // Get user email from notifier configuration
+        let user_email = &self.email_notifier.config.to_email;
+
+        info!("📧 Sending notification to: {}", user_email);
+
+        // For now, treat any change as relevant (we'll make this smarter later)
+        let relevant_items = vec![
+            format!("Content change detected at {}", url),
+            format!(
+                "Preview: {}",
+                if content_preview.len() > 100 {
+                    format!("{}...", &content_preview[..100])
+                } else {
+                    content_preview.to_string()
+                }
+            ),
+        ];
+
+        let notification = self.email_notifier.create_content_change_notification(
+            &user_email,
+            url,
+            &objective,
+            relevant_items,
+        );
+
+        self.email_notifier.send_notification(notification)?;
+        Ok(())
+    }
+
+    /// Get the project objective text
+    fn get_project_objective(&self) -> PiResult<String> {
+        let objective_node_ids = self.get_node_ids_with_label(&NodeLabel::Objective);
+
+        for node_id in objective_node_ids {
+            if let Some(node) = self.get_node_by_id(&node_id) {
+                if let Payload::Text(objective_text) = &node.payload {
+                    return Ok(objective_text.clone());
+                }
+            }
+        }
+
+        Err(PiError::InternalError("No objective found".to_string()))
+    }
+
+    /// Reset node flags for re-processing
+    fn reset_node_flags_for_reprocessing(&self, link_id: &NodeId) -> PiResult<()> {
+        // Reset the Link node flags
+        if let Some(link_node) = self.get_node_by_id(link_id) {
+            if link_node.flags.contains(NodeFlags::IS_PROCESSED) {
+                let mut new_flags = link_node.flags.clone();
+                new_flags.remove(NodeFlags::IS_PROCESSED);
+                new_flags.insert(NodeFlags::IS_REQUESTING);
+                self.update_node_flags(link_id, new_flags)?;
+                debug!(
+                    "🔄 Reset Link node {} flags: IS_PROCESSED → IS_REQUESTING",
+                    link_id
+                );
+
+                let objective_id = self
+                    .get_node_ids_with_label(&NodeLabel::Objective)
+                    .first()
+                    .ok_or_else(|| PiError::InternalError("No Objective nodes found".to_string()))?
+                    .clone();
+
+                let conclusion = self
+                    .get_or_add_node(
+                        Payload::Conclusion(Conclusion::default()),
+                        vec![NodeLabel::AddedByAI, NodeLabel::Conclusion],
+                        true,
+                        None,
+                    )?
+                    .get_node_id();
+
+                self.add_connection(
+                    (*objective_id, conclusion),
+                    (EdgeLabel::ConcludedBy, EdgeLabel::Concludes),
+                )?;
+                debug!("🔄 Create Conclusion node {}", conclusion);
+            }
+        }
+
+        // // Reset the WebPage node flags
+        // let web_page_ids = self.get_node_ids_with_label(&NodeLabel::WebPage);
+        // for web_page_id in web_page_ids {
+        //     if let Some(web_page_node) = self.get_node_by_id(&web_page_id) {
+        //         if web_page_node.flags.contains(NodeFlags::IS_PROCESSED) {
+        //             let mut new_flags = web_page_node.flags.clone();
+        //             new_flags.remove(NodeFlags::IS_PROCESSED);
+        //             new_flags.insert(NodeFlags::IS_REQUESTING);
+        //             self.update_node_flags(&web_page_id, new_flags)?;
+        //             debug!("🔄 Reset WebPage node {} flags: IS_PROCESSED → IS_REQUESTING", web_page_id);
+        //         }
+        //     }
+        // }
+
+        // Get first objective node
+
+        Ok(())
     }
 }
 

@@ -71,7 +71,8 @@ impl Conclusion {
             })
             .collect();
         let insights_count = insights.len();
-        if insights_count >= MINIMUM_INSIGHTS_COUNT {
+        if insights_count >= MINIMUM_INSIGHTS_COUNT && insights_count % MINIMUM_INSIGHTS_COUNT == 0
+        {
             Ok((
                 insights
                     .clone()
@@ -143,7 +144,9 @@ impl Conclusion {
             },
             None => match Self::get_insights(engine.clone()) {
                 Ok((_, insights_count)) => {
-                    if insights_count >= MINIMUM_INSIGHTS_COUNT {
+                    if insights_count >= MINIMUM_INSIGHTS_COUNT
+                        && insights_count % MINIMUM_INSIGHTS_COUNT == 0
+                    {
                         Self::send_llm_request(node, engine.clone())?;
                     }
                 }

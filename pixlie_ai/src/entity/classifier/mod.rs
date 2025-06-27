@@ -187,6 +187,42 @@ impl Classifier {
                         (node.id.clone(), classification_node_id),
                         (EdgeLabel::Classifies, EdgeLabel::ClassifiedFor),
                     )?;
+
+                    // Send insight notification when webpage is classified as relevant with an insight
+                    if parsed_response.is_relevant {
+                        if let Some(insight) = &parsed_response.insight_if_classified_as_relevant {
+                            // Get the URL from the WebPage node by finding its parent Link node
+                            if let Ok((_, link_node_id)) =
+                                crate::entity::web::web_page::get_link_of_webpage(
+                                    engine.clone(),
+                                    &node.id,
+                                )
+                            {
+                                if let Ok(Some(url)) =
+                                    crate::entity::web::link::Link::get_full_url_from_url_node(
+                                        &link_node_id,
+                                        engine.clone(),
+                                    )
+                                {
+                                    log::info!("🎯 Sending insight notification for URL: {}", url);
+                                    if let Err(e) = engine.send_insight_notification(
+                                        &url,
+                                        insight,
+                                        &parsed_response.reason,
+                                    ) {
+                                        log::error!(
+                                            "📧 Failed to send insight notification: {}",
+                                            e
+                                        );
+                                    }
+                                } else {
+                                    log::warn!("🎯 Could not get URL for Link node {}, skipping insight notification", link_node_id);
+                                }
+                            } else {
+                                log::warn!("🎯 Could not get Link for WebPage node {}, skipping insight notification", node.id);
+                            }
+                        }
+                    }
                     engine.toggle_flag(&node.id, NodeFlags::IS_PROCESSED)?;
                 }
                 ExternalData::Error(_error) => {}
