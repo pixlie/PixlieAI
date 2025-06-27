@@ -191,32 +191,35 @@ impl Classifier {
                     // Send insight notification when webpage is classified as relevant with an insight
                     if parsed_response.is_relevant {
                         if let Some(insight) = &parsed_response.insight_if_classified_as_relevant {
-                            // Get the URL from the WebPage node by finding its parent Link node
-                            if let Ok((_, link_node_id)) =
+                            // Get the URL from the WebPage node using the same pattern as scraper
+                            if let Ok((current_link, current_link_node_id)) =
                                 crate::entity::web::web_page::get_link_of_webpage(
                                     engine.clone(),
                                     &node.id,
                                 )
                             {
-                                if let Ok(Some(url)) =
-                                    crate::entity::web::link::Link::get_full_url_from_url_node(
-                                        &link_node_id,
-                                        engine.clone(),
-                                    )
-                                {
-                                    log::info!("🎯 Sending insight notification for URL: {}", url);
-                                    if let Err(e) = engine.send_insight_notification(
-                                        &url,
-                                        insight,
-                                        &parsed_response.reason,
-                                    ) {
-                                        log::error!(
-                                            "📧 Failed to send insight notification: {}",
-                                            e
-                                        );
+                                if let Ok(Some(existing_domain)) = crate::entity::web::domain::Domain::find_existing(
+                                    engine.clone(),
+                                    crate::entity::web::domain::FindDomainOf::Node(current_link_node_id),
+                                ) {
+                                    if let Ok(domain_name) = crate::entity::web::domain::Domain::get_domain_name(&existing_domain) {
+                                        let full_url = format!("https://{}{}", domain_name, current_link.get_full_link());
+                                        log::info!("🎯 Sending insight notification for URL: {}", full_url);
+                                        if let Err(e) = engine.send_insight_notification(
+                                            &full_url,
+                                            insight,
+                                            &parsed_response.reason,
+                                        ) {
+                                            log::error!(
+                                                "📧 Failed to send insight notification: {}",
+                                                e
+                                            );
+                                        }
+                                    } else {
+                                        log::warn!("🎯 Could not get domain name for Link node {}, skipping insight notification", current_link_node_id);
                                     }
                                 } else {
-                                    log::warn!("🎯 Could not get URL for Link node {}, skipping insight notification", link_node_id);
+                                    log::warn!("🎯 Could not find domain for Link node {}, skipping insight notification", current_link_node_id);
                                 }
                             } else {
                                 log::warn!("🎯 Could not get Link for WebPage node {}, skipping insight notification", node.id);

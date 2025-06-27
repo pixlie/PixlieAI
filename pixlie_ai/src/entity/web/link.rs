@@ -19,6 +19,8 @@ use utoipa::ToSchema;
 pub struct Link {
     pub path: String, // Relative to the domain
     pub query: Option<String>,
+    #[serde(default)]
+    pub content_hash: Option<String>, // SHA-256 hash of content for change detection
 }
 
 impl Link {
