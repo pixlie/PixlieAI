@@ -22,6 +22,7 @@ pub struct ProjectSettings {
     pub only_extract_data_from_specified_links: bool,
     pub only_crawl_direct_links_from_specified_links: bool,
     pub only_crawl_within_domains_of_specified_links: bool,
+    pub monitor_links_for_changes: bool,
 }
 
 impl ProjectSettings {

@@ -4,4 +4,5 @@ export type ProjectSettings = {
   only_extract_data_from_specified_links: boolean;
   only_crawl_direct_links_from_specified_links: boolean;
   only_crawl_within_domains_of_specified_links: boolean;
+  monitor_links_for_changes: boolean;
 };

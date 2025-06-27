@@ -47,6 +47,7 @@ pub struct ProjectSettingsWrite {
     pub extract_data_only_from_specified_links: bool,
     pub crawl_within_domains_of_specified_links: bool,
     pub crawl_direct_links_from_specified_links: bool,
+    pub monitor_links_for_changes: bool,
 }
 
 #[derive(Clone, Deserialize, Display, ToSchema, TS)]
@@ -1173,6 +1174,8 @@ pub fn handle_engine_api_request(
                                 .crawl_within_domains_of_specified_links,
                             only_crawl_direct_links_from_specified_links: project_settings_write
                                 .crawl_direct_links_from_specified_links,
+                            monitor_links_for_changes: project_settings_write
+                                .monitor_links_for_changes,
                         }),
                         vec![NodeLabel::AddedByUser, NodeLabel::ProjectSettings],
                         true,

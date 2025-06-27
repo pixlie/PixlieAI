@@ -287,6 +287,7 @@ impl Objective {
                     only_extract_data_from_specified_links: false,
                     only_crawl_direct_links_from_specified_links: false,
                     only_crawl_within_domains_of_specified_links: links_in_objective_text.len() > 0,
+                    monitor_links_for_changes: links_in_objective_text.len() > 0,
                 };
                 let project_settings_node_id = engine
                     .get_or_add_node(
