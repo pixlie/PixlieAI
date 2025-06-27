@@ -90,6 +90,27 @@ macro_rules! disable_tool {
     }};
 }
 
+/// Macro to enable a specific tool
+macro_rules! enable_tool {
+    ($engine:expr, $node_label:expr, $variant:ident) => {{
+        let node_ids = $engine.get_node_ids_with_label(&$node_label);
+        for node_id in node_ids {
+            if let Some(node) = $engine.get_node_by_id(&node_id) {
+                if let Payload::$variant(settings) = &node.payload {
+                    // Only update if currently disabled
+                    if matches!(settings.is_enabled, ToolEnabled::No) {
+                        let mut updated_settings = settings.clone();
+                        updated_settings.is_enabled = ToolEnabled::Yes;
+                        // Update the node in the engine
+                        $engine.update_node(&node_id, Payload::$variant(updated_settings))?;
+                    }
+                }
+            }
+        }
+        Ok::<(), crate::error::PiError>(())
+    }};
+}
+
 /// Disable multiple tools by their NodeLabels
 pub fn disable_tools_by_labels(engine: Arc<&Engine>, node_labels: Vec<NodeLabel>) -> PiResult<()> {
     for node_label in node_labels {
@@ -107,9 +128,31 @@ pub fn disable_tools_by_labels(engine: Arc<&Engine>, node_labels: Vec<NodeLabel>
     Ok(())
 }
 
+/// Enable multiple tools by their NodeLabels
+pub fn enable_tools_by_labels(engine: Arc<&Engine>, node_labels: Vec<NodeLabel>) -> PiResult<()> {
+    for node_label in node_labels {
+        match node_label {
+            NodeLabel::CrawlerSettings => enable_tool!(engine, node_label, CrawlerSettings)?,
+            NodeLabel::ClassifierSettings => enable_tool!(engine, node_label, ClassifierSettings)?,
+            _ => {
+                return Err(PiError::InternalError(format!(
+                    "Tool enabling not supported for node label: {:?}",
+                    node_label
+                )))
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Disable a specific tool by its NodeLabel (convenience function for single tool)
 pub fn disable_tool_by_label(engine: Arc<&Engine>, node_label: NodeLabel) -> PiResult<()> {
     disable_tools_by_labels(engine, vec![node_label])
+}
+
+/// Enable a specific tool by its NodeLabel (convenience function for single tool)
+pub fn enable_tool_by_label(engine: Arc<&Engine>, node_label: NodeLabel) -> PiResult<()> {
+    enable_tools_by_labels(engine, vec![node_label])
 }
 
 // Features that are available in Pixlie for an AI agent
