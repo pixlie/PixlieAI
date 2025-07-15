@@ -1,7 +1,10 @@
-> [!NOTE]  
-> Pixlie is currently in **beta**. We value your feedback as we progress towards a stable release.
+> [!NOTE]
+> We are re-creating this project at https://github.com/pixlie/Pixlie
+>
+> This project is ARCHIVED and kept for reference purposes.
 
-# Pixlie
+
+# Pixlie AI
 
 AI powered knowledge graphs for semantically accurate insights. From online search to private document search to semantic search in your apps.
 
